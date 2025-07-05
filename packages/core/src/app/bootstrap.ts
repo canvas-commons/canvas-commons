@@ -6,10 +6,6 @@ import {Project, ProjectSettings, Versions} from './Project';
 import {ProjectMetadata} from './ProjectMetadata';
 import {createSettingsMetadata} from './SettingsMetadata';
 
-function isDefined<T>(value: T | undefined): value is T {
-  return value !== undefined;
-}
-
 /**
  * Bootstrap a project.
  *
@@ -19,29 +15,28 @@ function isDefined<T>(value: T | undefined): value is T {
  * @param config - Project settings.
  * @param metaFile - The project meta file.
  * @param settingsFile - The settings meta file.
- * @param pluginResolutions - Mapping from the plugin name to the plugin instance.
  * @param logger - An optional logger instance.
+ * @param pluginResolutions - Mapping from the plugin name to the plugin instance.
  *
  * @internal
  */
 export function bootstrap(
   name: string,
   versions: Versions,
-  plugins: (Plugin | string)[],
+  plugins: PluginLike[],
   config: ProjectSettings,
   metaFile: MetaFile<any>,
   settingsFile: MetaFile<any>,
-  pluginResolutions: Map<string, Plugin> = new Map<string, Plugin>(),
   logger = config.logger ?? new Logger(),
+  pluginResolutions: Map<string, Plugin> = new Map<string, Plugin>(),
 ): Project {
   const settings = createSettingsMetadata();
   settingsFile.attach(settings);
 
-  function resolvePlugin(plugin: Plugin | string): Plugin | undefined {
+  function resolvePlugin(plugin: PluginLike): Plugin | undefined {
     if (typeof plugin !== 'string') return plugin;
 
-    const resolvedPlugin = pluginResolutions.get(plugin);
-    if (resolvedPlugin) return resolvedPlugin;
+    return pluginResolutions.get(plugin);
   }
 
   function resolvePluginList(
@@ -50,11 +45,9 @@ export function bootstrap(
     return plugins?.map(resolvePlugin)?.filter(isDefined) ?? [];
   }
 
-  const allPlugins: Plugin[] = [
+  const allPlugins = [
     DefaultPlugin(),
-    ...resolvePluginList(config.plugins),
-    ...resolvePluginList(config.scenes.flatMap(scene => scene.plugins ?? [])),
-    ...resolvePluginList(plugins),
+    ...resolvePluginList(consolidatePluginList(config, plugins)),
   ];
 
   const pluginSet = new Set<string>();
@@ -109,7 +102,7 @@ export function bootstrap(
 export async function editorBootstrap(
   name: string,
   versions: Versions,
-  plugins: (Plugin | string)[],
+  plugins: PluginLike[],
   config: ProjectSettings,
   metaFile: MetaFile<any>,
   settingsFile: MetaFile<any>,
@@ -117,25 +110,8 @@ export async function editorBootstrap(
   const logger = config.logger ?? new Logger();
   const pluginResolutions = new Map<string, Plugin>();
 
-  async function resolvePlugin(plugin: Plugin | string) {
-    if (typeof plugin !== 'string') return;
-    const parsedPlugin = await parsePlugin(plugin, logger);
-    if (!parsedPlugin) return;
-    pluginResolutions.set(plugin, parsedPlugin);
-  }
-
-  async function resolvePluginList(
-    plugins: (Plugin | string)[] | undefined,
-  ): Promise<void> {
-    if (!plugins) return;
-    await Promise.all(plugins.map(resolvePlugin));
-  }
-
-  await Promise.all([
-    resolvePluginList(config.plugins),
-    resolvePluginList(config.scenes.flatMap(scene => scene.plugins ?? [])),
-    resolvePluginList(plugins),
-  ]);
+  const allPlugins = consolidatePluginList(config, plugins);
+  await loadPluginList(allPlugins, logger, pluginResolutions);
 
   return bootstrap(
     name,
@@ -144,33 +120,65 @@ export async function editorBootstrap(
     config,
     metaFile,
     settingsFile,
-    pluginResolutions,
     logger,
+    pluginResolutions,
   );
 }
 
-async function parsePlugin(
-  plugin: Plugin | string,
+async function loadPluginList(
+  plugins: PluginLike[] | undefined,
+  logger: Logger,
+  resolutions: Map<string, Plugin>,
+) {
+  if (!plugins) return;
+
+  await Promise.all(
+    plugins.map(async plugin => {
+      if (typeof plugin !== 'string') return;
+
+      const loadedPlugin = await loadPlugin(plugin, logger);
+      if (!loadedPlugin) return;
+      resolutions.set(plugin, loadedPlugin);
+    }),
+  );
+}
+
+async function loadPlugin(
+  plugin: string,
   logger: Logger,
 ): Promise<Plugin | null> {
-  if (typeof plugin === 'string') {
-    try {
-      let url = `/@id/${plugin}`;
-      const version = new URL(import.meta.url).searchParams.get('v');
-      if (version) {
-        url += `?v=${version}`;
-      }
-      plugin = (await import(/* @vite-ignore */ url)).default() as Plugin;
-    } catch (e: any) {
-      console.error(e);
-      logger.error({
-        message: `Failed to load plugin "${plugin}": ${e.message}.`,
-        stack: e.stack,
-        remarks: e.remarks,
-      });
-      return null;
+  try {
+    let url = `/@id/${plugin}`;
+    const version = new URL(import.meta.url).searchParams.get('v');
+    if (version) {
+      url += `?v=${version}`;
     }
+    return (await import(/* @vite-ignore */ url)).default() as Plugin;
+  } catch (e: any) {
+    console.error(e);
+    logger.error({
+      message: `Failed to load plugin "${plugin}": ${e.message}.`,
+      stack: e.stack,
+      remarks: e.remarks,
+    });
+    return null;
   }
-
-  return plugin;
 }
+
+function consolidatePluginList(
+  config: ProjectSettings,
+  plugins: PluginLike[],
+): PluginLike[] {
+  const fullList = [
+    config.plugins,
+    config.scenes.flatMap(scene => scene.plugins ?? []),
+    plugins,
+  ];
+  return fullList.flatMap(list => list ?? []);
+}
+
+function isDefined<T>(value: T | undefined): value is T {
+  return value !== undefined;
+}
+
+type PluginLike = Plugin | string;

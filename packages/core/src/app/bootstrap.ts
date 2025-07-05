@@ -6,6 +6,10 @@ import {Project, ProjectSettings, Versions} from './Project';
 import {ProjectMetadata} from './ProjectMetadata';
 import {createSettingsMetadata} from './SettingsMetadata';
 
+function isDefined<T>(value: T | undefined): value is T {
+  return value !== undefined;
+}
+
 /**
  * Bootstrap a project.
  *
@@ -15,6 +19,7 @@ import {createSettingsMetadata} from './SettingsMetadata';
  * @param config - Project settings.
  * @param metaFile - The project meta file.
  * @param settingsFile - The settings meta file.
+ * @param pluginResolutions - Mapping from the plugin name to the plugin instance.
  * @param logger - An optional logger instance.
  *
  * @internal
@@ -22,19 +27,58 @@ import {createSettingsMetadata} from './SettingsMetadata';
 export function bootstrap(
   name: string,
   versions: Versions,
-  plugins: Plugin[],
+  plugins: (Plugin | string)[],
   config: ProjectSettings,
   metaFile: MetaFile<any>,
   settingsFile: MetaFile<any>,
+  pluginResolutions: Map<string, Plugin> = new Map<string, Plugin>(),
   logger = config.logger ?? new Logger(),
 ): Project {
   const settings = createSettingsMetadata();
   settingsFile.attach(settings);
 
+  function resolvePlugin(plugin: Plugin | string): Plugin | undefined {
+    if (typeof plugin !== 'string') return plugin;
+
+    const resolvedPlugin = pluginResolutions.get(plugin);
+    if (resolvedPlugin) return resolvedPlugin;
+  }
+
+  function resolvePluginList(
+    plugins: (Plugin | string)[] | undefined,
+  ): Plugin[] {
+    return plugins?.map(resolvePlugin)?.filter(isDefined) ?? [];
+  }
+
+  const allPlugins: Plugin[] = [
+    DefaultPlugin(),
+    ...resolvePluginList(config.plugins),
+    ...resolvePluginList(config.scenes.flatMap(scene => scene.plugins ?? [])),
+    ...resolvePluginList(plugins),
+  ];
+
+  const pluginSet = new Set<string>();
+  const includedPlugins: Plugin[] = [];
+  let resolvedConfig = config;
+
+  for (const plugin of allPlugins) {
+    if (!plugin || pluginSet.has(plugin.name)) {
+      continue;
+    }
+
+    pluginSet.add(plugin.name);
+    includedPlugins.push(plugin);
+
+    resolvedConfig = {
+      ...resolvedConfig,
+      ...(plugin.settings?.(resolvedConfig) ?? {}),
+    };
+  }
+
   const project = {
     name,
     ...config,
-    plugins,
+    plugins: includedPlugins,
     versions,
     settings,
     logger,
@@ -44,6 +88,8 @@ export function bootstrap(
   project.meta.shared.set(settings.defaults.get());
   project.experimentalFeatures ??= false;
   metaFile.attach(project.meta);
+
+  includedPlugins.forEach(plugin => plugin.project?.(project));
 
   return project;
 }
@@ -69,57 +115,38 @@ export async function editorBootstrap(
   settingsFile: MetaFile<any>,
 ): Promise<Project> {
   const logger = config.logger ?? new Logger();
-  const promises: Promise<Plugin | null>[] = [Promise.resolve(DefaultPlugin())];
+  const pluginResolutions = new Map<string, Plugin>();
 
-  if (config.plugins) {
-    for (const plugin of config.plugins) {
-      promises.push(parsePlugin(plugin, logger));
-    }
+  async function resolvePlugin(plugin: Plugin | string) {
+    if (typeof plugin !== 'string') return;
+    const parsedPlugin = await parsePlugin(plugin, logger);
+    if (!parsedPlugin) return;
+    pluginResolutions.set(plugin, parsedPlugin);
   }
 
-  for (const scene of config.scenes) {
-    if (scene.plugins) {
-      for (const plugin of scene.plugins) {
-        promises.push(parsePlugin(plugin, logger));
-      }
-    }
+  async function resolvePluginList(
+    plugins: (Plugin | string)[] | undefined,
+  ): Promise<void> {
+    if (!plugins) return;
+    await Promise.all(plugins.map(resolvePlugin));
   }
 
-  for (const plugin of plugins) {
-    promises.push(parsePlugin(plugin, logger));
-  }
+  await Promise.all([
+    resolvePluginList(config.plugins),
+    resolvePluginList(config.scenes.flatMap(scene => scene.plugins ?? [])),
+    resolvePluginList(plugins),
+  ]);
 
-  const pluginSet = new Set<string>();
-  const resolvedPlugins = await Promise.all(promises);
-  const includedPlugins: Plugin[] = [];
-  let resolvedConfig = config;
-
-  for (const plugin of resolvedPlugins) {
-    if (!plugin || pluginSet.has(plugin.name)) {
-      continue;
-    }
-
-    pluginSet.add(plugin.name);
-    includedPlugins.push(plugin);
-
-    resolvedConfig = {
-      ...resolvedConfig,
-      ...(plugin.settings?.(resolvedConfig) ?? {}),
-    };
-  }
-
-  const project = bootstrap(
+  return bootstrap(
     name,
     versions,
-    includedPlugins,
-    resolvedConfig,
+    plugins,
+    config,
     metaFile,
     settingsFile,
+    pluginResolutions,
+    logger,
   );
-
-  includedPlugins.forEach(plugin => plugin.project?.(project));
-
-  return project;
 }
 
 async function parsePlugin(

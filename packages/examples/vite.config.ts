@@ -1,9 +1,9 @@
-import motionCanvas from '@motion-canvas/vite-plugin';
+import canvasCommons from '@canvas-commons/vite-plugin';
 import {defineConfig} from 'vite';
 
 export default defineConfig({
   plugins: [
-    motionCanvas({
+    canvasCommons({
       project: [
         './src/quickstart.ts',
         './src/tex.ts',

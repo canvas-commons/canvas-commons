@@ -8,5 +8,5 @@ export default makeProject({
 });
 ```
 
-[Learn more](https://motioncanvas.io/docs/experimental) about experimental
+[Learn more](https://canvascommons.io/docs/experimental) about experimental
 features.

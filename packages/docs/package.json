@@ -1,5 +1,5 @@
 {
-  "name": "@motion-canvas/docs",
+  "name": "@canvas-commons/docs",
   "version": "0.0.0",
   "private": true,
   "scripts": {
@@ -26,8 +26,8 @@
     "@lezer/javascript": "^1.4.13",
     "@lezer/rust": "^1.0.2",
     "@mdx-js/react": "^1.6.22",
-    "@motion-canvas/examples": "*",
-    "@motion-canvas/player": "*",
+    "@canvas-commons/examples": "*",
+    "@canvas-commons/player": "*",
     "clsx": "^1.2.0",
     "codemirror": "^6.0.1",
     "prism-react-renderer": "^1.3.5",

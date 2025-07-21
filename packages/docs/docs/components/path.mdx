@@ -6,8 +6,8 @@ slug: /path
 # Path
 
 ```tsx editor mode=preview
-import {makeScene2D, Path} from '@motion-canvas/2d';
-import {createRef} from '@motion-canvas/core';
+import {makeScene2D, Path} from '@canvas-commons/2d';
+import {createRef} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   const path = createRef<Path>();
@@ -36,7 +36,7 @@ The [`Path`][path] node allows us to draw and animate SVG paths.
 
 `Path` nodes are great for displaying precalculated SVG paths, but the format
 can be confusing. If you want to have more intuitive control of the path, and
-control each point within Motion Canvas, we recommend checking out the
+control each point within Canvas Commons, we recommend checking out the
 [`Spline`][spline] component.
 
 :::
@@ -47,8 +47,8 @@ We can specify the path to be displayed by setting the `data` property of the
 `Path` node:
 
 ```tsx editor
-import {makeScene2D, Path} from '@motion-canvas/2d';
-import {createRef} from '@motion-canvas/core';
+import {makeScene2D, Path} from '@canvas-commons/2d';
+import {createRef} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   const path = createRef<Path>();
@@ -73,8 +73,8 @@ export default makeScene2D(function* (view) {
 The `data` property can be tweened, creating a morph effect:
 
 ```tsx editor
-import {makeScene2D, Path} from '@motion-canvas/2d';
-import {createRef} from '@motion-canvas/core';
+import {makeScene2D, Path} from '@canvas-commons/2d';
+import {createRef} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   const path = createRef<Path>();
@@ -104,8 +104,8 @@ Like all nodes extending the [`Curve`][curve] class, the `Path` node has a
 animate an object along it:
 
 ```tsx editor
-import {makeScene2D, Path, Rect} from '@motion-canvas/2d';
-import {createRef, createSignal} from '@motion-canvas/core';
+import {makeScene2D, Path, Rect} from '@canvas-commons/2d';
+import {createRef, createSignal} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   const path = createRef<Path>();

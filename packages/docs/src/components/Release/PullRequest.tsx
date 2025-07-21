@@ -10,7 +10,7 @@ export default function PullRequest({id}: PullRequestProps) {
     <a
       className={styles.pr}
       title={`Pull request #${id}`}
-      href={`https://github.com/motion-canvas/motion-canvas/pull/${id}`}
+      href={`https://github.com/canvas-commons/canvas-commons/pull/${id}`}
       target="_blank"
     >
       <small>#{id}</small>

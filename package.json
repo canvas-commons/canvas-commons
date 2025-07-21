@@ -1,5 +1,5 @@
 {
-  "name": "motion-canvas",
+  "name": "canvas-commons",
   "private": true,
   "workspaces": [
     "packages/*"

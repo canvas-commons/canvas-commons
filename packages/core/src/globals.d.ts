@@ -1,3 +1,3 @@
-/// <reference types="@motion-canvas/internal" />
+/// <reference types="@canvas-commons/internal" />
 
 declare type Callback = (...args: any[]) => void;

@@ -2,8 +2,8 @@ import type {
   RendererResult,
   RendererSettings,
   Sound,
-} from '@motion-canvas/core';
-import type {PluginConfig} from '@motion-canvas/vite-plugin';
+} from '@canvas-commons/core';
+import type {PluginConfig} from '@canvas-commons/vite-plugin';
 import {ffmpegPath, ffprobePath} from 'ffmpeg-ffprobe-static';
 import type {AudioVideoFilter, FilterSpecification} from 'fluent-ffmpeg';
 import ffmpeg from 'fluent-ffmpeg';

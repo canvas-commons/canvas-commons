@@ -27,4 +27,4 @@ jobs:
         with:
           personal_token: ${{ secrets.PERSONAL_TOKEN }}
           publish_dir: ./packages/docs/build
-          external_repository: motion-canvas/motion-canvas.github.io
+          external_repository: canvas-commons/canvas-commons.github.io

@@ -1,4 +1,4 @@
-import {PluginConfig} from '@motion-canvas/vite-plugin';
+import {PluginConfig} from '@canvas-commons/vite-plugin';
 import {ServerResponse} from 'node:http';
 import {Connect, ViteDevServer} from 'vite';
 import {
@@ -25,7 +25,7 @@ export class FFmpegBridge {
     private readonly server: ViteDevServer,
     private readonly config: PluginConfig,
   ) {
-    server.ws.on('motion-canvas/ffmpeg', this.handleMessage);
+    server.ws.on('canvas-commons/ffmpeg', this.handleMessage);
     server.middlewares.use('/ffmpeg', this.handleRequest);
   }
 
@@ -76,7 +76,7 @@ export class FFmpegBridge {
   };
 
   private respondSuccess(method: string, data: any = {}) {
-    this.server.ws.send('motion-canvas/ffmpeg-ack', {
+    this.server.ws.send('canvas-commons/ffmpeg-ack', {
       status: 'success',
       method,
       data,
@@ -84,7 +84,7 @@ export class FFmpegBridge {
   }
 
   private respondError(method: string, message = 'Unknown error.') {
-    this.server.ws.send('motion-canvas/ffmpeg-ack', {
+    this.server.ws.send('canvas-commons/ffmpeg-ack', {
       status: 'error',
       method,
       message,

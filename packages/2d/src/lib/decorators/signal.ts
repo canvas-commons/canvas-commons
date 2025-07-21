@@ -6,7 +6,7 @@ import {
   SignalValue,
   TimingFunction,
   useLogger,
-} from '@motion-canvas/core';
+} from '@canvas-commons/core';
 import {makeSignalExtensions} from '../utils/makeSignalExtensions';
 import {addInitializer, initialize} from './initializers';
 
@@ -29,7 +29,7 @@ export interface PropertyMetadata<T> {
   compoundEntries: [string, string][];
 }
 
-const PROPERTIES = Symbol.for('@motion-canvas/2d/decorators/properties');
+const PROPERTIES = Symbol.for('@canvas-commons/2d/decorators/properties');
 
 export function getPropertyMeta<T>(
   object: any,

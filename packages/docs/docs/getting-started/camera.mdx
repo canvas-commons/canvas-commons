@@ -5,13 +5,13 @@ slug: /camera
 
 # Camera
 
-Motion Canvas ships with a simple orthographic camera that allows you to pan,
+Canvas Commons ships with a simple orthographic camera that allows you to pan,
 zoom, and rotate the viewport of the scene without having to transform the
 individual objects in your scene.
 
 ```tsx editor mode=preview
-import {Camera, Circle, makeScene2D, Rect} from '@motion-canvas/2d';
-import {all, createRef} from '@motion-canvas/core';
+import {Camera, Circle, makeScene2D, Rect} from '@canvas-commons/2d';
+import {all, createRef} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   const camera = createRef<Camera>();
@@ -54,9 +54,9 @@ component and grab a reference to it.
 
 ```tsx
 // highlight-start
-import {makeScene2D, Camera, Rect, Circle} from '@motion-canvas/2d';
+import {makeScene2D, Camera, Rect, Circle} from '@canvas-commons/2d';
 //highlight-end
-import {createRef} from '@motion-canvas/core';
+import {createRef} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   // highlight-start
@@ -91,8 +91,8 @@ There are two ways of moving the camera. You can either directly use the
 camera's `position` signal like you would for any other component.
 
 ```tsx editor
-import {makeScene2D, Camera, Rect, Circle} from '@motion-canvas/2d';
-import {createRef} from '@motion-canvas/core';
+import {makeScene2D, Camera, Rect, Circle} from '@canvas-commons/2d';
+import {createRef} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   const camera = createRef<Camera>();
@@ -115,8 +115,8 @@ the `centerOn` method. If you directly pass an object to `centerOn`, the camera
 will center on the object's position.
 
 ```tsx editor
-import {makeScene2D, Camera, Rect, Circle} from '@motion-canvas/2d';
-import {createRef} from '@motion-canvas/core';
+import {makeScene2D, Camera, Rect, Circle} from '@canvas-commons/2d';
+import {createRef} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   const camera = createRef<Camera>();
@@ -144,8 +144,8 @@ You can also directly pass a position to `centerOn`. In this case, the camera
 will center on the specified position **in world space**.
 
 ```tsx editor
-import {makeScene2D, Camera, Rect, Circle} from '@motion-canvas/2d';
-import {createRef} from '@motion-canvas/core';
+import {makeScene2D, Camera, Rect, Circle} from '@canvas-commons/2d';
+import {createRef} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   const camera = createRef<Camera>();
@@ -168,8 +168,8 @@ export default makeScene2D(function* (view) {
 To zoom the camera in or out, you can use the `zoom` method.
 
 ```tsx editor
-import {makeScene2D, Camera, Rect, Circle} from '@motion-canvas/2d';
-import {createRef} from '@motion-canvas/core';
+import {makeScene2D, Camera, Rect, Circle} from '@canvas-commons/2d';
+import {createRef} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   const camera = createRef<Camera>();
@@ -211,8 +211,8 @@ Since [`Camera`][camera] is a regular component, you can change its rotation the
 same way you would with any other component by using the `rotation` signal.
 
 ```tsx editor
-import {makeScene2D, Camera, Rect, Circle} from '@motion-canvas/2d';
-import {createRef} from '@motion-canvas/core';
+import {makeScene2D, Camera, Rect, Circle} from '@canvas-commons/2d';
+import {createRef} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   const camera = createRef<Camera>();
@@ -244,7 +244,7 @@ camera().reset(1);
 
 You can make the camera follow a path by using the `followCurve` method. This
 method accepts any object that extends the `Curve` class. Many of the shapes
-that come with Motion Canvas, such as `Rect`, `Circle`, `Polygon`, and `Spline`
+that come with Canvas Commons, such as `Rect`, `Circle`, `Polygon`, and `Spline`
 extend the `Curve` class and can be used as paths.
 
 The following example shows the camera following the path defined by a
@@ -253,8 +253,8 @@ visible or even be part of the scene. This is only done here for demonstration
 purposes.
 
 ```tsx editor
-import {makeScene2D, Camera, QuadBezier} from '@motion-canvas/2d';
-import {createRef, linear} from '@motion-canvas/core';
+import {makeScene2D, Camera, QuadBezier} from '@canvas-commons/2d';
+import {createRef, linear} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   const camera = createRef<Camera>();
@@ -279,7 +279,7 @@ export default makeScene2D(function* (view) {
 
 ## Using multiple cameras in a scene
 
-Motion Canvas also provides a way to render the same scene to multiple cameras.
+Canvas Commons also provides a way to render the same scene to multiple cameras.
 This can be useful for creating split-screen views or for rendering the same
 scene from different perspectives.
 
@@ -365,8 +365,8 @@ set. The stage will automatically clip the scene to the specified size.
 :::
 
 ```tsx editor
-import {makeScene2D, Node, Camera, Rect, Circle} from '@motion-canvas/2d';
-import {all, createRef} from '@motion-canvas/core';
+import {makeScene2D, Node, Camera, Rect, Circle} from '@canvas-commons/2d';
+import {all, createRef} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   const camera1 = createRef<Camera>();
@@ -420,8 +420,8 @@ The benefit of doing this compared to simply rendering the same scene twice is
 that any changes made to the scene will be reflected in both cameras.
 
 ```tsx editor
-import {makeScene2D, Node, Camera, Rect, Circle} from '@motion-canvas/2d';
-import {all, createRef} from '@motion-canvas/core';
+import {makeScene2D, Node, Camera, Rect, Circle} from '@canvas-commons/2d';
+import {all, createRef} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   const camera1 = createRef<Camera>();

@@ -27,7 +27,7 @@ and [`createDeferredEffect()`](/api/core/signals#createDeferredEffect)
 functions. The first argument specifies the callback to invoke:
 
 ```ts
-import {createSignal, createEffect} from '@motion-canvas/core';
+import {createSignal, createEffect} from '@canvas-commons/core';
 
 const signal = createSignal(0);
 createEffect(() => {
@@ -129,14 +129,14 @@ the node hierarchy, so the amount of circles displayed matches the value of the
 `count` signal:
 
 ```tsx editor
-import {Circle, Layout, makeScene2D} from '@motion-canvas/2d';
+import {Circle, Layout, makeScene2D} from '@canvas-commons/2d';
 import {
   createEffect,
   createRef,
   createSignal,
   spawn,
   waitFor,
-} from '@motion-canvas/core';
+} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   const count = createSignal(0);

@@ -1,4 +1,4 @@
-import {Color} from '@motion-canvas/core';
+import {Color} from '@canvas-commons/core';
 import {signal, wrapper} from './signal';
 
 export function colorSignal(): PropertyDecorator {

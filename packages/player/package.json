@@ -1,12 +1,12 @@
 {
-  "name": "@motion-canvas/player",
-  "version": "3.17.2",
-  "description": "A custom element for displaying animations made with Motion Canvas",
+  "name": "@canvas-commons/player",
+  "version": "0.1.0",
+  "description": "A custom element for displaying animations made with Canvas Commons",
   "main": "dist/main.js",
   "types": "types/main.d.ts",
-  "author": "motion-canvas",
-  "homepage": "https://motioncanvas.io/",
-  "bugs": "https://github.com/motion-canvas/motion-canvas/issues",
+  "author": "canvas-commons",
+  "homepage": "https://canvascommons.io/",
+  "bugs": "https://github.com/canvas-commons/canvas-commons/issues",
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -15,14 +15,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/motion-canvas/motion-canvas.git"
+    "url": "https://github.com/canvas-commons/canvas-commons.git"
   },
   "files": [
     "dist",
     "types"
   ],
   "devDependencies": {
-    "@motion-canvas/core": "^3.17.2",
+    "@canvas-commons/core": "^0.1.0",
     "sass": "^1.58.0",
     "terser": "^5.16.1"
   }

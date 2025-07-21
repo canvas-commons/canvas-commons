@@ -1,6 +1,7 @@
 export * from './AccountTree';
 export * from './Add';
 export * from './Bug';
+export * from './CanvasCommons';
 export * from './Clear';
 export * from './Close';
 export * from './Colorize';
@@ -11,7 +12,6 @@ export * from './Fullscreen';
 export * from './Grid';
 export * from './HourglassBottom';
 export * from './Locate';
-export * from './MotionCanvas';
 export * from './Movie';
 export * from './OpenInNew';
 export * from './Pause';

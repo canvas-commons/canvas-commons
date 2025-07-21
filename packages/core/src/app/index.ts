@@ -1,5 +1,5 @@
 /**
- * Main Motion Canvas classes.
+ * Main Canvas Commons classes.
  *
  * @packageDocumentation
  */

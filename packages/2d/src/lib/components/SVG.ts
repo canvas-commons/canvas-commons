@@ -17,7 +17,7 @@ import {
   threadable,
   tween,
   useLogger,
-} from '@motion-canvas/core';
+} from '@canvas-commons/core';
 import {computed, signal} from '../decorators';
 import {DesiredLength, PossibleCanvasStyle} from '../partials';
 import {applyTransformDiff, getTransformDiff} from '../utils/diff';
@@ -373,7 +373,7 @@ export class SVG extends Shape {
   }
 
   /**
-   * Convert SVG colors in Shape properties to Motion Canvas colors.
+   * Convert SVG colors in Shape properties to Canvas Commons colors.
    * @param param - Shape properties.
    * @returns Converted Shape properties.
    */
@@ -459,7 +459,7 @@ export class SVG extends Shape {
   /**
    * Get position, rotation and scale from Matrix transformation as Shape properties
    * @param transform - Matrix transformation
-   * @returns MotionCanvas Shape properties
+   * @returns CanvasCommons Shape properties
    */
   protected static getMatrixTransformation(transform: DOMMatrix): ShapeProps {
     const matrix2 = new Matrix2D(transform);
@@ -483,9 +483,9 @@ export class SVG extends Shape {
   }
 
   /**
-   * Convert an SVG color into a Motion Canvas color.
+   * Convert an SVG color into a Canvas Commons color.
    * @param color - SVG color.
-   * @returns Motion Canvas color.
+   * @returns Canvas Commons color.
    */
   private static processSVGColor(
     color: SignalValue<PossibleCanvasStyle> | undefined,
@@ -563,7 +563,7 @@ export class SVG extends Shape {
   }
 
   /**
-   * Convert the SVG element's style to a Motion Canvas Shape properties.
+   * Convert the SVG element's style to a Canvas Commons Shape properties.
    * @param element - An SVG element whose style should be converted.
    * @param inheritedStyle - The parent style that should be inherited.
    */

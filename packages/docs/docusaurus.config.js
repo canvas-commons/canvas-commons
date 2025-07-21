@@ -2,16 +2,16 @@
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'Motion Canvas',
+  title: 'Canvas Commons',
   tagline:
-    'A TypeScript library for creating animated videos using the Canvas API.',
-  url: 'https://motioncanvas.io',
+    'A community TypeScript library for creating animated videos using the Canvas API.',
+  url: 'https://canvascommons.io',
   baseUrl: '/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'throw',
   favicon: 'img/favicon.svg',
-  organizationName: 'motion-canvas',
-  projectName: 'motion-canvas.github.io',
+  organizationName: 'canvas-commons',
+  projectName: 'canvas-commons.github.io',
   i18n: {
     defaultLocale: 'en',
     locales: ['en'],
@@ -21,10 +21,10 @@ const config = {
   },
   customFields: {
     discordApi:
-      'https://discord.com/api/guilds/1071029581009657896/widget.json',
-    discordUrl: 'https://chat.motioncanvas.io',
-    githubApi: 'https://api.github.com/repos/motion-canvas/motion-canvas',
-    githubUrl: 'https://github.com/motion-canvas/motion-canvas',
+      'https://discord.com/api/guilds/1396626525331132437/widget.json',
+    discordUrl: 'https://chat.canvascommons.io',
+    githubApi: 'https://api.github.com/repos/canvas-commons/canvas-commons',
+    githubUrl: 'https://github.com/canvas-commons/canvas-commons',
   },
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
@@ -35,9 +35,9 @@ const config = {
         defaultMode: 'dark',
       },
       navbar: {
-        title: 'Motion Canvas',
+        title: 'Canvas Commons',
         logo: {
-          alt: 'Motion Canvas Logo',
+          alt: 'Canvas Commons Logo',
           src: 'img/logo.svg',
           srcDark: 'img/logo_dark.svg',
         },
@@ -71,16 +71,8 @@ const config = {
             title: 'Community',
             items: [
               {
-                label: 'Patreon',
-                href: 'https://patreon.com/aarthificial',
-              },
-              {
-                label: 'YouTube',
-                href: 'https://youtube.com/aarthificial',
-              },
-              {
                 label: 'Discord',
-                href: 'https://chat.motioncanvas.io',
+                href: 'https://chat.canvascommons.io',
               },
             ],
           },
@@ -93,17 +85,17 @@ const config = {
               },
               {
                 label: 'GitHub',
-                href: 'https://github.com/motion-canvas/motion-canvas',
+                href: 'https://github.com/canvas-commons/canvas-commons',
               },
             ],
           },
         ],
-        copyright: `Copyright © ${new Date().getFullYear()} Motion Canvas. Built with Docusaurus.`,
+        copyright: `Copyright © ${new Date().getFullYear()} Canvas Commons. Built with Docusaurus.`,
       },
       algolia: {
-        appId: 'Q6Z7BJ83RF',
-        apiKey: '825d6a74e138e6e1378e9669b22720f0',
-        indexName: 'motion-canvasio',
+        appId: 'U5KSQOAXLC',
+        apiKey: '8794f8979879d1d5c1fe076c9b5a8791',
+        indexName: 'canvas-commons-commonsio',
       },
       prism: {
         theme: require('./config/codeTheme'),
@@ -155,7 +147,7 @@ const config = {
           ],
         },
         editUrl: ({versionDocsDirPath, docPath}) =>
-          `https://github.com/motion-canvas/motion-canvas/blob/main/packages/docs/${versionDocsDirPath}/${docPath}`,
+          `https://github.com/canvas-commons/canvas-commons/blob/main/packages/docs/${versionDocsDirPath}/${docPath}`,
       },
     ],
     [
@@ -163,7 +155,7 @@ const config = {
       {
         showReadingTime: true,
         editUrl: ({blogDirPath, blogPath}) =>
-          `https://github.com/motion-canvas/motion-canvas/blob/main/packages/docs/${blogDirPath}/${blogPath}`,
+          `https://github.com/canvas-commons/canvas-commons/blob/main/packages/docs/${blogDirPath}/${blogPath}`,
       },
     ],
     '@docusaurus/plugin-content-pages',

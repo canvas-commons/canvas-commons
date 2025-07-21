@@ -5,7 +5,7 @@ import {
   capitalize,
   lazy,
   textLerp,
-} from '@motion-canvas/core';
+} from '@canvas-commons/core';
 import {
   computed,
   initial,

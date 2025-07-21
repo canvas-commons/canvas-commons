@@ -33,7 +33,7 @@ export default function HomepageHeader() {
           </Link>
           <a
             className="button button--outline button--lg"
-            href="https://github.com/motion-canvas/motion-canvas/blob/main/CONTRIBUTING.md"
+            href="https://github.com/canvas-commons/canvas-commons/blob/main/CONTRIBUTING.md"
             target="_blank"
           >
             Contribute

@@ -1,7 +1,7 @@
 import type {Plugin} from './Plugin';
 
 /**
- * A helper function for exporting Motion Canvas plugins.
+ * A helper function for exporting Canvas Commons plugins.
  *
  * @param plugin - The plugin configuration.
  *

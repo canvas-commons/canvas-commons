@@ -8,7 +8,7 @@ import {
   ThreadGenerator,
   TimingFunction,
   unwrap,
-} from '@motion-canvas/core';
+} from '@canvas-commons/core';
 import {Code} from '../components';
 import {addInitializer, getPropertyMetaOrCreate} from '../decorators';
 import {defaultDiffer} from './CodeDiffer';

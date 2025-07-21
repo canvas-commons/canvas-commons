@@ -5,7 +5,7 @@ slug: /
 
 # Introduction
 
-Motion Canvas consists of two main components:
+Canvas Commons consists of two main components:
 
 - A TypeScript library that uses generators to program animations.
 - An editor providing a real-time preview of said animations.
@@ -18,10 +18,10 @@ Aside from providing the preview, the editor allows you to edit certain aspects
 of the animation which could otherwise be tedious. You can learn more about this
 functionality in the [time events](/docs/time-events) section.
 
-Motion Canvas is a free and open source project. You can help making it better
+Canvas Commons is a free and open source project. You can help making it better
 by reporting bugs, proposing new features, or contributing to the codebase. If
 you're interested, our [contribution guide][contributing] will help you get
 started.
 
 [contributing]:
-  https://github.com/motion-canvas/motion-canvas/blob/main/CONTRIBUTING.md
+  https://github.com/canvas-commons/canvas-commons/blob/main/CONTRIBUTING.md

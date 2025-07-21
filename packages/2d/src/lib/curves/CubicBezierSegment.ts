@@ -1,4 +1,4 @@
-import {Vector2, lazy} from '@motion-canvas/core';
+import {Vector2, lazy} from '@canvas-commons/core';
 import {bezierCurveTo} from '../utils';
 import {Polynomial2D} from './Polynomial2D';
 import {PolynomialSegment} from './PolynomialSegment';

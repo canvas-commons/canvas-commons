@@ -1,6 +1,6 @@
-import {makeScene2D} from '@motion-canvas/2d';
-import {createRef, waitFor} from '@motion-canvas/core';
-import {Switch} from '@motion-canvas/examples/src/components/Switch';
+import {makeScene2D} from '@canvas-commons/2d';
+import {createRef, waitFor} from '@canvas-commons/core';
+import {Switch} from '@canvas-commons/examples/src/components/Switch';
 // see this import for the component ^
 
 // usage of the component:

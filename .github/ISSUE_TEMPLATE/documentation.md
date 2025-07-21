@@ -3,7 +3,7 @@ name: Documentation
 about: Report an issue or suggest improvements for documentation
 title: ''
 labels: b-documentation
-assignees: aarthificial
+assignees: hhenrichsen
 ---
 
 **Description**

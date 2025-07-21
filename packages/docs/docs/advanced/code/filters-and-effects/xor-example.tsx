@@ -1,5 +1,5 @@
-import {Circle, Img, Node, makeScene2D} from '@motion-canvas/2d';
-import {createRef, easeInOutSine, linear} from '@motion-canvas/core';
+import {Circle, Img, Node, makeScene2D} from '@canvas-commons/2d';
+import {createRef, easeInOutSine, linear} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   view.fill('#141414');

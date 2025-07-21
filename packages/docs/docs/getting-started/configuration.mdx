@@ -5,15 +5,15 @@ slug: /configuration
 
 # Configuration
 
-Motion Canvas is configured in the Vite's configuration file:
+Canvas Commons is configured in the Vite's configuration file:
 
 ```ts title="vite.config.ts"
 import {defineConfig} from 'vite';
-import motionCanvas from '@motion-canvas/vite-plugin';
+import canvasCommons from '@canvas-commons/vite-plugin';
 
 export default defineConfig({
   plugins: [
-    motionCanvas({
+    canvasCommons({
       // custom options
     }),
   ],
@@ -33,7 +33,7 @@ When set to an array, the Editor will display a project selection screen, making
 it possible to change the project without restarting Vite.
 
 ```ts
-motionCanvas({
+canvasCommons({
   project: [
     // highlight-start
     './src/firstProject.ts',
@@ -81,7 +81,7 @@ still working.
 ### `editor`
 
 - Type: `string`
-- Default: `@motion-canvas/ui`
+- Default: `@canvas-commons/ui`
 
 The import path of the editor package.
 
@@ -102,12 +102,12 @@ lead to a directory containing the following files:
 
 ### `proxy`
 
-- Type: `boolean | MotionCanvasCorsProxyOptions`
+- Type: `boolean | CanvasCommonsCorsProxyOptions`
 - Default: `false`
 
 The configuration of the Proxy used for remote sources.
 
-This passes configuration to Motion Canvas' proxy. The proxy is disabled by
+This passes configuration to Canvas Commons' proxy. The proxy is disabled by
 default. You can either pass `true` or a config object to enable it.
 
 - `allowedMimeTypes?: string[]` - Set which types of resources are allowed by

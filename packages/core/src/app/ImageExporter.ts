@@ -29,7 +29,7 @@ interface ServerResponse {
  * @internal
  */
 export class ImageExporter implements Exporter {
-  public static readonly id = '@motion-canvas/core/image-sequence';
+  public static readonly id = '@canvas-commons/core/image-sequence';
   public static readonly displayName = 'Image sequence';
 
   public static meta() {
@@ -61,7 +61,7 @@ export class ImageExporter implements Exporter {
 
   static {
     if (import.meta.hot) {
-      import.meta.hot.on('motion-canvas:export-ack', response => {
+      import.meta.hot.on('canvas-commons:export-ack', response => {
         this.response.dispatch(response);
       });
     }
@@ -108,7 +108,7 @@ export class ImageExporter implements Exporter {
       }
 
       this.frameLookup.add(frame);
-      import.meta.hot!.send('motion-canvas:export', {
+      import.meta.hot!.send('canvas-commons:export', {
         frame,
         data: canvas.toDataURL(this.fileType, this.quality),
         mimeType: this.fileType,

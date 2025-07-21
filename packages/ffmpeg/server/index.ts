@@ -1,12 +1,16 @@
-import {Plugin, PLUGIN_OPTIONS, PluginConfig} from '@motion-canvas/vite-plugin';
+import {
+  Plugin,
+  PLUGIN_OPTIONS,
+  PluginConfig,
+} from '@canvas-commons/vite-plugin';
 import {FFmpegBridge} from './FFmpegBridge';
 
 export default (): Plugin => {
   let config: PluginConfig;
   return {
-    name: 'motion-canvas/ffmpeg',
+    name: 'canvas-commons/ffmpeg',
     [PLUGIN_OPTIONS]: {
-      entryPoint: '@motion-canvas/ffmpeg/lib/client',
+      entryPoint: '@canvas-commons/ffmpeg/lib/client',
       async config(value) {
         config = value;
       },

@@ -6,8 +6,8 @@ slug: /latex
 # Latex
 
 ```tsx editor mode=preview
-import {Latex, makeScene2D} from '@motion-canvas/2d';
-import {createRef, waitFor} from '@motion-canvas/core';
+import {Latex, makeScene2D} from '@canvas-commons/2d';
+import {createRef, waitFor} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   const tex = createRef<Latex>();
@@ -41,7 +41,7 @@ Make sure to always set some `fill` color otherwise nothing will be shown!
 :::
 
 ```tsx editor
-import {Latex, makeScene2D} from '@motion-canvas/2d';
+import {Latex, makeScene2D} from '@canvas-commons/2d';
 
 export default makeScene2D(function* (view) {
   view.add(
@@ -87,8 +87,8 @@ in. Tex parts that exist in both the source and destination formulas will be
 tweened:
 
 ```tsx editor
-import {Latex, makeScene2D} from '@motion-canvas/2d';
-import {createRef, waitFor} from '@motion-canvas/core';
+import {Latex, makeScene2D} from '@canvas-commons/2d';
+import {createRef, waitFor} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   const tex = createRef<Latex>();

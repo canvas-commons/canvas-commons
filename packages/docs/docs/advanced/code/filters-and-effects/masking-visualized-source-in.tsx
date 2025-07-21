@@ -6,7 +6,7 @@ import {
   Node,
   Rect,
   Txt,
-} from '@motion-canvas/2d';
+} from '@canvas-commons/2d';
 import {
   all,
   createRef,
@@ -14,7 +14,7 @@ import {
   Origin,
   Vector2,
   waitFor,
-} from '@motion-canvas/core';
+} from '@canvas-commons/core';
 
 const ImageSource =
   'https://images.unsplash.com/photo-1685901088371-f498db7f8c46';

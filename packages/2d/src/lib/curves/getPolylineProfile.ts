@@ -1,4 +1,4 @@
-import {Vector2, clamp} from '@motion-canvas/core';
+import {Vector2, clamp} from '@canvas-commons/core';
 import {CircleSegment} from './CircleSegment';
 import {CurveProfile} from './CurveProfile';
 import {LineSegment} from './LineSegment';

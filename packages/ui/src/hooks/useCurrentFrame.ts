@@ -1,4 +1,4 @@
-import {RendererState} from '@motion-canvas/core';
+import {RendererState} from '@canvas-commons/core';
 import {useApplication} from '../contexts';
 import {useRendererState} from './useRendererState';
 import {usePreviewSettings, useRenderingSettings} from './useSettings';

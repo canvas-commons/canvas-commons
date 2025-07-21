@@ -6,7 +6,7 @@ export function metaPlugin(): Plugin {
   const timeStamps: Record<string, number> = {};
   let config: ResolvedConfig;
   return {
-    name: 'motion-canvas:meta',
+    name: 'canvas-commons:meta',
 
     configResolved(resolvedConfig) {
       config = resolvedConfig;
@@ -24,7 +24,7 @@ export function metaPlugin(): Plugin {
 
       /* language=typescript */
       return `\
-import {MetaFile} from '@motion-canvas/core';
+import {MetaFile} from '@canvas-commons/core';
 let meta;
 if (import.meta.hot) {
   meta = import.meta.hot.data.meta;
@@ -40,7 +40,7 @@ export default meta;
     },
 
     configureServer(server) {
-      server.ws.on('motion-canvas:meta', async ({source, data}, client) => {
+      server.ws.on('canvas-commons:meta', async ({source, data}, client) => {
         // Ignore virtual meta files.
         if (source.startsWith('\0')) {
           return;
@@ -52,7 +52,7 @@ export default meta;
           JSON.stringify(data, undefined, 2),
           'utf8',
         );
-        client.send('motion-canvas:meta-ack', {source});
+        client.send('canvas-commons:meta-ack', {source});
       });
     },
 

@@ -8,12 +8,12 @@
     "build": "vite build"
   },
   "dependencies": {
-    "@motion-canvas/core": "*",
-    "@motion-canvas/2d": "*"
+    "@canvas-commons/core": "*",
+    "@canvas-commons/2d": "*"
   },
   "devDependencies": {
-    "@motion-canvas/ui": "*",
-    "@motion-canvas/vite-plugin": "*",
+    "@canvas-commons/ui": "*",
+    "@canvas-commons/vite-plugin": "*",
     "vite": "^4.0.0"
   }
 }

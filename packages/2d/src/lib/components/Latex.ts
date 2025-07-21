@@ -8,7 +8,7 @@ import {
   TimingFunction,
   useLogger,
   Vector2,
-} from '@motion-canvas/core';
+} from '@canvas-commons/core';
 import {liteAdaptor} from 'mathjax-full/js/adaptors/liteAdaptor';
 import {RegisterHTMLHandler} from 'mathjax-full/js/handlers/html';
 import {TeX} from 'mathjax-full/js/input/tex';
@@ -46,8 +46,8 @@ export interface LatexProps extends Omit<SVGProps, 'svg'> {
  *
  * @preview
  * ```tsx editor
- * import {Latex, makeScene2D} from '@motion-canvas/2d';
- * import {createRef, waitFor} from '@motion-canvas/core';
+ * import {Latex, makeScene2D} from '@canvas-commons/2d';
+ * import {createRef, waitFor} from '@canvas-commons/core';
  *
  * export default makeScene2D(function* (view) {
  *   const tex = createRef<Latex>();

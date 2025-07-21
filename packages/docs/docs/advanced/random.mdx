@@ -5,19 +5,19 @@ slug: /random-values
 
 import AnimationPlayer from '@site/src/components/AnimationPlayer';
 import CodeBlock from '@theme/CodeBlock';
-import source from '!!raw-loader!@motion-canvas/examples/src/scenes/random';
+import source from '!!raw-loader!@canvas-commons/examples/src/scenes/random';
 
 # Random values
 
 <AnimationPlayer name="random" banner />
 
 Randomly generated values can be used to create a sense of variety and
-unpredictability in your animation. In Motion Canvas, it's achieved using the
+unpredictability in your animation. In Canvas Commons, it's achieved using the
 [`useRandom()`](/api/core/utils#useRandom) function. It returns a random number
 generator (RNG) for the current scene:
 
 ```ts
-import {useRandom} from '@motion-canvas/core';
+import {useRandom} from '@canvas-commons/core';
 
 const random = useRandom();
 const integer = random.nextInt(0, 10);

@@ -1,23 +1,23 @@
 <br/>
 <p align="center">
-  <a href="https://motion-canvas.github.io">
+  <a href="https://canvas-commons.github.io">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://motion-canvas.github.io/img/logo_dark.svg">
-      <img width="180" alt="Motion Canvas logo" src="https://motion-canvas.github.io/img/logo.svg">
+      <source media="(prefers-color-scheme: dark)" srcset="https://canvas-commons.github.io/img/logo_dark.svg">
+      <img width="180" alt="Canvas Commons logo" src="https://canvas-commons.github.io/img/logo.svg">
     </picture>
   </a>
 </p>
 <p align="center">
-  <a href="https://lerna.js.org"><img src="https://img.shields.io/badge/published%20with-lerna-c084fc?style=flat" alt="published with lerna"></a>
-  <a href="https://vitejs.dev"><img src="https://img.shields.io/badge/powered%20by-vite-646cff?style=flat" alt="powered by vite"></a>
-  <a href="https://www.npmjs.com/package/@motion-canvas/core"><img src="https://img.shields.io/npm/v/@motion-canvas/core?style=flat" alt="npm package version"></a>
-  <a href="https://chat.motioncanvas.io"><img src="https://img.shields.io/discord/1071029581009657896?style=flat&logo=discord&logoColor=fff&color=404eed" alt="discord"></a>
+  <a href="https://lerna.js.org"><img src="https://img.shields.io/badge/published%20with-lerna-c084fc?style=for-the-badge" alt="published with lerna"></a>
+  <a href="https://vitejs.dev"><img src="https://img.shields.io/badge/powered%20by-vite-646cff?style=for-the-badge" alt="powered by vite"></a>
+  <a href="https://www.npmjs.com/package/@canvas-commons/core"><img src="https://img.shields.io/npm/v/@canvas-commons/core?style=for-the-badge" alt="npm package version"></a>
+  <a href="https://chat.canvascommons.io"><img src="https://img.shields.io/discord/1396626525331132437?style=for-the-badge&logo=discord&logoColor=fff&color=404eed" alt="discord"></a>
 </p>
 <br/>
 
-# Motion Canvas
+# Canvas Commons
 
-Motion Canvas is two things:
+Canvas Commons is two things:
 
 - A TypeScript library that uses generators to program animations.
 - An editor providing a real-time preview of said animations.
@@ -28,11 +28,11 @@ synchronize them with voice-overs.
 Aside from providing the preview, the editor allows you to edit certain aspects
 of the animation which could otherwise be tedious.
 
-## Using Motion Canvas
+## Using Canvas Commons
 
-Check out our [getting started][docs] guide to learn how to use Motion Canvas.
+Check out our [getting started][docs] guide to learn how to use Canvas Commons.
 
-## Developing Motion Canvas locally
+## Developing Canvas Commons locally
 
 The project is maintained as one monorepo containing the following packages:
 
@@ -71,9 +71,9 @@ Canvas project that can be used during development.
 To develop the player, first build the template: `npm run template:build`. Then,
 start `npm run player:dev`.
 
-## Installing a local version of Motion Canvas in a project
+## Installing a local version of Canvas Commons in a project
 
-It can be useful to install a local version of Motion Canvas in a standalone
+It can be useful to install a local version of Canvas Commons in a standalone
 project. For example, when you want to use your own fork with some custom-made
 features to create your animations.
 
@@ -81,7 +81,7 @@ Let's assume the following project structure:
 
 ```
 projects/
-├── motion-canvas/ <- your local monorepo
+├── canvas-commons/ <- your local monorepo
 └── my-project/ <- a bootstrapped project
     └── package.json
 ```
@@ -92,8 +92,8 @@ relative path to the package you want to link:
 
 ```diff
   "dependencies": {
--   "@motion-canvas/core": "^3.11.0",
-+   "@motion-canvas/core": "file:../motion-canvas/packages/core",
+-   "@canvas-commons/core": "^3.11.0",
++   "@canvas-commons/core": "file:../canvas-commons/packages/core",
     // ...
   },
 ```
@@ -103,7 +103,7 @@ to allow vite to load external files:
 
 ```ts
 import {defineConfig} from 'vite';
-import motionCanvas from '@motion-canvas/vite-plugin';
+import canvasCommons from '@canvas-commons/vite-plugin';
 
 export default defineConfig({
   server: {
@@ -112,7 +112,7 @@ export default defineConfig({
       strict: false,
     },
   },
-  plugins: [motionCanvas()],
+  plugins: [canvasCommons()],
 });
 ```
 
@@ -127,10 +127,11 @@ You can use the same technique to test out any custom package you're working on.
 ## Contributing
 
 Read through our [Contribution Guide](./CONTRIBUTING.md) to learn how you can
-help make Motion Canvas better.
+help make Canvas Commons better.
 
 [authenticate]:
   https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-npm-registry#authenticating-with-a-personal-access-token
-[template]: https://github.com/motion-canvas/project-template#using-the-template
-[discord]: https://chat.motioncanvas.io
-[docs]: https://motioncanvas.io/docs/quickstart
+[template]:
+  https://github.com/canvas-commons/project-template#using-the-template
+[discord]: https://chat.canvascommons.io
+[docs]: https://canvascommons.io/docs/quickstart

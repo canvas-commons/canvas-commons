@@ -5,11 +5,11 @@ slug: /quickstart
 
 import AnimationPlayer from '@site/src/components/AnimationPlayer';
 import CodeBlock from '@theme/CodeBlock';
-import source from '!!raw-loader!@motion-canvas/examples/src/scenes/quickstart';
+import source from '!!raw-loader!@canvas-commons/examples/src/scenes/quickstart';
 
 # Quickstart
 
-In this guide, we'll create a simple animation using Motion Canvas.
+In this guide, we'll create a simple animation using Canvas Commons.
 
 ### Prerequisites
 
@@ -28,12 +28,12 @@ node -v
 
 ### Creating a new project
 
-Run the following command in order to scaffold a new Motion Canvas project (If
+Run the following command in order to scaffold a new Canvas Commons project (If
 the command fails check out the [troubleshooting](#troubleshooting) section
 below):
 
 ```bash
-npm init @motion-canvas@latest
+npm init @canvas-commons@latest
 ```
 
 Answer the prompts to name your project and select which language you would like
@@ -76,8 +76,8 @@ animations. Open `example.tsx` in a text editor, and replace all code in the
 file with the following snippet.
 
 ```tsx editor
-import {makeScene2D, Circle} from '@motion-canvas/2d';
-import {all, createRef} from '@motion-canvas/core';
+import {makeScene2D, Circle} from '@canvas-commons/2d';
+import {all, createRef} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   const myCircle = createRef<Circle>();
@@ -108,11 +108,11 @@ application. Press the play button to see the circle animate across the screen.
 
 ### Explanation
 
-Each video in Motion Canvas is represented by a project configuration object. In
+Each video in Canvas Commons is represented by a project configuration object. In
 our example, this configuration is declared in `src/project.ts`:
 
 ```ts title="src/project.ts"
-import {makeProject} from '@motion-canvas/core';
+import {makeProject} from '@canvas-commons/core';
 
 import example from './scenes/example?scene';
 
@@ -134,7 +134,7 @@ A scene is a set of elements displayed on the screen and an animation that
 governs them. The most basic scene looks as follows:
 
 ```tsx
-import {makeScene2D} from '@motion-canvas/2d';
+import {makeScene2D} from '@canvas-commons/2d';
 
 export default makeScene2D(function* (view) {
   // animation
@@ -236,7 +236,7 @@ myCircle().fill('#e6a700', 1);
 This [creates a tween animation](/docs/tweening) that smoothly changes the fill
 color over one second.
 
-Animations in Motion Canvas don't play on their own, we need to explicitly tell
+Animations in Canvas Commons don't play on their own, we need to explicitly tell
 them to. This is why scenes are declared using generator functions - they serve
 as a description of how the animation should play out. By yielding different
 instructions we can tell the scene animation to do different things.
@@ -298,7 +298,7 @@ This brings us back to our initial example:
 
 <details>
   <summary>
-    <code>npm init @motion-canvas@latest</code> fails to execute.
+    <code>npm init @canvas-commons@latest</code> fails to execute.
   </summary>
 
 There was [a bug in npm](https://github.com/npm/cli/issues/5175) causing the
@@ -307,7 +307,7 @@ above command to fail. It got fixed in version `8.15.1`. You can follow
 update your npm. Alternatively, you can use the following command instead:
 
 ```bash
-npm exec @motion-canvas/create@latest
+npm exec @canvas-commons/create@latest
 ```
 
 </details>

@@ -20,7 +20,7 @@ yield * circle.scale(2, 0.3);
 :::info
 
 If you're used to libraries such as React, the above example may seem strange.
-In Motion Canvas, the JSX components immediately create and return an instance
+In Canvas Commons, the JSX components immediately create and return an instance
 of the given class. It's completely valid to store it as a reference and use it
 throughout the animation.
 
@@ -58,7 +58,7 @@ If you find the latter example more readable, this guide is for you.
 
 ## `ref` property
 
-Each node in Motion Canvas has a property called `ref` that allows you to create
+Each node in Canvas Commons has a property called `ref` that allows you to create
 a reference to said node. It accepts a callback that will be invoked right after
 the node has been created, with the first argument being the newly created
 instance.
@@ -89,7 +89,7 @@ The preferred way of using the `ref` property is in conjunction with the
 example, we can rewrite it as:
 
 ```tsx
-import {createRef} from '@motion-canvas/core';
+import {createRef} from '@canvas-commons/core';
 
 // ...
 
@@ -142,7 +142,7 @@ We can use the [`makeRef()`](/api/core/utils#makeRef) function to simplify this
 process:
 
 ```tsx
-import {makeRef} from '@motion-canvas/core';
+import {makeRef} from '@canvas-commons/core';
 
 // ...
 
@@ -179,7 +179,7 @@ You can also use the [`createRefArray()`](/api/core/utils#createRefArray) helper
 function to achieve the same result:
 
 ```tsx
-import {createRefArray, range} from '@motion-canvas/core';
+import {createRefArray, range} from '@canvas-commons/core';
 
 // ...
 
@@ -245,7 +245,7 @@ tedious. The [`createRefMap()`](/api/core/utils#createRefMap) helper function
 lets us group references together based on the type of the node:
 
 ```tsx
-import {createRefMap} from '@motion-canvas/core';
+import {createRefMap} from '@canvas-commons/core';
 
 // ...
 
@@ -322,7 +322,7 @@ redundancy. It can extract the type from the `Label` declaration and create an
 empty object matching it:
 
 ```tsx
-import {makeRef, makeRefs} from '@motion-canvas/core';
+import {makeRef, makeRefs} from '@canvas-commons/core';
 
 // ...
 

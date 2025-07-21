@@ -3,7 +3,7 @@ import {
   PossibleVector2,
   SignalValue,
   Vector2Signal,
-} from '@motion-canvas/core';
+} from '@canvas-commons/core';
 import {CurveProfile, LineSegment} from '../curves';
 import {nodeName, vector2Signal} from '../decorators';
 import {arc, drawLine, drawPivot} from '../utils';
@@ -30,9 +30,9 @@ export interface RayProps extends CurveProps {
  *
  * @preview
  * ```tsx editor
- * import {makeScene2D} from '@motion-canvas/2d';
- * import {Ray} from '@motion-canvas/2d';
- * import {createRef} from '@motion-canvas/core';
+ * import {makeScene2D} from '@canvas-commons/2d';
+ * import {Ray} from '@canvas-commons/2d';
+ * import {createRef} from '@canvas-commons/core';
  *
  * export default makeScene2D(function* (view) {
  *   const ray = createRef<Ray>();

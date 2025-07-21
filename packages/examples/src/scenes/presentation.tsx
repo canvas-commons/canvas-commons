@@ -1,4 +1,4 @@
-import {Rect, Txt, makeScene2D} from '@motion-canvas/2d';
+import {Rect, Txt, makeScene2D} from '@canvas-commons/2d';
 import {
   Color,
   all,
@@ -8,7 +8,7 @@ import {
   createSignal,
   easeInOutCubic,
   loop,
-} from '@motion-canvas/core';
+} from '@canvas-commons/core';
 
 const YELLOW = '#FFC66D';
 const RED = '#FF6470';

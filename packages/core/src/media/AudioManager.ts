@@ -17,7 +17,7 @@ export class AudioManager {
     private readonly context: AudioContext,
   ) {
     if (import.meta.hot) {
-      import.meta.hot.on('motion-canvas:assets', ({urls}) => {
+      import.meta.hot.on('canvas-commons:assets', ({urls}) => {
         if (this.source && urls.includes(this.source)) {
           this.setSource(this.source);
         }

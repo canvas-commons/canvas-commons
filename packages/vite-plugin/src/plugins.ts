@@ -1,7 +1,7 @@
 import {Plugin as VitePlugin} from 'vite';
 
 /**
- * Represents a Motion Canvas project configured in the Vite plugin.
+ * Represents a Canvas Commons project configured in the Vite plugin.
  */
 export interface ProjectData {
   /**
@@ -23,7 +23,7 @@ export interface ProjectData {
 }
 
 /**
- * The Motion Canvas configuration passed to each plugin.
+ * The Canvas Commons configuration passed to each plugin.
  */
 export interface PluginConfig {
   /**
@@ -37,7 +37,7 @@ export interface PluginConfig {
 }
 
 export const PLUGIN_OPTIONS = Symbol.for(
-  '@motion-canvas/vite-plugin/PLUGIN_OPTIONS',
+  '@canvas-commons/vite-plugin/PLUGIN_OPTIONS',
 );
 
 export interface PluginOptions {
@@ -58,7 +58,7 @@ export interface PluginOptions {
    * The configuration hook of the plugin.
    *
    * @remarks
-   * Invoked during `configResolved` hook of Vite, contains the Motion Canvas
+   * Invoked during `configResolved` hook of Vite, contains the Canvas Commons
    * specific configuration. Returned value will be merged with the current
    * configuration.
    *
@@ -98,15 +98,15 @@ export interface PluginOptions {
 }
 
 /**
- * Represents a Motion Canvas plugin.
+ * Represents a Canvas Commons plugin.
  *
  * @remarks
  * It's a normal Vite plugin that can provide additional configuration specific
- * to Motion Canvas.
+ * to Canvas Commons.
  */
 export type Plugin = VitePlugin & {
   /**
-   * The configuration specific to Motion Canvas.
+   * The configuration specific to Canvas Commons.
    */
   [PLUGIN_OPTIONS]: PluginOptions;
 };

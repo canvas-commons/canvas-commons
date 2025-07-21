@@ -1,5 +1,5 @@
-import {Circle, makeScene2D} from '@motion-canvas/2d';
-import {createRef, map, tween} from '@motion-canvas/core';
+import {Circle, makeScene2D} from '@canvas-commons/2d';
+import {createRef, map, tween} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   const circle = createRef<Circle>();

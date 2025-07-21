@@ -6,7 +6,7 @@ import {
   Renderer,
   experimentalLog,
   type Project,
-} from '@motion-canvas/core';
+} from '@canvas-commons/core';
 import {ComponentChild, render} from 'preact';
 import {Editor} from './Editor';
 import {ProjectData, ProjectSelection} from './ProjectSelection';
@@ -49,7 +49,7 @@ export function editor(project: Project) {
 
   if (!project.experimentalFeatures) {
     for (const plugin of project.plugins) {
-      if (plugin.name.startsWith('@motion-canvas')) {
+      if (plugin.name.startsWith('@canvas-commons')) {
         continue;
       }
 
@@ -145,7 +145,7 @@ export function editor(project: Project) {
   meta.shared.onChanged.subscribe(updatePlayer);
   meta.preview.onChanged.subscribe(updatePlayer);
 
-  document.title = `${project.name} | Motion Canvas`;
+  document.title = `${project.name} | Canvas Commons`;
 
   const plugins = [GridPlugin(), ...project.plugins];
 

@@ -1,4 +1,4 @@
-import {Color, Signal} from '@motion-canvas/core';
+import {Color, Signal} from '@canvas-commons/core';
 import type {CanvasStyle, PossibleCanvasStyle} from '../partials';
 import {canvasStyleParser} from '../utils';
 import {initial, interpolation, parser, signal} from './signal';

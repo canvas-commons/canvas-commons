@@ -9,7 +9,7 @@ import {
   ThreadGeneratorFactory,
   Vector2,
   useLogger,
-} from '@motion-canvas/core';
+} from '@canvas-commons/core';
 import {Camera, Node, View2D} from '../components';
 import {is} from '../utils';
 
@@ -25,7 +25,7 @@ export class Scene2D extends GeneratorScene<View2D> implements Inspectable {
     super(description);
     this.recreateView();
     if (import.meta.hot) {
-      import.meta.hot.on('motion-canvas:assets', () => {
+      import.meta.hot.on('canvas-commons:assets', () => {
         this.assetHash = Date.now().toString();
         this.getView().assetHash(this.assetHash);
       });

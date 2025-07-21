@@ -9,7 +9,7 @@ import {
   usePanels,
   useReducedMotion,
   useSurfaceShortcuts,
-} from '@motion-canvas/ui';
+} from '@canvas-commons/ui';
 import {useSignalEffect} from '@preact/signals';
 import {useEffect, useRef} from 'preact/hooks';
 import {usePluginState} from './Provider';

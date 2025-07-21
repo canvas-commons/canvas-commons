@@ -9,7 +9,7 @@ import {
   isReactive,
   useLogger,
   useThread,
-} from '@motion-canvas/core';
+} from '@canvas-commons/core';
 import {computed, initial, nodeName, signal} from '../decorators';
 import {DesiredLength} from '../partials';
 import {drawImage} from '../utils';

@@ -7,7 +7,7 @@ import {
   linear,
   map,
   threadable,
-} from '@motion-canvas/core';
+} from '@canvas-commons/core';
 import {computed, initial, nodeName, signal} from '../decorators';
 import {
   CanvasStyleSignal,

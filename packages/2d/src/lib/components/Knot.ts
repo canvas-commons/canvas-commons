@@ -4,7 +4,7 @@ import {
   SignalValue,
   Vector2,
   Vector2Signal,
-} from '@motion-canvas/core';
+} from '@canvas-commons/core';
 import {KnotInfo} from '../curves';
 import {
   cloneable,

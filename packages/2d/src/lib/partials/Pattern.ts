@@ -1,4 +1,4 @@
-import {SimpleSignal} from '@motion-canvas/core';
+import {SimpleSignal} from '@canvas-commons/core';
 import {computed} from '../decorators/computed';
 import {initial, initializeSignals, signal} from '../decorators/signal';
 

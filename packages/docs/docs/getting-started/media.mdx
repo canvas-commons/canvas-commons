@@ -13,7 +13,7 @@ Canvas lets you add to your animations.
 
 ## Audio
 
-One type of media Motion Canvas supports is audio. To add an audio track to your
+One type of media Canvas Commons supports is audio. To add an audio track to your
 animation you need to edit your `project.ts` file. First we need to import the
 audio file we want to use as follows:
 
@@ -26,7 +26,7 @@ audio file we want to use as follows:
 import audio from '../audio/voice.mp3';
 ```
 
-Once imported we need to let Motion Canvas know that we want to use this audio
+Once imported we need to let Canvas Commons know that we want to use this audio
 file. We can do this by specifying the `audio` property in the project
 configuration:
 
@@ -59,7 +59,7 @@ A list of supported file formats can be found
 
 ## Images
 
-Another type of media Motion Canvas supports are images. To use an image in the
+Another type of media Canvas Commons supports are images. To use an image in the
 animation, we need to import the image:
 
 ```ts
@@ -71,11 +71,11 @@ animation, we need to import the image:
 import examplePng from '../../images/example.png';
 ```
 
-Then we can use Motion Canvas [`Img`](/api/2d/components/Img) component to
+Then we can use Canvas Commons [`Img`](/api/2d/components/Img) component to
 display the image:
 
 ```tsx
-import {makeScene2D, Img} from '@motion-canvas/2d';
+import {makeScene2D, Img} from '@canvas-commons/2d';
 
 import examplePng from '../../images/example.png';
 
@@ -84,13 +84,13 @@ export default makeScene2D(function* (view) {
 });
 ```
 
-Images can also be animated like every other component in Motion Canvas. For
+Images can also be animated like every other component in Canvas Commons. For
 this, we need to create a [`Reference`](/docs/references) and pass that to the
 [`Img`](/api/2d/components/Img):
 
 ```tsx
 // ...
-import {all, createRef} from '@motion-canvas/core';
+import {all, createRef} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   const imageRef = createRef<Img>();
@@ -113,7 +113,7 @@ A list of supported file formats can be found
 
 ## Video
 
-Videos in Motion Canvas work similar to images. First, we need to import our
+Videos in Canvas Commons work similar to images. First, we need to import our
 video we want to display:
 
 ```ts
@@ -125,11 +125,11 @@ video we want to display:
 import exampleMp4 from '../../videos/example.mp4';
 ```
 
-Then we can use Motion Canvas [`Video`](/api/2d/components/Video) component to
+Then we can use Canvas Commons [`Video`](/api/2d/components/Video) component to
 display the video as follows:
 
 ```tsx
-import {makeScene2D, Video} from '@motion-canvas/2d';
+import {makeScene2D, Video} from '@canvas-commons/2d';
 
 import exampleMp4 from '../../videos/example.mp4';
 
@@ -143,7 +143,7 @@ the video we need to create a [`Reference`](/docs/references) to the element.
 
 ```tsx
 // ...
-import {createRef} from '@motion-canvas/core';
+import {createRef} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   const videoRef = createRef<Video>();

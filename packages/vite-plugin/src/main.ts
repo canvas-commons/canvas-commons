@@ -15,7 +15,7 @@ import {
 import {PLUGIN_OPTIONS, PluginConfig, PluginOptions, isPlugin} from './plugins';
 import {getProjects} from './utils';
 
-export interface MotionCanvasPluginConfig {
+export interface CanvasCommonsPluginConfig {
   /**
    * The import path of the project file or an array of paths.
    * Also supports globs.
@@ -26,7 +26,7 @@ export interface MotionCanvasPluginConfig {
    *
    * @example
    * ```ts
-   * motionCanvas({
+   * canvasCommons({
    *   project: [
    *     './src/firstProject.ts',
    *     './src/secondProject.ts',
@@ -75,14 +75,14 @@ export interface MotionCanvasPluginConfig {
    * - `index` - Receives a list of all projects as its first argument and
    *             creates the initial page for selecting a project.
    *
-   * @defaultValue '\@motion-canvas/ui'
+   * @defaultValue '\@canvas-commons/ui'
    */
   editor?: string;
   /**
    * Configuration of the Proxy used for remote sources
    *
    * @remarks
-   * This passes configuration to Motion Canvas' proxy.
+   * This passes configuration to Canvas Commons' proxy.
    * Note that the proxy is disabled by default.
    * You can either pass `true` and a config object
    * to enable it.
@@ -99,10 +99,10 @@ export default ({
   project = './src/project.ts',
   output = './output',
   bufferedAssets = /^$/,
-  editor = '@motion-canvas/ui',
+  editor = '@canvas-commons/ui',
   proxy,
   buildForEditor,
-}: MotionCanvasPluginConfig = {}): Plugin[] => {
+}: CanvasCommonsPluginConfig = {}): Plugin[] => {
   const plugins: PluginOptions[] = [];
   let config: PluginConfig = {
     output: path.resolve(output),
@@ -111,7 +111,7 @@ export default ({
 
   return [
     {
-      name: 'motion-canvas',
+      name: 'canvas-commons',
       async configResolved(resolvedConfig) {
         plugins.push(
           ...resolvedConfig.plugins

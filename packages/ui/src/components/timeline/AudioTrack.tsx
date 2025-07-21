@@ -1,4 +1,4 @@
-import type {Scene} from '@motion-canvas/core';
+import type {Scene} from '@canvas-commons/core';
 import clsx from 'clsx';
 import type {JSX} from 'preact';
 import {useLayoutEffect, useMemo, useRef, useState} from 'preact/hooks';

@@ -1,5 +1,10 @@
-import {Circle, makeScene2D} from '@motion-canvas/2d';
-import {PlopSpring, SmoothSpring, createRef, spring} from '@motion-canvas/core';
+import {Circle, makeScene2D} from '@canvas-commons/2d';
+import {
+  PlopSpring,
+  SmoothSpring,
+  createRef,
+  spring,
+} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   const circle = createRef<Circle>();

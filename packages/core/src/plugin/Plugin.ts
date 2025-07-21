@@ -8,14 +8,14 @@ import type {
 } from '../app';
 
 /**
- * Represents a runtime Motion Canvas plugin.
+ * Represents a runtime Canvas Commons plugin.
  */
 export interface Plugin {
   /**
    * A unique name of the plugin.
    *
    * @remarks
-   * The name should be unique across the entire ecosystem of Motion Canvas.
+   * The name should be unique across the entire ecosystem of Canvas Commons.
    * If a plugin with the same name has already been registered, this plugin
    * will be ignored.
    *

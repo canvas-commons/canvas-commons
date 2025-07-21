@@ -34,7 +34,7 @@ export type SimpleVector2Signal<T> = Signal<PossibleVector2, Vector2, T>;
  */
 export class Vector2 implements Type, WebGLConvertible {
   public static readonly symbol = Symbol.for(
-    '@motion-canvas/core/types/Vector2',
+    '@canvas-commons/core/types/Vector2',
   );
 
   public static readonly zero = new Vector2();

@@ -1,7 +1,7 @@
-import {Img, makeScene2D} from '@motion-canvas/2d';
-import {all, createRef} from '@motion-canvas/core';
+import {Img, makeScene2D} from '@canvas-commons/2d';
+import {all, createRef} from '@canvas-commons/core';
 
-import logoSvg from '@motion-canvas/examples/assets/logo.svg';
+import logoSvg from '@canvas-commons/examples/assets/logo.svg';
 
 export default makeScene2D(function* (view) {
   const imageRef = createRef<Img>();

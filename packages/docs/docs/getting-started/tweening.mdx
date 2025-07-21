@@ -5,9 +5,9 @@ slug: /tweening
 
 import AnimationPlayer from '@site/src/components/AnimationPlayer';
 import CodeBlock from '@theme/CodeBlock';
-import linearSource from '!!raw-loader!@motion-canvas/examples/src/scenes/tweening-linear';
-import saveRestoreSource from '!!raw-loader!@motion-canvas/examples/src/scenes/tweening-save-restore';
-import springSource from '!!raw-loader!@motion-canvas/examples/src/scenes/tweening-spring';
+import linearSource from '!!raw-loader!@canvas-commons/examples/src/scenes/tweening-linear';
+import saveRestoreSource from '!!raw-loader!@canvas-commons/examples/src/scenes/tweening-save-restore';
+import springSource from '!!raw-loader!@canvas-commons/examples/src/scenes/tweening-spring';
 
 # Tweening
 
@@ -43,7 +43,7 @@ speed up and slow down. We can simulate this behavior with
 [timing functions](/api/core/tweening).
 
 A timing function takes a number in the range `[0, 1]` and returns another
-number in the same range but with a modified rate of change. Motion Canvas
+number in the same range but with a modified rate of change. Canvas Commons
 provides all [the most popular timing functions](https://easings.net/)
 (sometimes called easing functions) but since it's a normal JavaScript function
 you can create your own.
@@ -91,7 +91,7 @@ numbers but to animate more complex types we'll need to use interpolation
 functions. Consider the following example:
 
 ```ts
-// import { Color } from "@motion-canvas/core";
+// import { Color } from "@canvas-commons/core";
 yield *
   tween(2, value => {
     circle().fill(
@@ -110,7 +110,7 @@ yield *
 
 :::tip
 
-All [complex types](/api/core/types) in Motion Canvas provide a static method
+All [complex types](/api/core/types) in Canvas Commons provide a static method
 called `lerp` that interpolates between two instances of said type.
 
 :::
@@ -219,7 +219,7 @@ method can be used for more things than just position.
 ### Spring description
 
 The first argument of the [`spring`](/api/core/tweening#spring) function expects
-an object that describes the physical properties of our spring. Motion Canvas
+an object that describes the physical properties of our spring. Canvas Commons
 ships with a few useful presets that you can use, such as `PlopSpring` and
 `SmoothSpring`. But it's possible to define your own spring:
 

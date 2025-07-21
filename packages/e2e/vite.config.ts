@@ -1,11 +1,11 @@
 /// <reference types="vitest" />
 
-import motionCanvas from '@motion-canvas/vite-plugin';
+import canvasCommons from '@canvas-commons/vite-plugin';
 import {defineConfig} from 'vite';
 
 export default defineConfig({
   plugins: [
-    motionCanvas.default({
+    canvasCommons.default({
       project: ['./tests/project.ts'],
     }),
   ],

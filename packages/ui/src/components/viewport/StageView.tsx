@@ -1,4 +1,4 @@
-import type {Stage} from '@motion-canvas/core';
+import type {Stage} from '@canvas-commons/core';
 import clsx from 'clsx';
 import {JSX} from 'preact';
 import {MutableRef, useLayoutEffect, useRef} from 'preact/hooks';

@@ -13,7 +13,7 @@ Runtime plugins allow you to extend the runtime components like scenes and the
 player.
 
 Let's start by creating the entry point - a simple file that exports our plugin.
-For now, we'll put that file in the `src` directory of our Motion Canvas
+For now, we'll put that file in the `src` directory of our Canvas Commons
 project. If you find yourself reusing the plugin across multiple projects, you
 can put it in a separate package.
 
@@ -44,10 +44,10 @@ available hooks.
 </div>
 
 ```ts title="src/plugin.ts"
-import {makePlugin} from '@motion-canvas/core';
+import {makePlugin} from '@canvas-commons/core';
 
 export default makePlugin({
-  name: 'motion-canvas-plugin-example',
+  name: 'canvas-commons-plugin-example',
   player(player) {
     player.onRecalculated.subscribe(() => {
       player.requestReset();
@@ -68,7 +68,7 @@ actual plugin object (This can come in handy when
 [developing a Node.js plugin](/docs/plugins/node#passing-options-to-runtime)):
 
 ```ts title="src/project.ts"
-import {makeProject} from '@motion-canvas/core';
+import {makeProject} from '@canvas-commons/core';
 // highlight-next-line
 import myPlugin from './plugin';
 import example from './scenes/example?scene';

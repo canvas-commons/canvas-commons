@@ -10,7 +10,7 @@ interface ExporterPluginConfig {
 
 export function exporterPlugin({outputPath}: ExporterPluginConfig): Plugin {
   return {
-    name: 'motion-canvas:exporter',
+    name: 'canvas-commons:exporter',
 
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
@@ -27,7 +27,7 @@ export function exporterPlugin({outputPath}: ExporterPluginConfig): Plugin {
       });
 
       server.ws.on(
-        'motion-canvas:export',
+        'canvas-commons:export',
         async ({data, frame, name, subDirectories, mimeType}, client) => {
           const extension = mime.extension(mimeType);
           const outputFilePath = path.join(
@@ -43,7 +43,7 @@ export function exporterPlugin({outputPath}: ExporterPluginConfig): Plugin {
 
           const base64Data = data.slice(data.indexOf(',') + 1);
           await writeBase64(outputFilePath, base64Data);
-          client.send('motion-canvas:export-ack', {frame});
+          client.send('canvas-commons:export-ack', {frame});
         },
       );
     },

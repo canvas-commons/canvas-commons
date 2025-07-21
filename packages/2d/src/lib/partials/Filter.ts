@@ -4,7 +4,7 @@ import {
   SignalValue,
   SimpleSignal,
   transformScalar,
-} from '@motion-canvas/core';
+} from '@canvas-commons/core';
 
 /**
  * All possible CSS filter names.

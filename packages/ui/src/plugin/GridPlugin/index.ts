@@ -5,7 +5,7 @@ import {makeEditorPlugin} from '../makeEditorPlugin';
 const GRID_SIZE = 40;
 
 export default makeEditorPlugin({
-  name: '@motion-canvas/ui/grid',
+  name: '@canvas-commons/ui/grid',
   previewOverlay: {
     drawHook: () => {
       const state = useViewportContext();

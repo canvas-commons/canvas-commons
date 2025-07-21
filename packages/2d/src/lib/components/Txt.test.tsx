@@ -1,4 +1,4 @@
-import {linear, waitFor} from '@motion-canvas/core';
+import {linear, waitFor} from '@canvas-commons/core';
 import {describe, expect, it, vi} from 'vitest';
 import {Txt} from './Txt';
 import {TxtLeaf} from './TxtLeaf';

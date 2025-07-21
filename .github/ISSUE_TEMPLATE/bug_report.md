@@ -1,9 +1,9 @@
 ---
 name: Bug report
-about: Create a report to help improve Motion Canvas
+about: Create a report to help improve Canvas Commons
 title: ''
 labels: b-bug
-assignees: aarthificial
+assignees: hhenrichsen
 ---
 
 **Describe the bug**

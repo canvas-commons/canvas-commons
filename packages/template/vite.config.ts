@@ -1,29 +1,29 @@
-import markdown from '@motion-canvas/internal/vite/markdown-literals';
+import markdown from '@canvas-commons/internal/vite/markdown-literals';
 import preact from '@preact/preset-vite';
 import {defineConfig} from 'vite';
 import ffmpeg from '../ffmpeg/server';
-import motionCanvas from '../vite-plugin/src/main';
+import canvasCommons from '../vite-plugin/src/main';
 
 export default defineConfig({
   resolve: {
     alias: [
       {
-        find: '@motion-canvas/ui',
-        replacement: '@motion-canvas/ui/src/main.tsx',
+        find: '@canvas-commons/ui',
+        replacement: '@canvas-commons/ui/src/main.tsx',
       },
       {
-        find: '@motion-canvas/2d/editor',
-        replacement: '@motion-canvas/2d/src/editor',
+        find: '@canvas-commons/2d/editor',
+        replacement: '@canvas-commons/2d/src/editor',
       },
       {
-        find: '@motion-canvas/ffmpeg/lib/client',
-        replacement: '@motion-canvas/ffmpeg/client',
+        find: '@canvas-commons/ffmpeg/lib/client',
+        replacement: '@canvas-commons/ffmpeg/client',
       },
       {
-        find: /@motion-canvas\/2d(\/lib)?/,
-        replacement: '@motion-canvas/2d/src/lib',
+        find: /@canvas-commons\/2d(\/lib)?/,
+        replacement: '@canvas-commons/2d/src/lib',
       },
-      {find: '@motion-canvas/core', replacement: '@motion-canvas/core/src'},
+      {find: '@canvas-commons/core', replacement: '@canvas-commons/core/src'},
     ],
   },
   plugins: [
@@ -34,7 +34,7 @@ export default defineConfig({
         /packages\/2d\/src\/editor\/(.*)\.tsx?$/,
       ],
     }),
-    motionCanvas({
+    canvasCommons({
       buildForEditor: true,
     }),
     ffmpeg(),

@@ -13,7 +13,7 @@ import {
   useLogger,
   useScene,
   Vector2,
-} from '@motion-canvas/core';
+} from '@canvas-commons/core';
 import {
   CodeCursor,
   CodeFragmentDrawingInfo,
@@ -97,8 +97,8 @@ export interface CodeProps extends ShapeProps {
  *
  * @preview
  * ```tsx editor
- * import {Code, makeScene2D} from '@motion-canvas/2d';
- * import {createRef} from '@motion-canvas/core';
+ * import {Code, makeScene2D} from '@canvas-commons/2d';
+ * import {createRef} from '@canvas-commons/core';
  *
  * export default makeScene2D(function* (view) {
  *   const code = createRef<Code>();

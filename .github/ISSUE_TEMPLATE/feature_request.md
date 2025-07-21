@@ -1,9 +1,9 @@
 ---
 name: Feature request
-about: Suggest an idea for Motion Canvas
+about: Suggest an idea for Canvas Commons
 title: ''
 labels: b-enhancement
-assignees: aarthificial
+assignees: hhenrichsen
 ---
 
 **Description**

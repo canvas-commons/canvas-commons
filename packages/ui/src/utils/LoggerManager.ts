@@ -4,7 +4,7 @@ import {
   LogPayload,
   Logger,
   ValueDispatcher,
-} from '@motion-canvas/core';
+} from '@canvas-commons/core';
 
 export class LoggerManager {
   public get onInspected() {

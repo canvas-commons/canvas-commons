@@ -14,7 +14,7 @@ import {
   tween,
   unwrap,
   Vector2,
-} from '@motion-canvas/core';
+} from '@canvas-commons/core';
 import {cloneable, signal} from '../decorators';
 import {Curve} from './Curve';
 import {Node, NodeProps} from './Node';
@@ -37,8 +37,8 @@ export interface CameraProps extends NodeProps {
  *
  * @preview
  * ```tsx editor
- * import {Camera, Circle, makeScene2D, Rect} from '@motion-canvas/2d';
- * import {all, createRef} from '@motion-canvas/core';
+ * import {Camera, Circle, makeScene2D, Rect} from '@canvas-commons/2d';
+ * import {all, createRef} from '@canvas-commons/core';
  *
  * export default makeScene2D(function* (view) {
  *   const camera = createRef<Camera>();

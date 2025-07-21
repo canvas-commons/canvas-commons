@@ -103,13 +103,13 @@ export default function HomepageFeatures(): JSX.Element {
           <b>Tested</b> in Combat
         </h3>
         <p>
-          The road ahead is still long, but you can already use Motion Canvas to
-          create production-quality animations.
+          The road ahead is still long, but you can already use Canvas Commons
+          to create production-quality animations.
         </p>
         <p>
           <a
             className="button button--outline button--lg"
-            href="https://github.com/motion-canvas/examples"
+            href="https://github.com/canvas-commons/examples"
             target="_blank"
           >
             Video Source Code

@@ -1,4 +1,4 @@
-# Contributing to Motion Canvas
+# Contributing to Canvas Commons
 
 This is an initial version of the Contribution Guide. Feel free to discuss it
 and suggest any changes on [our discord server][discord].
@@ -41,11 +41,11 @@ on any issue you're working on, to let others know.
 
 ## Semantic Versioning
 
-Motion Canvas follows [semantic versioning][semver].
+Canvas Commons follows [semantic versioning][semver].
 
 ## Making a Pull Request
 
-1. Fork the motion-canvas/motion-canvas repo.
+1. Fork the canvas-commons/canvas-commons repo.
 2. In your forked repo, create a new branch for your changes:
    ```shell
    git checkout -b my-fix-branch main
@@ -112,18 +112,18 @@ This Contribution Guide was partially inspired by [React][react] and
 [Angular][angular].
 
 [semver]: https://semver.org/
-[discord]: https://chat.motioncanvas.io
+[discord]: https://chat.canvascommons.io
 [semantic-release]:
   https://semantic-release.gitbook.io/semantic-release/support/faq#can-i-set-the-initial-release-version-of-my-package-to-0.0.1
-[main]: https://github.com/motion-canvas/motion-canvas/tree/main
-[issues]: https://github.com/motion-canvas/motion-canvas/issues
-[new-issue]: https://github.com/motion-canvas/motion-canvas/issues/new/choose
+[main]: https://github.com/canvas-commons/canvas-commons/tree/main
+[issues]: https://github.com/canvas-commons/canvas-commons/issues
+[new-issue]: https://github.com/canvas-commons/canvas-commons/issues/new/choose
 [new-feature]:
-  https://github.com/motion-canvas/motion-canvas/issues/new?template=feature_request.md
+  https://github.com/canvas-commons/canvas-commons/issues/new?template=feature_request.md
 [commit-format]:
   https://github.com/angular/angular/blob/main/CONTRIBUTING.md#commit
 [angular]: https://github.com/angular/angular/blob/main/CONTRIBUTING.md
 [react]: https://reactjs.org/docs/how-to-contribute.html
 [label-accepted]:
-  https://github.com/motion-canvas/motion-canvas/labels/c-accepted
+  https://github.com/canvas-commons/canvas-commons/labels/c-accepted
 [gist]: https://gist.github.com/

@@ -1,3 +1,4 @@
+import type {Player} from '@canvas-commons/core';
 import {indentWithTab} from '@codemirror/commands';
 import {javascript} from '@codemirror/lang-javascript';
 import {syntaxHighlighting} from '@codemirror/language';
@@ -5,7 +6,6 @@ import {EditorState, Text} from '@codemirror/state';
 import {EditorView, keymap} from '@codemirror/view';
 import ExecutionEnvironment from '@docusaurus/ExecutionEnvironment';
 import {useLocation} from '@docusaurus/router';
-import type {Player} from '@motion-canvas/core';
 import IconImage from '@site/src/Icon/Image';
 import {Pause} from '@site/src/Icon/Pause';
 import {PlayArrow} from '@site/src/Icon/PlayArrow';

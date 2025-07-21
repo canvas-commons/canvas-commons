@@ -1,4 +1,4 @@
-import {Vector2, clamp} from '@motion-canvas/core';
+import {Vector2, clamp} from '@canvas-commons/core';
 import parse, {PathCommand} from 'parse-svg-path';
 import {ArcSegment} from './ArcSegment';
 import {CubicBezierSegment} from './CubicBezierSegment';

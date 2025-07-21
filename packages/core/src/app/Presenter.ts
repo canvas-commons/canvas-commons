@@ -32,8 +32,8 @@ export enum PresenterState {
   Aborting,
 }
 
-const NextSlide = Symbol('@motion-canvas/core/app/NextSlide');
-const PreviousSlide = Symbol('@motion-canvas/core/app/PreviousSlide');
+const NextSlide = Symbol('@canvas-commons/core/app/NextSlide');
+const PreviousSlide = Symbol('@canvas-commons/core/app/PreviousSlide');
 
 export class Presenter {
   public get onStateChanged() {

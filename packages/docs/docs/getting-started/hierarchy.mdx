@@ -51,10 +51,10 @@ graph TD;
 </div>
 
 Each node is an instance of a class extending the base [`Node`][node] class. To
-make the code more readable, Motion Canvas uses a custom
+make the code more readable, Canvas Commons uses a custom
 [JSX](https://reactjs.org/docs/introducing-jsx.html) runtime. This way, instead
 of instantiating the nodes ourselves, we can write an XML-like markup. Note that
-Motion Canvas does **not** use React itself, only JSX. There's no virtual DOM or
+Canvas Commons does **not** use React itself, only JSX. There's no virtual DOM or
 reconciliation and the JSX tags are mapped directly to Node instances. These two
 code snippets are equivalent:
 
@@ -170,8 +170,8 @@ nodes. In this documentation, we'll be referring to this process as _querying_.
 Consider the following animation:
 
 ```tsx editor
-import {makeScene2D, Layout, Txt, Circle, Rect, is} from '@motion-canvas/2d';
-import {all} from '@motion-canvas/core';
+import {makeScene2D, Layout, Txt, Circle, Rect, is} from '@canvas-commons/2d';
+import {all} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   view.add(
@@ -211,11 +211,11 @@ Knowing this, we could try to find all nodes of type `Txt` as follows:
 const texts = view.findAll(node => node instanceof Txt);
 ```
 
-But Motion Canvas comes with a helpful utility function called
+But Canvas Commons comes with a helpful utility function called
 [`is`](/api/2d/utils#is) that can create this predicate for us:
 
 ```ts
-import {is} from '@motion-canvas/2d';
+import {is} from '@canvas-commons/2d';
 // ...
 const texts = view.findAll(is(Txt));
 ```

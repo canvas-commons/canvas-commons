@@ -1,4 +1,4 @@
-import {Vector2} from '@motion-canvas/core';
+import {Vector2} from '@canvas-commons/core';
 import {CurvePoint} from './CurvePoint';
 
 export abstract class Segment {

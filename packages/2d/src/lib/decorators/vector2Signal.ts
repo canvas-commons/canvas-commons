@@ -3,7 +3,7 @@ import {
   Signal,
   Vector2,
   Vector2SignalContext,
-} from '@motion-canvas/core';
+} from '@canvas-commons/core';
 import type {Length} from '../partials';
 import {compound} from './compound';
 import {wrapper} from './signal';

@@ -1,4 +1,4 @@
-import {LogLevel} from '@motion-canvas/core';
+import {LogLevel} from '@canvas-commons/core';
 import {useEffect, useRef, useState} from 'preact/hooks';
 import {useApplication, usePanels} from '../../contexts';
 import {useReducedMotion} from '../../hooks';
@@ -6,8 +6,8 @@ import {EditorPanel} from '../../signals';
 import {shake} from '../animations';
 import {
   Bug,
+  CanvasCommons,
   HourglassBottom,
-  MotionCanvas,
   Movie,
   School,
   Science,
@@ -44,7 +44,7 @@ export function Navigation() {
         id="project-selection-link"
         href={window.location.pathname === '/' ? undefined : '../'}
       >
-        <MotionCanvas />
+        <CanvasCommons />
       </TabLink>
       <TabGroup tab={sidebar.current.value} setTab={tab => sidebar.set(tab)}>
         <Tab
@@ -82,7 +82,7 @@ export function Navigation() {
         <TabLink
           title="Experimental features enabled"
           id="docs-experimental-link"
-          href="https://motioncanvas.io/docs/experimental/"
+          href="https://canvascommons.io/docs/experimental/"
           target="_blank"
         >
           <Science />
@@ -92,7 +92,7 @@ export function Navigation() {
       <TabLink
         title="Docs"
         id="docs-external-link"
-        href="https://motioncanvas.io/docs/"
+        href="https://canvascommons.io/docs/"
         target="_blank"
       >
         <School />

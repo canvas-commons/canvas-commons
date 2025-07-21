@@ -1,10 +1,10 @@
 {
-  "name": "@motion-canvas/2d",
-  "version": "3.17.2",
-  "description": "A 2D renderer for Motion Canvas",
-  "author": "motion-canvas",
-  "homepage": "https://motioncanvas.io/",
-  "bugs": "https://github.com/motion-canvas/motion-canvas/issues",
+  "name": "@canvas-commons/2d",
+  "version": "0.1.0",
+  "description": "A 2D renderer for Canvas Commons",
+  "author": "canvas-commons",
+  "homepage": "https://canvascommons.io/",
+  "bugs": "https://github.com/canvas-commons/canvas-commons/issues",
   "license": "MIT",
   "main": "lib/index.js",
   "types": "./lib/index.d.ts",
@@ -19,7 +19,7 @@
   "sideEffects": false,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/motion-canvas/motion-canvas.git"
+    "url": "git+https://github.com/canvas-commons/canvas-commons.git"
   },
   "files": [
     "lib",
@@ -28,8 +28,8 @@
     "tsconfig.project.json"
   ],
   "devDependencies": {
-    "@motion-canvas/internal": "0.0.0",
-    "@motion-canvas/ui": "^3.17.2",
+    "@canvas-commons/internal": "0.0.0",
+    "@canvas-commons/ui": "^0.1.0",
     "@preact/signals": "^1.2.1",
     "clsx": "^2.0.0",
     "jsdom": "^22.1.0",
@@ -40,7 +40,7 @@
     "@codemirror/language": "^6.10.1",
     "@lezer/common": "^1.2.1",
     "@lezer/highlight": "^1.2.0",
-    "@motion-canvas/core": "^3.17.2",
+    "@canvas-commons/core": "^0.1.0",
     "code-fns": "^0.8.2",
     "escape-string-regexp": "^5.0.0",
     "mathjax-full": "^3.2.2",

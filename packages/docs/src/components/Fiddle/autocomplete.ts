@@ -23,10 +23,10 @@ function loadModule(module: Record<string, unknown>) {
 }
 
 if (ExecutionEnvironment.canUseDOM) {
-  import(/* webpackIgnore: true */ '@motion-canvas/core')
+  import(/* webpackIgnore: true */ '@canvas-commons/core')
     .then(loadModule)
     .catch();
-  import(/* webpackIgnore: true */ '@motion-canvas/2d')
+  import(/* webpackIgnore: true */ '@canvas-commons/2d')
     .then(loadModule)
     .catch();
 }

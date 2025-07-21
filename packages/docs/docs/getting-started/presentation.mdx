@@ -7,7 +7,7 @@ import {VideoSettings} from '@site/src/Icon/VideoSettings';
 
 # Presentation
 
-Aside from exporting your animations, you can use Motion Canvas to present them
+Aside from exporting your animations, you can use Canvas Commons to present them
 in real time. Simply define some slides in your animation and then navigate
 between them using the Presentation Mode.
 
@@ -18,8 +18,8 @@ beginning of a new slide. When this function is yielded, the playback will pause
 and wait for you to press `SPACE`:
 
 ```ts
-import {makeScene2D, Txt} from '@motion-canvas/2d';
-import {beginSlide, createRef, waitFor} from '@motion-canvas/core';
+import {makeScene2D, Txt} from '@canvas-commons/2d';
+import {beginSlide, createRef, waitFor} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   const title = createRef<Txt>();

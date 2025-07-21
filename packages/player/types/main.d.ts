@@ -1,4 +1,4 @@
-export interface MotionCanvasPlayerProps {
+export interface CanvasCommonsPlayerProps {
   src: string;
   width?: number;
   height?: number;

@@ -8,12 +8,12 @@ export function settingsPlugin(): Plugin {
   const resolvedSettingsId = '\0' + settingsId;
   const settingsPath = path.resolve(
     os.homedir(),
-    '.motion-canvas/settings.json',
+    '.canvas-commons/settings.json',
   );
   const outputDirectory = path.dirname(settingsPath);
 
   return {
-    name: 'motion-canvas:settings',
+    name: 'canvas-commons:settings',
 
     resolveId(id) {
       if (id === settingsId) {
@@ -35,7 +35,7 @@ export function settingsPlugin(): Plugin {
     },
 
     configureServer(server) {
-      server.ws.on('motion-canvas:meta', async ({source, data}, client) => {
+      server.ws.on('canvas-commons:meta', async ({source, data}, client) => {
         if (source !== resolvedSettingsId) {
           return;
         }
@@ -62,7 +62,7 @@ export function settingsPlugin(): Plugin {
           ]);
         }
 
-        client.send('motion-canvas:meta-ack', {source});
+        client.send('canvas-commons:meta-ack', {source});
       });
     },
   };

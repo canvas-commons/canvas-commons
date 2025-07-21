@@ -5,7 +5,7 @@ import {
   ProjectMetadata,
   Renderer,
   SettingsMetadata,
-} from '@motion-canvas/core';
+} from '@canvas-commons/core';
 import {Signal, useSignal} from '@preact/signals';
 import {ComponentChildren, createContext} from 'preact';
 import {useContext, useRef} from 'preact/hooks';

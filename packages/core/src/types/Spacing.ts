@@ -26,7 +26,7 @@ export type SpacingSignal<T> = CompoundSignal<
 
 export class Spacing implements Type, WebGLConvertible {
   public static readonly symbol = Symbol.for(
-    '@motion-canvas/core/types/Spacing',
+    '@canvas-commons/core/types/Spacing',
   );
 
   public top = 0;

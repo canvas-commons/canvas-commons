@@ -1,4 +1,4 @@
-import {Color} from '@motion-canvas/core';
+import {Color} from '@canvas-commons/core';
 import {valid} from 'chroma-js';
 import {useRef, useState} from 'preact/hooks';
 import {useReducedMotion} from '../../hooks';

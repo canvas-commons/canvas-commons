@@ -1,4 +1,4 @@
-import {SignalValue, unwrap} from '@motion-canvas/core';
+import {SignalValue, unwrap} from '@canvas-commons/core';
 import {PossibleCodeFragment} from './CodeFragment';
 import {isCodeMetrics} from './CodeMetrics';
 

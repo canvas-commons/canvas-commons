@@ -8,7 +8,7 @@ export class AudioResourceManager {
 
   public constructor(private readonly logger: Logger) {
     if (import.meta.hot) {
-      import.meta.hot.on('motion-canvas:assets', ({urls}) => {
+      import.meta.hot.on('canvas-commons:assets', ({urls}) => {
         for (const url of urls) {
           const manager = this.lookup.get(url);
           manager?.reload();

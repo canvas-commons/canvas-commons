@@ -1,4 +1,4 @@
-import {clamp} from '@motion-canvas/core';
+import {clamp} from '@canvas-commons/core';
 
 /**
  * A polynomial in the form ax^3 + bx^2 + cx + d up to a cubic polynomial.

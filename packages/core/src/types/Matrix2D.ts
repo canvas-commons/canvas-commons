@@ -32,7 +32,7 @@ export type PossibleMatrix2D =
  */
 export class Matrix2D implements Type, WebGLConvertible {
   public static readonly symbol = Symbol.for(
-    '@motion-canvas/core/types/Matrix2D',
+    '@canvas-commons/core/types/Matrix2D',
   );
 
   public readonly values: Float32Array = new Float32Array(6);

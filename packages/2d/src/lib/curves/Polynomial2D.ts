@@ -1,4 +1,4 @@
-import {BBox, Vector2} from '@motion-canvas/core';
+import {BBox, Vector2} from '@canvas-commons/core';
 
 import {Polynomial} from './Polynomial';
 

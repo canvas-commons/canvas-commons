@@ -1,1 +1,27 @@
-<?xml version="1.0" encoding="UTF-8"?><svg id="a" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48"><defs><style>.b{fill:#99c47a;}.c{fill:#ff6470;}.d{fill:#ffc66d;}.e{fill:#68abdf;}.f{fill:#f2f2f2;}</style></defs><rect class="f" x="23.41" y="19.41" width="4" height="12" rx="2" ry="2" transform="translate(-10.53 25.41) rotate(-45)"/><rect class="e" x="24.12" y="11.22" width="4" height="10" rx="2" ry="2" transform="translate(-3.82 23.22) rotate(-45)"/><rect class="b" x="17.05" y="7.15" width="4" height="4" rx="2" ry="2" transform="translate(-.89 16.15) rotate(-45)"/><rect class="d" x="12.45" y="7.95" width="4" height="13" rx="2" ry="2" transform="translate(-5.99 14.45) rotate(-45)"/><rect class="c" x="12.1" y="16" width="4" height="16" rx="2" ry="2" transform="translate(-12.84 17) rotate(-45)"/><rect class="f" x="22.31" y="26.38" width="4" height="12" rx="2" ry="2" transform="translate(6.5 68.74) rotate(-117)"/><rect class="f" x="28.6" y="29.58" width="4" height="12" rx="2" ry="2" transform="translate(66.38 65.94) rotate(171)"/><rect class="f" x="33.58" y="24.6" width="4" height="12" rx="2" ry="2" transform="translate(71.37 .24) rotate(99)"/><rect class="f" x="30.38" y="18.31" width="4" height="12" rx="2" ry="2" transform="translate(14.57 -12.05) rotate(27)"/></svg>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 48 48" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g transform="matrix(0.098317,0,0,0.098317,-2.59269,-0.373097)">
+        <g transform="matrix(2.79167,0,0,2.79167,-328.875,-59.75)">
+            <circle cx="195" cy="42" r="12" style="fill:rgb(166,227,161);"/>
+        </g>
+        <g transform="matrix(0.873786,0,0,0.873786,18.4951,18.2427)">
+            <path d="M71.315,124.685C56.036,109.405 56.036,84.595 71.315,69.315C86.595,54.036 111.405,54.036 126.685,69.315L229.685,172.315C244.964,187.595 244.964,212.405 229.685,227.685C214.405,242.964 189.595,242.964 174.315,227.685L71.315,124.685Z" style="fill:rgb(249,226,175);"/>
+        </g>
+        <g transform="matrix(0.873786,0,0,0.873786,209.495,53.2427)">
+            <path d="M181.035,233.074C178.65,231.56 176.395,229.764 174.315,227.685L71.315,124.685C56.036,109.405 56.036,84.595 71.315,69.315C86.595,54.036 111.405,54.036 126.685,69.315L203.107,145.738L181.035,233.074Z" style="fill:rgb(137,180,250);"/>
+        </g>
+        <g transform="matrix(0.873786,0,0,0.873786,18.4951,178.243)">
+            <path d="M194.516,238.427C187.112,236.994 180.044,233.413 174.315,227.685L71.315,124.685C56.036,109.405 56.036,84.595 71.315,69.315C86.595,54.036 111.405,54.036 126.685,69.315L229.685,172.315C244.964,187.595 244.964,212.405 229.685,227.685C228.873,228.497 228.034,229.265 227.171,229.991L194.516,238.427Z" style="fill:rgb(243,139,168);"/>
+        </g>
+        <g transform="matrix(0.873786,0,0,0.873786,187.495,190.243)">
+            <path d="M136.377,189.747L71.315,124.685C56.036,109.405 56.036,84.595 71.315,69.315C86.595,54.036 111.405,54.036 126.685,69.315L191.574,134.205L180.412,178.37L136.377,189.747Z" style="fill:rgb(249,226,175);"/>
+        </g>
+        <g transform="matrix(0.78614,-0.841244,1.09524,0.355194,8.93412,486.419)">
+            <path d="M71.315,124.685C61.598,114.968 66.115,94.674 81.394,79.394C96.674,64.115 116.968,59.598 126.685,69.315L229.685,172.315C239.402,182.032 234.885,202.326 219.606,217.606C204.326,232.885 184.032,237.402 174.315,227.685L71.315,124.685Z" style="fill:rgb(235,235,235);"/>
+        </g>
+        <g transform="matrix(-0.360371,-1.09569,0.83768,-0.792908,341.204,572.912)">
+            <path d="M71.315,124.685C61.623,114.992 66.158,94.718 81.438,79.438C96.718,64.158 116.992,59.623 126.685,69.315L229.685,172.315C239.377,182.008 234.842,202.282 219.562,217.562C204.282,232.842 184.008,237.377 174.315,227.685L71.315,124.685Z" style="fill:rgb(235,235,235);"/>
+        </g>
+    </g>
+</svg>

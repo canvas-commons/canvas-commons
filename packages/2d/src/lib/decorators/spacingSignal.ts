@@ -1,4 +1,4 @@
-import {Spacing} from '@motion-canvas/core';
+import {Spacing} from '@canvas-commons/core';
 import {compound} from './compound';
 import {wrapper} from './signal';
 

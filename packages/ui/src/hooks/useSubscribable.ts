@@ -2,7 +2,7 @@ import type {
   EventHandler,
   Subscribable,
   SubscribableValueEvent,
-} from '@motion-canvas/core';
+} from '@canvas-commons/core';
 import {Inputs, useEffect, useState} from 'preact/hooks';
 
 export function useSubscribable<TValue, THandler extends EventHandler<TValue>>(

@@ -37,7 +37,7 @@ Below is an example of a simple shader that inverts the colors of the node:
 #version 300 es
 precision highp float;
 
-#include "@motion-canvas/core/shaders/common.glsl"
+#include "@canvas-commons/core/shaders/common.glsl"
 
 void main() {
     outColor = texture(sourceTexture, sourceUV);
@@ -47,7 +47,7 @@ void main() {
 
 ## GLSL Preprocessor
 
-Motion Canvas comes with a simple GLSL preprocessor that lets you include files
+Canvas Commons comes with a simple GLSL preprocessor that lets you include files
 using the `#include` directive:
 
 ```glsl
@@ -64,7 +64,7 @@ It can point to a relative file:
 Or to a file from another package:
 
 ```glsl
-#include "@motion-canvas/core/shaders/common.glsl"
+#include "@canvas-commons/core/shaders/common.glsl"
 ```
 
 For convenience, a GLSL file can be imported only once per shader. Each
@@ -96,12 +96,12 @@ uniform mat4 destinationMatrix;
 They can be included using the following directive:
 
 ```glsl
-#include "@motion-canvas/core/shaders/common.glsl"
+#include "@canvas-commons/core/shaders/common.glsl"
 ```
 
 ## Source and Destination
 
-Shaders in Motion Canvas follow the same idea as
+Shaders in Canvas Commons follow the same idea as
 [`globalCompositeOperation`][globalCompositeOperation] in 2D canvas. The
 `sourceTexture` contains the node being rendered, and the `destinationTexture`
 contains what has already been rendered to the screen. These two can be sampled

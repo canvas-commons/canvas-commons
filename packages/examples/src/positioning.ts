@@ -1,4 +1,4 @@
-import {makeProject} from '@motion-canvas/core';
+import {makeProject} from '@canvas-commons/core';
 
 import node from './scenes/positioning?scene';
 

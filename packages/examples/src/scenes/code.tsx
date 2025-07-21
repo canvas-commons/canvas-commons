@@ -1,4 +1,4 @@
-import {CODE, Code, lines, makeScene2D, word} from '@motion-canvas/2d';
+import {CODE, Code, lines, makeScene2D, word} from '@canvas-commons/2d';
 import {
   DEFAULT,
   SimpleSignal,
@@ -6,7 +6,7 @@ import {
   createSignal,
   easeOutCubic,
   waitFor,
-} from '@motion-canvas/core';
+} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   const codeRef = createRef<Code>();

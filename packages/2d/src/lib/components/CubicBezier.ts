@@ -1,4 +1,8 @@
-import {PossibleVector2, SignalValue, Vector2Signal} from '@motion-canvas/core';
+import {
+  PossibleVector2,
+  SignalValue,
+  Vector2Signal,
+} from '@canvas-commons/core';
 import {CubicBezierSegment} from '../curves';
 import {PolynomialSegment} from '../curves/PolynomialSegment';
 import {computed, vector2Signal} from '../decorators';
@@ -29,8 +33,8 @@ export interface CubicBezierProps extends CurveProps {
  *
  * @preview
  * ```tsx editor
- * import {makeScene2D, CubicBezier} from '@motion-canvas/2d';
- * import {createRef} from '@motion-canvas/core';
+ * import {makeScene2D, CubicBezier} from '@canvas-commons/2d';
+ * import {createRef} from '@canvas-commons/core';
  *
  * export default makeScene2D(function* (view) {
  *   const bezier = createRef<CubicBezier>();

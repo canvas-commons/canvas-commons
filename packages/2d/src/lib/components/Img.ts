@@ -10,7 +10,7 @@ import {
   Vector2,
   useLogger,
   viaProxy,
-} from '@motion-canvas/core';
+} from '@canvas-commons/core';
 import {computed, initial, nodeName, signal} from '../decorators';
 import {DesiredLength} from '../partials';
 import {drawImage} from '../utils';
@@ -37,10 +37,10 @@ export interface ImgProps extends RectProps {
  *
  * @preview
  * ```tsx editor
- * import {Img} from '@motion-canvas/2d';
- * import {all, waitFor} from '@motion-canvas/core';
- * import {createRef} from '@motion-canvas/core';
- * import {makeScene2D} from '@motion-canvas/2d';
+ * import {Img} from '@canvas-commons/2d';
+ * import {all, waitFor} from '@canvas-commons/core';
+ * import {createRef} from '@canvas-commons/core';
+ * import {makeScene2D} from '@canvas-commons/2d';
  *
  * export default makeScene2D(function* (view) {
  *   const ref = createRef<Img>();
@@ -71,7 +71,7 @@ export class Img extends Rect {
 
   static {
     if (import.meta.hot) {
-      import.meta.hot.on('motion-canvas:assets', ({urls}) => {
+      import.meta.hot.on('canvas-commons:assets', ({urls}) => {
         for (const url of urls) {
           if (Img.pool[url]) {
             delete Img.pool[url];
@@ -184,7 +184,7 @@ The <code>src</code> property was set to:
 ...which resolved to the following url:
 <pre><code>${src}</code></pre>
 Make sure that source is correct and that the image exists.<br/>
-<a target='_blank' href='https://motioncanvas.io/docs/media#images'>Learn more</a>
+<a target='_blank' href='https://canvascommons.io/docs/media#images'>Learn more</a>
 about working with images.`,
                 inspect: this.key,
               }),

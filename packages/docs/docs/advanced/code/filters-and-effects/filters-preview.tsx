@@ -1,5 +1,5 @@
-import {Img, Txt, makeScene2D} from '@motion-canvas/2d';
-import {all, createRef, createSignal, linear} from '@motion-canvas/core';
+import {Img, Txt, makeScene2D} from '@canvas-commons/2d';
+import {all, createRef, createSignal, linear} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   view.fill('#141414');

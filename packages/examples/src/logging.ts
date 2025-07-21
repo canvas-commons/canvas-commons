@@ -1,4 +1,4 @@
-import {makeProject} from '@motion-canvas/core';
+import {makeProject} from '@canvas-commons/core';
 
 import scene from './scenes/logging?scene';
 

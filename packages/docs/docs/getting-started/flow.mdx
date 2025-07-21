@@ -7,7 +7,7 @@ import ApiSnippet from '@site/src/components/Api/ApiSnippet';
 
 # Animation flow
 
-Motion Canvas uses generator functions to describe animations.
+Canvas Commons uses generator functions to describe animations.
 
 A generator function is a function that can return multiple values:
 
@@ -33,7 +33,7 @@ wait a constant amount of time between these updates so that our eyes can
 register what's happening. With generators, we can update things in-between the
 `yield` keywords, and then wait for a bit whenever the function yields.
 
-This is the fundamental idea of Motion Canvas. `yield` means: "The current frame
+This is the fundamental idea of Canvas Commons. `yield` means: "The current frame
 is ready, display it on the screen and come back to me later."
 
 With that in mind, we can make a circle flicker on the screen using the
@@ -62,8 +62,8 @@ For instance, we could extract the flickering code from the above example to a
 separate generator and delegate our scene function to it:
 
 ```tsx
-import {createRef, ThreadGenerator} from '@motion-canvas/core';
-import {makeScene2D, Circle} from '@motion-canvas/2d';
+import {createRef, ThreadGenerator} from '@canvas-commons/core';
+import {makeScene2D, Circle} from '@canvas-commons/2d';
 
 export default makeScene2D(function* (view) {
   const circle = createRef<Circle>();
@@ -85,7 +85,7 @@ function* flicker(circle: Circle): ThreadGenerator {
 The resulting animation is exactly the same, but now we have a reusable function
 that we can use whenever we need some flickering.
 
-Motion Canvas provides a lot of useful generators like this. You may remember
+Canvas Commons provides a lot of useful generators like this. You may remember
 this snippet from [quickstart](/docs/quickstart):
 
 ```ts
@@ -141,8 +141,8 @@ There are many ways to animate multiple objects. Here are some examples. Try
 using them in the below editor.
 
 ```tsx editor ratio=2
-import {makeScene2D, Rect} from '@motion-canvas/2d';
-import {all, waitFor, makeRef, range} from '@motion-canvas/core';
+import {makeScene2D, Rect} from '@canvas-commons/2d';
+import {all, waitFor, makeRef, range} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   const rects: Rect[] = [];

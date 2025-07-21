@@ -6,7 +6,7 @@ import {
   colorSignal,
   initial,
   signal,
-} from '@motion-canvas/2d';
+} from '@canvas-commons/2d';
 import {
   Color,
   ColorSignal,
@@ -18,7 +18,7 @@ import {
   createSignal,
   easeInOutCubic,
   tween,
-} from '@motion-canvas/core';
+} from '@canvas-commons/core';
 
 export interface SwitchProps extends NodeProps {
   initialState?: SignalValue<boolean>;

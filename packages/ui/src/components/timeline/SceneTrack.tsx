@@ -1,6 +1,6 @@
 import styles from './Timeline.module.scss';
 
-import type {Scene} from '@motion-canvas/core';
+import type {Scene} from '@canvas-commons/core';
 import {useMemo} from 'preact/hooks';
 import {useApplication, useTimelineContext} from '../../contexts';
 import {useScenes, useSubscribableValue} from '../../hooks';

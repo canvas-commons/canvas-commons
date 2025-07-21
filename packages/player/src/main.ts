@@ -1,12 +1,16 @@
-import type {PlayerSettings, Project, StageSettings} from '@motion-canvas/core';
-import {Player, Stage} from '@motion-canvas/core';
+import type {
+  PlayerSettings,
+  Project,
+  StageSettings,
+} from '@canvas-commons/core';
+import {Player, Stage} from '@canvas-commons/core';
 
-import {Vector2} from '@motion-canvas/core';
+import {Vector2} from '@canvas-commons/core';
 import styles from './styles.scss?inline';
 import html from './template.html?raw';
 
 const TEMPLATE = `<style>${styles}</style>${html}`;
-const ID = 'motion-canvas-player';
+const ID = 'canvas-commons-player';
 
 enum State {
   Initial = 'initial',
@@ -15,7 +19,7 @@ enum State {
   Error = 'error',
 }
 
-class MotionCanvasPlayer extends HTMLElement {
+class CanvasCommonsPlayer extends HTMLElement {
   public static get observedAttributes() {
     return ['src', 'quality', 'width', 'height', 'auto', 'variables'];
   }
@@ -259,5 +263,5 @@ class MotionCanvasPlayer extends HTMLElement {
 }
 
 if (!customElements.get(ID)) {
-  customElements.define(ID, MotionCanvasPlayer);
+  customElements.define(ID, CanvasCommonsPlayer);
 }

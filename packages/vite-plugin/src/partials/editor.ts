@@ -24,7 +24,7 @@ export function editorPlugin({editor, projects}: EditorPluginConfig): Plugin {
   }
 
   return {
-    name: 'motion-canvas:editor',
+    name: 'canvas-commons:editor',
 
     async load(id) {
       const [, query] = id.split('?');

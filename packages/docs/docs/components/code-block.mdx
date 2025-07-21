@@ -28,7 +28,7 @@ important snippets.
 To display code, set the `code` and `language` property.
 
 ```tsx
-import {CodeBlock} from '@motion-canvas/2d/lib/components/CodeBlock';
+import {CodeBlock} from '@canvas-commons/2d/lib/components/CodeBlock';
 
 yield view.add(
   <CodeBlock language="c#" code={`Console.WriteLine("Hello World!")`} />,
@@ -37,11 +37,11 @@ yield view.add(
 
 You can find a list of available languages in the [Starry Night][languages]
 repository—the library used for syntax highlighting. The default language is
-`tsx`, the language of Motion Canvas, which we will use for the rest of this
+`tsx`, the language of Canvas Commons, which we will use for the rest of this
 guide.
 
 Note that unlike most components, you must `yield` any call to `add` which
-includes a `CodeBlock`. This prompts Motion Canvas to prepare the syntax
+includes a `CodeBlock`. This prompts Canvas Commons to prepare the syntax
 highlighter.
 
 ```tsx
@@ -54,7 +54,7 @@ For convenience, the indentation of code will be automatically adjust whenever
 the code starts with a new line.
 
 ```tsx
-import {CodeBlock} from '@motion-canvas/2d/lib/components/CodeBlock';
+import {CodeBlock} from '@canvas-commons/2d/lib/components/CodeBlock';
 
 yield view.add(
   // note that the ` bracket is followed by a new line
@@ -77,7 +77,7 @@ console.log('Hello World!');
 The indentation is then set by the least indented code.
 
 ```tsx
-import {CodeBlock} from '@motion-canvas/2d/lib/components/CodeBlock';
+import {CodeBlock} from '@canvas-commons/2d/lib/components/CodeBlock';
 
 yield view.add(
   // note that the ` bracket is followed by a new line
@@ -108,8 +108,8 @@ You can define the selection with the help of three helper functions — `range`
 `word` and `lines`.
 
 ```tsx
-import {CodeBlock} from '@motion-canvas/2d/lib/components/CodeBlock';
-import {createRef} from '@motion-canvas/core';
+import {CodeBlock} from '@canvas-commons/2d/lib/components/CodeBlock';
+import {createRef} from '@canvas-commons/core';
 
 const codeBlockRef = createRef<CodeBlock>();
 yield view.add(
@@ -177,7 +177,7 @@ If you wish to undo a selection, you can either select all lines from `0` to
 `Infinity`, or simply pass `DEFAULT` as a selection, as shown below:
 
 ```ts
-import {DEFAULT} from '@motion-canvas/core';
+import {DEFAULT} from '@canvas-commons/core';
 
 // highlight lines 1 and 2
 yield * codeRef().selection(lines(1, 2), 1);
@@ -234,8 +234,8 @@ for future edits. Then call `edit` with an embedded `insert` call to add the new
 code.
 
 ```tsx
-import {CodeBlock, insert} from '@motion-canvas/2d/lib/components/CodeBlock';
-import {createRef} from '@motion-canvas/core';
+import {CodeBlock, insert} from '@canvas-commons/2d/lib/components/CodeBlock';
+import {createRef} from '@canvas-commons/core';
 
 const codeRef = createRef<CodeBlock>();
 
@@ -255,7 +255,7 @@ Removing code is similar, only with the provided code being removed during the
 animation.
 
 ```tsx
-import {CodeBlock, remove} from '@motion-canvas/2d/lib/components/CodeBlock';
+import {CodeBlock, remove} from '@canvas-commons/2d/lib/components/CodeBlock';
 
 yield view.add(<CodeBlock ref={codeRef} code={`var myBool = true;`} />);
 

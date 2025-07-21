@@ -13,7 +13,7 @@ export function isPromisable(value: any): value is Promisable<any> {
 }
 
 /**
- * The main generator type produced by all generator functions in Motion Canvas.
+ * The main generator type produced by all generator functions in Canvas Commons.
  *
  * @example
  * Yielded values can be used to control the flow of animation:

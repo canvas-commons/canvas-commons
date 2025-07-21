@@ -1,5 +1,5 @@
-import {Layout, Node, Rect, makeScene2D} from '@motion-canvas/2d';
-import {createRef} from '@motion-canvas/core';
+import {Layout, Node, Rect, makeScene2D} from '@canvas-commons/2d';
+import {createRef} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   const group = createRef<Node>();

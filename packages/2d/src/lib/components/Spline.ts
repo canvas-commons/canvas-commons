@@ -7,7 +7,7 @@ import {
   Vector2,
   unwrap,
   useLogger,
-} from '@motion-canvas/core';
+} from '@canvas-commons/core';
 import {
   CubicBezierSegment,
   CurveProfile,

@@ -1,19 +1,19 @@
+import type {CanvasCommonsPlayerProps} from '@canvas-commons/player';
 import ExecutionEnvironment from '@docusaurus/ExecutionEnvironment';
-import type {MotionCanvasPlayerProps} from '@motion-canvas/player';
 import clsx from 'clsx';
 import React, {ComponentProps} from 'react';
 import AnimationLink from './AnimationLink';
 import styles from './styles.module.css';
 
 if (ExecutionEnvironment.canUseDOM) {
-  import('@motion-canvas/player');
+  import('@canvas-commons/player');
 }
 
 declare global {
   namespace JSX {
     interface IntrinsicElements {
       // eslint-disable-next-line @typescript-eslint/naming-convention
-      'motion-canvas-player': MotionCanvasPlayerProps & ComponentProps<'div'>;
+      'canvas-commons-player': CanvasCommonsPlayerProps & ComponentProps<'div'>;
     }
   }
 }
@@ -39,7 +39,7 @@ export default function AnimationPlayer({
         small && styles.small,
       )}
     >
-      <motion-canvas-player
+      <canvas-commons-player
         class={styles.player}
         src={`/examples/${name}.js`}
         auto={banner}

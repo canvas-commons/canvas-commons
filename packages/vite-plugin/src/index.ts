@@ -1,4 +1,4 @@
-import motionCanvas from './main';
+import canvasCommons from './main';
 
-export default motionCanvas;
+export default canvasCommons;
 export * from './plugins';

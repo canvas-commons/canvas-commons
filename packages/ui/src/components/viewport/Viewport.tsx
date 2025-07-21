@@ -1,4 +1,4 @@
-import {RendererState} from '@motion-canvas/core';
+import {RendererState} from '@canvas-commons/core';
 import clsx from 'clsx';
 import {useEffect, useState} from 'preact/hooks';
 import {useApplication} from '../../contexts';

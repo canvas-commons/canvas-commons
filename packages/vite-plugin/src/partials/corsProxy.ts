@@ -49,10 +49,10 @@ export function corsProxyPlugin(
 ): Plugin {
   setupEnvVarsForProxy(config);
   return {
-    name: 'motion-canvas:cors-proxy',
+    name: 'canvas-commons:cors-proxy',
     configureServer(server) {
       if (config !== false && config !== undefined) {
-        motionCanvasCorsProxy(
+        canvasCommonsCorsProxy(
           server.middlewares,
           config === true ? {} : config,
         );
@@ -83,7 +83,7 @@ function setupEnvVarsForProxy(
   }
 }
 
-function motionCanvasCorsProxy(
+function canvasCommonsCorsProxy(
   middleware: Connect.Server,
   config: CorsProxyPluginConfig,
 ) {

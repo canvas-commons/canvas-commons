@@ -1,4 +1,4 @@
-import {Plugin} from '@motion-canvas/core';
+import {Plugin} from '@canvas-commons/core';
 import {FunctionComponent} from 'preact';
 import {ShortcutConfig} from '../contexts';
 

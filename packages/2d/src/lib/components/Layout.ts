@@ -20,7 +20,7 @@ import {
   tween,
   Vector2,
   Vector2Signal,
-} from '@motion-canvas/core';
+} from '@canvas-commons/core';
 import {
   addInitializer,
   cloneable,
@@ -673,7 +673,7 @@ export class Layout extends Node {
 
   public constructor(props: LayoutProps) {
     super(props);
-    this.element.dataset.motionCanvasKey = this.key;
+    this.element.dataset.canvasCommonsKey = this.key;
   }
 
   public lockSize() {

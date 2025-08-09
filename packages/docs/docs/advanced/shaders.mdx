@@ -4,6 +4,8 @@ slug: /shaders
 ---
 
 import ExperimentalWarning from '@site/src/components/ExperimentalWarning';
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
 # Shaders
 
@@ -14,6 +16,9 @@ Shaders allow you to apply custom effects to any node using WebGL.
 Shaders can be specified using the [`shaders`](/api/2d/components/Node#shaders)
 property. In the simplest case, the value should be a string containing the GLSL
 code for the fragment shader:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```tsx
 // highlight-next-line
@@ -30,6 +35,27 @@ view.add(
   />,
 );
 ```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+// highlight-next-line
+import myShader from './myShader.glsl';
+
+//...
+
+const circleElement = new Circle({
+  size: 200,
+  fill: 'lightseagreen',
+  // highlight-next-line
+  shaders: myShader,
+});
+view.add(circleElement);
+```
+
+</TabItem>
+</Tabs>
 
 Below is an example of a simple shader that inverts the colors of the node:
 
@@ -113,6 +139,9 @@ ways to produce the desired result.
 You can pass custom uniforms to the shader by replacing the shader string with a
 configuration object:
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```tsx
 // highlight-next-line
 import myShader from './myShader.glsl';
@@ -135,6 +164,34 @@ view.add(
   />,
 );
 ```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+// highlight-next-line
+import myShader from './myShader.glsl';
+
+//...
+
+const circleElement = new Circle({
+  size: 200,
+  fill: 'lightseagreen',
+  // highlight-next-line
+  shaders: {
+    fragment: myShader,
+    uniforms: {
+      myFloat: 0.5,
+      myVec2: new Vector2(2, 5),
+      myColor: new Color('blue'),
+    },
+  },
+});
+view.add(circleElement);
+```
+
+</TabItem>
+</Tabs>
 
 The `uniforms` property is an object where the keys are the names of the
 uniforms and the values are what's passed to the shader.

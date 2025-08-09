@@ -3,6 +3,8 @@ sidebar_position: 11
 slug: /transitions
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 import ApiSnippet from '@site/src/components/Api/ApiSnippet';
 import AnimationPlayer from '@site/src/components/AnimationPlayer';
 
@@ -46,6 +48,9 @@ Canvas Commons comes with a set of common transitions in a form of easy-to-use
 generators. To use them, `yield*` the transition generator at the beginning of
 the new scene:
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```tsx title="src/scenes/secondScene.tsx"
 export default makeScene2D(function* (view) {
   // set up the scene:
@@ -58,6 +63,25 @@ export default makeScene2D(function* (view) {
   yield* waitFor(3);
 });
 ```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts title="src/scenes/secondScene.tsx"
+export default makeScene2D(function* (view) {
+  // set up the scene:
+  view.add(/* your nodes here */);
+
+  // perform a slide transition to the left:
+  yield* slideTransition(Direction.Left);
+
+  // proceed with the animation
+  yield* waitFor(3);
+});
+```
+
+</TabItem>
+</Tabs>
 
 <AnimationPlayer small name={'transitions'} link={'transitions-second'} />
 
@@ -161,6 +185,9 @@ for the duration of the transition. You can use the
 [`finishScene`](/api/core/utils#finishScene) function to trigger the transition
 early, allowing the animation to continue while transitioning:
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```tsx
 export default makeScene2D(function* (view) {
   yield* animationOne();
@@ -170,3 +197,19 @@ export default makeScene2D(function* (view) {
   yield* animationTwo();
 });
 ```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+export default makeScene2D(function* (view) {
+  yield* animationOne();
+  // trigger the transition early:
+  finishScene();
+  // continue animating:
+  yield* animationTwo();
+});
+```
+
+</TabItem>
+</Tabs>

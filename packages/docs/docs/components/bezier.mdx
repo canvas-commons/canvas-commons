@@ -3,7 +3,13 @@ sidebar_position: 3
 slug: /bezier-curves
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Bézier Curves
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```tsx editor mode=preview
 // snippet Cubic Bézier
@@ -54,6 +60,59 @@ export default makeScene2D(function* (view) {
 });
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor mode=preview
+// snippet Cubic Bézier
+import {makeScene2D, CubicBezier} from '@canvas-commons/2d';
+import {createRef} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const bezier = createRef<CubicBezier>();
+
+  const cubicBezierElement = new CubicBezier({
+    lineWidth: 6,
+    stroke: 'lightseagreen',
+    p0: [-200, -70],
+    p1: [120, -120],
+    p2: [-120, 120],
+    p3: [200, 70],
+    end: 0,
+  });
+  bezier(cubicBezierElement);
+  view.add(cubicBezierElement);
+
+  yield* bezier.end(1, 1);
+  yield* bezier.start(1, 1).to(0, 1);
+});
+
+// snippet Quadratic Bézier
+import {makeScene2D, QuadBezier} from '@canvas-commons/2d';
+import {createRef} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const bezier = createRef<QuadBezier>();
+
+  const quadBezierElement = new QuadBezier({
+    lineWidth: 6,
+    stroke: 'lightseagreen',
+    p0: [-150, 50],
+    p1: [0, -120],
+    p2: [150, 50],
+    end: 0,
+  });
+  bezier(quadBezierElement);
+  view.add(quadBezierElement);
+
+  yield* bezier.end(1, 1);
+  yield* bezier.start(1, 1).to(0, 1);
+});
+```
+
+</TabItem>
+</Tabs>
+
 Bézier curves are ubiquitous in computer graphics. Canvas Commons comes with
 components to draw both quadratic and cubic Bézier curves.
 
@@ -77,6 +136,9 @@ points. The exact number of control points is different for different kinds of
 Bézier curves. A quadratic Bézier curve has only a single control point whereas
 a cubic Bézier curve has two.
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```tsx editor
 // snippet Cubic Bézier
 import {makeScene2D, CubicBezier} from '@canvas-commons/2d';
@@ -122,8 +184,60 @@ export default makeScene2D(function* (view) {
 });
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor
+// snippet Cubic Bézier
+import {makeScene2D, CubicBezier} from '@canvas-commons/2d';
+import {createRef, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const bezier = createRef<CubicBezier>();
+
+  const cubicBezierElement = new CubicBezier({
+    lineWidth: 6,
+    stroke: 'lightseagreen',
+    p0: [-200, -70],
+    p1: [120, -120],
+    p2: [-120, 120],
+    p3: [200, 70],
+  });
+  bezier(cubicBezierElement);
+  view.add(cubicBezierElement);
+
+  yield* waitFor(1);
+});
+
+// snippet Quadratic Bézier
+import {makeScene2D, QuadBezier} from '@canvas-commons/2d';
+import {createRef, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const bezier = createRef<QuadBezier>();
+
+  const quadBezierElement = new QuadBezier({
+    lineWidth: 6,
+    stroke: 'lightseagreen',
+    p0: [-150, 50],
+    p1: [0, -120],
+    p2: [150, 50],
+  });
+  bezier(quadBezierElement);
+  view.add(quadBezierElement);
+
+  yield* waitFor(1);
+});
+```
+
+</TabItem>
+</Tabs>
+
 All points of a Bézier curve are compound signals. This means that it's possible
 to animate their `x` and `y` components separately.
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```tsx {6,13}
 view.add(
@@ -141,12 +255,36 @@ view.add(
 yield * bezier().p0.x(200, 1);
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts {6,13}
+const cubicBezierElement = new CubicBezier({
+  lineWidth: 6,
+  stroke: 'lightseagreen',
+  p0: [-200, -70],
+  p1: [120, -120],
+  p2: [-120, 120],
+  p3: [200, 70],
+});
+bezier(cubicBezierElement);
+view.add(cubicBezierElement);
+
+yield * bezier.p0.x(200, 1);
+```
+
+</TabItem>
+</Tabs>
+
 ### Drawing arrows
 
 Similar to the [`Line`][line] and [`Spline`][spline] components, we can also add
 arrowheads to a Bézier curve. To do so, we can use the
 [`startArrow`][start-arrow] and [`endArrow`][end-arrow] properties. We can
 control the size of the arrowheads with the [`arrowSize`][arrow-size] signal.
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```tsx editor
 // snippet Cubic Bézier
@@ -199,11 +337,69 @@ export default makeScene2D(function* (view) {
 });
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor
+// snippet Cubic Bézier
+import {makeScene2D, CubicBezier} from '@canvas-commons/2d';
+import {createRef} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const bezier = createRef<CubicBezier>();
+
+  const cubicBezierElement = new CubicBezier({
+    lineWidth: 6,
+    stroke: 'lightseagreen',
+    p0: [-200, -70],
+    p1: [120, -120],
+    p2: [-120, 120],
+    p3: [200, 70],
+    arrowSize: 16,
+    startArrow: true,
+    endArrow: true,
+  });
+  bezier(cubicBezierElement);
+  view.add(cubicBezierElement);
+
+  yield* bezier.arrowSize(20, 1).to(10, 1).to(16, 1);
+});
+
+// snippet Quadratic Bézier
+import {makeScene2D, QuadBezier} from '@canvas-commons/2d';
+import {createRef} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const bezier = createRef<QuadBezier>();
+
+  const quadBezierElement = new QuadBezier({
+    lineWidth: 6,
+    stroke: 'lightseagreen',
+    p0: [-150, 50],
+    p1: [0, -120],
+    p2: [150, 50],
+    arrowSize: 16,
+    startArrow: true,
+    endArrow: true,
+  });
+  bezier(quadBezierElement);
+  view.add(quadBezierElement);
+
+  yield* bezier.arrowSize(20, 1).to(10, 1).to(16, 1);
+});
+```
+
+</TabItem>
+</Tabs>
+
 :::tip Animating adding arrows
 
 Since `startArrow` and `endArrow` are booleans, they don't lend themselves well
 to being animated. To animate adding arrows to a Bézier curve, we should animate
 `arrowSize`, instead.
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```tsx {7,13}
 view.add(
@@ -221,11 +417,35 @@ view.add(
 yield * bezier().arrowSize(16, 1);
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts {7,13}
+const quadBezierElement = new QuadBezier({
+  p0: [-150, 50],
+  p1: [0, -120],
+  p2: [150, 50],
+  arrowSize: 0,
+  startArrow: true,
+  endArrow: true,
+});
+bezier(quadBezierElement);
+view.add(quadBezierElement);
+
+yield * bezier.arrowSize(16, 1);
+```
+
+</TabItem>
+</Tabs>
+
 :::
 
 ## Examples
 
 The following section shows examples of common animations for Bézier curves.
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```tsx editor
 // snippet Drawing Bézier curves
@@ -294,6 +514,78 @@ export default makeScene2D(function* (view) {
   yield* waitFor(0.5);
 });
 ```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor
+// snippet Drawing Bézier curves
+import {makeScene2D, CubicBezier} from '@canvas-commons/2d';
+import {createRef} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const bezier = createRef<CubicBezier>();
+
+  const cubicBezierElement = new CubicBezier({
+    lineWidth: 6,
+    stroke: 'lightseagreen',
+    p0: [-200, -70],
+    p1: [120, -120],
+    p2: [-120, 120],
+    p3: [200, 70],
+    end: 0,
+  });
+  bezier(cubicBezierElement);
+  view.add(cubicBezierElement);
+
+  yield* bezier.end(1, 2).to(0, 2);
+});
+
+// snippet Moving nodes along a curve
+import {makeScene2D, CubicBezier, Rect} from '@canvas-commons/2d';
+import {
+  createRef,
+  waitFor,
+  createSignal,
+  createComputed,
+} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const bezier = createRef<CubicBezier>();
+
+  const progress = createSignal(0);
+  const curvePoint = createComputed(() =>
+    bezier.getPointAtPercentage(progress()),
+  );
+
+  const bezierElement = new CubicBezier({
+    lineWidth: 6,
+    stroke: 'lightgray',
+    p0: [-300, -70],
+    p1: [120, -120],
+    p2: [-120, 120],
+    p3: [300, 70],
+  });
+  bezier(bezierElement);
+
+  const rectElement = new Rect({
+    size: 25,
+    fill: 'lightseagreen',
+    position: () => curvePoint().position,
+    rotation: () => curvePoint().tangent.degrees,
+  });
+
+  view.add([bezierElement, rectElement]);
+
+  yield* progress(1, 2);
+  yield* waitFor(0.5);
+  yield* progress(0, 2);
+  yield* waitFor(0.5);
+});
+```
+
+</TabItem>
+</Tabs>
 
 [spline]: /docs/spline
 [line]: /api/2d/components/Line

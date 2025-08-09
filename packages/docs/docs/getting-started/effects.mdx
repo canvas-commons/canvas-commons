@@ -3,6 +3,9 @@ sidebar_position: 7
 slug: /effects
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Effects
 
 Effects let you observe changes to signals and react to them. Unlike signals,
@@ -128,6 +131,9 @@ The following example demonstrates how to use effects to automatically update
 the node hierarchy, so the amount of circles displayed matches the value of the
 `count` signal:
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```tsx editor
 import {Circle, Layout, makeScene2D} from '@canvas-commons/2d';
 import {
@@ -171,3 +177,47 @@ export default makeScene2D(function* (view) {
   yield* waitFor(1);
 });
 ```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor
+import {Circle, Layout, makeScene2D} from '@canvas-commons/2d';
+import {createEffect, createSignal, spawn, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const count = createSignal(0);
+  const container = new Layout({alignItems: 'center', layout: true});
+
+  view.add(container);
+
+  const circles: Circle[] = [];
+  createEffect(() => {
+    const targetCount = Math.round(count());
+    let i = circles.length;
+    // add any missing circles
+    for (; i < targetCount; i++) {
+      const circle = new Circle({fill: 'white'});
+      circles.push(circle);
+      container.add(circle);
+      spawn(circle.size(80, 0.3));
+    }
+    // remove any extra circles
+    for (; i > targetCount; i--) {
+      const circle = circles.pop()!;
+      spawn(circle.size(0, 0.3).do(() => circle.remove()));
+    }
+  });
+
+  count(1);
+  yield* waitFor(1);
+  count(6);
+  yield* waitFor(1);
+  count(4);
+  yield* count(0, 2);
+  yield* waitFor(1);
+});
+```
+
+</TabItem>
+</Tabs>

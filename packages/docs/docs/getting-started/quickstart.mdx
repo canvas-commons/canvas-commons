@@ -6,6 +6,8 @@ slug: /quickstart
 import AnimationPlayer from '@site/src/components/AnimationPlayer';
 import CodeBlock from '@theme/CodeBlock';
 import source from '!!raw-loader!@canvas-commons/examples/src/scenes/quickstart';
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
 # Quickstart
 
@@ -75,6 +77,9 @@ going to focus on `src/scenes/example.tsx`, which is where we can add our
 animations. Open `example.tsx` in a text editor, and replace all code in the
 file with the following snippet.
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```tsx editor
 import {makeScene2D, Circle} from '@canvas-commons/2d';
 import {all, createRef} from '@canvas-commons/core';
@@ -99,6 +104,34 @@ export default makeScene2D(function* (view) {
   );
 });
 ```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor
+import {makeScene2D, Circle} from '@canvas-commons/2d';
+import {all} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const myCircle = new Circle({
+    // try changing these properties:
+    x: -300,
+    width: 140,
+    height: 140,
+    fill: '#e13238',
+  });
+
+  view.add(myCircle);
+
+  yield* all(
+    myCircle.position.x(300, 1).to(-300, 1),
+    myCircle.fill('#e6a700', 1).to('#e13238', 1),
+  );
+});
+```
+
+</TabItem>
+</Tabs>
 
 Now save the file. Any changes you make are automatically picked up and
 reflected in the preview.
@@ -133,6 +166,9 @@ without it.
 A scene is a set of elements displayed on the screen and an animation that
 governs them. The most basic scene looks as follows:
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```tsx
 import {makeScene2D} from '@canvas-commons/2d';
 
@@ -140,6 +176,20 @@ export default makeScene2D(function* (view) {
   // animation
 });
 ```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+import {makeScene2D} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  // animation
+});
+```
+
+</TabItem>
+</Tabs>
 
 `makeScene2D()` takes a function generator and turns it into a scene which we
 then import in our project file. The function generator describes the flow of
@@ -151,6 +201,9 @@ You can learn more about scenes, nodes, and this XML-like syntax in the
 in our example, we add an individual [`<Circle/>`](/api/2d/components/Circle)
 node to our scene. We make it red, set its width and height as `140` pixels and
 position it `300` pixels left from the center:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```tsx
 view.add(
@@ -165,11 +218,33 @@ view.add(
 );
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+const myCircle = new Circle({
+  // highlight-start
+  x: -300,
+  width: 140,
+  height: 140,
+  fill: '#e13238',
+  // highlight-end
+});
+
+view.add(myCircle);
+```
+
+</TabItem>
+</Tabs>
+
 To animate our circle we first need to
 [grab a reference to it](/docs/references). That's the purpose of the
 [`createRef`](/api/core/utils#createRef) function. We use it to create a
 reference and pass it to our circle using the
 [`ref`](/api/2d/components/NodeProps#ref) attribute:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```tsx
 // highlight-next-line
@@ -187,7 +262,28 @@ view.add(
 );
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+// highlight-next-line
+const myCircle = new Circle({
+  x: -300,
+  width: 140,
+  height: 140,
+  fill: '#e13238',
+});
+
+view.add(myCircle);
+```
+
+</TabItem>
+</Tabs>
+
 We then access the circle through `myCircle()` and animate its properties:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```tsx
 yield *
@@ -197,10 +293,27 @@ yield *
   );
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+yield *
+  all(
+    myCircle.fill('#e6a700', 1).to('#e13238', 1),
+    myCircle.position.x(300, 1).to(-300, 1),
+  );
+```
+
+</TabItem>
+</Tabs>
+
 This snippet may seem a bit confusing so let's break it down.
 
 Each property of a node can be read and updated throughout the animation. For
 example, in the circle above we defined its `fill` property as `'#e13238'`:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```tsx
 <Circle
@@ -213,25 +326,80 @@ example, in the circle above we defined its `fill` property as `'#e13238'`:
 />
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+const myCircle = new Circle({
+  x: -300,
+  width: 140,
+  height: 140,
+  // highlight-next-line
+  fill: '#e13238',
+});
+```
+
+</TabItem>
+</Tabs>
+
 Using our reference we can now retrieve this property's value:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```ts
 const fill = myCircle().fill(); // '#e13238'
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+const fill = myCircle.fill(); // '#e13238'
+```
+
+</TabItem>
+</Tabs>
+
 We can also update it by passing the new value as the first argument:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```ts
 myCircle().fill('#e6a700');
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+myCircle.fill('#e6a700');
+```
+
+</TabItem>
+</Tabs>
+
 This will immediately update the color of our circle. If we want to transition
 to a new value over some time, we can pass the transition duration (in seconds)
 as the second argument:
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```ts
 myCircle().fill('#e6a700', 1);
 ```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+myCircle.fill('#e6a700', 1);
+```
+
+</TabItem>
+</Tabs>
 
 This [creates a tween animation](/docs/tweening) that smoothly changes the fill
 color over one second.
@@ -243,9 +411,22 @@ instructions we can tell the scene animation to do different things.
 
 For example, to play the tween we created, we can do:
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```ts
 yield * myCircle().fill('#e6a700', 1);
 ```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+yield * myCircle.fill('#e6a700', 1);
+```
+
+</TabItem>
+</Tabs>
 
 This will pause the generator, play out the animation we yielded, and then
 continue.
@@ -253,28 +434,72 @@ continue.
 To play another animation, right after the first one, we can simply write
 another `yield*` statement:
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```ts
 yield * myCircle().fill('#e6a700', 1);
 yield * myCircle().fill('#e13238', 1);
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+yield * myCircle.fill('#e6a700', 1);
+yield * myCircle.fill('#e13238', 1);
+```
+
+</TabItem>
+</Tabs>
+
 But since we're animating the same property, we can write it in a more compact
 way:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```ts
 yield * myCircle().fill('#e6a700', 1).to('#e13238', 1);
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+yield * myCircle.fill('#e6a700', 1).to('#e13238', 1);
+```
+
+</TabItem>
+</Tabs>
+
 In our example, aside from changing the color, we also move our circle around.
 We can try doing it the same way we animated the color:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```ts
 yield * myCircle().fill('#e6a700', 1).to('#e13238', 1);
 yield * myCircle().position.x(300, 1).to(-300, 1);
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+yield * myCircle.fill('#e6a700', 1).to('#e13238', 1);
+yield * myCircle.position.x(300, 1).to(-300, 1);
+```
+
+</TabItem>
+</Tabs>
+
 This works, but the position will start animating **after** the fill color. To
 make them happen at the same time, we use the [`all`][all] function:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```ts
 yield *
@@ -283,6 +508,20 @@ yield *
     myCircle().position.x(300, 1).to(-300, 1),
   );
 ```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+yield *
+  all(
+    myCircle.fill('#e6a700', 1).to('#e13238', 1),
+    myCircle.position.x(300, 1).to(-300, 1),
+  );
+```
+
+</TabItem>
+</Tabs>
 
 [`all`][all] takes one or more animations and merges them together. Now they'll
 happen at the same time. The [animation flow](/docs/flow) section goes into more

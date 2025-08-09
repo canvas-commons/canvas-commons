@@ -6,6 +6,8 @@ slug: /hierarchy
 import Mermaid from '@theme/Mermaid';
 import CodeBlock from '@theme/CodeBlock';
 import ApiSnippet from '@site/src/components/Api/ApiSnippet';
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
 # Scene hierarchy
 
@@ -19,6 +21,9 @@ representation:
 <div className="row margin-bottom--md">
   <div className="col col--6">
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```tsx
 view.add(
   <>
@@ -30,6 +35,21 @@ view.add(
   </>,
 );
 ```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+view.add([
+  new Circle({}),
+  new Layout({
+    children: [new Rect({}), new Txt({text: 'Hi'})],
+  }),
+]);
+```
+
+</TabItem>
+</Tabs>
 
   </div>
   <div className="col col--6">
@@ -58,8 +78,8 @@ Canvas Commons does **not** use React itself, only JSX. There's no virtual DOM
 or reconciliation and the JSX tags are mapped directly to Node instances. These
 two code snippets are equivalent:
 
-<div className="row">
-  <div className="col col--6">
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```tsx
 // JSX
@@ -74,10 +94,10 @@ view.add(
 );
 ```
 
-  </div>
-  <div className="col col--6">
+</TabItem>
+<TabItem value="ts" label="TS">
 
-```tsx
+```ts
 // No JSX
 view.add([
   new Circle({}),
@@ -91,8 +111,8 @@ view.add([
 ]);
 ```
 
-  </div>
-</div>
+</TabItem>
+</Tabs>
 
 ## Modifying the hierarchy
 
@@ -169,6 +189,9 @@ Sometimes it can be useful to traverse the hierarchy and find some specific
 nodes. In this documentation, we'll be referring to this process as _querying_.
 Consider the following animation:
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```tsx editor
 import {makeScene2D, Layout, Txt, Circle, Rect, is} from '@canvas-commons/2d';
 import {all} from '@canvas-commons/core';
@@ -190,6 +213,44 @@ export default makeScene2D(function* (view) {
   yield* all(...texts.map(text => text.fill('#FFC66D', 1).back(1)));
 });
 ```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor
+import {makeScene2D, Layout, Txt, Circle, Rect, is} from '@canvas-commons/2d';
+import {all} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const layout = new Layout({
+    layout: true,
+    gap: 20,
+    alignItems: 'center',
+    children: [
+      new Txt({fill: 'white', text: 'Example'}),
+      new Rect({
+        fill: '#f3303f',
+        padding: 20,
+        gap: 20,
+        children: [
+          new Txt({fill: 'white', text: '42'}),
+          new Circle({size: 60, fill: '#FFC66D'}),
+          new Txt({fill: 'white', text: '!!!'}),
+        ],
+      }),
+    ],
+  });
+
+  view.add(layout);
+
+  const texts = view.findAll(is(Txt));
+
+  yield* all(...texts.map(text => text.fill('#FFC66D', 1).back(1)));
+});
+```
+
+</TabItem>
+</Tabs>
 
 It contains multiple text nodes whose color oscillates between white and yellow.
 To achieve that, we used `view.findAll(is(Txt))` to search through all

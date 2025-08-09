@@ -4,6 +4,8 @@ slug: /presentation
 ---
 
 import {VideoSettings} from '@site/src/Icon/VideoSettings';
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
 # Presentation
 
@@ -17,7 +19,10 @@ The [`beginSlide`](/api/core/utils#beginSlide) function is used to mark the
 beginning of a new slide. When this function is yielded, the playback will pause
 and wait for you to press `SPACE`:
 
-```ts
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx
 import {makeScene2D, Txt} from '@canvas-commons/2d';
 import {beginSlide, createRef, waitFor} from '@canvas-commons/core';
 
@@ -38,6 +43,34 @@ export default makeScene2D(function* (view) {
   yield* waitFor(1);
 });
 ```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+import {makeScene2D, Txt} from '@canvas-commons/2d';
+import {beginSlide, createRef, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const title = createRef<Txt>();
+  view.add(Txt({ref: title}));
+
+  title().text('FIRST SLIDE');
+  yield* beginSlide('first slide');
+  yield* waitFor(1); // try doing some actual animations here
+
+  title().text('SECOND SLIDE');
+  yield* beginSlide('second slide');
+  yield* waitFor(1);
+
+  title().text('LAST SLIDE');
+  yield* beginSlide('last slide');
+  yield* waitFor(1);
+});
+```
+
+</TabItem>
+</Tabs>
 
 ## Presentation Mode
 

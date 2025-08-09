@@ -5,6 +5,8 @@ slug: /layouts
 
 import AnimationPlayer from '@site/src/components/AnimationPlayer';
 import ApiSnippet from '@site/src/components/Api/ApiSnippet';
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
 # Layouts
 
@@ -22,6 +24,9 @@ Layouts are an opt-in feature, meaning that they need to be enabled. It's done
 by setting the [`layout`](/api/2d/components/Layout#layout) property on the Node
 that we want to become the root of our layout:
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```tsx
 // ↓ layout root
 <Rect layout>
@@ -29,6 +34,23 @@ that we want to become the root of our layout:
   <Circle width={320} height={320} />
 </Rect>
 ```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+// ↓ layout root
+const rect = new Rect({
+  layout: true,
+  children: [
+    // ↓ layout child
+    new Circle({width: 320, height: 320}),
+  ],
+});
+```
+
+</TabItem>
+</Tabs>
 
 In the example above, we marked the `<Rect>` as the layout root. This will cause
 the position and size of its descendants to be controlled by Flexbox (In this
@@ -42,6 +64,9 @@ Just setting the `layout` property doesn't always turn the node into a layout
 root. If the node is already a part of the layout, it will be treated like the
 rest of the descendants:
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```tsx
 // ↓ layout root
 <Rect layout>
@@ -52,6 +77,29 @@ rest of the descendants:
   </Rect>
 </Rect>
 ```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+// ↓ layout root
+const outerRect = new Rect({
+  layout: true,
+  children: [
+    // ↓ layout child, NOT a layout root
+    new Rect({
+      layout: true,
+      children: [
+        // ↓ layout child
+        new Circle({width: 320, height: 320}),
+      ],
+    }),
+  ],
+});
+```
+
+</TabItem>
+</Tabs>
 
 :::
 
@@ -88,6 +136,9 @@ include: [`middle`](/api/2d/components/Layout#middle),
 [`bottomLeft`](/api/2d/components/Layout#bottomLeft), and
 [`bottomRight`](/api/2d/components/Layout#bottomRight).
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```tsx editor
 import {makeScene2D, Rect} from '@canvas-commons/2d';
 import {createRef} from '@canvas-commons/core';
@@ -123,6 +174,48 @@ export default makeScene2D(function* (view) {
   yield* rect().rotation(10, 1).to(-10, 1);
 });
 ```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor
+import {makeScene2D, Rect} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  const rect = new Rect({
+    width: 200,
+    height: 100,
+    rotation: -10,
+    fill: '#333333',
+  });
+
+  const yellowRect = new Rect({
+    size: 50,
+    fill: '#e6a700',
+    // Try changing "right" to "top"
+  });
+
+  const redRect = new Rect({
+    size: 100,
+    fill: '#e13238',
+    rotation: 10,
+  });
+
+  view.add([rect, yellowRect, redRect]);
+
+  // Position the yellow rect relative to the main rect
+  yellowRect.rotation(rect.rotation);
+  yellowRect.right(rect.left);
+
+  // Position the red rect relative to the main rect
+  redRect.bottomLeft(rect.bottomRight);
+
+  yield* rect.rotation(10, 1).to(-10, 1);
+});
+```
+
+</TabItem>
+</Tabs>
 
 ## Flexbox configuration
 
@@ -170,6 +263,9 @@ hierarchy.
 
 From the layout's perspective, all `<Rect>`s in the example below are siblings:
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```tsx
 <Layout direction={'column'} width={960} gap={40} layout>
   <Node opacity={0.1}>
@@ -179,6 +275,31 @@ From the layout's perspective, all `<Rect>`s in the example below are siblings:
   <Rect height={240} fill={'#ff6470'} />
 </Layout>
 ```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+const layout = new Layout({
+  direction: 'column',
+  width: 960,
+  gap: 40,
+  layout: true,
+  children: [
+    new Node({
+      opacity: 0.1,
+      children: [
+        new Rect({height: 240, fill: '#ff6470'}),
+        new Rect({height: 240, fill: '#ff6470'}),
+      ],
+    }),
+    new Rect({height: 240, fill: '#ff6470'}),
+  ],
+});
+```
+
+</TabItem>
+</Tabs>
 
 <AnimationPlayer name="layout-group" small />
 

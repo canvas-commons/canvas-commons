@@ -56,6 +56,19 @@ used to control _how long_ something should last. You can use the
 [`useDuration`](/api/core/utils#useDuration) function to retrieve the duration
 of an event and use it in your animation:
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```ts
 yield * circle().scale(2, useDuration('event'));
 ```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+yield * circle.scale(2, useDuration('event'));
+```
+
+</TabItem>
+</Tabs>

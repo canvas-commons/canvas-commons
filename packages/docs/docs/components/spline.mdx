@@ -3,7 +3,13 @@ sidebar_position: 4
 slug: /spline
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Spline
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```tsx editor mode=preview
 import {makeScene2D, Spline, Knot} from '@canvas-commons/2d';
@@ -29,6 +35,41 @@ export default makeScene2D(function* (view) {
 });
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor mode=preview
+import {makeScene2D, Spline, Knot} from '@canvas-commons/2d';
+import {createRef} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const spline = createRef<Spline>();
+
+  const splineElement = new Spline({
+    lineWidth: 4,
+    fill: '#e13238',
+    closed: true,
+    children: [
+      new Knot({position: [-120, -30], startHandle: [0, 70]}),
+      new Knot({
+        position: [0, -50],
+        startHandle: [-40, -60],
+        endHandle: [40, -60],
+      }),
+      new Knot({position: [120, -30], startHandle: [0, -70]}),
+      new Knot({position: [0, 100], startHandle: [5, 0]}),
+    ],
+  });
+  spline(splineElement);
+  view.add(splineElement);
+
+  yield* spline.scale(0.9, 0.6).to(1, 0.4);
+});
+```
+
+</TabItem>
+</Tabs>
+
 The [`Spline`][spline] component allows us to draw and animate smooth curves
 through a series of control points.
 
@@ -51,6 +92,9 @@ The easiest way to define a spline's knots is by passing an array of positions
 via the spline's `points` property. Each point will be treated as the position
 of one of the spline's knots.
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```tsx editor
 import {makeScene2D, Spline} from '@canvas-commons/2d';
 
@@ -70,6 +114,30 @@ export default makeScene2D(function* (view) {
 });
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor
+import {makeScene2D, Spline} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  const splineElement = new Spline({
+    lineWidth: 6,
+    stroke: 'lightseagreen',
+    points: [
+      [-300, 0],
+      [-150, -100],
+      [150, 100],
+      [300, 0],
+    ],
+  });
+  view.add(splineElement);
+});
+```
+
+</TabItem>
+</Tabs>
+
 The result is a curve that smoothly passes through each of the provided points.
 
 :::info
@@ -81,6 +149,9 @@ visible otherwise. Alternatively, you may also specify a `fill` color.
 
 We can alter the shape of the curve by passing a value between `0` and `1` to
 the `smoothness` property.
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```tsx editor
 import {makeScene2D, Spline} from '@canvas-commons/2d';
@@ -108,6 +179,37 @@ export default makeScene2D(function* (view) {
 });
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor
+import {makeScene2D, Spline} from '@canvas-commons/2d';
+import {createRef} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const spline = createRef<Spline>();
+
+  const splineElement = new Spline({
+    lineWidth: 6,
+    stroke: 'lightseagreen',
+    smoothness: 0.4,
+    points: [
+      [-300, 0],
+      [-150, -100],
+      [150, 100],
+      [300, 0],
+    ],
+  });
+  spline(splineElement);
+  view.add(splineElement);
+
+  yield* spline.smoothness(0, 1).to(1, 1).to(0.4, 1);
+});
+```
+
+</TabItem>
+</Tabs>
+
 While defining the knots in this way is very simple and can be enough for simple
 curves, there is an important limitation to this method: we cannot alter the
 position of the knot's handles. Instead, the handles get calculated
@@ -130,6 +232,9 @@ control the shape of our spline.
 The second way of defining knots is by—fittingly—using the [Knot][knot] node.
 The same spline from above can also be written like this.
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```tsx editor
 import {makeScene2D, Spline, Knot} from '@canvas-commons/2d';
 
@@ -144,6 +249,30 @@ export default makeScene2D(function* (view) {
   );
 });
 ```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor
+import {makeScene2D, Spline, Knot} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  const splineElement = new Spline({
+    lineWidth: 6,
+    stroke: 'lightseagreen',
+    children: [
+      new Knot({position: [-300, 0]}),
+      new Knot({position: [-150, -100]}),
+      new Knot({position: [150, 100]}),
+      new Knot({position: [300, 0]}),
+    ],
+  });
+  view.add(splineElement);
+});
+```
+
+</TabItem>
+</Tabs>
 
 As you can see, we get the exact same shape we did when using the `points`
 property. The advantage of defining the knots with `Knot` nodes is that it also
@@ -446,6 +575,9 @@ export default makeScene2D(function* (view) {
 Splines can be useful to model the path that an object should follow. You can
 use the `getPointAtPercentage` method to achieve this.
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```tsx editor
 import {makeScene2D, Spline, Rect} from '@canvas-commons/2d';
 import {createRef, createSignal} from '@canvas-commons/core';
@@ -481,6 +613,45 @@ export default makeScene2D(function* (view) {
   yield* progress(1, 2).to(0, 2);
 });
 ```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor
+import {makeScene2D, Spline, Rect} from '@canvas-commons/2d';
+import {createRef, createSignal} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const spline = createRef<Spline>();
+  const progress = createSignal(0);
+
+  const splineElement = new Spline({
+    lineWidth: 6,
+    stroke: 'lightgray',
+    points: [
+      [-300, 0],
+      [-150, -100],
+      [150, 100],
+      [300, 0],
+    ],
+  });
+  spline(splineElement);
+
+  const rectElement = new Rect({
+    size: 26,
+    fill: 'lightseagreen',
+    position: () => spline.getPointAtPercentage(progress()).position,
+    rotation: () => spline.getPointAtPercentage(progress()).tangent.degrees,
+  });
+
+  view.add([splineElement, rectElement]);
+
+  yield* progress(1, 2).to(0, 2);
+});
+```
+
+</TabItem>
+</Tabs>
 
 The `getPointAtPercentage` method returns a [`CurvePoint`][curve-point] object
 which contains the position of the point that sits at the given percentage along

@@ -3,7 +3,13 @@ sidebar_position: 2
 slug: /latex
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Latex
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```tsx editor mode=preview
 import {Latex, makeScene2D} from '@canvas-commons/2d';
@@ -25,6 +31,34 @@ export default makeScene2D(function* (view) {
 });
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor mode=preview
+import {Latex, makeScene2D} from '@canvas-commons/2d';
+import {createRef, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const tex = createRef<Latex>();
+  const latexElement = new Latex({tex: '{{y=}}{{a}}{{x^2}}', fill: 'white'});
+  tex(latexElement);
+  view.add(latexElement);
+
+  yield* waitFor(0.2);
+  yield* tex.tex('{{y=}}{{a}}{{x^2}} + {{bx}}', 1);
+  yield* waitFor(0.2);
+  yield* tex.tex(
+    '{{y=}}{{\\left(}}{{a}}{{x^2}} + {{bx}}{{\\over 1}}{{\\right)}}',
+    1,
+  );
+  yield* waitFor(0.2);
+  yield* tex.tex('{{y=}}{{a}}{{x^2}}', 1);
+});
+```
+
+</TabItem>
+</Tabs>
+
 The [`Latex`](/api/2d/components/Latex) component is used to show mathematical
 formulas and animate them.
 
@@ -39,6 +73,9 @@ the text using the `fill` and `fontSize` properties respectively.
 Make sure to always set some `fill` color otherwise nothing will be shown!
 
 :::
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```tsx editor
 import {Latex, makeScene2D} from '@canvas-commons/2d';
@@ -55,17 +92,53 @@ export default makeScene2D(function* (view) {
 });
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor
+import {Latex, makeScene2D} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  const latexElement = new Latex({
+    // Try editing the formula below:
+    tex: 'a^2 + b^2 = c^2',
+    fill: 'white',
+    fontSize: 32,
+  });
+  view.add(latexElement);
+});
+```
+
+</TabItem>
+</Tabs>
+
 ## Animating LaTex
 
 We can animate LaTex by tweening the `tex` property. To enable deletion,
 insertion and transformation animation you must split the formula into several
 parts. You can do this by providing an array of strings:
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```tsx
 <Latex tex={['a^2', '+', 'b^2', '=', 'c^2']} />
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+const latexElement = new Latex({tex: ['a^2', '+', 'b^2', '=', 'c^2']});
+```
+
+</TabItem>
+</Tabs>
+
 Or by using the curly bracket (`{{}}`) syntax:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```tsx
 <Latex tex="{{a^2}} + {{b^2}} = {{c^2}}" />
@@ -73,7 +146,22 @@ Or by using the curly bracket (`{{}}`) syntax:
 <Latex tex={['a^2', '+', 'b^2', '=', 'c^2']} />
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+const latexElement1 = new Latex({tex: '{{a^2}} + {{b^2}} = {{c^2}}'});
+// equivalent to
+const latexElement2 = new Latex({tex: ['a^2', '+', 'b^2', '=', 'c^2']});
+```
+
+</TabItem>
+</Tabs>
+
 You can also mix both:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```tsx
 <Latex tex={['{{a}}^2', '+',  '{{b}}^2', '=', '{{c}}^2']} />
@@ -81,10 +169,29 @@ You can also mix both:
 <Latex tex={['a','^2', '+', 'b', '^2', '=', 'c', '^2']} />
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+const latexElement1 = new Latex({
+  tex: ['{{a}}^2', '+', '{{b}}^2', '=', '{{c}}^2'],
+});
+// equivalent to
+const latexElement2 = new Latex({
+  tex: ['a', '^2', '+', 'b', '^2', '=', 'c', '^2'],
+});
+```
+
+</TabItem>
+</Tabs>
+
 A tex part that only exists in the source formula is considered deleted and gets
 faded out. Analogically, a part that only exists in the target formula is faded
 in. Tex parts that exist in both the source and destination formulas will be
 tweened:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```tsx editor
 import {Latex, makeScene2D} from '@canvas-commons/2d';
@@ -99,6 +206,27 @@ export default makeScene2D(function* (view) {
 });
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor
+import {Latex, makeScene2D} from '@canvas-commons/2d';
+import {createRef, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const tex = createRef<Latex>();
+  const latexElement = new Latex({tex: '{{1}} + {{2}}', fill: 'white'});
+  tex(latexElement);
+  view.add(latexElement);
+
+  yield* waitFor(0.5);
+  yield* tex.tex(['2', '+', '3', '+', '4'], 1);
+});
+```
+
+</TabItem>
+</Tabs>
+
 If a given tex part occurs multiple times in the source and target formula, but
 the number of occurrences does not match, the part will duplicated or merged.
 You can see this in action in the example above. The formula starts with only
@@ -112,11 +240,27 @@ The backslash character (`\`) is used as an escape character in JavaScript. In
 order to use it as part of a LaTex formula, you need to escape it by doubling
 it:
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```tsx
 node().tex('{{\\frac{1}{2}}}');
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+node.tex('{{\\frac{1}{2}}}');
+```
+
+</TabItem>
+</Tabs>
+
 Note that this does not apply inside JSX string attributes:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```tsx
 // No escape needed:
@@ -125,21 +269,60 @@ Note that this does not apply inside JSX string attributes:
 <Latex tex={'{{\frac{1}{2}}'} />
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+// No escape needed:
+const latexElement1 = new Latex({tex: '{{\frac{1}{2}}'});
+// Escape necessary:
+const latexElement2 = new Latex({tex: '{{\frac{1}{2}}'});
+```
+
+</TabItem>
+</Tabs>
+
 ### Missing spaces
 
 As of right now, tex parts are put together by joining them with no separator.
 This may break your formula if it depends on a space between two parts. For
 example, the following formula will break:
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```tsx
 <Latex tex={['\\Delta', 'y']} />
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+const latexElement = new Latex({tex: ['\\Delta', 'y']});
+```
+
+</TabItem>
+</Tabs>
+
 The node will attempt to parse it as `\\Deltay` instead of the correct
 `\\Delta y`. To prevent it, you should wrap the `y` part in curly brackets:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```tsx
 <Latex tex={['\\Delta', '{y}']} />
 ```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+const latexElement = new Latex({tex: ['\\Delta', '{y}']});
+```
+
+</TabItem>
+</Tabs>
 
 This will be parsed as `\\Delta{y}` which is correct.

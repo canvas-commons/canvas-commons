@@ -3,11 +3,17 @@ sidebar_position: 12
 slug: /camera
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Camera
 
 Canvas Commons ships with a simple orthographic camera that allows you to pan,
 zoom, and rotate the viewport of the scene without having to transform the
 individual objects in your scene.
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```tsx editor mode=preview
 import {Camera, Circle, makeScene2D, Rect} from '@canvas-commons/2d';
@@ -46,6 +52,41 @@ export default makeScene2D(function* (view) {
   yield* camera().reset(1);
 });
 ```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor mode=preview
+import {Camera, Circle, makeScene2D, Rect} from '@canvas-commons/2d';
+import {all, createRef} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const rect = new Rect({
+    fill: 'lightseagreen',
+    size: 100,
+    position: [100, -50],
+  });
+  const circle = new Circle({
+    fill: 'hotpink',
+    size: 120,
+    position: [-100, 50],
+  });
+  const camera = new Camera({children: [rect, circle]});
+
+  view.add(camera);
+
+  yield* all(
+    camera.centerOn(rect, 3),
+    camera.rotation(180, 3),
+    camera.zoom(1.8, 3),
+  );
+  yield* camera.centerOn(circle, 2);
+  yield* camera.reset(1);
+});
+```
+
+</TabItem>
+</Tabs>
 
 ## Basic usage
 

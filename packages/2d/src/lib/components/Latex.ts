@@ -1,10 +1,13 @@
 import {
+  all,
+  delay,
   lazy,
   SerializedVector2,
   Signal,
   SignalValue,
   SimpleSignal,
   threadable,
+  ThreadGenerator,
   TimingFunction,
   useLogger,
   Vector2,
@@ -17,7 +20,9 @@ import {mathjax} from 'mathjax-full/js/mathjax';
 import {SVG} from 'mathjax-full/js/output/svg';
 import {OptionList} from 'mathjax-full/js/util/Options';
 import {computed, initial, parser, signal} from '../decorators';
+import {CanvasStyle} from '../partials';
 import {Node} from './Node';
+import {Path} from './Path';
 import {
   SVGDocument,
   SVGDocumentData,
@@ -35,6 +40,14 @@ const JaxDocument = mathjax.document('', {
   // eslint-disable-next-line @typescript-eslint/naming-convention
   OutputJax: new SVG({fontCache: 'local'}),
 });
+
+// presets required for the Pitex animations to work
+const FACTOR = 2;
+const BUFFER = 0.25;
+
+export function math(tex: string) {
+  return tex.replace(/\//g, '\\').split(' ');
+}
 
 export interface LatexProps extends Omit<SVGProps, 'svg'> {
   tex?: SignalValue<string[] | string>;
@@ -93,6 +106,8 @@ export class Latex extends SVGNode {
   @signal()
   public declare readonly tex: Signal<string[] | string, string[], this>;
 
+  private color: CanvasStyle;
+
   public constructor(props: LatexProps) {
     super({
       fontSize: 48,
@@ -100,6 +115,7 @@ export class Latex extends SVGNode {
       svg: '',
     });
     this.svg(this.latexSVG);
+    this.color = this.fill();
   }
 
   protected override calculateWrapperScale(
@@ -245,5 +261,176 @@ export class Latex extends SVGNode {
     const newSVG = this.texToSvg(this.tex.context.parse(value));
     yield* this.svg(newSVG, time, timingFunction);
     this.svg(this.latexSVG);
+  }
+
+  public getPaths() {
+    return this.childAs(0)
+      ?.children()
+      .flatMap(part =>
+        part.children().length ? (part.children() as Path[]) : part,
+      ) as Path[];
+  }
+
+  public *write(time: number, timingFunction?: TimingFunction) {
+    const paths = this.getPaths();
+    const duration = time / paths.length;
+    const animations: ThreadGenerator[] = [];
+
+    for (let i = 0; i < paths.length; i++) {
+      paths[i].fill(null).stroke(this.color).lineWidth(40).start(0).end(0);
+      animations.push(
+        delay(
+          (i * duration) / FACTOR,
+          paths[i].end(1, duration, timingFunction),
+        ),
+        delay(
+          ((i + 1) * duration) / FACTOR,
+          paths[i].fill(this.color, duration, timingFunction),
+        ),
+        delay(
+          ((i + 1) * duration) / FACTOR,
+          paths[i].lineWidth(0, duration, timingFunction),
+        ),
+      );
+    }
+
+    yield* all(...animations);
+  }
+
+  public *unwrite(time: number, timingFunction?: TimingFunction) {
+    const paths = this.getPaths();
+    const duration = time / paths.length;
+    const animations: ThreadGenerator[] = [];
+
+    for (let i = 0; i < paths.length; i++) {
+      paths[i].lineWidth(0).stroke(this.color).start(0);
+      animations.push(
+        delay(
+          (i * duration) / FACTOR,
+          paths[i].fill(null, duration, timingFunction),
+        ),
+        delay(
+          (i * duration) / FACTOR,
+          paths[i].lineWidth(40, duration, timingFunction),
+        ),
+        delay(
+          ((i + 1) * duration) / FACTOR,
+          paths[i].start(1, duration, timingFunction),
+        ),
+      );
+    }
+
+    yield* all(...animations);
+  }
+
+  public *edit(tex: string, time: number) {
+    yield* this.tex(math(tex), time);
+  }
+
+  public *morph(ptx: Latex, time: number) {
+    const paths = this.getPaths();
+    const targets = ptx.getPaths();
+    const animations: ThreadGenerator[] = [];
+
+    for (let i = 0; i < paths.length; i++) {
+      paths[i].stroke(this.fill());
+
+      animations.push(
+        paths[i].fill(null, time * BUFFER),
+        paths[i].lineWidth(40, time * BUFFER),
+        delay(
+          time * BUFFER,
+          paths[i].data(targets[i].data(), time * (1 - 2 * BUFFER)),
+        ),
+        delay(
+          time * BUFFER,
+          paths[i].position(targets[i].position(), time * (1 - 2 * BUFFER)),
+        ),
+        delay(
+          time * BUFFER,
+          paths[i].scale(targets[i].scale(), time * (1 - 2 * BUFFER)),
+        ),
+        delay(time * (1 - BUFFER), paths[i].fill(paths[i].stroke(), time / 2)),
+        delay(time * (1 - BUFFER), paths[i].lineWidth(0, time / 2)),
+      );
+    }
+
+    yield* all(...animations);
+  }
+
+  public *map(ptx: Latex, mapping: number[][], time: number) {
+    let paths = this.getPaths();
+    const len = paths.length;
+    const targets = ptx.getPaths();
+    const animations: ThreadGenerator[] = [];
+    const taken = targets.map(() => false);
+    const extras: number[] = [];
+
+    for (let i = 0; i < len; i++) {
+      if (!mapping[i].length) {
+        animations.push(
+          delay(time * BUFFER, paths[i].opacity(0, time * (1 - 2 * BUFFER))),
+        );
+        extras.push(i);
+        continue;
+      }
+
+      for (let j = 0; j < mapping[i].length; j++) {
+        let index = i;
+
+        if (j > 0) {
+          const subToPihedron = this.childAs(0)?.childAs(0);
+          index = subToPihedron?.children().length ?? i;
+          subToPihedron?.add(this.getPaths()[i].clone());
+        }
+
+        if (taken[mapping[i][j]]) extras.push(index);
+
+        taken[mapping[i][j]] = true;
+
+        paths = this.getPaths();
+
+        animations.push(
+          delay(
+            time * BUFFER,
+            paths[index].data(
+              targets[mapping[i][j]].data(),
+              time * (1 - 2 * BUFFER),
+            ),
+          ),
+          delay(
+            time * BUFFER,
+            paths[index].position(
+              targets[mapping[i][j]].position(),
+              time * (1 - 2 * BUFFER),
+            ),
+          ),
+          delay(
+            time * BUFFER,
+            paths[index].scale(
+              targets[mapping[i][j]].scale(),
+              time * (1 - 2 * BUFFER),
+            ),
+          ),
+        );
+      }
+    }
+
+    paths = this.getPaths();
+
+    for (let i = 0; i < paths.length; i++) {
+      paths[i].stroke(this.fill());
+
+      animations.push(
+        paths[i].fill(null, time * BUFFER),
+        paths[i].lineWidth(40, time * BUFFER),
+        delay(time * (1 - BUFFER), paths[i].fill(paths[i].stroke(), time / 2)),
+        delay(time * (1 - BUFFER), paths[i].lineWidth(0, time / 2)),
+      );
+    }
+
+    yield* all(...animations);
+
+    extras.forEach(i => paths[i].remove());
   }
 }

@@ -74,8 +74,8 @@ First of all, the editor is built on top of [Preact](https://preactjs.com/).
 Just like Canvas Commons, Preact uses JSX to define components. This means that
 in `tsx` files extending the editor, we need to let TypeScript know that it
 should import the `jsx` factory function from `preact` and not
-`@canvas-commons/2d`. This can be done in multiple different ways. In this simple
-example, we'll just use a comment at the top of the file:
+`@canvas-commons/2d`. This can be done in multiple different ways. In this
+simple example, we'll just use a comment at the top of the file:
 
 ```tsx
 /* @jsxImportSource preact */
@@ -122,9 +122,9 @@ export const CustomTabConfig: PluginTabConfig = {
 
 Editor plugins are still experimental and the API is not yet properly documented
 but if you want to play around with some other available hooks you can take a
-look at [this editor plugin][example-plugin] provided by the `@canvas-commons/2d`
-package. It's responsible for displaying the inspector tab and drawing an
-overlay on top of the preview when clicking on different nodes.
+look at [this editor plugin][example-plugin] provided by the
+`@canvas-commons/2d` package. It's responsible for displaying the inspector tab
+and drawing an overlay on top of the preview when clicking on different nodes.
 
 [example-plugin]:
   https://github.com/canvas-commons/canvas-commons/blob/main/packages/2d/src/editor/index.ts

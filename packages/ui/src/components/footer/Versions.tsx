@@ -20,7 +20,11 @@ export function Versions() {
       signal: abort.signal,
     })
       .then(response => response.json())
-      .then(response => setNewVersion(response.version));
+      .then(response => setNewVersion(response.version))
+      .catch(error => {
+        console.error(error);
+        setNewVersion(versions.core);
+      });
     return () => abort.abort();
   }, []);
 

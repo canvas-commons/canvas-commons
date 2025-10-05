@@ -48,6 +48,14 @@ import {
 } from '../decorators';
 import {FiltersSignal, filtersSignal} from '../decorators/filtersSignal';
 import {spacingSignal} from '../decorators/spacingSignal';
+import {
+  PositionSignal,
+  RotationSignal,
+  ScaleSignal,
+  positionSignal,
+  rotationSignal,
+  scaleSignal,
+} from '../decorators/transformSignals';
 import {Filter} from '../partials';
 import {
   PossibleShaderConfig,
@@ -159,8 +167,8 @@ export class Node implements Promisable<Node> {
    * node.position.x(() => 1);
    * ```
    */
-  @vector2Signal()
-  public declare readonly position: Vector2Signal<this>;
+  @positionSignal()
+  public declare readonly position: PositionSignal<this>;
 
   public get x() {
     return this.position.x as SimpleSignal<number, this>;
@@ -191,7 +199,7 @@ export class Node implements Promisable<Node> {
   public declare readonly absolutePosition: SimpleVector2Signal<this>;
 
   protected getAbsolutePosition(): Vector2 {
-    return new Vector2(this.parentToWorld().transformPoint(this.position()));
+    return this.position().transformAsPoint(this.parentToWorld());
   }
 
   protected setAbsolutePosition(value: SignalValue<PossibleVector2>) {
@@ -206,8 +214,8 @@ export class Node implements Promisable<Node> {
    * Represents the rotation (in degrees) of this node relative to its parent.
    */
   @initial(0)
-  @signal()
-  public declare readonly rotation: SimpleSignal<number, this>;
+  @rotationSignal()
+  public declare readonly rotation: RotationSignal<this>;
 
   /**
    * A helper signal for operating on the rotation in world space.
@@ -268,8 +276,8 @@ export class Node implements Promisable<Node> {
    * ```
    */
   @initial(Vector2.one)
-  @vector2Signal('scale')
-  public declare readonly scale: Vector2Signal<this>;
+  @scaleSignal('scale')
+  public declare readonly scale: ScaleSignal<this>;
 
   /**
    * Represents the skew of this node in local space of its parent.

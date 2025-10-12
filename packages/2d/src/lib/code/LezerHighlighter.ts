@@ -74,7 +74,7 @@ export class LezerHighlighter implements CodeHighlighter<LezerCache | null> {
   }
 
   public highlight(index: number, cache: LezerCache | null): HighlightResult {
-    if (!cache || index > cache.codeColors.length) {
+    if (!cache || index >= cache.codeColors.length) {
       return {
         color: null,
         skipAhead: 0,
@@ -109,9 +109,18 @@ export class LezerHighlighter implements CodeHighlighter<LezerCache | null> {
     const tree = this.parser.parse(code);
     const cursor = tree.cursor();
     const tokens: string[] = [];
+    let current = 0;
 
     do {
-      tokens.push(code.slice(cursor.node.from, cursor.node.to));
+      if (!cursor.node.firstChild) {
+        if (cursor.from > current) {
+          tokens.push(code.slice(current, cursor.from));
+        }
+        if (cursor.from < cursor.to) {
+          tokens.push(code.slice(cursor.from, cursor.to));
+        }
+        current = cursor.to;
+      }
     } while (cursor.next());
 
     return tokens;

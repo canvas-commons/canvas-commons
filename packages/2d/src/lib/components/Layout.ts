@@ -1,40 +1,45 @@
 import {
   BBox,
-  boolLerp,
+  DEFAULT,
   Direction,
   InterpolationFunction,
-  modify,
   Origin,
-  originToOffset,
   PossibleSpacing,
   PossibleVector2,
   SerializedVector2,
   Signal,
   SignalValue,
   SimpleSignal,
-  SimpleVector2Signal,
   SpacingSignal,
-  threadable,
   ThreadGenerator,
   TimingFunction,
-  tween,
   Vector2,
   Vector2Signal,
+  boolLerp,
+  deepLerp,
+  modify,
+  originToOffset,
+  threadable,
+  tween,
 } from '@canvas-commons/core';
 import {
+  Vector2LengthSignal,
   addInitializer,
   cloneable,
   computed,
   defaultStyle,
-  getPropertyMeta,
   initial,
   interpolation,
   nodeName,
   signal,
-  Vector2LengthSignal,
   vector2Signal,
+  wrapper,
 } from '../decorators';
 import {spacingSignal} from '../decorators/spacingSignal';
+import {
+  LayoutPositionSignal,
+  LayoutPositionSignalContext,
+} from '../decorators/transformSignals';
 import {
   DesiredLength,
   FlexBasis,
@@ -529,7 +534,7 @@ export class Layout extends Node {
    * space.
    */
   @originSignal(Origin.Middle)
-  public declare readonly middle: SimpleVector2Signal<this>;
+  public declare readonly middle: LayoutPositionSignal<this>;
 
   /**
    * The position of the top edge of this node.
@@ -542,7 +547,7 @@ export class Layout extends Node {
    * space.
    */
   @originSignal(Origin.Top)
-  public declare readonly top: SimpleVector2Signal<this>;
+  public declare readonly top: LayoutPositionSignal<this>;
   /**
    * The position of the bottom edge of this node.
    *
@@ -554,7 +559,7 @@ export class Layout extends Node {
    * parent space.
    */
   @originSignal(Origin.Bottom)
-  public declare readonly bottom: SimpleVector2Signal<this>;
+  public declare readonly bottom: LayoutPositionSignal<this>;
   /**
    * The position of the left edge of this node.
    *
@@ -566,7 +571,7 @@ export class Layout extends Node {
    * space.
    */
   @originSignal(Origin.Left)
-  public declare readonly left: SimpleVector2Signal<this>;
+  public declare readonly left: LayoutPositionSignal<this>;
   /**
    * The position of the right edge of this node.
    *
@@ -578,7 +583,7 @@ export class Layout extends Node {
    * space.
    */
   @originSignal(Origin.Right)
-  public declare readonly right: SimpleVector2Signal<this>;
+  public declare readonly right: LayoutPositionSignal<this>;
   /**
    * The position of the top left corner of this node.
    *
@@ -590,7 +595,7 @@ export class Layout extends Node {
    * parent space.
    */
   @originSignal(Origin.TopLeft)
-  public declare readonly topLeft: SimpleVector2Signal<this>;
+  public declare readonly topLeft: LayoutPositionSignal<this>;
   /**
    * The position of the top right corner of this node.
    *
@@ -602,7 +607,7 @@ export class Layout extends Node {
    * parent space.
    */
   @originSignal(Origin.TopRight)
-  public declare readonly topRight: SimpleVector2Signal<this>;
+  public declare readonly topRight: LayoutPositionSignal<this>;
   /**
    * The position of the bottom left corner of this node.
    *
@@ -614,7 +619,7 @@ export class Layout extends Node {
    * the parent space.
    */
   @originSignal(Origin.BottomLeft)
-  public declare readonly bottomLeft: SimpleVector2Signal<this>;
+  public declare readonly bottomLeft: LayoutPositionSignal<this>;
   /**
    * The position of the bottom right corner of this node.
    *
@@ -626,14 +631,14 @@ export class Layout extends Node {
    * the parent space.
    */
   @originSignal(Origin.BottomRight)
-  public declare readonly bottomRight: SimpleVector2Signal<this>;
+  public declare readonly bottomRight: LayoutPositionSignal<this>;
 
   /**
    * Get the cardinal point corresponding to the given origin.
    *
    * @param origin - The origin or direction of the point.
    */
-  public cardinalPoint(origin: Origin | Direction): SimpleVector2Signal<this> {
+  public cardinalPoint(origin: Origin | Direction): LayoutPositionSignal<this> {
     switch (origin) {
       case Origin.TopLeft:
         return this.topLeft;
@@ -1038,28 +1043,53 @@ export class Layout extends Node {
 
 function originSignal(origin: Origin): PropertyDecorator {
   return (target, key) => {
-    signal()(target, key);
+    signal<PossibleVector2>()(target, key);
     cloneable(false)(target, key);
-    const meta = getPropertyMeta<any>(target, key);
-    meta!.parser = value => new Vector2(value);
-    meta!.getter = function (this: Layout) {
-      return this.computedSize()
-        .getOriginOffset(origin)
-        .transformAsPoint(this.localToParent());
-    };
-    meta!.setter = function (
-      this: Layout,
-      value: SignalValue<PossibleVector2>,
-    ) {
-      this.position(
-        modify(value, unwrapped =>
-          this.getOriginDelta(origin)
-            .transform(this.scalingRotationMatrix())
-            .flipped.add(unwrapped),
-        ),
+    wrapper(Vector2)(target, key);
+
+    addInitializer(target, (instance: Layout) => {
+      const parser = (value: PossibleVector2) => new Vector2(value);
+
+      const signalContext = new LayoutPositionSignalContext(
+        undefined,
+        deepLerp,
+        instance,
+        parser,
+        {
+          getter: function (this: Layout) {
+            return this.computedSize()
+              .getOriginOffset(origin)
+              .transformAsPoint(this.localToParent());
+          }.bind(instance),
+        },
       );
-      return this;
-    };
+
+      signalContext.setCustomSetter(
+        function (
+          this: Layout,
+          value: SignalValue<PossibleVector2> | typeof DEFAULT,
+        ) {
+          if (value === DEFAULT) {
+            return this;
+          }
+          this.position(
+            modify(value, unwrapped =>
+              this.getOriginDelta(origin)
+                .transform(this.scalingRotationMatrix())
+                .flipped.add(unwrapped),
+            ),
+          );
+          return this;
+        }.bind(instance),
+      );
+
+      Object.defineProperty(instance, key, {
+        value: signalContext.toSignal(),
+        writable: false,
+        enumerable: true,
+        configurable: false,
+      });
+    });
   };
 }
 

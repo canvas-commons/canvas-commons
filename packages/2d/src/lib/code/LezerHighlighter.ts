@@ -29,8 +29,8 @@ export class LezerHighlighter implements CodeHighlighter<LezerCache | null> {
 
       const className = match[1];
       const color = match[2].trim();
-      const classId = this.classToId.get(className) || false;
-      if (classId !== false) {
+      const classId = this.classToId.get(className);
+      if (classId !== undefined) {
         if (this.idToColor.get(classId) !== color) {
           throw new Error(`Conflicting color information for ${className}`);
         }

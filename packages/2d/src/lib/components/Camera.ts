@@ -187,8 +187,8 @@ export class Camera extends Node {
   ): ThreadGenerator {
     const position =
       positionOrNode instanceof Node
-        ? positionOrNode
-            .absolutePosition()
+        ? positionOrNode.position
+            .abs()
             .transformAsPoint(this.scene().worldToLocal())
         : positionOrNode;
     yield* this.position(position, duration, timing, interpolationFunction);

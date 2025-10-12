@@ -55,7 +55,7 @@ export class LezerHighlighter implements CodeHighlighter<LezerCache | null> {
     highlightTree(tree, this.style, (from, to, classes) => {
       let color: number | undefined = undefined;
       for (const cls of classes.split(' ')) {
-        color ??= this.classToId.get(cls);
+        color = this.classToId.get(cls) ?? color;
       }
       if (color === undefined) {
         return;

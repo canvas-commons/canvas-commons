@@ -24,9 +24,7 @@ import {
   createSignal,
   easeInOutCubic,
   isReactive,
-  modify,
   threadable,
-  transformAngle,
   transformScalar,
   unwrap,
   useLogger,
@@ -48,6 +46,14 @@ import {
 } from '../decorators';
 import {FiltersSignal, filtersSignal} from '../decorators/filtersSignal';
 import {spacingSignal} from '../decorators/spacingSignal';
+import {
+  PositionSignal,
+  RotationSignal,
+  ScaleSignal,
+  positionSignal,
+  rotationSignal,
+  scaleSignal,
+} from '../decorators/transformSignals';
 import {Filter} from '../partials';
 import {
   PossibleShaderConfig,
@@ -159,8 +165,8 @@ export class Node implements Promisable<Node> {
    * node.position.x(() => 1);
    * ```
    */
-  @vector2Signal()
-  public declare readonly position: Vector2Signal<this>;
+  @positionSignal()
+  public declare readonly position: PositionSignal<this>;
 
   public get x() {
     return this.position.x as SimpleSignal<number, this>;
@@ -184,6 +190,8 @@ export class Node implements Promisable<Node> {
    *
    * Unlike {@link position}, this signal is not compound - it doesn't contain
    * separate signals for the `x` and `y` components.
+   *
+   * @deprecated Use `position.abs` instead.
    */
   @wrapper(Vector2)
   @cloneable(false)
@@ -191,23 +199,19 @@ export class Node implements Promisable<Node> {
   public declare readonly absolutePosition: SimpleVector2Signal<this>;
 
   protected getAbsolutePosition(): Vector2 {
-    return new Vector2(this.parentToWorld().transformPoint(this.position()));
+    return this.position.abs();
   }
 
   protected setAbsolutePosition(value: SignalValue<PossibleVector2>) {
-    this.position(
-      modify(value, unwrapped =>
-        new Vector2(unwrapped).transformAsPoint(this.worldToParent()),
-      ),
-    );
+    this.position.abs(value);
   }
 
   /**
    * Represents the rotation (in degrees) of this node relative to its parent.
    */
   @initial(0)
-  @signal()
-  public declare readonly rotation: SimpleSignal<number, this>;
+  @rotationSignal()
+  public declare readonly rotation: RotationSignal<this>;
 
   /**
    * A helper signal for operating on the rotation in world space.
@@ -219,22 +223,19 @@ export class Node implements Promisable<Node> {
    *
    * If the new value is a function, the rotation of this node will be
    * continuously updated to always match the rotation returned by the function.
+   *
+   * @deprecated Use `rotation.abs` instead.
    */
   @cloneable(false)
   @signal()
   public declare readonly absoluteRotation: SimpleSignal<number, this>;
 
   protected getAbsoluteRotation() {
-    const matrix = this.localToWorld();
-    return Vector2.degrees(matrix.m11, matrix.m12);
+    return this.rotation.abs();
   }
 
   protected setAbsoluteRotation(value: SignalValue<number>) {
-    this.rotation(
-      modify(value, unwrapped =>
-        transformAngle(unwrapped, this.worldToParent()),
-      ),
-    );
+    this.rotation.abs(value);
   }
 
   /**
@@ -268,8 +269,8 @@ export class Node implements Promisable<Node> {
    * ```
    */
   @initial(Vector2.one)
-  @vector2Signal('scale')
-  public declare readonly scale: Vector2Signal<this>;
+  @scaleSignal('scale')
+  public declare readonly scale: ScaleSignal<this>;
 
   /**
    * Represents the skew of this node in local space of its parent.
@@ -318,6 +319,8 @@ export class Node implements Promisable<Node> {
    *
    * Unlike {@link scale}, this signal is not compound - it doesn't contain
    * separate signals for the `x` and `y` components.
+   *
+   * @deprecated Use `scale.abs` instead.
    */
   @wrapper(Vector2)
   @cloneable(false)
@@ -325,22 +328,11 @@ export class Node implements Promisable<Node> {
   public declare readonly absoluteScale: SimpleVector2Signal<this>;
 
   protected getAbsoluteScale(): Vector2 {
-    const matrix = this.localToWorld();
-    return new Vector2(
-      Vector2.magnitude(matrix.m11, matrix.m12),
-      Vector2.magnitude(matrix.m21, matrix.m22),
-    );
+    return this.scale.abs();
   }
 
   protected setAbsoluteScale(value: SignalValue<PossibleVector2>) {
-    this.scale(
-      modify(value, unwrapped => this.getRelativeScale(new Vector2(unwrapped))),
-    );
-  }
-
-  private getRelativeScale(scale: Vector2): Vector2 {
-    const parentScale = this.parent()?.absoluteScale() ?? Vector2.one;
-    return scale.div(parentScale);
+    this.scale.abs(value);
   }
 
   @initial(0)
@@ -975,13 +967,13 @@ export class Node implements Promisable<Node> {
    * @param newParent - The new parent of this node.
    */
   public reparent(newParent: Node): this {
-    const position = this.absolutePosition();
-    const rotation = this.absoluteRotation();
-    const scale = this.absoluteScale();
+    const position = this.position.abs();
+    const rotation = this.rotation.abs();
+    const scale = this.scale.abs();
     newParent.add(this);
-    this.absolutePosition(position);
-    this.absoluteRotation(rotation);
-    this.absoluteScale(scale);
+    this.position.abs(position);
+    this.rotation.abs(rotation);
+    this.scale.abs(scale);
 
     return this;
   }

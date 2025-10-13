@@ -3,6 +3,8 @@ sidebar_position: 14
 slug: /media
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 import AnimationPlayer from '@site/src/components/AnimationPlayer';
 import {VideoSettings} from '@site/src/Icon/VideoSettings';
 
@@ -74,6 +76,9 @@ import examplePng from '../../images/example.png';
 Then we can use Canvas Commons [`Img`](/api/2d/components/Img) component to
 display the image:
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```tsx
 import {makeScene2D, Img} from '@canvas-commons/2d';
 
@@ -84,9 +89,28 @@ export default makeScene2D(function* (view) {
 });
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+import {makeScene2D, Img} from '@canvas-commons/2d';
+
+import examplePng from '../../images/example.png';
+
+export default makeScene2D(function* (view) {
+  view.add(new Img({src: examplePng}));
+});
+```
+
+</TabItem>
+</Tabs>
+
 Images can also be animated like every other component in Canvas Commons. For
 this, we need to create a [`Reference`](/docs/references) and pass that to the
 [`Img`](/api/2d/components/Img):
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```tsx
 // ...
@@ -103,6 +127,28 @@ export default makeScene2D(function* (view) {
   );
 });
 ```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+// ...
+import {all} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const imageRef = new Img({src: examplePng, scale: 2});
+
+  view.add(imageRef);
+
+  yield* all(
+    imageRef.scale(2.5, 1.5).to(2, 1.5),
+    imageRef.absoluteRotation(90, 1.5).to(0, 1.5),
+  );
+});
+```
+
+</TabItem>
+</Tabs>
 
 <AnimationPlayer name="media-image" small />
 
@@ -128,6 +174,9 @@ import exampleMp4 from '../../videos/example.mp4';
 Then we can use Canvas Commons [`Video`](/api/2d/components/Video) component to
 display the video as follows:
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```tsx
 import {makeScene2D, Video} from '@canvas-commons/2d';
 
@@ -138,8 +187,27 @@ export default makeScene2D(function* (view) {
 });
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+import {makeScene2D, Video} from '@canvas-commons/2d';
+
+import exampleMp4 from '../../videos/example.mp4';
+
+export default makeScene2D(function* (view) {
+  view.add(new Video({src: exampleMp4}));
+});
+```
+
+</TabItem>
+</Tabs>
+
 However this will only display the video and will not play it. In order to play
 the video we need to create a [`Reference`](/docs/references) to the element.
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```tsx
 // ...
@@ -152,6 +220,22 @@ export default makeScene2D(function* (view) {
 });
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+// ...
+
+export default makeScene2D(function* (view) {
+  const videoRef = new Video({src: exampleMp4});
+
+  view.add(videoRef);
+});
+```
+
+</TabItem>
+</Tabs>
+
 Now that we have a [`Reference`](/docs/references) to the
 [`Video`](/api/2d/components/Video) element, we can use it to animate the video,
 as well as [`play`](/api/2d/components/Video#play) and
@@ -161,8 +245,8 @@ as well as [`play`](/api/2d/components/Video#play) and
 export default makeScene2D(function* (view) {
   // ...
 
-  videoRef().play();
-  yield* videoRef().scale(1.25, 1.5).to(1, 1.5);
+  videoRef.play();
+  yield* videoRef.scale(1.25, 1.5).to(1, 1.5);
 });
 ```
 

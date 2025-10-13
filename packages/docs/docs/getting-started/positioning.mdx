@@ -3,6 +3,8 @@ sidebar_position: 4
 slug: /positioning
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 import AnimationPlayer from '@site/src/components/AnimationPlayer';
 import ApiSnippet from '@site/src/components/Api/ApiSnippet';
 
@@ -43,6 +45,9 @@ operates in world space.
 This can be helpful, for instance, when we need to match the transforms of two
 nodes located within different parents. Consider the following example:
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```tsx
 const circleA = createRef<Node>();
 const circleB = createRef<Node>();
@@ -64,6 +69,36 @@ view.add(
 
 circleB().absolutePosition(circleA().absolutePosition());
 ```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+const circleA = new Circle({
+  position: [0, 100],
+  width: 20,
+  height: 20,
+  fill: 'white',
+});
+
+const nodeA = new Node({
+  position: [200, 100],
+  children: [circleA],
+});
+
+const circleB = new Circle({
+  width: 10,
+  height: 10,
+  fill: 'red',
+});
+
+view.add([nodeA, circleB]);
+
+circleB.absolutePosition(circleA.absolutePosition());
+```
+
+</TabItem>
+</Tabs>
 
 We access the absolute position (position in world space) of `circleA` and
 assign it as the absolute position of `circleB`. This will move the `circleB`

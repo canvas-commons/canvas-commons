@@ -3,6 +3,9 @@ sidebar_position: 13
 slug: /logging
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Logging
 
 One method of debugging your code or animation flow is using logging messages.
@@ -10,6 +13,9 @@ For this, canvas-commons has its own built-in way to log messages.
 
 To get a reference to the Logger in canvas-commons you can use the `useLogger`
 function:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```tsx
 import {makeScene2D} from '@canvas-commons/2d';
@@ -21,11 +27,30 @@ export default makeScene2D(function* (view) {
 });
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+import {makeScene2D} from '@canvas-commons/2d';
+import {useLogger} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const logger = useLogger();
+  // ...
+});
+```
+
+</TabItem>
+</Tabs>
+
 ## Basic
 
 Now that we know how to get a reference to the `Logger` we can take a look at
 different ways to log messages. One way is to use standard logging functions
 like `debug`, `info`, `warn` and `error` and simply log a string:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```tsx
 logger.debug('Just here to debug some code.');
@@ -33,6 +58,19 @@ logger.info('All fine just a little info.');
 logger.warn('Be careful something has gone wrong.');
 logger.error('Ups. An error occured.');
 ```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+logger.debug('Just here to debug some code.');
+logger.info('All fine just a little info.');
+logger.warn('Be careful something has gone wrong.');
+logger.error('Ups. An error occured.');
+```
+
+</TabItem>
+</Tabs>
 
 These messages get then displayed in the UI under the `Console` tab on the left
 side.

@@ -3,6 +3,8 @@ sidebar_position: 2
 slug: /flow
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 import ApiSnippet from '@site/src/components/Api/ApiSnippet';
 
 # Animation flow
@@ -39,6 +41,9 @@ frame is ready, display it on the screen and come back to me later."
 With that in mind, we can make a circle flicker on the screen using the
 following code:
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```tsx
 export default makeScene2D(function* (view) {
   const circle = createRef<Circle>();
@@ -53,6 +58,26 @@ export default makeScene2D(function* (view) {
 });
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+export default makeScene2D(function* (view) {
+  const circle = new Circle({width: 100, height: 100});
+  view.add(circle);
+
+  circle.fill('red');
+  yield;
+  circle.fill('blue');
+  yield;
+  circle.fill('red');
+  yield;
+});
+```
+
+</TabItem>
+</Tabs>
+
 Needless to say, it would be extremely cumbersome if we had to write all
 animations like that. Fortunately, JavaScript has another keyword for use within
 generators - `yield*`. It allows us to delegate the yielding to another
@@ -60,6 +85,9 @@ generator.
 
 For instance, we could extract the flickering code from the above example to a
 separate generator and delegate our scene function to it:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```tsx
 import {createRef, ThreadGenerator} from '@canvas-commons/core';
@@ -81,6 +109,33 @@ function* flicker(circle: Circle): ThreadGenerator {
   yield;
 }
 ```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+import {ThreadGenerator} from '@canvas-commons/core';
+import {makeScene2D, Circle} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  const circle = new Circle({width: 100, height: 100});
+  view.add(circle);
+
+  yield* flicker(circle);
+});
+
+function* flicker(circle: Circle): ThreadGenerator {
+  circle.fill('red');
+  yield;
+  circle.fill('blue');
+  yield;
+  circle.fill('red');
+  yield;
+}
+```
+
+</TabItem>
+</Tabs>
 
 The resulting animation is exactly the same, but now we have a reusable function
 that we can use whenever we need some flickering.
@@ -140,6 +195,9 @@ generator in the quickstart section, there's a few more:
 There are many ways to animate multiple objects. Here are some examples. Try
 using them in the below editor.
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```tsx editor ratio=2
 import {makeScene2D, Rect} from '@canvas-commons/2d';
 import {all, waitFor, makeRef, range} from '@canvas-commons/core';
@@ -170,11 +228,50 @@ export default makeScene2D(function* (view) {
 });
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor ratio=2
+import {makeScene2D, Rect} from '@canvas-commons/2d';
+import {all, waitFor, range} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const rects: Rect[] = [];
+
+  // Create some rects
+  range(5).forEach(i => {
+    const rect = new Rect({
+      width: 100,
+      height: 100,
+      x: -250 + 125 * i,
+      fill: '#88C0D0',
+      radius: 10,
+    });
+    rects.push(rect);
+  });
+
+  view.add(rects);
+
+  yield* waitFor(1);
+
+  // Animate them
+  yield* all(
+    ...rects.map(rect => rect.position.y(100, 1).to(-100, 2).to(0, 1)),
+  );
+});
+```
+
+</TabItem>
+</Tabs>
+
 ### Using `Array.map` and `all`
 
 This is one of the most elegant ways to do simple tweens, but requires nesting
 `all` to do multiple tweens on an object since the `map` callback must return a
 `ThreadGenerator`.
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```tsx
 yield *
@@ -186,9 +283,28 @@ yield *
   );
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+yield *
+  all(
+    ...rects.map(rect =>
+      // No yield or anything; we return this generator and deal with it outside
+      rect.position.y(100, 1).to(-100, 2).to(0, 1),
+    ),
+  );
+```
+
+</TabItem>
+</Tabs>
+
 ### Using a `for` loop and `all`
 
 This is similar to above, but uses a `for` loop and an array of generators.
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```tsx
 const generators = [];
@@ -201,11 +317,31 @@ for (const rect of rects) {
 yield * all(...generators);
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+const generators = [];
+for (const rect of rects) {
+  // No yield here, just store the generators.
+  generators.push(rect.position.y(100, 1).to(-100, 2).to(0, 1));
+}
+
+// Run all of the generators.
+yield * all(...generators);
+```
+
+</TabItem>
+</Tabs>
+
 ### Using a `for` loop
 
 This is a bit of a cumbersome option because you have to figure out how long it
 would take for the generator in the loop to complete, but is useful in some
 situations.
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
 
 ```tsx
 for (const rect of rects) {
@@ -216,3 +352,19 @@ for (const rect of rects) {
 // Wait for the duration of the above generators
 yield * waitFor(4);
 ```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+for (const rect of rects) {
+  // Note the absence of a * after this yield
+  yield rect.position.y(100, 1).to(-100, 2).to(0, 1);
+}
+
+// Wait for the duration of the above generators
+yield * waitFor(4);
+```
+
+</TabItem>
+</Tabs>

@@ -3,6 +3,8 @@ sidebar_position: 6
 slug: /signals
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 import AnimationPlayer from '@site/src/components/AnimationPlayer';
 import CodeBlock from '@theme/CodeBlock';
 import signalSource from '!!raw-loader!@canvas-commons/examples/src/scenes/node-signal';
@@ -36,11 +38,26 @@ const signal = Vector2.createSignal(Vector2.up);
 
 Properties of every node are also represented by signals:
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```tsx
 const circle = <Circle />;
 
 const signal = circle.fill;
 ```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+const circle = new Circle({});
+
+const signal = circle.fill;
+```
+
+</TabItem>
+</Tabs>
 
 Once created, signals can be invoked to perform one of the three possible
 actions (The action is chosen based on the number of arguments):
@@ -145,6 +162,9 @@ example below, we set the [`lineHeight`](/api/2d/components/Layout#lineHeight)
 of the [`Txt`](/api/2d/components/Txt) node to `150%`. This will override its
 default value, which would be simply inherited from its parent:
 
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
 ```tsx
 const text = createRef<Txt>();
 view.add(
@@ -154,12 +174,26 @@ view.add(
 );
 ```
 
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+const text = new Txt({
+  lineHeight: '150%',
+  children: 'Hello world!',
+});
+view.add(text);
+```
+
+</TabItem>
+</Tabs>
+
 If we want to reset the [`lineHeight`](/api/2d/components/Layout#lineHeight)
 back to the default, inherited value, we can do so with
 [`DEFAULT`](/api/core/signals#DEFAULT):
 
 ```ts
-text().lineHeight(DEFAULT);
+text.lineHeight(DEFAULT);
 ```
 
 ## Complex example

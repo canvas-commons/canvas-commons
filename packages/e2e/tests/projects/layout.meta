@@ -14,18 +14,18 @@
   },
   "preview": {
     "fps": 30,
-    "resolutionScale": 0.5
+    "resolutionScale": 1
   },
   "rendering": {
     "fps": 30,
-    "resolutionScale": 0.5,
+    "resolutionScale": 1,
     "colorSpace": "srgb",
     "exporter": {
       "name": "@canvas-commons/core/image-sequence",
       "options": {
         "fileType": "image/png",
         "quality": 100,
-        "groupByScene": true
+        "groupByScene": false
       }
     }
   }

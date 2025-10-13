@@ -10,7 +10,7 @@ export interface App {
   stop: () => Promise<void>;
 }
 
-export async function start(): Promise<App> {
+export async function start(projectName?: string): Promise<App> {
   const [browser, server] = await Promise.all([
     firefox.launch({
       headless: true,
@@ -22,7 +22,12 @@ export async function start(): Promise<App> {
   ]);
 
   const page = await browser.newPage();
-  await page.goto(`http://localhost:${server.config.server.port}`);
+  const baseUrl = `http://localhost:${server.config.server.port}`;
+  const url = projectName
+    ? `${baseUrl}/tests/projects/${projectName}`
+    : baseUrl;
+
+  await page.goto(url);
   await page.waitForSelector('main');
 
   return {

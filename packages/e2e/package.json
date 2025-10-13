@@ -10,6 +10,7 @@
   "dependencies": {
     "@canvas-commons/2d": "*",
     "@canvas-commons/core": "*",
+    "@lezer/javascript": "^1.5.4",
     "jest-image-snapshot": "^6.2.0",
     "playwright": "^1.46.1",
     "vitest": "^0.34.6"

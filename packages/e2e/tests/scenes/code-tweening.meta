@@ -1,0 +1,18 @@
+{
+  "version": 0,
+  "timeEvents": [
+    {
+      "name": "initial",
+      "targetTime": 0
+    },
+    {
+      "name": "mid",
+      "targetTime": 1
+    },
+    {
+      "name": "final",
+      "targetTime": 3
+    }
+  ],
+  "seed": 1234567891
+}

@@ -7,7 +7,7 @@ import {DefaultHighlightStyle} from './DefaultHighlightStyle';
 interface LezerCache {
   tree: Tree;
   code: string;
-  codeColors: Uint8Array;
+  codeColors: Uint8Array | Uint16Array | Uint32Array;
 }
 
 export class LezerHighlighter implements CodeHighlighter<LezerCache | null> {
@@ -40,17 +40,26 @@ export class LezerHighlighter implements CodeHighlighter<LezerCache | null> {
         classCount += 1;
       }
     }
-    if (classCount > 255) {
-      throw new Error('Too many classes');
-    }
   }
 
   public initialize(): boolean {
     return true;
   }
 
+  protected makeArray(size: number) {
+    const classCount = this.idToColor.size;
+    if (classCount < 1 << 8) {
+      return new Uint8Array(size);
+    } else if (classCount < 1 << 16) {
+      return new Uint16Array(size);
+    } else {
+      // 2^25 is the max size of a Map, so we can fit all keys into Uint32.
+      return new Uint32Array(size);
+    }
+  }
+
   public prepare(code: string): LezerCache | null {
-    const codeColors = new Uint8Array(code.length);
+    const codeColors = this.makeArray(code.length);
     const tree = this.parser.parse(code);
     highlightTree(tree, this.style, (from, to, classes) => {
       let color: number | undefined = undefined;

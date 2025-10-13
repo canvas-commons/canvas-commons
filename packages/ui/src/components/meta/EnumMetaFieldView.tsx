@@ -9,10 +9,15 @@ export interface EnumMetaFieldViewProps {
 
 export function EnumMetaFieldView({field}: EnumMetaFieldViewProps) {
   const value = useSubscribableValue(field.onChanged);
+
+  // Generate test ID based on field name
+  const testId = field.name.toLowerCase().replace(/\s+/g, '-');
+
   return (
     <>
       <MetaFieldGroup field={field}>
         <Select
+          data-testid={testId}
           options={field.options}
           value={value}
           onChange={newValue => field.set(newValue)}

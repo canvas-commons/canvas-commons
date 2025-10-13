@@ -13,10 +13,14 @@ export function NumberMetaFieldView({field}: NumberMetaFieldViewProps) {
   const precision = field.getPrecision();
   const step = field.getStep();
 
+  // Generate test ID based on field name
+  const testId = field.name.toLowerCase().replace(/\s+/g, '-');
+
   return (
     <MetaFieldGroup field={field}>
       {presets.length ? (
         <NumberInputSelect
+          data-testid={testId}
           value={value}
           min={field.getMin()}
           max={field.getMax()}
@@ -27,6 +31,7 @@ export function NumberMetaFieldView({field}: NumberMetaFieldViewProps) {
         />
       ) : (
         <NumberInput
+          data-testid={testId}
           value={value}
           decimalPlaces={precision}
           step={step}

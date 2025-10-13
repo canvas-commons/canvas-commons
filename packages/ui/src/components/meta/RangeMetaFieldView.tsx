@@ -22,9 +22,15 @@ export function RangeMetaFieldView({field}: RangeMetaFieldViewProps) {
   const startFrame = player.status.secondsToFrames(range[0]);
   const endFrame = player.status.secondsToFrames(range[1]);
 
+  // Generate test IDs based on the field name for better test targeting
+  const fieldName = field.name.toLowerCase().replace(/\s+/g, '-');
+  const startTestId = `${fieldName}-range-start`;
+  const endTestId = `${fieldName}-range-end`;
+
   return (
     <MetaFieldGroup field={field}>
       <NumberInput
+        data-testid={startTestId}
         min={0}
         max={endFrame}
         value={startFrame}
@@ -36,6 +42,7 @@ export function RangeMetaFieldView({field}: RangeMetaFieldViewProps) {
         }}
       />
       <NumberInput
+        data-testid={endTestId}
         min={startFrame}
         max={duration}
         placeholder="end"

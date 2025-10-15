@@ -40,7 +40,6 @@ export interface ShapeProps extends LayoutProps {
   lineDash?: SignalValue<number[]>;
   lineDashOffset?: SignalValue<number>;
   antialiased?: SignalValue<boolean>;
-  fillShaders?: PossibleShaderConfig;
 
   /**
    * Enable rough.js rendering.
@@ -82,6 +81,9 @@ export interface ShapeProps extends LayoutProps {
    * {@inheritDoc RoughConfig.disableMultiStrokeFill}
    */
   roughDisableMultiStrokeFill?: SignalValue<boolean>;
+
+  fillShaders?: PossibleShaderConfig;
+  strokeShaders?: PossibleShaderConfig;
 }
 
 @nodeName('Shape')
@@ -190,6 +192,18 @@ export abstract class Shape extends Layout {
     this
   >;
 
+  /**
+   * @experimental
+   */
+  @initial([])
+  @parser(parseShader)
+  @signal()
+  declare public readonly strokeShaders: Signal<
+    PossibleShaderConfig,
+    ShaderConfig[],
+    this
+  >;
+
   protected readonly rippleStrength = createSignal<number, this>(0);
 
   @computed()
@@ -240,23 +254,72 @@ export abstract class Shape extends Layout {
     const path = this.getPath();
     const hasStroke = this.lineWidth() > 0 && this.stroke() !== null;
     const hasFill = this.fill() !== null;
-    const fillShaders = this.fillShaders();
-
     context.save();
     this.applyStyle(context);
     this.drawRipple(context);
+    if (this.strokeFirst()) {
+      hasStroke && this.drawStroke(context, path);
+      hasFill && this.drawFill(context, path);
+    } else {
+      hasFill && this.drawFill(context, path);
+      hasStroke && this.drawStroke(context, path);
+    }
+    context.restore();
+  }
 
-    if (fillShaders.length > 0 && hasFill) {
-      if (this.strokeFirst()) {
-        hasStroke && context.stroke(path);
-      }
+  protected drawShapeRough(context: CanvasRenderingContext2D) {
+    const pathData = this.getPathData();
+    if (!pathData) {
+      return;
+    }
 
+    context.save();
+
+    if (!this.antialiased()) {
+      context.filter =
+        'url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxmaWx0ZXIgaWQ9ImZpbHRlciIgeD0iMCIgeT0iMCIgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgY29sb3ItaW50ZXJwb2xhdGlvbi1maWx0ZXJzPSJzUkdCIj48ZmVDb21wb25lbnRUcmFuc2Zlcj48ZmVGdW5jUiB0eXBlPSJpZGVudGl0eSIvPjxmZUZ1bmNHIHR5cGU9ImlkZW50aXR5Ii8+PGZlRnVuY0IgdHlwZT0iaWRlbnRpdHkiLz48ZmVGdW5jQSB0eXBlPSJkaXNjcmV0ZSIgdGFibGVWYWx1ZXM9IjAgMSIvPjwvZmVDb21wb25lbnRUcmFuc2Zlcj48L2ZpbHRlcj48L3N2Zz4=#filter)';
+    }
+
+    const seed = this.roughSeed();
+    if (seed === undefined) {
+      context.restore();
+      return;
+    }
+
+    const roughConfig = createRoughConfig(
+      this.roughness(),
+      this.bowing(),
+      this.roughFillStyle(),
+      this.roughFillWeight(),
+      this.roughHachureAngle(),
+      this.roughHachureGap(),
+      seed,
+      this.roughDisableMultiStroke(),
+      this.roughDisableMultiStrokeFill(),
+    );
+
+    drawRoughPath(
+      context,
+      pathData,
+      roughConfig,
+      this.fill(),
+      this.stroke(),
+      this.lineWidth(),
+    );
+
+    context.restore();
+  }
+
+  private drawFill(context: CanvasRenderingContext2D, path: Path2D) {
+    const shaders = this.fillShaders();
+    if (shaders.length > 0) {
       const fillCanvas = this.renderFillToCanvas();
+
       if (fillCanvas) {
         const result = this.shapeShaderCanvas(
           context.canvas,
           fillCanvas,
-          fillShaders,
+          shaders,
         );
         if (result) {
           context.save();
@@ -264,21 +327,9 @@ export abstract class Shape extends Layout {
           context.restore();
         }
       }
-
-      if (!this.strokeFirst()) {
-        hasStroke && context.stroke(path);
-      }
     } else {
-      if (this.strokeFirst()) {
-        hasStroke && context.stroke(path);
-        hasFill && context.fill(path);
-      } else {
-        hasFill && context.fill(path);
-        hasStroke && context.stroke(path);
-      }
+      context.fill(path);
     }
-
-    context.restore();
   }
 
   private renderFillToCanvas(): HTMLCanvasElement | null {
@@ -293,11 +344,56 @@ export abstract class Shape extends Layout {
     canvas.height = Math.ceil(bbox.height);
 
     const context = canvas.getContext('2d');
-    context?.translate(-bbox.x, -bbox.y);
-    this.applyStyle(context!);
+    if (context === null) return null;
+    context.translate(-bbox.x, -bbox.y);
+    this.applyStyle(context);
 
     const path = this.getPath();
     context?.fill(path);
+
+    return canvas;
+  }
+
+  private drawStroke(context: CanvasRenderingContext2D, path: Path2D) {
+    const shaders = this.strokeShaders();
+    if (shaders.length > 0) {
+      const strokeCanvas = this.renderStrokeToCanvas();
+
+      if (strokeCanvas) {
+        const result = this.shapeShaderCanvas(
+          context.canvas,
+          strokeCanvas,
+          shaders,
+        );
+        if (result) {
+          context.save();
+          this.renderFromSource(context, result, 0, 0);
+          context.restore();
+        }
+      }
+    } else {
+      context.stroke(path);
+    }
+  }
+
+  private renderStrokeToCanvas(): HTMLCanvasElement | null {
+    const stroke = this.stroke();
+    if (stroke === null) return null;
+
+    const bbox = this.cacheBBox();
+    if (bbox.width === 0 || bbox.height === 0) return null;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.ceil(bbox.width);
+    canvas.height = Math.ceil(bbox.height);
+
+    const context = canvas.getContext('2d');
+    if (context === null) return null;
+    context.translate(-bbox.x, -bbox.y);
+    this.applyStyle(context);
+
+    const path = this.getPath();
+    context?.stroke(path);
 
     return canvas;
   }
@@ -380,49 +476,6 @@ export abstract class Shape extends Layout {
     }
 
     return gl.canvas;
-  }
-
-  protected drawShapeRough(context: CanvasRenderingContext2D) {
-    const pathData = this.getPathData();
-    if (!pathData) {
-      return;
-    }
-
-    context.save();
-
-    if (!this.antialiased()) {
-      context.filter =
-        'url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxmaWx0ZXIgaWQ9ImZpbHRlciIgeD0iMCIgeT0iMCIgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgY29sb3ItaW50ZXJwb2xhdGlvbi1maWx0ZXJzPSJzUkdCIj48ZmVDb21wb25lbnRUcmFuc2Zlcj48ZmVGdW5jUiB0eXBlPSJpZGVudGl0eSIvPjxmZUZ1bmNHIHR5cGU9ImlkZW50aXR5Ii8+PGZlRnVuY0IgdHlwZT0iaWRlbnRpdHkiLz48ZmVGdW5jQSB0eXBlPSJkaXNjcmV0ZSIgdGFibGVWYWx1ZXM9IjAgMSIvPjwvZmVDb21wb25lbnRUcmFuc2Zlcj48L2ZpbHRlcj48L3N2Zz4=#filter)';
-    }
-
-    const seed = this.roughSeed();
-    if (seed === undefined) {
-      context.restore();
-      return;
-    }
-
-    const roughConfig = createRoughConfig(
-      this.roughness(),
-      this.bowing(),
-      this.roughFillStyle(),
-      this.roughFillWeight(),
-      this.roughHachureAngle(),
-      this.roughHachureGap(),
-      seed,
-      this.roughDisableMultiStroke(),
-      this.roughDisableMultiStrokeFill(),
-    );
-
-    drawRoughPath(
-      context,
-      pathData,
-      roughConfig,
-      this.fill(),
-      this.stroke(),
-      this.lineWidth(),
-    );
-
-    context.restore();
   }
 
   protected override getCacheBBox(): BBox {

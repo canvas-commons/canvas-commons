@@ -234,50 +234,51 @@ export abstract class Shape extends Layout {
   protected drawShape(context: CanvasRenderingContext2D) {
     if (this.rough()) {
       this.drawShapeRough(context);
-    } else {
-      const path = this.getPath();
-      const hasStroke = this.lineWidth() > 0 && this.stroke() !== null;
-      const hasFill = this.fill() !== null;
-      const fillShaders = this.fillShaders();
-      context.save();
-      this.applyStyle(context);
-      this.drawRipple(context);
+      return;
+    }
 
-      if (fillShaders.length > 0 && hasFill) {
-        if (this.strokeFirst()) {
-          hasStroke && context.stroke(path);
-        }
+    const path = this.getPath();
+    const hasStroke = this.lineWidth() > 0 && this.stroke() !== null;
+    const hasFill = this.fill() !== null;
+    const fillShaders = this.fillShaders();
 
-        const fillCanvas = this.renderFillToCanvas();
-        if (fillCanvas) {
-          const result = this.shapeShaderCanvas(
-            context.canvas,
-            fillCanvas,
-            fillShaders,
-          );
-          if (result) {
-            this.renderFromSource(context, result, 0, 0);
-          }
-        }
+    context.save();
+    this.applyStyle(context);
+    this.drawRipple(context);
 
-        if (!this.strokeFirst()) {
-          context.translate(
-            this.absolutePosition().x,
-            this.absolutePosition().y,
-          );
-          hasStroke && context.stroke(path);
-        }
-      } else {
-        if (this.strokeFirst()) {
-          hasStroke && context.stroke(path);
-          hasFill && context.fill(path);
-        } else {
-          hasFill && context.fill(path);
-          hasStroke && context.stroke(path);
+    if (fillShaders.length > 0 && hasFill) {
+      if (this.strokeFirst()) {
+        hasStroke && context.stroke(path);
+      }
+
+      const fillCanvas = this.renderFillToCanvas();
+      if (fillCanvas) {
+        const result = this.shapeShaderCanvas(
+          context.canvas,
+          fillCanvas,
+          fillShaders,
+        );
+        if (result) {
+          context.save();
+          this.renderFromSource(context, result, 0, 0);
+          context.restore();
         }
       }
-      context.restore();
+
+      if (!this.strokeFirst()) {
+        hasStroke && context.stroke(path);
+      }
+    } else {
+      if (this.strokeFirst()) {
+        hasStroke && context.stroke(path);
+        hasFill && context.fill(path);
+      } else {
+        hasFill && context.fill(path);
+        hasStroke && context.stroke(path);
+      }
     }
+
+    context.restore();
   }
 
   private renderFillToCanvas(): HTMLCanvasElement | null {

@@ -40,6 +40,7 @@ export interface ShapeProps extends LayoutProps {
   lineDashOffset?: SignalValue<number>;
   antialiased?: SignalValue<boolean>;
   fillShaders?: PossibleShaderConfig;
+  strokeShaders?: PossibleShaderConfig;
 }
 
 @nodeName('Shape')
@@ -77,6 +78,18 @@ export abstract class Shape extends Layout {
   @parser(parseShader)
   @signal()
   public declare readonly fillShaders: Signal<
+    PossibleShaderConfig,
+    ShaderConfig[],
+    this
+  >;
+
+  /**
+   * @experimental
+   */
+  @initial([])
+  @parser(parseShader)
+  @signal()
+  public declare readonly strokeShaders: Signal<
     PossibleShaderConfig,
     ShaderConfig[],
     this
@@ -125,24 +138,29 @@ export abstract class Shape extends Layout {
     const path = this.getPath();
     const hasStroke = this.lineWidth() > 0 && this.stroke() !== null;
     const hasFill = this.fill() !== null;
-
-    const fillShaders = this.fillShaders();
-
     context.save();
     this.applyStyle(context);
     this.drawRipple(context);
+    if (this.strokeFirst()) {
+      hasStroke && this.drawStroke(context, path);
+      hasFill && this.drawFill(context, path);
+    } else {
+      hasFill && this.drawFill(context, path);
+      hasStroke && this.drawStroke(context, path);
+    }
+    context.restore();
+  }
 
-    if (fillShaders.length > 0 && hasFill) {
-      if (this.strokeFirst()) {
-        hasStroke && context.stroke(path);
-      }
-
+  private drawFill(context: CanvasRenderingContext2D, path: Path2D) {
+    const shaders = this.fillShaders();
+    if (shaders.length > 0) {
       const fillCanvas = this.renderFillToCanvas();
+
       if (fillCanvas) {
         const result = this.shapeShaderCanvas(
           context.canvas,
           fillCanvas,
-          fillShaders,
+          shaders,
         );
         if (result) {
           context.save();
@@ -150,20 +168,9 @@ export abstract class Shape extends Layout {
           context.restore();
         }
       }
-
-      if (!this.strokeFirst()) {
-        hasStroke && context.stroke(path);
-      }
     } else {
-      if (this.strokeFirst()) {
-        hasStroke && context.stroke(path);
-        hasFill && context.fill(path);
-      } else {
-        hasFill && context.fill(path);
-        hasStroke && context.stroke(path);
-      }
+      context.fill(path);
     }
-    context.restore();
   }
 
   private renderFillToCanvas(): HTMLCanvasElement | null {
@@ -178,11 +185,56 @@ export abstract class Shape extends Layout {
     canvas.height = Math.ceil(bbox.height);
 
     const context = canvas.getContext('2d');
-    context?.translate(-bbox.x, -bbox.y);
-    this.applyStyle(context!);
+    if (context === null) return null;
+    context.translate(-bbox.x, -bbox.y);
+    this.applyStyle(context);
 
     const path = this.getPath();
     context?.fill(path);
+
+    return canvas;
+  }
+
+  private drawStroke(context: CanvasRenderingContext2D, path: Path2D) {
+    const shaders = this.strokeShaders();
+    if (shaders.length > 0) {
+      const strokeCanvas = this.renderStrokeToCanvas();
+
+      if (strokeCanvas) {
+        const result = this.shapeShaderCanvas(
+          context.canvas,
+          strokeCanvas,
+          shaders,
+        );
+        if (result) {
+          context.save();
+          this.renderFromSource(context, result, 0, 0);
+          context.restore();
+        }
+      }
+    } else {
+      context.stroke(path);
+    }
+  }
+
+  private renderStrokeToCanvas(): HTMLCanvasElement | null {
+    const stroke = this.stroke();
+    if (stroke === null) return null;
+
+    const bbox = this.cacheBBox();
+    if (bbox.width === 0 || bbox.height === 0) return null;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.ceil(bbox.width);
+    canvas.height = Math.ceil(bbox.height);
+
+    const context = canvas.getContext('2d');
+    if (context === null) return null;
+    context.translate(-bbox.x, -bbox.y);
+    this.applyStyle(context);
+
+    const path = this.getPath();
+    context?.stroke(path);
 
     return canvas;
   }

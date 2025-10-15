@@ -145,12 +145,13 @@ export abstract class Shape extends Layout {
           fillShaders,
         );
         if (result) {
+          context.save();
           this.renderFromSource(context, result, 0, 0);
+          context.restore();
         }
       }
 
       if (!this.strokeFirst()) {
-        context.translate(this.absolutePosition().x, this.absolutePosition().y);
         hasStroke && context.stroke(path);
       }
     } else {
@@ -229,12 +230,13 @@ export abstract class Shape extends Layout {
           if (typeof value === 'number') gl.uniform1f(location, value);
           else if ('toUniform' in value) value.toUniform(gl, location);
           else if (value.length === 1) gl.uniform1f(location, value[0]);
-          else if (value.length === 2)
-            {gl.uniform2f(location, value[0], value[1]);}
-          else if (value.length === 3)
-            {gl.uniform3f(location, value[0], value[1], value[2]);}
-          else if (value.length === 4)
-            {gl.uniform4f(location, value[0], value[1], value[2], value[3]);}
+          else if (value.length === 2) {
+            gl.uniform2f(location, value[0], value[1]);
+          } else if (value.length === 3) {
+            gl.uniform3f(location, value[0], value[1], value[2]);
+          } else if (value.length === 4) {
+            gl.uniform4f(location, value[0], value[1], value[2], value[3]);
+          }
         }
       }
 

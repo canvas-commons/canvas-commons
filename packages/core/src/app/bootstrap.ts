@@ -39,9 +39,7 @@ export function bootstrap(
     return pluginResolutions.get(plugin);
   }
 
-  function resolvePluginList(
-    plugins: (Plugin | string)[] | undefined,
-  ): Plugin[] {
+  function resolvePluginList(plugins: PluginLike[] | undefined): Plugin[] {
     return plugins?.map(resolvePlugin)?.filter(isDefined) ?? [];
   }
 

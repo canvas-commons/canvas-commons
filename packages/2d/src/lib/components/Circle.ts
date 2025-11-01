@@ -8,6 +8,7 @@ import {
 import {CurveProfile, getCircleProfile} from '../curves';
 import {computed, initial, nodeName, signal} from '../decorators';
 import {DesiredLength} from '../partials';
+import {PathDataBuilder} from '../utils';
 import {Curve, CurveProps} from './Curve';
 
 export interface CircleProps extends CurveProps {
@@ -228,9 +229,49 @@ export class Circle extends Curve {
     return BBox.fromSizeCentered(this.computedSize());
   }
 
+  @computed()
+  protected override getPathData(): string {
+    const builder = new PathDataBuilder();
+    const start = this.startAngle() * DEG2RAD;
+    let end = this.endAngle() * DEG2RAD;
+    const size = this.size().scale(0.5);
+    const closed = this.closed();
+
+    if (end > start + Math.PI * 2) {
+      const loops = Math.floor((end - start) / (Math.PI * 2));
+      end -= Math.PI * 2 * loops;
+    }
+
+    if (closed) {
+      builder.moveTo(0, 0);
+    }
+
+    builder.ellipse(
+      0,
+      0,
+      size.x,
+      size.y,
+      0,
+      start,
+      end,
+      this.counterclockwise(),
+    );
+
+    if (closed) {
+      builder.closePath();
+    }
+
+    return builder.toString();
+  }
+
   protected override getPath(): Path2D {
     if (this.requiresProfile()) {
       return this.curveDrawingInfo().path;
+    }
+
+    const pathData = this.getPathData();
+    if (pathData) {
+      return new Path2D(pathData);
     }
 
     return this.createPath();

@@ -10,7 +10,7 @@ import {getRectProfile} from '../curves/getRectProfile';
 import {computed, initial, nodeName, signal} from '../decorators';
 import {spacingSignal} from '../decorators/spacingSignal';
 import {DesiredLength} from '../partials';
-import {drawRoundRect} from '../utils';
+import {PathDataBuilder, drawRoundRect, roundedRectToSVGPath} from '../utils';
 import {Curve, CurveProps} from './Curve';
 
 export interface RectProps extends CurveProps {
@@ -153,9 +153,42 @@ export class Rect extends Curve {
     return BBox.fromSizeCentered(this.computedSize());
   }
 
+  @computed()
+  protected override getPathData(): string {
+    const box = BBox.fromSizeCentered(this.size());
+    const radius = this.radius();
+    const hasRoundedCorners =
+      radius.top > 0 ||
+      radius.right > 0 ||
+      radius.bottom > 0 ||
+      radius.left > 0;
+
+    if (hasRoundedCorners || this.smoothCorners()) {
+      return roundedRectToSVGPath(
+        box,
+        radius,
+        this.smoothCorners(),
+        this.cornerSharpness(),
+      );
+    }
+
+    const builder = new PathDataBuilder();
+    builder.moveTo(box.left, box.top);
+    builder.lineTo(box.right, box.top);
+    builder.lineTo(box.right, box.bottom);
+    builder.lineTo(box.left, box.bottom);
+    builder.closePath();
+    return builder.toString();
+  }
+
   protected override getPath(): Path2D {
     if (this.requiresProfile()) {
       return this.curveDrawingInfo().path;
+    }
+
+    const pathData = this.getPathData();
+    if (pathData) {
+      return new Path2D(pathData);
     }
 
     const path = new Path2D();

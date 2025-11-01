@@ -61,14 +61,16 @@ export class CubicBezierSegment extends PolynomialSegment {
     bezierCurveTo(context, this.p1, this.p2, this.p3);
   }
 
+  protected override doSVGCommands(): string {
+    return `C ${this.p1.x} ${this.p1.y} ${this.p2.x} ${this.p2.y} ${this.p3.x} ${this.p3.y}`;
+  }
+
   protected static getLength(
     p0: Vector2,
     p1: Vector2,
     p2: Vector2,
     p3: Vector2,
   ): number {
-    // Let the browser do the work for us instead of calculating the arclength
-    // manually.
     CubicBezierSegment.el.setAttribute(
       'd',
       `M ${p0.x} ${p0.y} C ${p1.x} ${p1.y} ${p2.x} ${p2.y} ${p3.x} ${p3.y}`,

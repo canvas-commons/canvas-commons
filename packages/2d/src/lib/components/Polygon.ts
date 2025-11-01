@@ -8,7 +8,7 @@ import {
 import {CurveProfile, getPolylineProfile} from '../curves';
 import {computed, initial, signal} from '../decorators';
 import {DesiredLength} from '../partials';
-import {drawPolygon} from '../utils';
+import {PathDataBuilder, drawPolygon} from '../utils';
 import {Curve, CurveProps} from './Curve';
 
 export interface PolygonProps extends CurveProps {
@@ -217,13 +217,41 @@ export class Polygon extends Curve {
     return super.requiresProfile() || this.radius() > 0;
   }
 
+  @computed()
+  protected override getPathData(): string {
+    const builder = new PathDataBuilder();
+    const sides = this.sides();
+    const size = this.computedSize().scale(0.5);
+
+    for (let i = 0; i < sides; i++) {
+      const theta = (i * 2 * Math.PI) / sides;
+      const direction = Vector2.fromRadians(theta).perpendicular;
+      const point = direction.mul(size);
+
+      if (i === 0) {
+        builder.moveTo(point.x, point.y);
+      } else {
+        builder.lineTo(point.x, point.y);
+      }
+    }
+
+    builder.closePath();
+    return builder.toString();
+  }
+
   protected override getPath(): Path2D {
     if (this.requiresProfile()) {
       return this.curveDrawingInfo().path;
     }
 
+    const pathData = this.getPathData();
+    if (pathData) {
+      return new Path2D(pathData);
+    }
+
     return this.createPath();
   }
+
   protected override getRipplePath(): Path2D {
     return this.createPath(this.rippleSize());
   }

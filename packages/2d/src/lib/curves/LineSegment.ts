@@ -59,4 +59,17 @@ export class LineSegment extends Segment {
       normal: this.normal,
     };
   }
+
+  public toSVGCommands(start = 0, end = 1, move = false): string {
+    const from = this.from.add(this.vector.scale(start));
+    const to = this.from.add(this.vector.scale(end));
+    const commands: string[] = [];
+
+    if (move) {
+      commands.push(`M ${from.x} ${from.y}`);
+    }
+    commands.push(`L ${to.x} ${to.y}`);
+
+    return commands.join(' ');
+  }
 }

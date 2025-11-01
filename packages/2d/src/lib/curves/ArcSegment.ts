@@ -143,7 +143,27 @@ export class ArcSegment extends Segment {
       normal: tangent.perpendicular,
     };
   }
+
   public get arcLength(): number {
     return this.length;
+  }
+
+  public toSVGCommands(start = 0, end = 1, move = false): string {
+    const startPos = this.getPoint(start).position;
+    const endPos = this.getPoint(end).position;
+
+    const commands: string[] = [];
+    if (move) {
+      commands.push(`M ${startPos.x} ${startPos.y}`);
+    }
+
+    const angleCovered = (end - start) * Math.abs(this.deltaAngle);
+    const largeArc = angleCovered > Math.PI ? 1 : 0;
+
+    commands.push(
+      `A ${this.radius.x} ${this.radius.y} ${this.xAxisRotationDegree} ${largeArc} ${this.sweepFlag} ${endPos.x} ${endPos.y}`,
+    );
+
+    return commands.join(' ');
   }
 }

@@ -74,4 +74,26 @@ export class CircleSegment extends Segment {
       normal: this.counter ? normal : normal.flipped,
     };
   }
+
+  public toSVGCommands(from = 0, to = 1, move = false): string {
+    const startPos = this.getPoint(from).position;
+    const endPos = this.getPoint(to).position;
+
+    const commands: string[] = [];
+    if (move) {
+      commands.push(`M ${startPos.x} ${startPos.y}`);
+    }
+
+    if (Math.abs(this.angle) > 0.0001) {
+      const angleCovered = (to - from) * Math.abs(this.angle);
+      const largeArc = angleCovered > Math.PI ? 1 : 0;
+      const sweep = this.counter ? 0 : 1;
+
+      commands.push(
+        `A ${this.radius} ${this.radius} 0 ${largeArc} ${sweep} ${endPos.x} ${endPos.y}`,
+      );
+    }
+
+    return commands.join(' ');
+  }
 }

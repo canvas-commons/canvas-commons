@@ -8,7 +8,7 @@ import {
 } from '@canvas-commons/core';
 import {CurveDrawingInfo} from '../curves/CurveDrawingInfo';
 import {CurvePoint} from '../curves/CurvePoint';
-import {CurveProfile} from '../curves/CurveProfile';
+import {CurveProfile, profileToSVGPathData} from '../curves/CurveProfile';
 import {getPointAtDistance} from '../curves/getPointAtDistance';
 import {computed, initial, nodeName, signal} from '../decorators';
 import {DesiredLength} from '../partials';
@@ -373,6 +373,11 @@ export abstract class Curve extends Shape {
 
   protected override getPath(): Path2D {
     return this.curveDrawingInfo().path;
+  }
+
+  @computed()
+  protected override getPathData(): string {
+    return profileToSVGPathData(this.profile());
   }
 
   protected override getCacheBBox(): BBox {

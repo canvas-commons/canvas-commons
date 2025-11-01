@@ -120,5 +120,32 @@ export abstract class PolynomialSegment extends Segment {
     ];
   }
 
+  public toSVGCommands(start = 0, end = 1, move = true): string {
+    let curve: PolynomialSegment | null = null;
+    let points = this.points;
+
+    if (start !== 0 || end !== 1) {
+      const startDistance = this.length * start;
+      const endDistance = this.length * end;
+
+      const startT = this.pointSampler.distanceToT(startDistance);
+      const endT = this.pointSampler.distanceToT(endDistance);
+      const relativeEndT = (endT - startT) / (1 - startT);
+
+      const [, startSegment] = this.split(startT);
+      [curve] = startSegment.split(relativeEndT);
+      points = curve.points;
+    }
+
+    const commands: string[] = [];
+    if (move) {
+      commands.push(`M ${points[0].x} ${points[0].y}`);
+    }
+    commands.push((curve ?? this).doSVGCommands());
+
+    return commands.join(' ');
+  }
+
   protected abstract doDraw(context: CanvasRenderingContext2D | Path2D): void;
+  protected abstract doSVGCommands(): string;
 }

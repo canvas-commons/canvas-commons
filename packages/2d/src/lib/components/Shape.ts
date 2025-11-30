@@ -1,8 +1,12 @@
 import {
   BBox,
+  Direction,
   SignalValue,
   SimpleSignal,
+  TimingFunction,
+  all,
   createSignal,
+  easeInOutCubic,
   easeOutExpo,
   linear,
   map,
@@ -318,5 +322,289 @@ export abstract class Shape extends Layout {
     this.rippleStrength(0);
     yield* this.rippleStrength(1, duration, linear);
     this.rippleStrength(0);
+  }
+
+  /**
+   * Animate the node fading in (opacity from 0 to 1).
+   *
+   * @param duration - The duration of the animation.
+   * @param timingFunction - The timing function to use.
+   */
+  @threadable()
+  public *fadeIn(duration = 0.6, timingFunction: TimingFunction = linear) {
+    this.opacity(0);
+    yield* this.opacity(1, duration, timingFunction);
+  }
+
+  /**
+   * Animate the node fading out (opacity from 1 to 0).
+   *
+   * @param duration - The duration of the animation.
+   * @param timingFunction - The timing function to use.
+   */
+  @threadable()
+  public *fadeOut(duration = 0.6, timingFunction: TimingFunction = linear) {
+    this.opacity(1);
+    yield* this.opacity(0, duration, timingFunction);
+  }
+
+  /**
+   * Animate the node pushing in from a direction.
+   *
+   * @param duration - The duration of the animation.
+   * @param direction - The direction to push in from.
+   * @param distance - The distance to push from (default: 100).
+   * @param timingFunction - The timing function to use.
+   */
+  @threadable()
+  public *pushIn(
+    duration = 0.6,
+    direction: Direction = Direction.Left,
+    distance = 100,
+    timingFunction: TimingFunction = easeInOutCubic,
+  ) {
+    const startPos = this.position();
+    let offsetX = 0;
+    let offsetY = 0;
+
+    switch (direction) {
+      case Direction.Left:
+        offsetX = -distance;
+        break;
+      case Direction.Right:
+        offsetX = distance;
+        break;
+      case Direction.Top:
+        offsetY = -distance;
+        break;
+      case Direction.Bottom:
+        offsetY = distance;
+        break;
+    }
+
+    this.position([startPos.x + offsetX, startPos.y + offsetY]);
+    this.opacity(0);
+    yield* all(
+      this.position(startPos, duration, timingFunction),
+      this.opacity(1, duration, timingFunction),
+    );
+  }
+
+  /**
+   * Animate the node pushing out to a direction.
+   *
+   * @param duration - The duration of the animation.
+   * @param direction - The direction to push out to.
+   * @param distance - The distance to push to (default: 100).
+   * @param timingFunction - The timing function to use.
+   */
+  @threadable()
+  public *pushOut(
+    duration = 0.6,
+    direction: Direction = Direction.Right,
+    distance = 100,
+    timingFunction: TimingFunction = easeInOutCubic,
+  ) {
+    const startPos = this.position();
+    let offsetX = 0;
+    let offsetY = 0;
+
+    switch (direction) {
+      case Direction.Left:
+        offsetX = -distance;
+        break;
+      case Direction.Right:
+        offsetX = distance;
+        break;
+      case Direction.Top:
+        offsetY = -distance;
+        break;
+      case Direction.Bottom:
+        offsetY = distance;
+        break;
+    }
+
+    this.opacity(1);
+    yield* all(
+      this.position([startPos.x + offsetX, startPos.y + offsetY], duration, timingFunction),
+      this.opacity(0, duration, timingFunction),
+    );
+    this.position(startPos);
+  }
+
+  /**
+   * Animate the node scaling and fading in simultaneously.
+   * The node starts at a smaller scale and zero opacity, then animates to full size and opacity.
+   *
+   * @param duration - The duration of the animation.
+   * @param initialScale - The initial scale factor (default: 0.8).
+   * @param timingFunction - The timing function to use.
+   */
+  @threadable()
+  public *popIn(
+    duration = 0.6,
+    initialScale = 0.8,
+    timingFunction: TimingFunction = easeInOutCubic,
+  ) {
+    const targetScale = this.scale();
+    this.scale(targetScale.mul(initialScale));
+    this.opacity(0);
+    yield* all(
+      this.scale(targetScale, duration, timingFunction),
+      this.opacity(1, duration, timingFunction),
+    );
+  }
+
+  /**
+   * Animate the node scaling and fading out simultaneously.
+   * The node shrinks and fades to zero opacity.
+   *
+   * @param duration - The duration of the animation.
+   * @param targetScale - The target scale factor (default: 0.8).
+   * @param timingFunction - The timing function to use.
+   */
+  @threadable()
+  public *popOut(
+    duration = 0.6,
+    targetScale = 0.8,
+    timingFunction: TimingFunction = easeInOutCubic,
+  ) {
+    const originalScale = this.scale();
+    this.opacity(1);
+    yield* all(
+      this.scale(originalScale.mul(targetScale), duration, timingFunction),
+      this.opacity(0, duration, timingFunction),
+    );
+    this.scale(originalScale);
+  }
+
+  /**
+   * Animate the node expanding from a direction (like a curtain opening).
+   * E.g., Direction.Left means the node expands from left to right.
+   *
+   * @param duration - The duration of the animation.
+   * @param direction - The direction to expand from.
+   * @param timingFunction - The timing function to use.
+   */
+  @threadable()
+  public *squashIn(
+    duration = 0.6,
+    direction: Direction = Direction.Left,
+    timingFunction: TimingFunction = easeInOutCubic,
+  ) {
+    const originalScale = this.scale();
+    const originalPos = this.position();
+    const size = this.computedSize();
+
+    if (direction === Direction.Left) {
+      // Expand from left to right
+      const offsetX = -size.width / 2;
+      this.scale([0, originalScale.y]);
+      this.position([originalPos.x + offsetX, originalPos.y]);
+      yield* all(
+        this.scale(originalScale, duration, timingFunction),
+        this.position(originalPos, duration, timingFunction),
+      );
+    } else if (direction === Direction.Right) {
+      // Expand from right to left
+      const offsetX = size.width / 2;
+      this.scale([0, originalScale.y]);
+      this.position([originalPos.x + offsetX, originalPos.y]);
+      yield* all(
+        this.scale(originalScale, duration, timingFunction),
+        this.position(originalPos, duration, timingFunction),
+      );
+    } else if (direction === Direction.Top) {
+      // Expand from top to bottom
+      const offsetY = -size.height / 2;
+      this.scale([originalScale.x, 0]);
+      this.position([originalPos.x, originalPos.y + offsetY]);
+      yield* all(
+        this.scale(originalScale, duration, timingFunction),
+        this.position(originalPos, duration, timingFunction),
+      );
+    } else {
+      // Direction.Bottom: Expand from bottom to top
+      const offsetY = size.height / 2;
+      this.scale([originalScale.x, 0]);
+      this.position([originalPos.x, originalPos.y + offsetY]);
+      yield* all(
+        this.scale(originalScale, duration, timingFunction),
+        this.position(originalPos, duration, timingFunction),
+      );
+    }
+  }
+
+  /**
+   * Animate the node collapsing towards a direction (like a curtain closing).
+   * E.g., Direction.Right means the node collapses from left to right (left side disappears first).
+   *
+   * @param duration - The duration of the animation.
+   * @param direction - The direction to collapse towards.
+   * @param timingFunction - The timing function to use.
+   */
+  @threadable()
+  public *squashOut(
+    duration = 0.6,
+    direction: Direction = Direction.Right,
+    timingFunction: TimingFunction = easeInOutCubic,
+  ) {
+    const originalScale = this.scale();
+    const originalPos = this.position();
+    const size = this.computedSize();
+
+    if (direction === Direction.Left) {
+      // Collapse towards left
+      const offsetX = -size.width / 2;
+      yield* all(
+        this.scale([0, originalScale.y], duration, timingFunction),
+        this.position([originalPos.x + offsetX, originalPos.y], duration, timingFunction),
+      );
+    } else if (direction === Direction.Right) {
+      // Collapse towards right
+      const offsetX = size.width / 2;
+      yield* all(
+        this.scale([0, originalScale.y], duration, timingFunction),
+        this.position([originalPos.x + offsetX, originalPos.y], duration, timingFunction),
+      );
+    } else if (direction === Direction.Top) {
+      // Collapse towards top
+      const offsetY = -size.height / 2;
+      yield* all(
+        this.scale([originalScale.x, 0], duration, timingFunction),
+        this.position([originalPos.x, originalPos.y + offsetY], duration, timingFunction),
+      );
+    } else {
+      // Direction.Bottom: Collapse towards bottom
+      const offsetY = size.height / 2;
+      yield* all(
+        this.scale([originalScale.x, 0], duration, timingFunction),
+        this.position([originalPos.x, originalPos.y + offsetY], duration, timingFunction),
+      );
+    }
+    this.scale(originalScale);
+    this.position(originalPos);
+  }
+
+  /**
+   * Animate the node expanding in from one direction, then collapsing out towards another direction.
+   * E.g., squashInOut with inDirection=Left and outDirection=Right means:
+   * expand from left to right, then collapse from left to right (disappear towards right).
+   *
+   * @param duration - The total duration of the animation (half for in, half for out).
+   * @param inDirection - The direction to expand from.
+   * @param outDirection - The direction to collapse towards.
+   * @param timingFunction - The timing function to use.
+   */
+  @threadable()
+  public *squashInOut(
+    duration = 1.2,
+    inDirection: Direction = Direction.Left,
+    outDirection: Direction = Direction.Right,
+    timingFunction: TimingFunction = easeInOutCubic,
+  ) {
+    const halfDuration = duration / 2;
+    yield* this.squashIn(halfDuration, inDirection, timingFunction);
+    yield* this.squashOut(halfDuration, outDirection, timingFunction);
   }
 }

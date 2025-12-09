@@ -1,0 +1,29 @@
+{
+  "name": "@canvas-commons/shiki",
+  "version": "0.1.0",
+  "description": "A Shiki code highlighter for Canvas Commons",
+  "main": "lib/index.js",
+  "types": "./lib/index.d.ts",
+  "author": "canvas-commons",
+  "homepage": "https://canvascommons.io/",
+  "bugs": "https://github.com/canvas-commons/canvas-commons/issues",
+  "license": "MIT",
+  "scripts": {
+    "dev": "tsc -w",
+    "build": "tsc"
+  },
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/canvas-commons/canvas-commons.git"
+  },
+  "files": [
+    "lib",
+    "src"
+  ],
+  "dependencies": {
+    "@canvas-commons/2d": "^0.1.0",
+    "@canvas-commons/core": "^0.1.0",
+    "shiki": "^1.24.0"
+  }
+}

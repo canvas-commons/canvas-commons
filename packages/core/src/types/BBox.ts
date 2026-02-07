@@ -1,5 +1,12 @@
-import {CompoundSignal, CompoundSignalContext, SignalValue} from '../signals';
+import type {VariableOptions} from '../scenes/editableVariables';
+import {
+  CompoundSignal,
+  CompoundSignalContext,
+  SignalValue,
+  SimpleSignal,
+} from '../signals';
 import {InterpolationFunction, arcLerp, map} from '../tweening';
+import {useScene, useThread} from '../utils';
 import {PossibleMatrix2D} from './Matrix2D';
 import {PossibleSpacing, Spacing} from './Spacing';
 import {Type, WebGLConvertible} from './Type';
@@ -25,6 +32,11 @@ export type RectSignal<T> = CompoundSignal<
   T
 >;
 
+export interface BBoxVariableOptions extends VariableOptions<PossibleBBox> {
+  transform?: () => DOMMatrix;
+  offset?: (value: SerializedBBox) => {x: number; y: number};
+}
+
 export class BBox implements Type, WebGLConvertible {
   public static readonly symbol = Symbol.for('@canvas-commons/core/types/Rect');
 
@@ -43,6 +55,42 @@ export class BBox implements Type, WebGLConvertible {
       initial,
       interpolation,
     ).toSignal();
+  }
+
+  /**
+   * Register an editable bbox variable and get a signal backed by the
+   * persisted value.
+   *
+   * @param name - A unique name for this variable within the scene.
+   * @param initial - The default value if no persisted value exists.
+   * @param options - Optional configuration including presets, hidden,
+   *   transform for gizmo display, and offset function.
+   *
+   * @returns A {@link RectSignal} containing the current value.
+   */
+  public static createEditableVariable(
+    name: string,
+    initial?: PossibleBBox,
+    options?: BBoxVariableOptions,
+  ): RectSignal<void> {
+    const scene = useScene();
+    const thread = useThread();
+    const {transform, offset, ...rest} = options ?? {};
+    const value = scene.variables.register(
+      name,
+      'bbox',
+      initial,
+      thread.time(),
+      rest,
+    );
+    const signal = BBox.createSignal(value as PossibleBBox);
+    scene.variables.setSignalRef(
+      name,
+      signal as SimpleSignal<unknown>,
+      transform,
+      offset as ((value: unknown) => {x: number; y: number}) | undefined,
+    );
+    return signal;
   }
 
   public static lerp(

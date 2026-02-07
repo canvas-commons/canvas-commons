@@ -26,7 +26,7 @@ import {Shaders} from './Shaders';
 import {Slides} from './Slides';
 import {Sounds} from './Sounds';
 import {Threadable} from './Threadable';
-import {Variables} from './Variables';
+import type {Variables} from './Variables';
 import {TimeEvents} from './timeEvents';
 
 export interface ThreadGeneratorFactory<T> {
@@ -142,7 +142,7 @@ export abstract class GeneratorScene<T>
 
     decorate(this.runnerFactory, threadable(this.name));
     this.timeEvents = new description.timeEventsClass(this);
-    this.variables = new Variables(this);
+    this.variables = new description.variablesClass(this);
     this.shaders = new Shaders(this, description.sharedWebGLContext);
     this.slides = new Slides(this);
     this.sounds = new Sounds(this);

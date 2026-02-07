@@ -1,6 +1,7 @@
 import {MetaField, ObjectMetaField} from '../meta';
+import type {SerializedVariable} from './editableVariables';
 import {Random} from './Random';
-import {SerializedTimeEvent} from './timeEvents';
+import type {SerializedTimeEvent} from './timeEvents';
 
 /**
  * Create a runtime representation of the scene metadata.
@@ -10,6 +11,7 @@ export function createSceneMetadata() {
     version: new MetaField('version', 1),
     timeEvents: new MetaField<SerializedTimeEvent[]>('time events', []),
     seed: new MetaField('seed', Random.createSeed()),
+    properties: new MetaField<SerializedVariable[]>('properties', []),
   });
 }
 

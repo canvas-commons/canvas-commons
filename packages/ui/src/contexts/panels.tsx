@@ -1,6 +1,7 @@
 import {computed, ReadonlySignal} from '@preact/signals';
 import {ComponentChildren, createContext} from 'preact';
 import {useContext, useMemo} from 'preact/hooks';
+import {PropertyInspectorConfig} from '../components/viewport/PropertyInspector';
 import {PluginInspectorConfig, PluginTabConfig} from '../plugin';
 import {EditorPanel, storedSignal} from '../signals';
 import {useApplication} from './application';
@@ -41,7 +42,7 @@ export function PanelsProvider({children}: {children: ComponentChildren}) {
   }, [plugins]);
 
   const inspectors = useMemo(() => {
-    const inspectors: PluginInspectorConfig[] = [];
+    const inspectors: PluginInspectorConfig[] = [PropertyInspectorConfig];
     for (const plugin of plugins) {
       for (const inspector of plugin.inspectors ?? []) {
         inspectors.push(inspector);

@@ -1,6 +1,8 @@
+import type {VariableOptions} from '../scenes/editableVariables';
 import {
   Signal,
   SignalValue,
+  SimpleSignal,
   Vector2Signal,
   Vector2SignalContext,
 } from '../signals';
@@ -10,10 +12,15 @@ import {
   clamp,
   map,
 } from '../tweening/interpolationFunctions';
-import {DEG2RAD, RAD2DEG} from '../utils';
+import {DEG2RAD, RAD2DEG, useScene, useThread} from '../utils';
 import {Matrix2D, PossibleMatrix2D} from './Matrix2D';
 import {Direction, Origin} from './Origin';
 import {EPSILON, Type, WebGLConvertible} from './Type';
+
+export interface Vector2VariableOptions
+  extends VariableOptions<PossibleVector2> {
+  transform?: () => DOMMatrix;
+}
 
 export type SerializedVector2<T = number> = {
   x: T;
@@ -84,6 +91,41 @@ export class Vector2 implements Type, WebGLConvertible {
       interpolation,
       owner,
     ).toSignal();
+  }
+
+  /**
+   * Register an editable vector2 variable and get a signal backed by the
+   * persisted value.
+   *
+   * @param name - A unique name for this variable within the scene.
+   * @param initial - The default value if no persisted value exists.
+   * @param options - Optional configuration including presets, hidden, and
+   *   transform for gizmo display.
+   *
+   * @returns A `Vector2Signal` containing the current value.
+   */
+  public static createEditableVariable(
+    name: string,
+    initial?: PossibleVector2,
+    options?: Vector2VariableOptions,
+  ): Vector2Signal<void> {
+    const scene = useScene();
+    const thread = useThread();
+    const {transform, ...rest} = options ?? {};
+    const value = scene.variables.register(
+      name,
+      'vector2',
+      initial,
+      thread.time(),
+      rest,
+    );
+    const signal = Vector2.createSignal(value as PossibleVector2);
+    scene.variables.setSignalRef(
+      name,
+      signal as SimpleSignal<unknown>,
+      transform,
+    );
+    return signal;
   }
 
   public static lerp(from: Vector2, to: Vector2, value: number | Vector2) {

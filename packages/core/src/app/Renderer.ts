@@ -1,5 +1,6 @@
 import {EventDispatcher, ValueDispatcher} from '../events';
 import type {Scene, Sound} from '../scenes';
+import {ReadOnlyVariables} from '../scenes/editableVariables';
 import {ReadOnlyTimeEvents} from '../scenes/timeEvents';
 import {clampRemap} from '../tweening';
 import {Vector2} from '../types';
@@ -84,6 +85,7 @@ export class Renderer {
         size: new Vector2(1920, 1080),
         resolutionScale: 1,
         timeEventsClass: ReadOnlyTimeEvents,
+        variablesClass: ReadOnlyVariables,
         sharedWebGLContext: this.sharedWebGLContext,
         experimentalFeatures: project.experimentalFeatures,
       });

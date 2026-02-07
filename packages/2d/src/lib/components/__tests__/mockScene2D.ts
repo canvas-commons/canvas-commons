@@ -10,6 +10,7 @@ import {
   startPlayback,
   startScene,
 } from '@canvas-commons/core';
+import {ReadOnlyVariables} from '@canvas-commons/core/lib/scenes/editableVariables';
 import {ReadOnlyTimeEvents} from '@canvas-commons/core/lib/scenes/timeEvents';
 import {afterAll, beforeAll, beforeEach} from 'vitest';
 import {Scene2D, makeScene2D} from '../../scenes';
@@ -33,6 +34,7 @@ export function mockScene2D() {
     size: new Vector2(1920, 1080),
     resolutionScale: 1,
     timeEventsClass: ReadOnlyTimeEvents,
+    variablesClass: ReadOnlyVariables,
     playback: status,
   } as unknown as FullSceneDescription<ThreadGeneratorFactory<View2D>>;
   description.onReplaced = new ValueDispatcher(description);

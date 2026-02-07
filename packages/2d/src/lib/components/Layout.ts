@@ -15,6 +15,7 @@ import {
   TimingFunction,
   Vector2,
   Vector2Signal,
+  all,
   boolLerp,
   deepLerp,
   modify,
@@ -54,6 +55,7 @@ import {
 } from '../partials';
 import {drawLine, drawPivot, is} from '../utils';
 import {Node, NodeProps} from './Node';
+import type {ComponentChildren} from './types';
 
 export interface LayoutProps extends NodeProps {
   layout?: LayoutMode;
@@ -107,6 +109,9 @@ export interface LayoutProps extends NodeProps {
   offsetX?: SignalValue<number>;
   offsetY?: SignalValue<number>;
   offset?: SignalValue<PossibleVector2>;
+  translateX?: SignalValue<number>;
+  translateY?: SignalValue<number>;
+  translate?: SignalValue<PossibleVector2>;
   /**
    * The position of the center of this node.
    *
@@ -192,6 +197,11 @@ export interface LayoutProps extends NodeProps {
   bottomRight?: SignalValue<PossibleVector2>;
   clip?: SignalValue<boolean>;
 }
+
+export type LayoutAnimateCallback = (
+  node: Layout,
+  duration: number,
+) => ThreadGenerator;
 
 @nodeName('Layout')
 export class Layout extends Node {
@@ -521,6 +531,21 @@ export class Layout extends Node {
   public declare readonly offset: Vector2Signal<this>;
 
   /**
+   * A visual offset applied to this node's rendering without affecting layout.
+   *
+   * @remarks
+   * This is analogous to CSS `transform: translate()`. It shifts where the node
+   * is rendered on the canvas without changing its position in the flex layout.
+   * Other siblings will not reflow when this value changes.
+   *
+   * Unlike {@link offset}, which controls the pivot point, `translate` simply
+   * moves the node in its parent's coordinate space.
+   */
+  @initial(Vector2.zero)
+  @vector2Signal('translate')
+  public declare readonly translate: Vector2Signal<this>;
+
+  /**
    * The position of the center of this node.
    *
    * @remarks
@@ -723,10 +748,16 @@ export class Layout extends Node {
 
   public override localToParent(): DOMMatrix {
     const matrix = super.localToParent();
+
+    const translate = this.translate();
+    if (!translate.exactlyEquals(Vector2.zero)) {
+      matrix.translateSelf(translate.x, translate.y);
+    }
+
     const offset = this.offset();
     if (!offset.exactlyEquals(Vector2.zero)) {
-      const translate = this.size().mul(offset).scale(-0.5);
-      matrix.translateSelf(translate.x, translate.y);
+      const offsetTranslate = this.size().mul(offset).scale(-0.5);
+      matrix.translateSelf(offsetTranslate.x, offsetTranslate.y);
     }
 
     return matrix;
@@ -745,10 +776,15 @@ export class Layout extends Node {
     matrix.rotateSelf(0, 0, this.rotation());
     matrix.scaleSelf(this.scale.x(), this.scale.y());
 
+    const translate = this.translate();
+    if (!translate.exactlyEquals(Vector2.zero)) {
+      matrix.translateSelf(translate.x, translate.y);
+    }
+
     const offset = this.offset();
     if (!offset.exactlyEquals(Vector2.zero)) {
-      const translate = this.size().mul(offset).scale(-0.5);
-      matrix.translateSelf(translate.x, translate.y);
+      const offsetTranslate = this.size().mul(offset).scale(-0.5);
+      matrix.translateSelf(offsetTranslate.x, offsetTranslate.y);
     }
 
     return matrix;
@@ -1018,6 +1054,121 @@ export class Layout extends Node {
     } else {
       this.element.style.whiteSpace = wrap;
     }
+  }
+
+  /**
+   * Add a node to this container with an animation.
+   *
+   * @remarks
+   * By default, the node's size is tweened from `0` to its target size.
+   * A custom animation callback can be provided to override this behavior.
+   *
+   * @param node - The node(s) to add.
+   * @param duration - The duration of the animation in seconds.
+   * @param animate - An optional custom animation callback.
+   */
+  @threadable()
+  public *addAnimated(
+    node: ComponentChildren,
+    duration: number,
+    animate?: LayoutAnimateCallback,
+  ): ThreadGenerator {
+    yield* this.insertAnimated(node, Infinity, duration, animate);
+  }
+
+  /**
+   * Insert a node at a specific index with an animation.
+   *
+   * @remarks
+   * By default, the node's size is tweened from `0` to its target size.
+   * A custom animation callback can be provided to override this behavior.
+   *
+   * @param node - The node(s) to insert.
+   * @param index - The index at which to insert the node(s).
+   * @param duration - The duration of the animation in seconds.
+   * @param animate - An optional custom animation callback.
+   */
+  @threadable()
+  public *insertAnimated(
+    node: ComponentChildren,
+    index: number,
+    duration: number,
+    animate?: LayoutAnimateCallback,
+  ): ThreadGenerator {
+    const nodes = Array.isArray(node) ? node : [node];
+    const layoutNodes = nodes.filter((n): n is Layout => n instanceof Layout);
+
+    const targetSizes = new Map<Layout, SerializedVector2<DesiredLength>>();
+    for (const n of layoutNodes) {
+      targetSizes.set(n, n.desiredSize());
+      n.size.x(0);
+      n.size.y(0);
+      n.lockSize();
+    }
+
+    this.insert(node, index);
+
+    const tasks: ThreadGenerator[] = [];
+    for (const n of layoutNodes) {
+      if (animate) {
+        tasks.push(animate(n, duration));
+      } else {
+        const target = targetSizes.get(n)!;
+        tasks.push(
+          all(
+            n.size.x(target.x as Length, duration),
+            n.size.y(target.y as Length, duration),
+          ),
+        );
+      }
+    }
+
+    if (tasks.length > 0) {
+      yield* all(...tasks);
+    }
+
+    for (const n of layoutNodes) {
+      if (!animate) {
+        const target = targetSizes.get(n)!;
+        n.size.x(target.x as Length);
+        n.size.y(target.y as Length);
+      }
+      n.releaseSize();
+    }
+  }
+
+  /**
+   * Remove a node from this container with an animation.
+   *
+   * @remarks
+   * By default, the node's size is tweened to `0` before removal.
+   * A custom animation callback can be provided to override this behavior.
+   * After removal, the node's size is restored to its original value so it can
+   * be reused.
+   *
+   * @param node - The node to remove.
+   * @param duration - The duration of the animation in seconds.
+   * @param animate - An optional custom animation callback.
+   */
+  @threadable()
+  public *removeAnimated(
+    node: Layout,
+    duration: number,
+    animate?: LayoutAnimateCallback,
+  ): ThreadGenerator {
+    const originalSize = node.desiredSize();
+
+    node.lockSize();
+    if (animate) {
+      yield* animate(node, duration);
+    } else {
+      yield* node.size(0, duration);
+    }
+
+    node.remove();
+    node.releaseSize();
+    node.size.x(originalSize.x as Length);
+    node.size.y(originalSize.y as Length);
   }
 
   public override dispose() {

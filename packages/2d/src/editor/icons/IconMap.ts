@@ -21,6 +21,7 @@ export const IconMap: Record<string, FunctionComponent> = {
   CodeBlock: CodeBlockIcon,
   Curve: CurveIcon,
   Grid: GridIcon,
+  HStack: LayoutIcon,
   Img: ImgIcon,
   Layout: LayoutIcon,
   Line: LineIcon,
@@ -30,6 +31,7 @@ export const IconMap: Record<string, FunctionComponent> = {
   Shape: ShapeIcon,
   Txt: TxtIcon,
   TxtLeaf: TxtIcon,
+  VStack: LayoutIcon,
   Video: VideoIcon,
   View2D: View2DIcon,
 };

@@ -11,6 +11,7 @@ export * from './Label';
 export * from './NumberInput';
 export * from './NumberInputSelect';
 export * from './Pill';
+export * from './PresetPicker';
 export * from './ReadOnlyInput';
 export * from './Select';
 export * from './Separator';

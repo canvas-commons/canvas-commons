@@ -21,6 +21,10 @@ import {Coordinates} from './Coordinates';
 import {Inspector} from './Inspector';
 import {OverlayCanvas} from './OverlayCanvas';
 import {PreviewStage} from './PreviewStage';
+import {
+  PropertyGizmosOverlay,
+  usePropertyGizmoDrawHook,
+} from './PropertyGizmos';
 import styles from './Viewport.module.scss';
 
 const ZOOM_SPEED = 0.1;
@@ -49,8 +53,10 @@ export function EditorPreview() {
 
   const inspector = useMemo(() => <Inspector />, []);
   const drawHooks = useMemo(
-    () =>
-      plugins.map(plugin => plugin.previewOverlay?.drawHook).filter(Boolean),
+    () => [
+      ...plugins.map(plugin => plugin.previewOverlay?.drawHook).filter(Boolean),
+      usePropertyGizmoDrawHook,
+    ],
     [plugins],
   );
 
@@ -188,6 +194,7 @@ export function EditorPreview() {
             const Component = plugin.previewOverlay?.component;
             return Component ? <Component>{children}</Component> : children;
           }, undefined as ComponentChildren)}
+          <PropertyGizmosOverlay />
         </div>
         <div className={clsx(styles.overlay, styles.controls)}>
           <Select

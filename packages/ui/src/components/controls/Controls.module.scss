@@ -134,11 +134,17 @@
 .numberInputLabel {
   position: relative;
 
-  div {
+  > input {
+    width: 100%;
+  }
+
+  > div {
     position: absolute;
     left: 8px;
-    bottom: 0;
+    top: 50%;
+    transform: translateY(-50%);
     font-family: var(--font-family-mono);
+    pointer-events: none;
   }
 }
 
@@ -362,6 +368,48 @@
       box-shadow: 0 0 0 2px white inset;
     }
   }
+}
+
+.fieldColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.presetRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.presetChip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--radius);
+  background-color: var(--input-background);
+  color: rgba(255, 255, 255, 0.6);
+  font-family: var(--font-family-mono);
+  font-size: 11px;
+  padding: 2px 8px;
+  height: 22px;
+  cursor: pointer;
+  min-width: 22px;
+
+  &:hover {
+    background-color: var(--input-background-hover);
+  }
+}
+
+.presetSwatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
 }
 
 .slider {

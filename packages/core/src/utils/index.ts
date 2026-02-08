@@ -9,6 +9,7 @@ export * from './ExperimentalError';
 export * from './Semaphore';
 export * from './beginSlide';
 export * from './capitalize';
+export * from './createEditableVariable';
 export * from './createRef';
 export * from './createRefArray';
 export * from './createRefMap';

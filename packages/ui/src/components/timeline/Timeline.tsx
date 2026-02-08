@@ -27,6 +27,7 @@ import {borderHighlight} from '../animations';
 import {AudioTrack} from './AudioTrack';
 import {LabelTrack} from './LabelTrack';
 import {Playhead} from './Playhead';
+import {PropertyTrack} from './PropertyTrack';
 import {RangeSelector} from './RangeSelector';
 import {SceneTrack} from './SceneTrack';
 import {Timestamps} from './Timestamps';
@@ -39,7 +40,7 @@ const MAX_FRAME_SIZE = 128;
 
 export function Timeline() {
   const shortcutRef = useSurfaceShortcuts<HTMLDivElement>(TIMELINE_SHORTCUTS);
-  const {player, meta} = useApplication();
+  const {player, meta, inspection} = useApplication();
   const {range} = useSharedSettings();
   const containerRef = useRef<HTMLDivElement>();
   const playheadRef = useRef<HTMLDivElement>();
@@ -255,6 +256,7 @@ export function Timeline() {
           }}
           onPointerDown={event => {
             if (event.button === MouseButton.Left) {
+              inspection.value = {key: '', payload: null};
               event.preventDefault();
               event.currentTarget.setPointerCapture(event.pointerId);
               playheadRef.current.style.display = 'none';
@@ -314,6 +316,7 @@ export function Timeline() {
               <div className={styles.trackContainer}>
                 <SceneTrack />
                 <LabelTrack />
+                <PropertyTrack />
                 <AudioTrack />
               </div>
               <Playhead seeking={seeking} />

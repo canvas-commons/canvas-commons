@@ -32,84 +32,88 @@ export function NumberInput({
   const [startX, setStartX] = useState(0);
   const currentValue = editedValue ?? value;
 
-  return (
-    <>
-      <input
-        type={'number'}
-        ref={inputRef}
-        min={min}
-        max={max}
-        step={step}
-        lang={'en'}
-        value={currentValue?.toFixed(decimalPlaces)}
-        onChangeCapture={() => onChange?.(parseFloat(inputRef.current.value))}
-        onPointerDown={event => {
-          if (
-            document.activeElement !== inputRef.current &&
-            event.button === MouseButton.Left
-          ) {
-            event.preventDefault();
-            event.stopPropagation();
-            event.currentTarget.setPointerCapture(event.pointerId);
+  const inputEl = (
+    <input
+      type={'number'}
+      ref={inputRef}
+      min={min}
+      max={max}
+      step={step}
+      lang={'en'}
+      value={currentValue?.toFixed(decimalPlaces)}
+      onChangeCapture={() => onChange?.(parseFloat(inputRef.current.value))}
+      onPointerDown={event => {
+        if (
+          document.activeElement !== inputRef.current &&
+          event.button === MouseButton.Left
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
+          event.currentTarget.setPointerCapture(event.pointerId);
 
-            setStartX(event.clientX);
-            setEditedValue(value);
-          }
-        }}
-        onPointerMove={event => {
-          if (
-            document.activeElement !== inputRef.current &&
-            event.currentTarget.hasPointerCapture(event.pointerId)
-          ) {
-            event.preventDefault();
-            event.stopPropagation();
+          setStartX(event.clientX);
+          setEditedValue(value);
+        }
+      }}
+      onPointerMove={event => {
+        if (
+          document.activeElement !== inputRef.current &&
+          event.currentTarget.hasPointerCapture(event.pointerId)
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
 
-            if (Math.abs(startX - event.clientX) > 5) {
-              inputRef.current.requestPointerLock();
-            }
-          } else if (
-            document.pointerLockElement === inputRef.current &&
-            // ignore very large jumps in movement, as they often result
-            // from mouse acceleration issues
-            Math.abs(event.movementX) < 100
-          ) {
-            setEditedValue(
-              clamp(min, max, currentValue + event.movementX * step),
-            );
+          if (Math.abs(startX - event.clientX) > 5) {
+            inputRef.current.requestPointerLock();
           }
-        }}
-        onPointerUp={event => {
-          if (event.button === MouseButton.Left) {
-            event.stopPropagation();
-            event.currentTarget.releasePointerCapture(event.pointerId);
+        } else if (
+          document.pointerLockElement === inputRef.current &&
+          // ignore very large jumps in movement, as they often result
+          // from mouse acceleration issues
+          Math.abs(event.movementX) < 100
+        ) {
+          setEditedValue(
+            clamp(min, max, currentValue + event.movementX * step),
+          );
+        }
+      }}
+      onPointerUp={event => {
+        if (event.button === MouseButton.Left) {
+          event.stopPropagation();
+          event.currentTarget.releasePointerCapture(event.pointerId);
 
-            if (document.pointerLockElement === inputRef.current) {
-              document.exitPointerLock();
-              onChange?.(editedValue);
-            } else if (document.activeElement !== inputRef.current) {
-              inputRef.current.select();
-            }
+          if (document.pointerLockElement === inputRef.current) {
+            document.exitPointerLock();
+            onChange?.(editedValue);
+          } else if (document.activeElement !== inputRef.current) {
+            inputRef.current.select();
+          }
 
-            setEditedValue(null);
-          }
-        }}
-        onKeyDown={event => {
-          if (event.key === 'Enter') {
-            inputRef.current.blur();
-          }
-          if (event.key === 'Escape') {
-            inputRef.current.value = value.toFixed(decimalPlaces);
-            inputRef.current.blur();
-          }
-        }}
-        className={clsx(styles.input, styles.numberInput)}
-        {...props}
-      />
-      {label && (
-        <div className={styles.numberInputLabel}>
-          <div>{label}</div>
-        </div>
-      )}
-    </>
+          setEditedValue(null);
+        }
+      }}
+      onKeyDown={event => {
+        if (event.key === 'Enter') {
+          inputRef.current.blur();
+        }
+        if (event.key === 'Escape') {
+          inputRef.current.value = value.toFixed(decimalPlaces);
+          inputRef.current.blur();
+        }
+      }}
+      className={clsx(styles.input, styles.numberInput)}
+      {...props}
+    />
   );
+
+  if (label) {
+    return (
+      <div className={styles.numberInputLabel}>
+        {inputEl}
+        <div>{label}</div>
+      </div>
+    );
+  }
+
+  return inputEl;
 }

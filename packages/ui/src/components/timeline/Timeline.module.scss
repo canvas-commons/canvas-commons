@@ -173,6 +173,52 @@
   padding: 4px 0;
 }
 
+.propertyTrack {
+  position: relative;
+  height: 32px;
+  padding: 4px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.propertyPill {
+  position: absolute;
+  height: 24px;
+  padding: 2px 4px;
+  cursor: pointer;
+
+  &::before {
+    content: attr(data-name);
+    display: block;
+    border-radius: 12px;
+    padding: 0 8px;
+    color: rgba(255, 255, 255, 0.87);
+    font-size: var(--font-size-small);
+    font-weight: bold;
+    background-color: var(--surface-color-light);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.32);
+    white-space: nowrap;
+    line-height: 20px;
+  }
+
+  &:hover,
+  &:active {
+    &::before {
+      box-shadow: 0 0 0 2px var(--theme) inset;
+    }
+    z-index: 1;
+  }
+
+  &.selected {
+    &::before {
+      box-shadow: 0 0 0 2px var(--theme) inset;
+    }
+    z-index: 1;
+  }
+}
+
 .labelClip {
   position: absolute;
   height: 32px;

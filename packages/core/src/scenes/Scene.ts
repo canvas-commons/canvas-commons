@@ -65,11 +65,11 @@ export interface FullSceneDescription<T = unknown> extends SceneDescription<T> {
   name: string;
   size: Vector2;
   resolutionScale: number;
-  variables: Variables;
   playback: PlaybackStatus;
   logger: Logger;
   onReplaced: ValueDispatcher<FullSceneDescription<T>>;
   timeEventsClass: new (scene: Scene) => TimeEvents;
+  variablesClass: new (scene: Scene) => Variables;
   sharedWebGLContext: SharedWebGLContext;
   experimentalFeatures?: boolean;
 }

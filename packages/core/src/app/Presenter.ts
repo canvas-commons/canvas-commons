@@ -1,5 +1,6 @@
 import {ValueDispatcher} from '../events';
 import type {Scene, Slide} from '../scenes';
+import {ReadOnlyVariables} from '../scenes/editableVariables';
 import {ReadOnlyTimeEvents} from '../scenes/timeEvents';
 import {Vector2} from '../types';
 import {Semaphore} from '../utils';
@@ -91,6 +92,7 @@ export class Presenter {
         size: new Vector2(1920, 1080),
         resolutionScale: 1,
         timeEventsClass: ReadOnlyTimeEvents,
+        variablesClass: ReadOnlyVariables,
         sharedWebGLContext: this.sharedWebGLContext,
         experimentalFeatures: project.experimentalFeatures,
       });

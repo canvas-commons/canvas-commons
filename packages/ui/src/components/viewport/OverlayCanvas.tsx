@@ -29,6 +29,10 @@ export function OverlayCanvas({
     [renderCount],
   );
 
+  useSubscribable(player.onRender, () => setRenderCount(renderCount + 1), [
+    renderCount,
+  ]);
+
   useLayoutEffect(() => {
     contextRef.current ??= canvasRef.current.getContext('2d');
     const ctx = contextRef.current;

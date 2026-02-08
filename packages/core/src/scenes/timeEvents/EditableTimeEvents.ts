@@ -73,11 +73,7 @@ export class EditableTimeEvents implements TimeEvents {
       let changed = false;
       const newEvent = {...event};
 
-      const stack = new Error().stack;
-      if (newEvent.stack !== stack) {
-        newEvent.stack = stack;
-        changed = true;
-      }
+      newEvent.stack = new Error().stack;
 
       if (newEvent.initialTime !== initialTime) {
         newEvent.initialTime = initialTime;

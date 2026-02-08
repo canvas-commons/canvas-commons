@@ -1,6 +1,8 @@
 import {Color, ColorSpace, InterpolationMode, mix} from 'chroma-js';
-import {Signal, SignalContext, SignalValue} from '../signals';
+import type {VariableOptions} from '../scenes/editableVariables';
+import {Signal, SignalContext, SignalValue, SimpleSignal} from '../signals';
 import type {InterpolationFunction} from '../tweening';
+import {useScene, useThread} from '../utils';
 import type {Type, WebGLConvertible} from './Type';
 
 export type SerializedColor = string;
@@ -36,6 +38,11 @@ declare module 'chroma-js' {
     createSignal(
       initial?: SignalValue<PossibleColor>,
       interpolation?: InterpolationFunction<ColorInterface>,
+    ): ColorSignal<void>;
+    createEditableVariable(
+      name: string,
+      initial?: PossibleColor,
+      options?: VariableOptions<PossibleColor>,
     ): ColorSignal<void>;
   }
   interface ChromaStatic {
@@ -102,6 +109,25 @@ const ExtendedColor: typeof Color = (() => {
       undefined,
       value => new Color(value),
     ).toSignal();
+  };
+
+  Color.createEditableVariable = (
+    name: string,
+    initial?: PossibleColor,
+    options?: VariableOptions<PossibleColor>,
+  ): ColorSignal<void> => {
+    const scene = useScene();
+    const thread = useThread();
+    const value = scene.variables.register(
+      name,
+      'color',
+      initial,
+      thread.time(),
+      options,
+    );
+    const signal = Color.createSignal(value as PossibleColor);
+    scene.variables.setSignalRef(name, signal as SimpleSignal<unknown>);
+    return signal;
   };
 
   Color.prototype.toSymbol = () => {

@@ -16,3 +16,4 @@ export * from './Slides';
 export * from './Sounds';
 export * from './Threadable';
 export * from './Variables';
+export * from './editableVariables';

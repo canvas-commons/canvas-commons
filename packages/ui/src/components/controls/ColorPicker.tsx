@@ -1,7 +1,6 @@
 import {JSX, Ref} from 'preact';
 
 import {Color} from '@canvas-commons/core';
-import {hsv} from 'chroma-js';
 import {forwardRef} from 'preact/compat';
 import {useEffect, useRef, useState} from 'preact/hooks';
 import {useSize} from '../../hooks';
@@ -31,11 +30,7 @@ function ColorPickerInternal(
   const [alpha, setAlpha] = useState(color.alpha());
 
   useEffect(() => {
-    onChange(
-      hsv(hue * 360, saturation, value)
-        .alpha(alpha)
-        .hex(),
-    );
+    onChange(Color.fromHsv(hue * 360, saturation, value, alpha).hex());
   }, [hue, saturation, value, alpha]);
 
   return (
@@ -43,7 +38,7 @@ function ColorPickerInternal(
       <div
         ref={saturationRef}
         className={styles.saturation}
-        style={{backgroundColor: hsv(hue * 360, 1, 1).hex()}}
+        style={{backgroundColor: Color.fromHsv(hue * 360, 1, 1).hex()}}
         onPointerDown={event => {
           if (event.button === MouseButton.Left) {
             event.preventDefault();
@@ -105,7 +100,7 @@ function ColorPickerInternal(
           style={{
             top: 6,
             left: `calc(${hue * 100}% - 6px)`,
-            backgroundColor: hsv(hue * 360, 1, 1).hex(),
+            backgroundColor: Color.fromHsv(hue * 360, 1, 1).hex(),
           }}
         />
       </div>

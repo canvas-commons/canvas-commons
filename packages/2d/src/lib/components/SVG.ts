@@ -19,6 +19,7 @@ import {
   useLogger,
 } from '@canvas-commons/core';
 import {computed, signal} from '../decorators';
+import {PathMorpher, defaultMorpher} from '../morphers';
 import {DesiredLength, PossibleCanvasStyle} from '../partials';
 import {applyTransformDiff, getTransformDiff} from '../utils/diff';
 import {Circle, CircleProps} from './Circle';
@@ -73,6 +74,7 @@ export interface SVGDocumentData {
 
 export interface SVGProps extends ShapeProps {
   svg: SignalValue<string>;
+  morpher?: PathMorpher;
 }
 
 /**
@@ -101,11 +103,15 @@ export class SVG extends Shape {
    */
   public wrapper: Node;
 
+  protected readonly morpher: PathMorpher;
+
   private lastTweenTargetSrc: string | null = null;
   private lastTweenTargetDocument: SVGDocument | null = null;
 
   public constructor(props: SVGProps) {
-    super(props);
+    const {morpher, ...rest} = props;
+    super(rest);
+    this.morpher = morpher ?? defaultMorpher();
     this.wrapper = new Node({});
     this.wrapper.children(this.documentNodes);
     this.wrapper.scale(this.wrapperScale);
@@ -210,7 +216,20 @@ export class SVG extends Shape {
       to instanceof Path &&
       from.data() !== to.data()
     ) {
-      yield from.data(to.data(), duration, timing);
+      const fromData = from.data();
+      const toData = to.data();
+      const interpolator = this.morpher.createInterpolator(fromData, toData);
+
+      yield tween(
+        duration,
+        value => {
+          const progress = timing(value);
+          from.data.context.setter(interpolator(progress));
+        },
+        () => {
+          from.data(toData);
+        },
+      );
     }
     if (from instanceof Layout && to instanceof Layout) {
       yield from.size(to.size(), duration, timing);
@@ -240,8 +259,20 @@ export class SVG extends Shape {
     timingFunction: TimingFunction,
   ) {
     const newValue = isReactive(value) ? value() : value;
-    const newSVG = this.parseSVG(newValue);
+    let newSVG: SVGDocument;
+    try {
+      newSVG = this.parseSVG(newValue);
+    } catch (e) {
+      useLogger().warn(`Failed to parse SVG during tween: ${e}`);
+      newSVG = {size: new Vector2(0, 0), nodes: []};
+    }
     const currentSVG = this.document();
+
+    if (currentSVG.nodes.length === 0 || newSVG.nodes.length === 0) {
+      this.svg.context.setter(newValue);
+      return;
+    }
+
     const diff = getTransformDiff(currentSVG.nodes, newSVG.nodes);
 
     this.lastTweenTargetSrc = newValue;
@@ -358,6 +389,12 @@ export class SVG extends Shape {
         return this.lastTweenTargetDocument;
       }
       return this.parseSVG(src);
+    } catch (e) {
+      useLogger().warn(`Failed to parse SVG document: ${e}`);
+      return {
+        size: new Vector2(0, 0),
+        nodes: [],
+      };
     } finally {
       this.lastTweenTargetSrc = null;
       this.lastTweenTargetDocument = null;
@@ -368,7 +405,7 @@ export class SVG extends Shape {
    * Get current document nodes.
    */
   @computed()
-  private documentNodes() {
+  protected documentNodes() {
     return this.document().nodes.map(node => node.shape);
   }
 
@@ -377,11 +414,21 @@ export class SVG extends Shape {
    * @param param - Shape properties.
    * @returns Converted Shape properties.
    */
-  private processElementStyle({fill, stroke, ...rest}: ShapeProps): ShapeProps {
+  private processElementStyle({
+    fill,
+    stroke,
+    lineWidth,
+    strokeFirst,
+    ...rest
+  }: ShapeProps): ShapeProps {
     return {
       fill: fill === 'currentColor' ? this.fill : SVG.processSVGColor(fill),
       stroke:
-        stroke === 'currentColor' ? this.stroke : SVG.processSVGColor(stroke),
+        stroke === undefined || stroke === 'currentColor'
+          ? this.stroke
+          : SVG.processSVGColor(stroke),
+      lineWidth: lineWidth || this.lineWidth,
+      strokeFirst: strokeFirst ?? this.strokeFirst,
       ...rest,
     };
   }
@@ -448,6 +495,7 @@ export class SVG extends Shape {
     const nodes = Array.from(
       SVG.extractGroupNodes(svgRoot, svgRoot, rootTransform, {}),
     );
+
     const builder: SVGDocumentData = {
       size,
       nodes,

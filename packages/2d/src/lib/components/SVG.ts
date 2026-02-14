@@ -705,6 +705,23 @@ export class SVG extends Shape {
     const id = child.id ?? '';
     if (child.tagName === 'g') {
       yield* SVG.extractGroupNodes(child, svgRoot, transformMatrix, style);
+    } else if (child.tagName === 'svg' && child instanceof SVGSVGElement) {
+      let nestedTransform = transformMatrix;
+
+      if (child.hasAttribute('viewBox')) {
+        const vb = child.viewBox.baseVal;
+        const width = SVG.parseNumberAttribute(child, 'width') || vb.width;
+        const height = SVG.parseNumberAttribute(child, 'height') || vb.height;
+
+        const scaleX = vb.width > 0 ? width / vb.width : 1;
+        const scaleY = vb.height > 0 ? height / vb.height : 1;
+
+        nestedTransform = nestedTransform
+          .scale(scaleX, scaleY)
+          .translate(-vb.x, -vb.y);
+      }
+
+      yield* SVG.extractGroupNodes(child, svgRoot, nestedTransform, style);
     } else if (child.tagName === 'use') {
       const hrefElement = svgRoot.querySelector(
         (child as SVGUseElement).href.baseVal,

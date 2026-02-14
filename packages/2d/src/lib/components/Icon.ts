@@ -1,14 +1,18 @@
 import {
   ColorSignal,
+  DependencyContext,
   PossibleColor,
   SignalValue,
   SimpleSignal,
+  TimingFunction,
+  isReactive,
+  threadable,
   useLogger,
 } from '@canvas-commons/core';
 import {colorSignal, computed, initial, signal} from '../decorators';
-import {Img, ImgProps} from './Img';
+import {SVG, SVGProps} from './SVG';
 
-export interface IconProps extends ImgProps {
+export interface IconProps extends Omit<SVGProps, 'svg'> {
   /**
    * {@inheritDoc Icon.icon}
    */
@@ -20,11 +24,17 @@ export interface IconProps extends ImgProps {
   color?: SignalValue<PossibleColor>;
 }
 
+const PLACEHOLDER_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/></svg>';
+
 /**
  * An Icon Component that provides easy access to over 150k icons.
  * See https://icones.js.org/collection/all for all available Icons.
  */
-export class Icon extends Img {
+export class Icon extends SVG {
+  private static iconSvgCache: Map<string, string> = new Map();
+  private static pendingFetches: Map<string, Promise<string>> = new Map();
+
   /**
    * The identifier of the icon.
    *
@@ -36,7 +46,7 @@ export class Icon extends Img {
    * * `ph:activity-bold`
    */
   @signal()
-  public declare icon: SimpleSignal<string, this>;
+  public declare readonly icon: SimpleSignal<string, this>;
 
   /**
    * The color of the icon
@@ -52,44 +62,88 @@ export class Icon extends Img {
    */
   @initial('white')
   @colorSignal()
-  public declare color: ColorSignal<this>;
+  public declare readonly color: ColorSignal<this>;
 
   public constructor(props: IconProps) {
     super({
       ...props,
-      src: null,
+      svg: () => this.iconSvg(),
     });
   }
 
-  /**
-   * Create the URL that will be used as the Image source
-   * @returns Address to Iconify API for the requested Icon.
-   */
+  protected override collectAsyncResources(): void {
+    super.collectAsyncResources();
+    this.iconSvg();
+  }
+
   @computed()
-  protected svgUrl(): string {
-    const iconPathSegment = this.icon().replace(':', '/');
-    const encodedColorValue = encodeURIComponent(this.color().hex());
-    // Iconify API is documented here: https://docs.iconify.design/api/svg.html#color
-    return `https://api.iconify.design/${iconPathSegment}.svg?color=${encodedColorValue}`;
-  }
+  protected iconSvg(): string {
+    const iconId = this.icon();
+    const color = this.color().hex();
+    const cacheKey = `${iconId}::${color}`;
 
-  /**
-   * overrides `Image.src` getter
-   */
-  protected getSrc(): string {
-    return this.svgUrl();
-  }
-
-  /**
-   * overrides `Image.src` setter to warn the user that the value
-   * is not used
-   */
-  protected setSrc(src: string | null) {
-    if (src === null) {
-      return;
+    const cached = Icon.iconSvgCache.get(cacheKey);
+    if (cached !== undefined) {
+      return cached;
     }
-    useLogger().warn(
-      "The Icon Component does not accept setting the `src`. If you need access to `src`, use '<Img/>` instead.",
-    );
+
+    const fetchPromise = this.fetchIconSvg(iconId, color);
+    DependencyContext.collectPromise(fetchPromise);
+
+    return PLACEHOLDER_SVG;
+  }
+
+  private async fetchIconSvg(iconId: string, color: string): Promise<string> {
+    const cacheKey = `${iconId}::${color}`;
+
+    const cached = Icon.iconSvgCache.get(cacheKey);
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    const pending = Icon.pendingFetches.get(cacheKey);
+    if (pending !== undefined) {
+      return pending;
+    }
+
+    const iconPath = iconId.replace(':', '/');
+    const encodedColor = encodeURIComponent(color);
+    const url = `https://api.iconify.design/${iconPath}.svg?color=${encodedColor}`;
+
+    const fetchPromise = fetch(url)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`Failed to fetch icon: ${iconId}`);
+        }
+        return response.text();
+      })
+      .then(svg => {
+        Icon.iconSvgCache.set(cacheKey, svg);
+        Icon.pendingFetches.delete(cacheKey);
+        return svg;
+      })
+      .catch(error => {
+        Icon.pendingFetches.delete(cacheKey);
+        useLogger().error(`Error fetching icon ${iconId}: ${error}`);
+        return PLACEHOLDER_SVG;
+      });
+
+    Icon.pendingFetches.set(cacheKey, fetchPromise);
+    return fetchPromise;
+  }
+
+  @threadable()
+  protected *tweenIcon(
+    value: SignalValue<string>,
+    time: number,
+    timingFunction: TimingFunction,
+  ) {
+    const newIconId = isReactive(value) ? value() : value;
+    const color = this.color().hex();
+
+    const newSvg: string = yield this.fetchIconSvg(newIconId, color);
+
+    yield* this.svg(newSvg, time, timingFunction);
+    this.icon.context.setter(newIconId);
   }
 }

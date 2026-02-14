@@ -232,6 +232,154 @@ the number of occurrences does not match, the part will duplicated or merged.
 You can see this in action in the example above. The formula starts with only
 one plus sign (`+`), but ends with two.
 
+### Tweening to specific nodes with `map`
+
+You can use the `map` method to tween specific sub-formulae to other specific
+sub-formulae.
+
+```tsx editor mode=preview
+import {Latex, makeScene2D, manimMorpher} from '@canvas-commons/2d';
+import {createRef, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const tex = createRef<Latex>();
+  view.add(
+    <Latex
+      ref={tex}
+      //     0     1   2   3     4
+      tex="{{x}}^{{2}} + {{y}}^{{2}}"
+      fill="white"
+      stroke="white"
+      lineWidth={0}
+      morpher={manimMorpher({})}
+    />,
+  );
+
+  yield* waitFor(2);
+
+  yield* tex().lineWidth(4, 0.5);
+  yield* tex().fill('rgba(255, 255, 255, 0.0)', 0.5);
+
+  const pmatrixTex =
+    //         4          0       1          2       3         5
+    '\\begin{pmatrix} {{a}} & {{b}} \\\\ {{c}} & {{d}} \\end{pmatrix}';
+  // Mapping of original indices to target indices
+  // Split the plus into the matrix parenthesis, then map x -> a, y -> c, 2 -> b, 2 -> d
+  const pmatrixMap: number[][] = [[0], [1], [4, 5], [2], [3]];
+  yield* tex().map(pmatrixTex, pmatrixMap, 1);
+
+  yield* tex().fill('white', 0.5);
+  yield* tex().lineWidth(0, 0.5);
+
+  yield* waitFor(2);
+});
+```
+
+For example:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx
+import {Latex, makeScene2D, manimMorpher} from '@canvas-commons/2d';
+import {createRef, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const tex = createRef<Latex>();
+  view.add(
+    <Latex
+      ref={tex}
+      //     0     1   2   3     4
+      tex="{{x}}^{{2}} + {{y}}^{{2}}"
+      fill="white"
+      stroke="white"
+      lineWidth={0}
+      morpher={manimMorpher({})}
+    />,
+  );
+
+  yield* waitFor(2);
+
+  yield* tex().lineWidth(4, 0.5);
+  yield* tex().fill('rgba(255, 255, 255, 0.0)', 0.5);
+
+  const pmatrixTex =
+    //         4          0       1          2       3         5
+    '\\begin{pmatrix} {{a}} & {{b}} \\\\ {{c}} & {{d}} \\end{pmatrix}';
+  // Mapping of original indices to target indices
+  // Split the plus into the matrix parenthesis, then map x -> a, y -> c, 2 -> b, 2 -> d
+  const pmatrixMap: number[][] = [[0], [1], [4, 5], [2], [3]];
+
+  yield* tex().map(pmatrixTex, pmatrixMap, 1);
+
+  yield* tex().fill('white', 0.5);
+  yield* tex().lineWidth(0, 0.5);
+
+  yield* waitFor(2);
+});
+```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+import {Latex, makeScene2D, manimMorpher} from '@canvas-commons/2d';
+import {createRef, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const tex = createRef<Latex>();
+  view.add(<Latex
+    ref={tex}
+    //     0     1   2   3     4
+    tex="{{x}}^{{2}} + {{y}}^{{2}}"
+    fill="white"
+    stroke="white"
+    lineWidth={0}
+    morpher={manimMorpher({})}
+  />);
+  view.add(tex);
+
+  yield* waitFor(2);
+
+  yield* tex().lineWidth(4, 0.5);
+  yield* tex().fill('rgba(255, 255, 255, 0.0)', 0.5);
+
+  const pmatrixTex =
+  //         4          0       1          2       3         5
+    '\\begin{pmatrix} {{a}} & {{b}} \\\\ {{c}} & {{d}} \\end{pmatrix}';
+  // Mapping of original indices to target indices
+  // Split the plus into the matrix parenthesis, then map x -> a, y -> c, 2 -> b, 2 -> d
+  const pmatrixMap: number[][] = [[0], [1], [4, 5], [2], [3]];
+
+  yield* tex.map(pmatrixTex, pmatrixMap, 1);
+
+  yield* tex().fill('white', 0.5);
+  yield* tex().lineWidth(0, 0.5);
+
+  yield* waitFor(2);
+});
+```
+
+</TabItem>
+</Tabs>
+
+The parameters of the map method are as many arrays as there are tex parts in
+the source formula, each containing the indices of the target tex parts to map
+to. For example, the mapping `[[0], [1, 2]]` maps source fragment 0 to target
+fragment 0, and source fragment 1 to both target fragments 1 and 2.
+
+Above, the mapping reads:
+
+- Map `x` to `a` (first index `x` is mapped to first index `a`)
+- Map `2` to `b` (second index `2` is mapped to second index `b`)
+- Map `+` to `(` and `)` (third index `+` is mapped to fourth index `(` and
+  fifth index `)`)
+- Map `y` to `c` (fourth index `y` is mapped to third index `c`)
+- Map `2` to `d` (fifth index `2` is mapped to third index `d`)
+
+The order of the indices can be unpredictable, but should be consistent between
+the same formulae.
+
 ## Common pitfalls
 
 ### Escaping slashes
@@ -266,17 +414,15 @@ Note that this does not apply inside JSX string attributes:
 // No escape needed:
 <Latex tex="{{\frac{1}{2}}" />
 // Escape necessary:
-<Latex tex={'{{\frac{1}{2}}'} />
+<Latex tex={'{{\\frac{1}{2}}'} />
 ```
 
 </TabItem>
 <TabItem value="ts" label="TS">
 
 ```ts
-// No escape needed:
-const latexElement1 = new Latex({tex: '{{\frac{1}{2}}'});
-// Escape necessary:
-const latexElement2 = new Latex({tex: '{{\frac{1}{2}}'});
+// Escape needed in TS:
+const latexElement = new Latex({tex: '{{\\frac{1}{2}}'});
 ```
 
 </TabItem>

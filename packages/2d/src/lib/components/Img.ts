@@ -7,7 +7,12 @@ import {
   SerializedVector2,
   SignalValue,
   SimpleSignal,
+  TimingFunction,
   Vector2,
+  easeInOutCubic,
+  isReactive,
+  threadable,
+  tween,
   useLogger,
   viaProxy,
 } from '@canvas-commons/core';
@@ -295,6 +300,24 @@ about working with images.`,
       g: data[1],
       b: data[2],
       a: data[3] / 255,
+    });
+  }
+
+  @threadable()
+  protected *tweenSrc(
+    value: SignalValue<string>,
+    time: number,
+    timingFunction: TimingFunction = easeInOutCubic,
+  ) {
+    const newSrc = isReactive(value) ? value() : value;
+    const currentOpacity = this.opacity();
+    const halfTime = time / 2;
+    yield* tween(halfTime, v => {
+      this.opacity(currentOpacity * (1 - timingFunction(v)));
+    });
+    this.src.context.setter(newSrc);
+    yield* tween(halfTime, v => {
+      this.opacity(currentOpacity * timingFunction(v));
     });
   }
 

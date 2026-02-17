@@ -251,9 +251,8 @@ about working with images.`,
   protected override applyFlex() {
     super.applyFlex();
     const image = this.image();
-    this.element.style.aspectRatio = (
-      this.ratio() ?? image.naturalWidth / image.naturalHeight
-    ).toString();
+    const ratio = this.ratio() ?? image.naturalWidth / image.naturalHeight;
+    this.yogaNode.setAspectRatio(ratio);
   }
 
   /**

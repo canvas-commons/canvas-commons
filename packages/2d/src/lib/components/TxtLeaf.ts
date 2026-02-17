@@ -13,34 +13,39 @@ import {
   nodeName,
   signal,
 } from '../decorators';
+import {MeasureMode} from '../utils/yoga';
 import {Shape, ShapeProps} from './Shape';
 import {Txt} from './Txt';
-import {View2D} from './View2D';
 
 export interface TxtLeafProps extends ShapeProps {
   children?: string;
   text?: SignalValue<string>;
 }
 
+interface GraphemeSegmenter {
+  segment(input: string): Iterable<{segment: string}>;
+}
+
+type IntlWithSegmenter = typeof Intl & {
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  Segmenter: new (
+    locale: string | undefined,
+    options: {granularity: string},
+  ) => GraphemeSegmenter;
+};
+
 @nodeName('TxtLeaf')
 export class TxtLeaf extends Shape {
   @lazy(() => {
-    const formatter = document.createElement('span');
-    View2D.shadowRoot.append(formatter);
-    return formatter;
-  })
-  protected static formatter: HTMLDivElement;
-
-  @lazy(() => {
     try {
-      return new (Intl as any).Segmenter(undefined, {
+      return new (Intl as IntlWithSegmenter).Segmenter(undefined, {
         granularity: 'grapheme',
       });
-    } catch (e) {
+    } catch {
       return null;
     }
   })
-  protected static readonly segmenter: any;
+  protected static readonly segmenter: GraphemeSegmenter | null;
 
   @initial('')
   @interpolation(textLerp)
@@ -52,6 +57,9 @@ export class TxtLeaf extends Shape {
     if (children) {
       this.text(children);
     }
+    this.yogaNode.setMeasureFunc((width, widthMode) =>
+      this.measureContent(width, widthMode),
+    );
   }
 
   @computed()
@@ -60,54 +68,150 @@ export class TxtLeaf extends Shape {
     return parent instanceof Txt ? parent : null;
   }
 
-  protected override draw(context: CanvasRenderingContext2D) {
-    this.requestFontUpdate();
+  private measureContent(
+    width: number,
+    widthMode: number,
+  ): {width: number; height: number} {
+    const context = this.cacheCanvas();
+    context.save();
     this.applyStyle(context);
     this.applyText(context);
-    context.font = this.styles.font;
+    context.font = this.canvasFont();
+    if ('letterSpacing' in context) {
+      context.letterSpacing = `${this.letterSpacing()}px`;
+    }
+
+    const maxWidth = widthMode === MeasureMode.Undefined ? Infinity : width;
+    const lines = this.breakTextIntoLines(context, this.text(), maxWidth);
+    const lineHeight = this.resolvedLineHeight();
+
+    let maxLineWidth = 0;
+    for (const line of lines) {
+      const w = context.measureText(line).width;
+      if (w > maxLineWidth) maxLineWidth = w;
+    }
+
+    context.restore();
+
+    return {
+      width: maxLineWidth,
+      height: lines.length * lineHeight,
+    };
+  }
+
+  protected breakTextIntoLines(
+    context: CanvasRenderingContext2D,
+    text: string,
+    maxWidth: number,
+  ): string[] {
+    const whiteSpace = this.resolvedWhiteSpace();
+    const shouldWrap = whiteSpace !== 'nowrap' && whiteSpace !== 'pre';
+    const preserveNewlines = whiteSpace === 'pre';
+
+    if (!shouldWrap && !preserveNewlines) {
+      return [text.replace(/\s+/g, ' ')];
+    }
+
+    if (preserveNewlines && !shouldWrap) {
+      return text.split('\n');
+    }
+
+    const rawLines = preserveNewlines
+      ? text.split('\n')
+      : [text.replace(/\s+/g, ' ')];
+    const result: string[] = [];
+
+    for (const rawLine of rawLines) {
+      const segments = TxtLeaf.segmenter
+        ? Array.from(
+            TxtLeaf.segmenter.segment(rawLine),
+            (s: {segment: string}) => s.segment,
+          )
+        : rawLine.split('');
+
+      let currentLine = '';
+
+      for (const segment of segments) {
+        const candidateLine = currentLine + segment;
+        const candidateWidth = context.measureText(candidateLine).width;
+        if (currentLine.length > 0 && candidateWidth > maxWidth) {
+          result.push(currentLine);
+          currentLine = segment;
+        } else {
+          currentLine = candidateLine;
+        }
+      }
+
+      result.push(currentLine);
+    }
+
+    if (result.length === 0) {
+      result.push('');
+    }
+
+    return result;
+  }
+
+  @computed()
+  protected textLayout(): {
+    lines: string[];
+    lineHeight: number;
+    fontOffset: number;
+  } {
+    const context = this.cacheCanvas();
+    context.save();
+    this.applyStyle(context);
+    this.applyText(context);
+    context.font = this.canvasFont();
     context.textBaseline = 'bottom';
     if ('letterSpacing' in context) {
       context.letterSpacing = `${this.letterSpacing()}px`;
     }
+
     const fontOffset = context.measureText('').fontBoundingBoxAscent;
+    const lineHeight = this.resolvedLineHeight();
+    const size = this.computedSize();
+    const lines = this.breakTextIntoLines(context, this.text(), size.width);
 
-    const parentRect = this.element.getBoundingClientRect();
-    const {width, height} = this.size();
-    const range = document.createRange();
-    let line = '';
-    let lineRect: BBox | null = null;
-    for (const childNode of this.element.childNodes) {
-      if (!childNode.textContent) {
-        continue;
-      }
+    context.restore();
+    return {lines, lineHeight, fontOffset};
+  }
 
-      range.selectNodeContents(childNode);
-      const rangeRect = range.getBoundingClientRect();
-
-      const x = width / -2 + rangeRect.left - parentRect.left;
-      const y = height / -2 + rangeRect.top - parentRect.top + fontOffset;
-
-      if (!lineRect) {
-        lineRect = new BBox(x, y, rangeRect.width, rangeRect.height);
-        line = childNode.textContent;
-        continue;
-      }
-
-      if (lineRect.y === y) {
-        lineRect.width += rangeRect.width;
-        line += childNode.textContent;
-      } else {
-        this.drawText(context, line, lineRect);
-        lineRect.x = x;
-        lineRect.y = y;
-        lineRect.width = rangeRect.width;
-        lineRect.height = rangeRect.height;
-        line = childNode.textContent;
-      }
+  protected override draw(context: CanvasRenderingContext2D) {
+    this.requestFontUpdate();
+    this.applyStyle(context);
+    this.applyText(context);
+    context.font = this.canvasFont();
+    context.textBaseline = 'bottom';
+    if ('letterSpacing' in context) {
+      context.letterSpacing = `${this.letterSpacing()}px`;
     }
 
-    if (lineRect) {
-      this.drawText(context, line, lineRect);
+    const {lines, lineHeight, fontOffset} = this.textLayout();
+    const {width, height} = this.size();
+
+    const textAlign = this.textAlign();
+    for (let i = 0; i < lines.length; i++) {
+      const text = lines[i];
+      const lineWidth = context.measureText(text).width;
+      let x: number;
+      switch (textAlign) {
+        case 'center':
+          x = -lineWidth / 2;
+          break;
+        case 'end':
+        case 'right':
+          x = width / 2 - lineWidth;
+          break;
+        case 'start':
+        case 'left':
+        default:
+          x = -width / 2;
+          break;
+      }
+      const y = -height / 2 + fontOffset + i * lineHeight;
+      const box = new BBox(x, y, lineWidth, lineHeight);
+      this.drawText(context, text, box);
     }
   }
 
@@ -116,76 +220,38 @@ export class TxtLeaf extends Shape {
     text: string,
     box: BBox,
   ) {
-    const y = box.y;
-    if (this.styles.whiteSpace !== 'pre') {
-      text = text.replace(/\s+/g, ' ');
+    const whiteSpace = this.resolvedWhiteSpace();
+    let rendered = text;
+    if (whiteSpace !== 'pre') {
+      rendered = rendered.replace(/\s+/g, ' ');
     }
 
     if (this.lineWidth() <= 0) {
-      context.fillText(text, box.x, y);
+      context.fillText(rendered, box.x, box.y);
     } else if (this.strokeFirst()) {
-      context.strokeText(text, box.x, y);
-      context.fillText(text, box.x, y);
+      context.strokeText(rendered, box.x, box.y);
+      context.fillText(rendered, box.x, box.y);
     } else {
-      context.fillText(text, box.x, y);
-      context.strokeText(text, box.x, y);
+      context.fillText(rendered, box.x, box.y);
+      context.strokeText(rendered, box.x, box.y);
     }
   }
 
   protected override getCacheBBox(): BBox {
     const size = this.computedSize();
-    const range = document.createRange();
-    range.selectNodeContents(this.element);
-    const bbox = range.getBoundingClientRect();
-
     const lineWidth = this.lineWidth();
-    // We take the default value of the miterLimit as 10.
     const miterLimitCoefficient = this.lineJoin() === 'miter' ? 0.5 * 10 : 0.5;
 
-    return new BBox(-size.width / 2, -size.height / 2, bbox.width, bbox.height)
+    return new BBox(-size.width / 2, -size.height / 2, size.width, size.height)
       .expand([0, this.fontSize() * 0.5])
       .expand(lineWidth * miterLimitCoefficient);
-  }
-
-  protected override applyFlex() {
-    super.applyFlex();
-    this.element.style.display = 'inline';
   }
 
   protected override updateLayout() {
     this.applyFont();
     this.applyFlex();
-
-    // Make sure the text is aligned correctly even if the text is smaller than
-    // the container.
-    if (this.justifyContent.isInitial()) {
-      this.element.style.justifyContent =
-        this.styles.getPropertyValue('text-align');
-    }
-
-    const wrap =
-      this.styles.whiteSpace !== 'nowrap' && this.styles.whiteSpace !== 'pre';
-
-    if (wrap) {
-      this.element.innerText = '';
-
-      if (TxtLeaf.segmenter) {
-        for (const word of TxtLeaf.segmenter.segment(this.text())) {
-          this.element.appendChild(document.createTextNode(word.segment));
-        }
-      } else {
-        for (const word of this.text().split('')) {
-          this.element.appendChild(document.createTextNode(word));
-        }
-      }
-    } else if (this.styles.whiteSpace === 'pre') {
-      this.element.innerText = '';
-      for (const line of this.text().split('\n')) {
-        this.element.appendChild(document.createTextNode(line + '\n'));
-      }
-    } else {
-      this.element.innerText = this.text();
-    }
+    this.text();
+    this.yogaNode.markDirty();
   }
 }
 

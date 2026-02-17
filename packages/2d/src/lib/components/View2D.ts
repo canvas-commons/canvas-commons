@@ -1,4 +1,4 @@
-import {PlaybackState, SimpleSignal, lazy} from '@canvas-commons/core';
+import {PlaybackState, SimpleSignal} from '@canvas-commons/core';
 import {initial, signal} from '../decorators';
 import {nodeName} from '../decorators/nodeName';
 import {useScene2D} from '../scenes/useScene2D';
@@ -11,24 +11,6 @@ export interface View2DProps extends RectProps {
 
 @nodeName('View2D')
 export class View2D extends Rect {
-  @lazy(() => {
-    const frameID = 'canvas-commons-2d-frame';
-    let frame = document.querySelector<HTMLDivElement>(`#${frameID}`);
-    if (!frame) {
-      frame = document.createElement('div');
-      frame.id = frameID;
-      frame.style.position = 'absolute';
-      frame.style.pointerEvents = 'none';
-      frame.style.top = '0';
-      frame.style.left = '0';
-      frame.style.opacity = '0';
-      frame.style.overflow = 'hidden';
-      document.body.prepend(frame);
-    }
-    return frame.shadowRoot ?? frame.attachShadow({mode: 'open'});
-  })
-  public static shadowRoot: ShadowRoot;
-
   @initial(PlaybackState.Paused)
   @signal()
   public declare readonly playbackState: SimpleSignal<PlaybackState, this>;
@@ -46,8 +28,6 @@ export class View2D extends Rect {
       ...props,
     });
     this.view2D = this;
-
-    View2D.shadowRoot.append(this.element);
     this.applyFlex();
   }
 
@@ -73,6 +53,11 @@ export class View2D extends Rect {
 
   protected override requestLayoutUpdate() {
     this.updateLayout();
+    const size = this.desiredSize();
+    this.yogaNode.calculateLayout(
+      typeof size.x === 'number' ? size.x : undefined,
+      typeof size.y === 'number' ? size.y : undefined,
+    );
   }
 
   protected override requestFontUpdate() {

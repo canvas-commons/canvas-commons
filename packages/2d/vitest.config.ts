@@ -6,5 +6,6 @@ export default defineConfig({
   test: {
     include: ['./src/lib/**/*.test.*'],
     environment: 'jsdom',
+    setupFiles: ['geometry-polyfill'],
   },
 });

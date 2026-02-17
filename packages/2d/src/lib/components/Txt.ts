@@ -10,7 +10,6 @@ import {
   threadable,
 } from '@canvas-commons/core';
 import {computed, initial, nodeName, signal} from '../decorators';
-import {is} from '../utils';
 import {Node} from './Node';
 import {Shape, ShapeProps} from './Shape';
 import {TxtLeaf} from './TxtLeaf';
@@ -133,7 +132,7 @@ export class Txt extends Shape {
     this.size(oldSize);
   }
 
-  protected getLayout(): boolean {
+  protected getLayoutChildren(): boolean {
     return true;
   }
 
@@ -171,13 +170,6 @@ export class Txt extends Shape {
     }
 
     return result;
-  }
-
-  protected override applyFlex() {
-    super.applyFlex();
-    this.element.style.display = this.findAncestor(is(Txt))
-      ? 'inline'
-      : 'block';
   }
 
   protected override draw(context: CanvasRenderingContext2D) {

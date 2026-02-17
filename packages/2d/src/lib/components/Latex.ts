@@ -74,12 +74,7 @@ export interface LatexProps extends Omit<SVGProps, 'svg'> {
  * ```
  */
 export class Latex extends SVGNode {
-  @lazy(() => {
-    return parseFloat(
-      window.getComputedStyle(SVGNode.containerElement).fontSize,
-    );
-  })
-  private static containerFontSize: number;
+  private static readonly containerFontSize = 16;
   private static svgContentsPool: Record<string, string> = {};
   private static texNodesPool: Record<string, SVGDocumentData> = {};
   private svgSubTexMap: Record<string, string[]> = {};

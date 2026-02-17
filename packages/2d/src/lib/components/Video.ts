@@ -277,9 +277,8 @@ export class Video extends Rect {
   protected override applyFlex() {
     super.applyFlex();
     const video = this.video();
-    this.element.style.aspectRatio = (
-      this.ratio() ?? video.videoWidth / video.videoHeight
-    ).toString();
+    const ratio = this.ratio() ?? video.videoWidth / video.videoHeight;
+    this.yogaNode.setAspectRatio(ratio);
   }
 
   protected setCurrentTime(value: number) {

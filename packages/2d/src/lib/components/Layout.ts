@@ -53,11 +53,26 @@ import {
   TextWrap,
 } from '../partials';
 import {drawLine, drawPivot, is} from '../utils';
+import {
+  PositionType,
+  createYogaNode,
+  setYogaDimension,
+  setYogaFlexBasis,
+  setYogaGap,
+  setYogaSpacing,
+  toYogaAlignContent,
+  toYogaAlignItems,
+  toYogaFlexDirection,
+  toYogaFlexWrap,
+  toYogaJustifyContent,
+  type YogaNode,
+} from '../utils/yoga';
 import {Node, NodeProps} from './Node';
 
 export interface LayoutProps extends NodeProps {
   layout?: LayoutMode;
-  tagName?: keyof HTMLElementTagNameMap;
+  layoutSelf?: LayoutMode;
+  layoutChildren?: LayoutMode;
 
   width?: SignalValue<Length>;
   height?: SignalValue<Length>;
@@ -199,6 +214,16 @@ export class Layout extends Node {
   @interpolation(boolLerp)
   @signal()
   public declare readonly layout: SimpleSignal<LayoutMode, this>;
+
+  @initial(null)
+  @interpolation(boolLerp)
+  @signal()
+  public declare readonly layoutSelf: SimpleSignal<LayoutMode, this>;
+
+  @initial(null)
+  @interpolation(boolLerp)
+  @signal()
+  public declare readonly layoutChildren: SimpleSignal<LayoutMode, this>;
 
   @initial(null)
   @signal()
@@ -669,8 +694,7 @@ export class Layout extends Node {
   @signal()
   public declare readonly clip: SimpleSignal<boolean, this>;
 
-  public declare element: HTMLElement;
-  public declare styles: CSSStyleDeclaration;
+  public declare yogaNode: YogaNode;
 
   @initial(0)
   @signal()
@@ -678,7 +702,6 @@ export class Layout extends Node {
 
   public constructor(props: LayoutProps) {
     super(props);
-    this.element.dataset.canvasCommonsKey = this.key;
   }
 
   public lockSize() {
@@ -712,13 +735,31 @@ export class Layout extends Node {
    * inheritance).
    */
   @computed()
-  public layoutEnabled(): boolean {
-    return this.layout() ?? this.parentTransform()?.layoutEnabled() ?? false;
+  public layoutSelfEnabled(): boolean {
+    return (
+      this.layoutSelf() ??
+      this.layout() ??
+      this.parentTransform()?.layoutChildrenEnabled() ??
+      false
+    );
+  }
+
+  @computed()
+  public layoutChildrenEnabled(): boolean {
+    return (
+      this.layoutChildren() ??
+      this.layout() ??
+      this.parentTransform()?.layoutChildrenEnabled() ??
+      false
+    );
   }
 
   @computed()
   public isLayoutRoot(): boolean {
-    return !this.layoutEnabled() || !this.parentTransform()?.layoutEnabled();
+    return (
+      !this.layoutSelfEnabled() ||
+      !this.parentTransform()?.layoutChildrenEnabled()
+    );
   }
 
   public override localToParent(): DOMMatrix {
@@ -755,33 +796,36 @@ export class Layout extends Node {
   }
 
   protected getComputedLayout(): BBox {
-    return new BBox(this.element.getBoundingClientRect());
+    const layout = this.yogaNode.getComputedLayout();
+    return new BBox(layout.left, layout.top, layout.width, layout.height);
   }
 
   @computed()
   public computedPosition(): Vector2 {
     this.requestLayoutUpdate();
-    const box = this.getComputedLayout();
-
-    const position = new Vector2(
-      box.x + (box.width / 2) * this.offset.x(),
-      box.y + (box.height / 2) * this.offset.y(),
-    );
+    const layout = this.yogaNode.getComputedLayout();
+    const width = layout.width;
+    const height = layout.height;
 
     const parent = this.parentTransform();
-    if (parent) {
-      const parentRect = parent.getComputedLayout();
-      position.x -= parentRect.x + (parentRect.width - box.width) / 2;
-      position.y -= parentRect.y + (parentRect.height - box.height) / 2;
-    }
+    const parentLayout = parent?.yogaNode.getComputedLayout();
+    const parentWidth = parentLayout?.width ?? 0;
+    const parentHeight = parentLayout?.height ?? 0;
 
-    return position;
+    return new Vector2(
+      layout.left + width / 2 - parentWidth / 2 + (width / 2) * this.offset.x(),
+      layout.top +
+        height / 2 -
+        parentHeight / 2 +
+        (height / 2) * this.offset.y(),
+    );
   }
 
   @computed()
   protected computedSize(): Vector2 {
     this.requestLayoutUpdate();
-    return this.getComputedLayout().size;
+    const layout = this.yogaNode.getComputedLayout();
+    return new Vector2(layout.width, layout.height);
   }
 
   /**
@@ -790,22 +834,58 @@ export class Layout extends Node {
   @computed()
   protected requestLayoutUpdate() {
     const parent = this.parentTransform();
-    if (this.appendedToView()) {
+    if (this.isLayoutRoot()) {
       parent?.requestFontUpdate();
       this.updateLayout();
+      const size = this.desiredSize();
+      const width = typeof size.x === 'number' ? size.x : undefined;
+      const height = typeof size.y === 'number' ? size.y : undefined;
+      this.yogaNode.calculateLayout(width, height);
+
+      if (this.resolvePercentageDimensions()) {
+        this.yogaNode.calculateLayout(width, height);
+      }
     } else {
-      parent!.requestLayoutUpdate();
+      parent?.requestLayoutUpdate();
     }
   }
 
-  @computed()
-  protected appendedToView() {
-    const root = this.isLayoutRoot();
-    if (root) {
-      this.view().element.append(this.element);
-    }
+  private resolvePercentageDimensions(): boolean {
+    let resolved = false;
+    this.walkFlexTree((child, parent) => {
+      const size = child.desiredSize();
+      const parentLayout = parent.yogaNode.getComputedLayout();
 
-    return root;
+      if (typeof size.x === 'string' && size.x.endsWith('%')) {
+        const parentDesired = parent.desiredSize();
+        if (parentDesired.x === null) {
+          const percent = parseFloat(size.x);
+          child.yogaNode.setWidth((parentLayout.width * percent) / 100);
+          resolved = true;
+        }
+      }
+
+      if (typeof size.y === 'string' && size.y.endsWith('%')) {
+        const parentDesired = parent.desiredSize();
+        if (parentDesired.y === null) {
+          const percent = parseFloat(size.y);
+          child.yogaNode.setHeight((parentLayout.height * percent) / 100);
+          resolved = true;
+        }
+      }
+    });
+    return resolved;
+  }
+
+  private walkFlexTree(visitor: (child: Layout, parent: Layout) => void): void {
+    const walk = (parent: Layout) => {
+      if (!parent.layoutChildrenEnabled()) return;
+      for (const child of parent.flexChildren()) {
+        visitor(child, parent);
+        walk(child);
+      }
+    };
+    walk(this);
   }
 
   /**
@@ -815,8 +895,8 @@ export class Layout extends Node {
   protected updateLayout() {
     this.applyFont();
     this.applyFlex();
-    if (this.layoutEnabled()) {
-      const children = this.layoutChildren();
+    if (this.layoutChildrenEnabled()) {
+      const children = this.flexChildren();
       for (const child of children) {
         child.updateLayout();
       }
@@ -824,22 +904,26 @@ export class Layout extends Node {
   }
 
   @computed()
-  protected layoutChildren(): Layout[] {
+  protected flexChildren(): Layout[] {
     const queue = [...this.children()];
     const result: Layout[] = [];
-    const elements: HTMLElement[] = [];
     while (queue.length) {
       const child = queue.shift();
       if (child instanceof Layout) {
-        if (child.layoutEnabled()) {
+        if (child.layoutSelfEnabled()) {
           result.push(child);
-          elements.push(child.element);
         }
       } else if (child) {
         queue.unshift(...child.children());
       }
     }
-    this.element.replaceChildren(...elements);
+
+    for (let i = this.yogaNode.getChildCount() - 1; i >= 0; i--) {
+      this.yogaNode.removeChild(this.yogaNode.getChild(i));
+    }
+    for (let i = 0; i < result.length; i++) {
+      this.yogaNode.insertChild(result[i].yogaNode, i);
+    }
 
     return result;
   }
@@ -849,9 +933,31 @@ export class Layout extends Node {
    */
   @computed()
   protected requestFontUpdate() {
-    this.appendedToView();
     this.parentTransform()?.requestFontUpdate();
     this.applyFont();
+  }
+
+  @computed()
+  public canvasFont(): string {
+    return `${this.fontStyle()} ${this.fontWeight()} ${this.fontSize()}px ${this.fontFamily()}`;
+  }
+
+  @computed()
+  public resolvedLineHeight(): number {
+    const lineHeight = this.lineHeight();
+    if (typeof lineHeight === 'number') {
+      return lineHeight;
+    }
+    return (parseFloat(lineHeight) / 100) * this.fontSize();
+  }
+
+  @computed()
+  public resolvedWhiteSpace(): string {
+    const wrap = this.textWrap();
+    if (typeof wrap === 'boolean') {
+      return wrap ? 'normal' : 'nowrap';
+    }
+    return wrap;
   }
 
   protected override getCacheBBox(): BBox {
@@ -938,97 +1044,87 @@ export class Layout extends Node {
     this.position(this.position().add(newOffset).sub(oldOffset));
   }
 
-  protected parsePixels(value: number | null): string {
-    return value === null ? '' : `${value}px`;
-  }
-
-  protected parseLength(value: number | string | null): string {
-    if (value === null) {
-      return '';
-    }
-    if (typeof value === 'string') {
-      return value;
-    }
-    return `${value}px`;
-  }
-
   @computed()
   protected applyFlex() {
-    this.element.style.position = this.isLayoutRoot() ? 'absolute' : 'relative';
+    const node = this.yogaNode;
+
+    node.setPositionType(
+      this.isLayoutRoot() ? PositionType.Absolute : PositionType.Relative,
+    );
 
     const size = this.desiredSize();
-    this.element.style.width = this.parseLength(size.x);
-    this.element.style.height = this.parseLength(size.y);
-    this.element.style.maxWidth = this.parseLength(this.maxWidth());
-    this.element.style.minWidth = this.parseLength(this.minWidth());
-    this.element.style.maxHeight = this.parseLength(this.maxHeight());
-    this.element.style.minHeight = this.parseLength(this.minHeight()!);
-    this.element.style.aspectRatio =
-      this.ratio() === null ? '' : this.ratio()!.toString();
+    setYogaDimension(node, 'setWidth', size.x);
+    setYogaDimension(node, 'setHeight', size.y);
+    setYogaDimension(node, 'setMaxWidth', this.maxWidth());
+    setYogaDimension(node, 'setMinWidth', this.minWidth());
+    setYogaDimension(node, 'setMaxHeight', this.maxHeight());
+    setYogaDimension(node, 'setMinHeight', this.minHeight());
 
-    this.element.style.marginTop = this.parsePixels(this.margin.top());
-    this.element.style.marginBottom = this.parsePixels(this.margin.bottom());
-    this.element.style.marginLeft = this.parsePixels(this.margin.left());
-    this.element.style.marginRight = this.parsePixels(this.margin.right());
+    const ratio = this.ratio();
+    node.setAspectRatio(ratio ?? undefined);
 
-    this.element.style.paddingTop = this.parsePixels(this.padding.top());
-    this.element.style.paddingBottom = this.parsePixels(this.padding.bottom());
-    this.element.style.paddingLeft = this.parsePixels(this.padding.left());
-    this.element.style.paddingRight = this.parsePixels(this.padding.right());
+    setYogaSpacing(
+      node,
+      'Margin',
+      this.margin.top(),
+      this.margin.right(),
+      this.margin.bottom(),
+      this.margin.left(),
+    );
+    setYogaSpacing(
+      node,
+      'Padding',
+      this.padding.top(),
+      this.padding.right(),
+      this.padding.bottom(),
+      this.padding.left(),
+    );
 
-    this.element.style.flexDirection = this.direction();
-    this.element.style.flexBasis = this.parseLength(this.basis()!);
-    this.element.style.flexWrap = this.wrap();
+    node.setFlexDirection(toYogaFlexDirection(this.direction()));
+    setYogaFlexBasis(node, this.basis());
+    node.setFlexWrap(toYogaFlexWrap(this.wrap()));
 
-    this.element.style.justifyContent = this.justifyContent();
-    this.element.style.alignContent = this.alignContent();
-    this.element.style.alignItems = this.alignItems();
-    this.element.style.alignSelf = this.alignSelf();
-    this.element.style.columnGap = this.parseLength(this.gap.x());
-    this.element.style.rowGap = this.parseLength(this.gap.y());
+    const direction = this.direction();
+    const wrap = this.wrap();
+    node.setJustifyContent(
+      toYogaJustifyContent(this.justifyContent(), direction),
+    );
+    node.setAlignContent(toYogaAlignContent(this.alignContent(), wrap));
+    node.setAlignItems(toYogaAlignItems(this.alignItems(), wrap));
+    node.setAlignSelf(toYogaAlignItems(this.alignSelf(), wrap));
+
+    setYogaGap(node, this.gap.x(), this.gap.y());
 
     if (this.sizeLockCounter() > 0) {
-      this.element.style.flexGrow = '0';
-      this.element.style.flexShrink = '0';
+      node.setFlexGrow(0);
+      node.setFlexShrink(0);
     } else {
-      this.element.style.flexGrow = this.grow().toString();
-      this.element.style.flexShrink = this.shrink().toString();
+      node.setFlexGrow(this.grow());
+      node.setFlexShrink(this.shrink());
     }
   }
 
   @computed()
   protected applyFont() {
-    this.element.style.fontFamily = this.fontFamily();
-    this.element.style.fontSize = `${this.fontSize()}px`;
-    this.element.style.fontStyle = this.fontStyle();
-
-    const lineHeight = this.lineHeight();
-    this.element.style.lineHeight =
-      typeof lineHeight === 'number'
-        ? `${lineHeight}px`
-        : (parseFloat(lineHeight as string) / 100).toString();
-
-    this.element.style.fontWeight = this.fontWeight().toString();
-    this.element.style.letterSpacing = `${this.letterSpacing()}px`;
-    this.element.style.textAlign = this.textAlign();
-
-    const wrap = this.textWrap();
-    if (typeof wrap === 'boolean') {
-      this.element.style.whiteSpace = wrap ? 'normal' : 'nowrap';
-    } else {
-      this.element.style.whiteSpace = wrap;
-    }
+    // Font properties are read via signals and canvasFont().
+    // This method exists as a computed dependency checkpoint.
+    this.fontFamily();
+    this.fontSize();
+    this.fontStyle();
+    this.fontWeight();
+    this.lineHeight();
+    this.letterSpacing();
+    this.textWrap();
+    this.textAlign();
   }
 
   public override dispose() {
     super.dispose();
     this.sizeLockCounter?.context.dispose();
-    if (this.element) {
-      this.element.remove();
-      this.element.innerHTML = '';
+    if (this.yogaNode) {
+      this.yogaNode.free();
     }
-    this.element = null as unknown as HTMLElement;
-    this.styles = null as unknown as CSSStyleDeclaration;
+    this.yogaNode = null!;
   }
 
   public override hit(position: Vector2): Node | null {
@@ -1094,8 +1190,5 @@ function originSignal(origin: Origin): PropertyDecorator {
 }
 
 addInitializer<Layout>(Layout.prototype, instance => {
-  instance.element = document.createElement('div');
-  instance.element.style.display = 'flex';
-  instance.element.style.boxSizing = 'border-box';
-  instance.styles = getComputedStyle(instance.element);
+  instance.yogaNode = createYogaNode();
 });

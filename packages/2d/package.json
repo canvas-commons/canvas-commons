@@ -32,13 +32,13 @@
     "@canvas-commons/ui": "^0.1.0",
     "@preact/signals": "^1.2.1",
     "clsx": "^2.0.0",
-    "geometry-polyfill": "^1.0.7",
     "jsdom": "^22.1.0",
     "preact": "^10.19.2",
     "vitest": "^0.34.6"
   },
   "dependencies": {
     "@canvas-commons/core": "^0.1.0",
+    "geometry-polyfill": "^1.0.7",
     "@codemirror/language": "^6.10.1",
     "@lezer/common": "^1.2.1",
     "@lezer/highlight": "^1.2.0",
@@ -46,6 +46,7 @@
     "escape-string-regexp": "^5.0.0",
     "mathjax-full": "^3.2.2",
     "parse-svg-path": "^0.1.2",
-    "roughjs": "^4.6.6"
+    "roughjs": "^4.6.6",
+    "yoga-layout": "^3.2.1"
   }
 }

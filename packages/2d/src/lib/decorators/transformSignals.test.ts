@@ -1,5 +1,4 @@
 import {Vector2} from '@canvas-commons/core';
-import 'geometry-polyfill';
 import {beforeEach, describe, expect, test} from 'vitest';
 import {Layout} from '../components/Layout';
 import {Rect} from '../components/Rect';

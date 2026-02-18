@@ -66,8 +66,7 @@ Canvas Commons follows [semantic versioning][semver].
    ```shell
    git push origin my-fix-branch
    ```
-6. In GitHub, send a pull request to [the main branch][main] and **request a
-   review** from [aarthificial](https://github.com/aarthificial).
+6. In GitHub, send a pull request to [the main branch][main].
 
 ### Going through verification
 

@@ -17,6 +17,7 @@ export default function GitHubNavbarLink() {
   return (
     <NavbarLink
       href={siteConfig.customFields.githubUrl as string}
+      ariaLabel="GitHub"
       suffix={'stars'}
       amount={stars}
     >

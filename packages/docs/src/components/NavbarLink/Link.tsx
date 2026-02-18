@@ -7,6 +7,7 @@ export interface NavbarLinkProps {
   suffix: string;
   amount: false | null | number;
   children: ReactNode;
+  ariaLabel: string;
 }
 
 export default function NavbarLink({
@@ -14,6 +15,7 @@ export default function NavbarLink({
   suffix,
   amount,
   children,
+  ariaLabel,
 }: NavbarLinkProps) {
   const formatted = useMemo(() => {
     if (!amount) return null;
@@ -29,7 +31,7 @@ export default function NavbarLink({
           </small>
         </div>
       )}
-      <a href={href} className={styles.icon}>
+      <a href={href} className={styles.icon} aria-label={ariaLabel}>
         {children}
       </a>
     </div>

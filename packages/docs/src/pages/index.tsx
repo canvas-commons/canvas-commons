@@ -10,9 +10,7 @@ export default function Home(): JSX.Element {
   return (
     <Layout title={siteConfig.title} description={siteConfig.tagline}>
       <Head>
-        <title>
-          {siteConfig.title} - {siteConfig.tagline}
-        </title>
+        <title>{siteConfig.title}</title>
         <meta property="og:title" content={siteConfig.title} />
       </Head>
       <HomepageHeader />

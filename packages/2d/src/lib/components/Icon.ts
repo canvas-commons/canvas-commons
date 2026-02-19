@@ -87,6 +87,10 @@ export class Icon extends SVG {
       return cached;
     }
 
+    if (iconId === null || iconId === undefined) {
+      return PLACEHOLDER_SVG;
+    }
+
     const fetchPromise = this.fetchIconSvg(iconId, color);
     DependencyContext.collectPromise(fetchPromise);
 

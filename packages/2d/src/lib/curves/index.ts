@@ -1,3 +1,4 @@
+export * from './ArrowDrawer';
 export * from './CircleSegment';
 export * from './CubicBezierSegment';
 export * from './CurveDrawingInfo';

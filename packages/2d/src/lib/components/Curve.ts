@@ -6,13 +6,14 @@ import {
   Vector2,
   clamp,
 } from '@canvas-commons/core';
+import {ArrowDrawer, defaultArrowDrawer} from '../curves/ArrowDrawer';
 import {CurveDrawingInfo} from '../curves/CurveDrawingInfo';
 import {CurvePoint} from '../curves/CurvePoint';
 import {CurveProfile, profileToSVGPathData} from '../curves/CurveProfile';
 import {getPointAtDistance} from '../curves/getPointAtDistance';
 import {computed, initial, nodeName, signal} from '../decorators';
 import {DesiredLength} from '../partials';
-import {lineTo, moveTo, resolveCanvasStyle} from '../utils';
+import {resolveCanvasStyle} from '../utils';
 import {Shape, ShapeProps} from './Shape';
 
 export interface CurveProps extends ShapeProps {
@@ -31,7 +32,7 @@ export interface CurveProps extends ShapeProps {
   /**
    * {@inheritDoc Curve.startArrow}
    */
-  startArrow?: SignalValue<boolean>;
+  startArrow?: SignalValue<boolean | ArrowDrawer>;
   /**
    * {@inheritDoc Curve.end}
    */
@@ -43,7 +44,7 @@ export interface CurveProps extends ShapeProps {
   /**
    * {@inheritDoc Curve.endArrow}
    */
-  endArrow?: SignalValue<boolean>;
+  endArrow?: SignalValue<boolean | ArrowDrawer>;
   /**
    * {@inheritDoc Curve.arrowSize}
    */
@@ -95,14 +96,16 @@ export abstract class Curve extends Shape {
   public declare readonly startOffset: SimpleSignal<number, this>;
 
   /**
-   * Whether to display an arrow at the start of the visible curve.
+   * Whether and how to display an arrow at the start of the visible curve.
    *
    * @remarks
-   * Use {@link arrowSize} to control the size of the arrow.
+   * When set to `true`, the default arrow drawer is used. An {@link ArrowDrawer}
+   * can be provided for custom arrow rendering. Use {@link arrowSize} to control
+   * the size of the arrow.
    */
   @initial(false)
   @signal()
-  public declare readonly startArrow: SimpleSignal<boolean, this>;
+  public declare readonly startArrow: SimpleSignal<boolean | ArrowDrawer, this>;
 
   /**
    * A percentage from the start after which the curve should be clipped.
@@ -137,14 +140,16 @@ export abstract class Curve extends Shape {
   public declare readonly endOffset: SimpleSignal<number, this>;
 
   /**
-   * Whether to display an arrow at the end of the visible curve.
+   * Whether and how to display an arrow at the end of the visible curve.
    *
    * @remarks
-   * Use {@link arrowSize} to control the size of the arrow.
+   * When set to `true`, the default arrow drawer is used. An {@link ArrowDrawer}
+   * can be provided for custom arrow rendering. Use {@link arrowSize} to control
+   * the size of the arrow.
    */
   @initial(false)
   @signal()
-  public declare readonly endArrow: SimpleSignal<boolean, this>;
+  public declare readonly endArrow: SimpleSignal<boolean | ArrowDrawer, this>;
 
   /**
    * Controls the size of the end and start arrows.
@@ -275,12 +280,15 @@ export abstract class Curve extends Shape {
     const distance = end - start;
     const arrowSize = Math.min(distance / 2, this.arrowSize());
 
-    if (this.startArrow()) {
-      start += arrowSize / 2;
+    const startArrowValue = this.startArrow();
+    const endArrowValue = this.endArrow();
+
+    if (this.hasArrow(startArrowValue)) {
+      start += this.arrowOffset(startArrowValue, arrowSize);
     }
 
-    if (this.endArrow()) {
-      end -= arrowSize / 2;
+    if (this.hasArrow(endArrowValue)) {
+      end -= this.arrowOffset(endArrowValue, arrowSize);
     }
 
     let length = 0;
@@ -383,7 +391,9 @@ export abstract class Curve extends Shape {
   protected override getCacheBBox(): BBox {
     const box = this.childrenBBox();
     const arrowSize =
-      this.startArrow() || this.endArrow() ? this.arrowSize() : 0;
+      this.hasArrow(this.startArrow()) || this.hasArrow(this.endArrow())
+        ? this.arrowSize()
+        : 0;
     const lineWidth = this.lineWidth();
 
     const coefficient = this.lineWidthCoefficient();
@@ -416,45 +426,68 @@ export abstract class Curve extends Shape {
 
   protected override drawShape(context: CanvasRenderingContext2D) {
     super.drawShape(context);
-    if (this.startArrow() || this.endArrow()) {
-      this.drawArrows(context);
+    const startArrowValue = this.startArrow();
+    const endArrowValue = this.endArrow();
+    if (this.hasArrow(startArrowValue) || this.hasArrow(endArrowValue)) {
+      this.drawArrows(context, startArrowValue, endArrowValue);
     }
   }
 
-  private drawArrows(context: CanvasRenderingContext2D) {
+  private hasArrow(value: boolean | ArrowDrawer): value is true | ArrowDrawer {
+    return value !== false;
+  }
+
+  private getArrowDrawer(value: true | ArrowDrawer): ArrowDrawer {
+    return value === true ? defaultArrowDrawer : value;
+  }
+
+  private arrowOffset(
+    arrowValue: true | ArrowDrawer,
+    arrowSize: number,
+  ): number {
+    const drawer = this.getArrowDrawer(arrowValue);
+    return drawer.offset ? drawer.offset(arrowSize) : arrowSize / 2;
+  }
+
+  private drawArrows(
+    context: CanvasRenderingContext2D,
+    startArrowValue: boolean | ArrowDrawer,
+    endArrowValue: boolean | ArrowDrawer,
+  ) {
     const {startPoint, startTangent, endPoint, endTangent, arrowSize} =
       this.curveDrawingInfo();
     if (arrowSize < 0.001) {
       return;
     }
 
+    const stroke = resolveCanvasStyle(this.stroke(), context);
+    const lineWidth = this.lineWidth();
+
     context.save();
     context.beginPath();
-    if (this.endArrow()) {
-      this.drawArrow(context, endPoint, endTangent.flipped, arrowSize);
+    context.fillStyle = stroke;
+    if (this.hasArrow(endArrowValue)) {
+      this.getArrowDrawer(endArrowValue).draw({
+        context,
+        center: endPoint,
+        tangent: endTangent.flipped,
+        arrowSize,
+        stroke,
+        lineWidth,
+      });
     }
-    if (this.startArrow()) {
-      this.drawArrow(context, startPoint, startTangent, arrowSize);
+    if (this.hasArrow(startArrowValue)) {
+      this.getArrowDrawer(startArrowValue).draw({
+        context,
+        center: startPoint,
+        tangent: startTangent,
+        arrowSize,
+        stroke,
+        lineWidth,
+      });
     }
-    context.fillStyle = resolveCanvasStyle(this.stroke(), context);
     context.closePath();
     context.fill();
     context.restore();
-  }
-
-  private drawArrow(
-    context: CanvasRenderingContext2D | Path2D,
-    center: Vector2,
-    tangent: Vector2,
-    arrowSize: number,
-  ) {
-    const normal = tangent.perpendicular;
-    const origin = center.add(tangent.scale(-arrowSize / 2));
-
-    moveTo(context, origin);
-    lineTo(context, origin.add(tangent.add(normal).scale(arrowSize)));
-    lineTo(context, origin.add(tangent.sub(normal).scale(arrowSize)));
-    lineTo(context, origin);
-    context.closePath();
   }
 }

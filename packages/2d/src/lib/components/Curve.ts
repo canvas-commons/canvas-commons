@@ -1,5 +1,7 @@
 import {
   BBox,
+  ColorSignal,
+  PossibleColor,
   SerializedVector2,
   SignalValue,
   SimpleSignal,
@@ -12,6 +14,7 @@ import {CurvePoint} from '../curves/CurvePoint';
 import {CurveProfile, profileToSVGPathData} from '../curves/CurveProfile';
 import {getPointAtDistance} from '../curves/getPointAtDistance';
 import {computed, initial, nodeName, signal} from '../decorators';
+import {colorSignal} from '../decorators/colorSignal';
 import {DesiredLength} from '../partials';
 import {resolveCanvasStyle} from '../utils';
 import {Shape, ShapeProps} from './Shape';
@@ -49,6 +52,34 @@ export interface CurveProps extends ShapeProps {
    * {@inheritDoc Curve.arrowSize}
    */
   arrowSize?: SignalValue<number>;
+  /**
+   * {@inheritDoc Curve.tickLength}
+   */
+  tickLength?: SignalValue<number>;
+  /**
+   * {@inheritDoc Curve.tickEvery}
+   */
+  tickEvery?: SignalValue<number>;
+  /**
+   * {@inheritDoc Curve.tickOffset}
+   */
+  tickOffset?: SignalValue<number>;
+  /**
+   * {@inheritDoc Curve.tickWidth}
+   */
+  tickWidth?: SignalValue<number>;
+  /**
+   * {@inheritDoc Curve.tickColor}
+   */
+  tickColor?: SignalValue<PossibleColor>;
+  /**
+   * {@inheritDoc Curve.tickStart}
+   */
+  tickStart?: SignalValue<number>;
+  /**
+   * {@inheritDoc Curve.tickEnd}
+   */
+  tickEnd?: SignalValue<number>;
 }
 
 @nodeName('Curve')
@@ -161,6 +192,81 @@ export abstract class Curve extends Shape {
   @initial(24)
   @signal()
   public declare readonly arrowSize: SimpleSignal<number, this>;
+
+  /**
+   * The total length of each tick mark perpendicular to the curve.
+   *
+   * @remarks
+   * When set to `0`, no ticks are drawn. The tick extends equally in both
+   * directions from the curve.
+   */
+  @initial(0)
+  @signal()
+  public declare readonly tickLength: SimpleSignal<number, this>;
+
+  /**
+   * The distance between consecutive tick marks along the curve.
+   */
+  @initial(100)
+  @signal()
+  public declare readonly tickEvery: SimpleSignal<number, this>;
+
+  /**
+   * The offset of the first tick mark from the start of the curve.
+   */
+  @initial(0)
+  @signal()
+  public declare readonly tickOffset: SimpleSignal<number, this>;
+
+  /**
+   * The stroke width of each tick mark.
+   *
+   * @remarks
+   * Defaults to the curve's {@link Shape.lineWidth | lineWidth}.
+   */
+  @initial(null)
+  @signal()
+  public declare readonly tickWidth: SimpleSignal<number, this>;
+
+  /**
+   * The color of the tick marks.
+   *
+   * @remarks
+   * Defaults to the curve's {@link Shape.stroke | stroke} color.
+   */
+  @initial(null)
+  @colorSignal()
+  public declare readonly tickColor: ColorSignal<this>;
+
+  /**
+   * A percentage along the curve before which no ticks are drawn.
+   *
+   * @remarks
+   * Works together with {@link start} to determine the effective tick range.
+   * The effective start is the larger of `start` and `tickStart`.
+   */
+  @initial(0)
+  @signal()
+  public declare readonly tickStart: SimpleSignal<number, this>;
+
+  /**
+   * A percentage along the curve after which no ticks are drawn.
+   *
+   * @remarks
+   * Works together with {@link end} to determine the effective tick range.
+   * The effective end is the smaller of `end` and `tickEnd`.
+   */
+  @initial(1)
+  @signal()
+  public declare readonly tickEnd: SimpleSignal<number, this>;
+
+  protected getDefaultTickWidth() {
+    return this.lineWidth();
+  }
+
+  protected getDefaultTickColor() {
+    return this.stroke();
+  }
 
   protected canHaveSubpath = false;
 
@@ -370,6 +476,44 @@ export abstract class Curve extends Shape {
     return getPointAtDistance(this.profile(), this.percentageToDistance(value));
   }
 
+  /**
+   * The positions of all tick marks along the curve.
+   *
+   * @remarks
+   * Each entry contains the position, tangent, and normal at the tick's
+   * location on the curve. This can be used to place labels or other elements
+   * at tick positions.
+   */
+  @computed()
+  public tickPositions(): CurvePoint[] {
+    const tickLength = this.tickLength();
+    if (tickLength <= 0) return [];
+
+    const tickEvery = this.tickEvery();
+    if (tickEvery <= 0) return [];
+
+    const tickOffset = this.tickOffset();
+    const startOffset = this.startOffset();
+    const offsetLen = this.offsetArcLength();
+    const startDist = this.percentageToDistance(
+      Math.max(this.start(), this.tickStart()),
+    );
+    const endDist = this.percentageToDistance(
+      Math.min(this.end(), this.tickEnd()),
+    );
+    const minDist = Math.min(startDist, endDist);
+    const maxDist = Math.max(startDist, endDist);
+    const result: CurvePoint[] = [];
+
+    for (let d = tickOffset; d < offsetLen; d += tickEvery) {
+      const absoluteDist = d + startOffset;
+      if (absoluteDist < minDist || absoluteDist > maxDist) continue;
+      result.push(this.getPointAtDistance(d));
+    }
+
+    return result;
+  }
+
   protected override getComputedLayout(): BBox {
     return this.offsetComputedLayout(super.getComputedLayout());
   }
@@ -395,10 +539,13 @@ export abstract class Curve extends Shape {
         ? this.arrowSize()
         : 0;
     const lineWidth = this.lineWidth();
+    const tickExtent = this.tickLength() / 2;
 
     const coefficient = this.lineWidthCoefficient();
 
-    return box.expand(Math.max(0, arrowSize, lineWidth * coefficient));
+    return box.expand(
+      Math.max(0, arrowSize, lineWidth * coefficient, tickExtent),
+    );
   }
 
   protected lineWidthCoefficient(): number {
@@ -420,7 +567,8 @@ export abstract class Curve extends Shape {
       !this.startArrow.isInitial() ||
       !this.end.isInitial() ||
       !this.endOffset.isInitial() ||
-      !this.endArrow.isInitial()
+      !this.endArrow.isInitial() ||
+      this.tickLength() > 0
     );
   }
 
@@ -430,6 +578,9 @@ export abstract class Curve extends Shape {
     const endArrowValue = this.endArrow();
     if (this.hasArrow(startArrowValue) || this.hasArrow(endArrowValue)) {
       this.drawArrows(context, startArrowValue, endArrowValue);
+    }
+    if (this.tickLength() > 0) {
+      this.drawTicks(context);
     }
   }
 
@@ -488,6 +639,56 @@ export abstract class Curve extends Shape {
     }
     context.closePath();
     context.fill();
+    context.restore();
+  }
+
+  private drawTicks(context: CanvasRenderingContext2D) {
+    const tickLength = this.tickLength();
+    const tickEvery = this.tickEvery();
+    if (tickLength <= 0 || tickEvery <= 0) return;
+
+    const tickOffset = this.tickOffset();
+    const startOffset = this.startOffset();
+    const offsetLen = this.offsetArcLength();
+    const startDist = this.percentageToDistance(
+      Math.max(this.start(), this.tickStart()),
+    );
+    const endDist = this.percentageToDistance(
+      Math.min(this.end(), this.tickEnd()),
+    );
+    const minDist = Math.min(startDist, endDist);
+    const maxDist = Math.max(startDist, endDist);
+    const halfTick = tickLength / 2;
+
+    context.save();
+    context.strokeStyle = resolveCanvasStyle(this.tickColor(), context);
+    context.lineWidth = this.tickWidth();
+    context.lineCap = 'butt';
+
+    for (let d = tickOffset; d < offsetLen; d += tickEvery) {
+      const absoluteDist = d + startOffset;
+      if (absoluteDist < minDist || absoluteDist > maxDist) continue;
+
+      const endScale = clamp(0, 1, (maxDist - absoluteDist) / halfTick);
+      const startScale = clamp(0, 1, (absoluteDist - minDist) / halfTick);
+      const scale = Math.min(endScale, startScale);
+
+      const point = this.getPointAtDistance(d);
+      const normal = point.normal;
+      const scaledHalf = halfTick * scale;
+
+      context.beginPath();
+      context.moveTo(
+        point.position.x + normal.x * scaledHalf,
+        point.position.y + normal.y * scaledHalf,
+      );
+      context.lineTo(
+        point.position.x - normal.x * scaledHalf,
+        point.position.y - normal.y * scaledHalf,
+      );
+      context.stroke();
+    }
+
     context.restore();
   }
 }

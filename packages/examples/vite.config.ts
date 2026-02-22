@@ -1,4 +1,5 @@
 import canvasCommons from '@canvas-commons/vite-plugin';
+import path from 'path';
 import {defineConfig} from 'vite';
 
 export default defineConfig({
@@ -34,7 +35,8 @@ export default defineConfig({
     rollupOptions: {
       output: {
         dir: '../docs/static/examples',
-        entryFileNames: '[name].js',
+        // The docs expect .js files to be directly in examples/ rather than examples/src/.
+        entryFileNames: chunk => `${path.basename(chunk.name, '.ts')}.js`,
       },
     },
   },

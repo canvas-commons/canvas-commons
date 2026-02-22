@@ -8,7 +8,6 @@ import {
 } from '../../utils';
 
 import {IconButton} from '../controls';
-import {OpenInNew} from '../icons';
 export interface SourceFrameProps {
   entry: StackTraceEntry;
 }
@@ -30,6 +29,7 @@ export function SourceCodeFrame({entry}: SourceFrameProps) {
         />
       </pre>
       <IconButton
+        icon="open_in_new"
         title="Go to source"
         className={styles.viewSource}
         onClick={async () => {
@@ -37,9 +37,7 @@ export function SourceCodeFrame({entry}: SourceFrameProps) {
             await openFileInEditor(entry);
           }
         }}
-      >
-        <OpenInNew />
-      </IconButton>
+      />
     </div>
   );
 }

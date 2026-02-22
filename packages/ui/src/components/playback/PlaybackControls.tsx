@@ -4,18 +4,6 @@ import {useApplication} from '../../contexts';
 import {GLOBAL_EDITOR_SHORTCUTS, useShortcuts} from '../../contexts/shortcuts';
 import {usePlayerState} from '../../hooks';
 import {IconButton, IconCheckbox, Input, Select, Slider} from '../controls';
-import {
-  FastForward,
-  FastRewind,
-  Pause,
-  PhotoCamera,
-  PlayArrow,
-  Repeat,
-  SkipNext,
-  SkipPrevious,
-  VolumeOff,
-  VolumeOn,
-} from '../icons';
 import {Framerate} from './Framerate';
 
 export function PlaybackControls() {
@@ -50,13 +38,13 @@ export function PlaybackControls() {
       />
       <div className={styles.volumeTrigger}>
         <IconCheckbox
+          iconOn="volume_on"
           titleOn="Mute audio [M]"
+          iconOff="volume_off"
           titleOff="Unmute audio [M]"
           checked={!state.muted}
           onChange={value => player.toggleAudio(value)}
-        >
-          {state.muted ? <VolumeOff /> : <VolumeOn />}
-        </IconCheckbox>
+        />
 
         {!state.muted && (
           <div className={styles.volumeMargin}>
@@ -75,46 +63,42 @@ export function PlaybackControls() {
         )}
       </div>
       <IconButton
+        icon="skip_previous"
         title="Start [Shift + Left arrow]"
         onClick={() => player.requestReset()}
-      >
-        <SkipPrevious />
-      </IconButton>
+      />
       <IconButton
+        icon="fast_rewind"
         title="Previous frame [Left arrow]"
         onClick={() => player.requestPreviousFrame()}
-      >
-        <FastRewind />
-      </IconButton>
+      />
       <IconCheckbox
         main
+        iconOn="play_arrow"
         titleOn="Pause [Space]"
+        iconOff="pause"
         titleOff="Play [Space]"
         checked={!state.paused}
         onChange={value => player.togglePlayback(value)}
-      >
-        {state.paused ? <PlayArrow /> : <Pause />}
-      </IconCheckbox>
+      />
       <IconButton
+        icon="fast_forward"
         title="Next frame [Right arrow]"
         onClick={() => player.requestNextFrame()}
-      >
-        <FastForward />
-      </IconButton>
+      />
       <IconButton
+        icon="skip_next"
         title="End [Shift + Right arrow]"
         onClick={() => player.requestSeek(Infinity)}
-      >
-        <SkipNext />
-      </IconButton>
+      />
       <IconCheckbox
+        iconOn="repeat"
         titleOn="Disable looping [L]"
+        iconOff="repeat"
         titleOff="Enable looping [L]"
         checked={state.loop}
         onChange={() => player.toggleLoop()}
-      >
-        <Repeat />
-      </IconCheckbox>
+      />
       <Framerate
         render={(framerate, paused) => (
           <Input
@@ -125,6 +109,7 @@ export function PlaybackControls() {
         )}
       />
       <IconButton
+        icon="photo_camera"
         title="Save snapshot"
         onClick={() =>
           renderer.renderFrame(
@@ -135,9 +120,7 @@ export function PlaybackControls() {
             player.status.time,
           )
         }
-      >
-        <PhotoCamera />
-      </IconButton>
+      />
     </div>
   );
 }

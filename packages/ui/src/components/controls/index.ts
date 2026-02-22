@@ -3,6 +3,7 @@ export * from './ButtonSelect';
 export * from './Checkbox';
 export * from './ColorInput';
 export * from './Group';
+export * from './Icon';
 export * from './IconButton';
 export * from './IconCheckbox';
 export * from './Input';

@@ -1,11 +1,12 @@
 import styles from './Controls.module.scss';
 
 import clsx from 'clsx';
-import {ComponentChildren} from 'preact';
+import {IconName} from './Icon';
 import {IconButton} from './IconButton';
 
 interface IconCheckboxProps {
-  children: ComponentChildren;
+  iconOn: IconName;
+  iconOff: IconName;
   titleOn?: string;
   titleOff?: string;
   onChange?: (value: boolean) => void;
@@ -14,7 +15,8 @@ interface IconCheckboxProps {
 }
 
 export function IconCheckbox({
-  children,
+  iconOn,
+  iconOff,
   titleOn,
   titleOff,
   onChange,
@@ -23,6 +25,7 @@ export function IconCheckbox({
 }: IconCheckboxProps) {
   return (
     <IconButton
+      icon={checked ? iconOn : iconOff}
       className={clsx(
         styles.iconCheckbox,
         main && styles.main,
@@ -30,8 +33,6 @@ export function IconCheckbox({
       )}
       title={titleOff && !checked ? titleOff : titleOn}
       onClick={() => onChange?.(!checked)}
-    >
-      {children}
-    </IconButton>
+    />
   );
 }

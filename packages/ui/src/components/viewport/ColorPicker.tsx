@@ -1,8 +1,8 @@
 import {useRef} from 'preact/hooks';
 import {useState} from 'react';
 import {VIEWPORT_SHORTCUTS, useShortcut} from '../../contexts/shortcuts';
+import {Icon} from '../controls';
 import {ButtonCheckbox} from '../controls/ButtonCheckbox';
-import {Colorize} from '../icons';
 
 export function ColorPicker() {
   return typeof EyeDropper === 'function' ? <ColorPickerImpl /> : <></>;
@@ -36,7 +36,7 @@ function ColorPickerImpl() {
       checked={active}
       onClick={pickColor}
     >
-      <Colorize />
+      <Icon name="colorize" />
     </ButtonCheckbox>
   );
 }

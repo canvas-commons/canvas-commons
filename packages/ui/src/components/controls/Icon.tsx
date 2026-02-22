@@ -16,6 +16,7 @@ import fast_forward from '../../img/icons/material/fast_forward.svg?raw';
 import fast_rewind from '../../img/icons/material/fast_rewind.svg?raw';
 import fullscreen from '../../img/icons/material/fullscreen.svg?raw';
 import grid from '../../img/icons/material/grid.svg?raw';
+import help_outline from '../../img/icons/material/help_outline.svg?raw';
 import hourglass_bottom from '../../img/icons/material/hourglass_bottom.svg?raw';
 import locate from '../../img/icons/material/locate.svg?raw';
 import movie from '../../img/icons/material/movie.svg?raw';
@@ -25,7 +26,6 @@ import photo_camera from '../../img/icons/material/photo_camera.svg?raw';
 import play_arrow from '../../img/icons/material/play_arrow.svg?raw';
 import recenter from '../../img/icons/material/recenter.svg?raw';
 import repeat from '../../img/icons/material/repeat.svg?raw';
-import school from '../../img/icons/material/school.svg?raw';
 import science from '../../img/icons/material/science.svg?raw';
 import settings from '../../img/icons/material/settings.svg?raw';
 import skip_next from '../../img/icons/material/skip_next.svg?raw';
@@ -48,6 +48,7 @@ const ICONS = {
   fast_rewind,
   fullscreen,
   grid,
+  help_outline,
   hourglass_bottom,
   locate,
   movie,
@@ -57,7 +58,6 @@ const ICONS = {
   play_arrow,
   recenter,
   repeat,
-  school,
   science,
   settings,
   skip_next,

@@ -86,7 +86,7 @@ export function Navigation() {
         href="https://canvascommons.io/docs/"
         target="_blank"
       >
-        <Icon name="school" />
+        <Icon name="help_outline" />
       </TabLink>
       <TabGroup tab={bottom.current.value} setTab={tab => bottom.set(tab)}>
         <Tab title="Timeline" id="timeline-tab" tab={EditorPanel.Timeline}>

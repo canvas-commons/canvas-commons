@@ -135,12 +135,109 @@ export class Color implements Type, WebGLConvertible {
     return Color.fromChroma(this.inner.alpha(value));
   }
 
+  public name(): string {
+    return this.inner.name();
+  }
+
+  public rgb(round = true): [number, number, number] {
+    return this.inner.rgb(round);
+  }
+
+  public rgba(round = true): [number, number, number, number] {
+    return this.inner.rgba(round);
+  }
+
+  public hsl(): [number, number, number] {
+    return this.inner.hsl();
+  }
+
   public hsv(): [number, number, number] {
     return this.inner.hsv();
   }
 
+  public hsi(): [number, number, number] {
+    return this.inner.hsi();
+  }
+
+  public lab(): [number, number, number] {
+    return this.inner.lab();
+  }
+
+  public lch(): [number, number, number] {
+    return this.inner.lch();
+  }
+
+  public hcl(): [number, number, number] {
+    return this.inner.hcl();
+  }
+
+  public oklab(): [number, number, number] {
+    return this.inner.oklab();
+  }
+
+  public oklch(): [number, number, number] {
+    return this.inner.oklch();
+  }
+
+  public num(): number {
+    return this.inner.num();
+  }
+
+  public temperature(): number {
+    return this.inner.temperature();
+  }
+
+  public clipped(): boolean {
+    return this.inner.clipped();
+  }
+
+  public darken(amount?: number): Color {
+    return Color.fromChroma(this.inner.darken(amount));
+  }
+
   public brighten(amount?: number): Color {
     return Color.fromChroma(this.inner.brighten(amount));
+  }
+
+  public saturate(amount?: number): Color {
+    return Color.fromChroma(this.inner.saturate(amount));
+  }
+
+  public desaturate(amount?: number): Color {
+    return Color.fromChroma(this.inner.desaturate(amount));
+  }
+
+  public mix(
+    color: Color | string,
+    ratio?: number,
+    colorSpace?: chroma.ColorFormat,
+  ): Color {
+    const other = typeof color === 'string' ? new Color(color) : color;
+    return Color.fromChroma(this.inner.mix(other.inner, ratio, colorSpace));
+  }
+
+  public shade(ratio?: number, mode?: chroma.InterpolationMode): Color {
+    return Color.fromChroma(this.inner.shade(ratio, mode));
+  }
+
+  public tint(ratio?: number, mode?: chroma.InterpolationMode): Color {
+    return Color.fromChroma(this.inner.tint(ratio, mode));
+  }
+
+  public luminance(): number;
+  public luminance(value: number, mode?: chroma.InterpolationMode): Color;
+  public luminance(
+    value?: number,
+    mode?: chroma.InterpolationMode,
+  ): number | Color {
+    if (value === undefined) {
+      return this.inner.luminance();
+    }
+    return Color.fromChroma(this.inner.luminance(value, mode));
+  }
+
+  public set(channel: string, value: string | number): Color {
+    return Color.fromChroma(this.inner.set(channel, value));
   }
 
   public get(modechan: string): number {

@@ -12,6 +12,9 @@ docs/2d-api
 static/examples
 static/editor
 static/modules
+static/llms.txt
+static/llms-full.txt
+static/docs
 src/generated
 
 # Misc

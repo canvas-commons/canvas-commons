@@ -1,0 +1,8 @@
+label: Reference
+position: 4
+link:
+  type: generated-index
+  description: >
+    Information-oriented technical description. Look things up here when you
+    need exact names, options, or signatures. For the full generated API, see
+    /api/core and /api/2d.

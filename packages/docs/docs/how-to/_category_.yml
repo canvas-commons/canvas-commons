@@ -1,0 +1,7 @@
+label: How-to Guides
+position: 3
+link:
+  type: generated-index
+  description: >
+    Goal-oriented recipes. Use these when you already know roughly what you want
+    to do and need the steps to get it done.

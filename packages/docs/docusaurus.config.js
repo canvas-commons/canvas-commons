@@ -142,6 +142,7 @@ const config = {
   plugins: [
     './typedoc',
     './bundle',
+    './llms-txt',
     [
       '@docusaurus/plugin-content-docs',
       {

@@ -3,8 +3,8 @@ const path = require('path');
 
 const DEFAULT_HEADER =
   '# Canvas Commons Documentation\n\n' +
-  'Plain-text export of the Canvas Commons documentation for LLM consumption.\n' +
-  'Individual pages are delimited by `---` and prefixed with `// File: <path>`.\n';
+  'Plain-text dump of the Canvas Commons docs, intended for LLMs.\n' +
+  'Pages are separated by `---` and tagged with `// File: <path>`.\n';
 
 function parseFrontmatter(source) {
   const match = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);

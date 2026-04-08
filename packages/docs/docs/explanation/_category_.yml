@@ -1,8 +1,7 @@
 label: Explanation
-position: 5
+position: 3
 link:
   type: generated-index
   description: >
-    Understanding-oriented discussion. Read these when you want to know why
-    Canvas Commons works the way it does — the concepts, the model, and the
-    tradeoffs behind the API.
+    Read these when you want to know why Canvas Commons works the way it does:
+    the concepts, the model, and the tradeoffs behind the API.

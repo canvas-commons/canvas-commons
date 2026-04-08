@@ -4,6 +4,5 @@ collapsed: false
 link:
   type: generated-index
   description: >
-    Learning-oriented walkthroughs. Start here if you're new — these guide you
-    step-by-step through building real animations so you get a feel for the
-    framework.
+    Start here if you're new. Each tutorial walks you through building a real
+    animation, one step at a time, so you end up with something that runs.

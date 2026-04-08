@@ -1,0 +1,79 @@
+---
+sidebar_position: 1
+title: Line properties
+description: The properties that make Line easy to animate.
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Line properties
+
+A `Line` has a handful of properties that are specifically designed for
+animation:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx editor ratio=2
+import {makeScene2D, Line} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  view.add(
+    <Line
+      lineWidth={24}
+      stroke={'lightseagreen'}
+      radius={200}
+      start={0.2}
+      endOffset={100}
+      arrowSize={50}
+      startArrow
+      points={[
+        [-400, -180],
+        [0, -180],
+        [0, 180],
+        [400, 180],
+      ]}
+    />,
+  );
+});
+```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor ratio=2
+import {makeScene2D, Line} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  view.add(
+    new Line({
+      lineWidth: 24,
+      stroke: 'lightseagreen',
+      radius: 200,
+      start: 0.2,
+      endOffset: 100,
+      arrowSize: 50,
+      startArrow: true,
+      points: [
+        [-400, -180],
+        [0, -180],
+        [0, 180],
+        [400, 180],
+      ],
+    }),
+  );
+});
+```
+
+</TabItem>
+</Tabs>
+
+- `radius` rounds the corners.
+- `start` and `end` set where along the line the rendered portion begins and
+  ends (`0` is the very beginning, `1` is the very end). Tween them to animate a
+  line being drawn.
+- `startOffset` and `endOffset` shave a fixed number of pixels off each end,
+  handy for leaving space for arrows.
+- `startArrow` and `endArrow` toggle arrows at either end.
+- `arrowSize` controls how big those arrows are.

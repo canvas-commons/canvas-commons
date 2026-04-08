@@ -1,0 +1,71 @@
+---
+sidebar_position: 1
+title: Image alpha vs opacity
+description:
+  Use Img.alpha to fade just the image, leaving fill, stroke, and children fully
+  visible.
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Image alpha vs opacity
+
+`Img.alpha` controls the transparency of the image itself. Unlike `opacity`, it
+leaves the node's `fill`, `stroke`, and children fully visible. That makes it
+useful when you want to dim a background photo while keeping overlays sharp:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx editor ratio=2
+import {makeScene2D, Img, Node, Circle} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  view.add(
+    <Img
+      src={'https://images.unsplash.com/photo-1623150502742-6a849aa94be4'}
+      fill={'#28d2b8'}
+      alpha={0.4}
+      width={720}
+      radius={32}
+      smoothCorners
+      clip
+    >
+      <Node x={140} y={80}>
+        <Circle size={280} stroke={'white'} lineWidth={12} />
+        <Circle size={140} stroke={'white'} lineWidth={12} />
+      </Node>
+    </Img>,
+  );
+});
+```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor ratio=2
+import {makeScene2D, Img, Node, Circle} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  const img = new Img({
+    src: 'https://images.unsplash.com/photo-1623150502742-6a849aa94be4',
+    fill: '#28d2b8',
+    alpha: 0.4,
+    width: 720,
+    radius: 32,
+    smoothCorners: true,
+    clip: true,
+  });
+
+  const overlay = new Node({x: 140, y: 80});
+  overlay.add(new Circle({size: 280, stroke: 'white', lineWidth: 12}));
+  overlay.add(new Circle({size: 140, stroke: 'white', lineWidth: 12}));
+  img.add(overlay);
+
+  view.add(img);
+});
+```
+
+</TabItem>
+</Tabs>

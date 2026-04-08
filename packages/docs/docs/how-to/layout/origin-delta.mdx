@@ -1,0 +1,68 @@
+---
+sidebar_position: 5
+title: Anchor a child to a parent's corner
+description:
+  Use Layout.getOriginDelta() to position a child relative to any corner or
+  edge.
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Anchor a child to a parent's corner
+
+`Layout.getOriginDelta()` returns the offset from a layout's center to the
+requested corner or edge. Reading it inside a reactive position expression means
+the child tracks its parent's corner no matter how the parent is resized.
+
+Here, a small circle sticks to the bottom-left corner of a rectangle while the
+rectangle's size is tweened:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx editor ratio=2
+import {makeScene2D, Rect, Circle} from '@canvas-commons/2d';
+import {Origin, createRef} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const parent = createRef<Rect>();
+
+  view.add(
+    <Rect ref={parent} width={320} height={240} fill={'#ffc66d'}>
+      <Circle
+        position={() => parent().getOriginDelta(Origin.BottomLeft)}
+        size={80}
+        fill={'#f3303f'}
+      />
+    </Rect>,
+  );
+
+  yield* parent().size([180, 360], 2);
+});
+```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor ratio=2
+import {makeScene2D, Rect, Circle} from '@canvas-commons/2d';
+import {Origin} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const parent = new Rect({width: 320, height: 240, fill: '#ffc66d'});
+  parent.add(
+    new Circle({
+      position: () => parent.getOriginDelta(Origin.BottomLeft),
+      size: 80,
+      fill: '#f3303f',
+    }),
+  );
+  view.add(parent);
+
+  yield* parent.size([180, 360], 2);
+});
+```
+
+</TabItem>
+</Tabs>

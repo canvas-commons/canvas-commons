@@ -1,0 +1,53 @@
+---
+sidebar_position: 3
+title: Clipping
+description: Cut off children that overflow a parent's shape.
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Clipping
+
+The `clip` property cuts off any part of a child that extends outside its
+parent's shape:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx editor ratio=2
+import {makeScene2D, Rect, Circle} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  view.add(
+    <Rect clip size={320} radius={40} smoothCorners fill={'#f3303f'}>
+      <Circle size={480} position={-140} fill={'#FFC66D'} />
+    </Rect>,
+  );
+});
+```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor ratio=2
+import {makeScene2D, Rect, Circle} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  const rect = new Rect({
+    clip: true,
+    size: 320,
+    radius: 40,
+    smoothCorners: true,
+    fill: '#f3303f',
+  });
+  rect.add(new Circle({size: 480, position: -140, fill: '#FFC66D'}));
+  view.add(rect);
+});
+```
+
+</TabItem>
+</Tabs>
+
+The circle here is larger than its container, but only the part that sits inside
+the rounded rectangle actually renders.

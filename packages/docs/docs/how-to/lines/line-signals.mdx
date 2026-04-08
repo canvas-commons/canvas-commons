@@ -1,0 +1,28 @@
+---
+sidebar_position: 2
+title: Reactive line points
+description:
+  Every point of a Line is a signal, so you can mix literals, functions, and
+  node positions.
+---
+
+# Reactive line points
+
+Each point in a `Line`'s `points` array is a `SignalValue<PossibleVector2>`.
+That means the array can mix literal coordinates, shorthand numbers, and
+functions that reference other signals:
+
+```tsx
+<Line
+  points={[
+    [0, 200],
+    0,
+    () => Vector2.right.scale(someSignal()),
+    nodeRef().position,
+  ]}
+/>
+```
+
+Because the last two entries are functions, the line automatically updates
+whenever `someSignal` or `nodeRef().position` changes. No manual tweening of the
+points required.

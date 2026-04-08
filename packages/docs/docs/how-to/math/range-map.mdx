@@ -1,0 +1,62 @@
+---
+sidebar_position: 1
+title: Generating arrays of nodes with range
+description: Use range() and .map() to spawn a row of nodes from a number.
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Generating arrays of nodes with `range`
+
+`range()` paired with `.map()` is the quickest way to spawn a row of nodes from
+a number:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx editor ratio=2
+import {makeScene2D, Layout, Rect} from '@canvas-commons/2d';
+import {Color, range} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  view.add(
+    <Layout layout gap={10}>
+      {range(5).map(index => (
+        <Rect
+          size={100}
+          radius={10}
+          smoothCorners
+          fill={Color.lerp('#f3303f', '#ffc66d', index / 5)}
+        />
+      ))}
+    </Layout>,
+  );
+});
+```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor ratio=2
+import {makeScene2D, Layout, Rect} from '@canvas-commons/2d';
+import {Color, range} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const layout = new Layout({layout: true, gap: 10});
+  for (const index of range(5)) {
+    layout.add(
+      new Rect({
+        size: 100,
+        radius: 10,
+        smoothCorners: true,
+        fill: Color.lerp('#f3303f', '#ffc66d', index / 5),
+      }),
+    );
+  }
+  view.add(layout);
+});
+```
+
+</TabItem>
+</Tabs>

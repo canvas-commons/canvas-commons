@@ -1,0 +1,63 @@
+---
+sidebar_position: 4
+title: Stroke before fill
+description: Draw the stroke underneath the fill, great for text outlines.
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Stroke before fill
+
+By default a node fills itself first and then draws its stroke on top. Setting
+`strokeFirst` reverses that order, which is especially useful for outlining text
+without the outline cutting into the letter shapes:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx editor ratio=2
+import {makeScene2D, Txt} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  view.add(
+    <Txt
+      strokeFirst
+      lineWidth={12}
+      lineJoin={'round'}
+      stroke={'#fff'}
+      fill={'#ff8888'}
+      fontSize={200}
+      fontWeight={900}
+      fontFamily={'Segoe Print'}
+      text={'Hello!'}
+    />,
+  );
+});
+```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor ratio=2
+import {makeScene2D, Txt} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  view.add(
+    new Txt({
+      strokeFirst: true,
+      lineWidth: 12,
+      lineJoin: 'round',
+      stroke: '#fff',
+      fill: '#ff8888',
+      fontSize: 200,
+      fontWeight: 900,
+      fontFamily: 'Segoe Print',
+      text: 'Hello!',
+    }),
+  );
+});
+```
+
+</TabItem>
+</Tabs>

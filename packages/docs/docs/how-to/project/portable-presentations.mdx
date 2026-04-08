@@ -1,0 +1,161 @@
+---
+sidebar_position: 4
+title: Build a portable presentation
+description:
+  Bundle a Canvas Commons project so it can run on someone else's machine, like
+  GitHub Pages.
+---
+
+# Build a portable presentation
+
+If you want a presentation that runs on someone else's computer (for example, on
+GitHub Pages), you can bundle the editor along with your built project. This
+guide pins everything to your project's version of Canvas Commons rather than
+the latest one online, skips the manual naming dance, and ends with a GitHub
+Action that publishes on every push.
+
+## Initial setup
+
+### Step 1: Vite config
+
+Update your `vite.config.ts` so the dev server gets `ffmpeg`, but the production
+build doesn't:
+
+```ts
+import {defineConfig} from 'vite';
+import canvasCommons from '@canvas-commons/vite-plugin';
+import ffmpeg from '@canvas-commons/ffmpeg';
+
+export default defineConfig(({command}) => {
+  const plugins: any[] = [canvasCommons()];
+  if (command === 'serve') {
+    plugins.push(ffmpeg());
+  }
+  return {
+    plugins,
+    build: {
+      rollupOptions: {
+        output: {
+          dir: 'out',
+          entryFileNames: '[name].js',
+        },
+      },
+    },
+  };
+});
+```
+
+This keeps `ffmpeg` out of the distributed bundle and writes each entry file to
+the `out` folder, named after its source. With the default `project.ts`, that
+means the build output lands at `out/project.js`.
+
+### Step 2: Build the project
+
+```bash
+npm run build
+```
+
+Make sure the file shows up at `out/project.js` — the next step depends on that
+path.
+
+### Step 3: Create the entrypoint
+
+Create an `index.html` at the root of your project:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Presentation</title>
+  </head>
+  <script type="module">
+    import '@canvas-commons/editor/dist/style.css';
+    import {editor} from '@canvas-commons/editor';
+    import presentation from './out/project.js';
+
+    editor(presentation);
+  </script>
+</html>
+```
+
+Note that the import path matches the file you built in step 2.
+
+### Step 4: Build the deployable site
+
+Create a separate `vite.deploy.config.ts`:
+
+```ts
+import {defineConfig} from 'vite';
+
+defineConfig({
+  base: process.env.REPO_NAME ? `/${process.env.REPO_NAME}/` : '/',
+  build: {
+    rollupOptions: {
+      input: 'index.html',
+      output: {
+        dir: 'dist',
+      },
+    },
+  },
+});
+```
+
+This processes `index.html` and writes the result to `dist/`. Wire it into
+`package.json` so you can run it as a script:
+
+```json
+{
+  "scripts": {
+    "deploy": "vite -c vite.deploy.config.ts build"
+  }
+}
+```
+
+To preview locally, you may need a server that sets the right headers for ES
+modules:
+
+```bash
+npm run deploy
+npx light-server -s dist -p 8000
+```
+
+## GitHub Action to publish the page
+
+Push your repo, then check that **Settings → Actions → General → Read and write
+permissions** is enabled. Don't switch the Pages mode to GitHub Actions — leave
+it on the default.
+
+Drop this into `.github/workflows/publish.yml`:
+
+```yaml
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.0.0
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - run: bun run deploy
+        env:
+          REPO_NAME: ${{ github.event.repository.name }}
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+```
+
+This uses Bun because it tends to be faster, but the same workflow runs fine
+with the official `actions/setup-node` if you prefer npm.
+
+If everything goes through, the site lands at `username.github.io/reponame`,
+with `username` and `reponame` swapped for the repo's owner and name.

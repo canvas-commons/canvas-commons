@@ -1,0 +1,61 @@
+---
+sidebar_position: 1
+title: Reusable scenes with parameters
+description:
+  A workaround for parameterizing the same scene with different inputs until it
+  lands natively.
+---
+
+# Reusable scenes with parameters
+
+Reusing the same scene with different inputs isn't supported natively yet
+(tracked upstream in
+[motion-canvas#954](https://github.com/motion-canvas/motion-canvas/issues/954)),
+but you can hack it together with a small utility module.
+
+Drop this into `src/utils.ts`:
+
+```ts
+import {View2D, makeScene2D} from '@canvas-commons/2d';
+import {
+  FullSceneDescription,
+  ThreadGenerator,
+  ThreadGeneratorFactory,
+  ValueDispatcher,
+} from '@canvas-commons/core';
+
+type CyclicConfig<T> = (params: T) => CyclicConfig<T>;
+
+export function parametrize<T>(scene: FullSceneDescription, params: T) {
+  const typeScene = scene as FullSceneDescription<CyclicConfig<T>>;
+  let newScene = {
+    ...typeScene,
+    config: typeScene.config(params),
+    onReplaced: new ValueDispatcher(scene),
+  };
+
+  typeScene.onReplaced.subscribe(value => {
+    newScene.onReplaced.current = {
+      ...newScene,
+      config: value.config(params),
+    };
+  }, false);
+
+  return newScene;
+}
+
+export function makeParametrizedScene<T>(
+  factory: (view: View2D, params: T) => ThreadGenerator,
+) {
+  return makeScene2D(
+    ((params: T) =>
+      function* (view: View2D) {
+        yield* factory(view, params);
+      }) as unknown as ThreadGeneratorFactory<View2D>,
+  );
+}
+```
+
+Use `makeParametrizedScene` in place of `makeScene2D` when you want a scene that
+takes parameters, and `parametrize(scene, params)` when you register it in your
+project.

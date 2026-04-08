@@ -1,0 +1,35 @@
+---
+sidebar_position: 2
+title: Polar interpolation
+description: Animate a node along a circular path with Vector2.polarLerp.
+---
+
+# Polar interpolation
+
+`Vector2.rotate` and `Vector2.polarLerp` together let you tween a node along a
+circular arc instead of a straight line. The lerp function tells the tween to
+interpolate angles, not coordinates:
+
+```tsx
+yield *
+  node().position(
+    node().position().rotate(90),
+    1,
+    easeInOutCubic,
+    Vector2.polarLerp,
+  );
+```
+
+`Vector2.createPolarLerp` lets you customize the rotation, for instance by
+giving it an explicit center of rotation:
+
+```tsx
+const center: PossibleVector2 = [-200, 200];
+yield *
+  node().position(
+    node().position().rotate(90, center),
+    1,
+    easeInOutCubic,
+    Vector2.createPolarLerp(false, center),
+  );
+```

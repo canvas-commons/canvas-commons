@@ -1,0 +1,71 @@
+---
+sidebar_position: 2
+title: Opt a child out of layout
+description:
+  Set layout={false} to position a node manually inside a laid-out parent.
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Opt a child out of layout
+
+`layout` is a boolean, so you can turn it off on individual children to position
+them by hand while their siblings are still flex-arranged:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx editor ratio=2
+import {makeScene2D, Rect, Txt} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  view.add(
+    <Rect layout gap={20}>
+      <Rect size={120} fill={'white'} />
+      <Rect size={120} fill={'white'} />
+      <Rect size={120} fill={'white'} />
+      <Txt layout={false} y={-100} fontSize={28} fill={'white'}>
+        I'm positioned manually
+      </Txt>
+    </Rect>,
+  );
+});
+```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor ratio=2
+import {makeScene2D, Rect, Txt} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  const parent = new Rect({layout: true, gap: 20});
+  parent.add(new Rect({size: 120, fill: 'white'}));
+  parent.add(new Rect({size: 120, fill: 'white'}));
+  parent.add(new Rect({size: 120, fill: 'white'}));
+  parent.add(
+    new Txt({
+      layout: false,
+      y: -100,
+      fontSize: 28,
+      fill: 'white',
+      text: "I'm positioned manually",
+    }),
+  );
+  view.add(parent);
+});
+```
+
+</TabItem>
+</Tabs>
+
+For reference, these two are equivalent:
+
+```tsx
+<Rect layout gap={20}>
+```
+
+```tsx
+<Rect layout={true} gap={20}>
+```

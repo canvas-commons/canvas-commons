@@ -1,0 +1,40 @@
+---
+sidebar_position: 3
+title: Percentage sizes
+description: What percent width and height mean for nodes outside a layout.
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Percentage sizes
+
+When you set the size of a node that's _not_ inside a `layout`, percentages are
+measured against the full view:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx editor ratio=2
+import {makeScene2D, Rect} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  view.add(<Rect width={'50%'} height={'50%'} fill={'white'} />);
+});
+```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor ratio=2
+import {makeScene2D, Rect} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  view.add(new Rect({width: '50%', height: '50%', fill: 'white'}));
+});
+```
+
+</TabItem>
+</Tabs>
+
+So this `Rect` ends up half the width and half the height of the scene.

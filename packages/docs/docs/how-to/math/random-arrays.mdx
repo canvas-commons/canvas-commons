@@ -1,0 +1,60 @@
+---
+sidebar_position: 5
+title: Generating arrays of random numbers
+description:
+  Use useRandom().floatArray() and intArray() to seed bulk random data.
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Generating arrays of random numbers
+
+`Random.floatArray()` and `Random.intArray()` produce arrays of random numbers
+in one call, which is handy when you want to lay out a row of nodes whose values
+come from a seed:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx editor ratio=2
+import {makeScene2D, Layout, Circle} from '@canvas-commons/2d';
+import {Color, useRandom} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const random = useRandom();
+
+  view.add(
+    <Layout layout gap={10}>
+      {random.floatArray(5).map(value => (
+        <Circle size={100} fill={Color.lerp('#a3ff60', '#3a84f3', value)} />
+      ))}
+    </Layout>,
+  );
+});
+```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor ratio=2
+import {makeScene2D, Layout, Circle} from '@canvas-commons/2d';
+import {Color, useRandom} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const random = useRandom();
+  const layout = new Layout({layout: true, gap: 10});
+  for (const value of random.floatArray(5)) {
+    layout.add(
+      new Circle({size: 100, fill: Color.lerp('#a3ff60', '#3a84f3', value)}),
+    );
+  }
+  view.add(layout);
+});
+```
+
+</TabItem>
+</Tabs>
+
+For everything else seeded randomness can do, see the
+[random values](/docs/random-values) page.

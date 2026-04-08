@@ -1,0 +1,64 @@
+---
+sidebar_position: 4
+title: Dashed and dotted lines
+description: Use lineDash and lineDashOffset to draw dashed strokes.
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Dashed and dotted lines
+
+`lineDash` and `lineDashOffset` give you the same dashed-line controls as the
+underlying canvas API. Animate `lineDashOffset` for a marching-ants effect:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx editor ratio=2
+import {makeScene2D, Circle} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  const SIZE = 240;
+  const LENGTH = (SIZE * Math.PI) / 6;
+
+  view.add(
+    <>
+      <Circle
+        size={SIZE}
+        lineWidth={120}
+        lineDash={[LENGTH, LENGTH]}
+        lineDashOffset={LENGTH}
+        stroke={'#FFC66D'}
+      />
+      <Circle size={80} fill={'#FFC66D'} />
+    </>,
+  );
+});
+```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor ratio=2
+import {makeScene2D, Circle} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  const SIZE = 240;
+  const LENGTH = (SIZE * Math.PI) / 6;
+
+  view.add(
+    new Circle({
+      size: SIZE,
+      lineWidth: 120,
+      lineDash: [LENGTH, LENGTH],
+      lineDashOffset: LENGTH,
+      stroke: '#FFC66D',
+    }),
+  );
+  view.add(new Circle({size: 80, fill: '#FFC66D'}));
+});
+```
+
+</TabItem>
+</Tabs>

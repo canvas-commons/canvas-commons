@@ -1,0 +1,21 @@
+---
+sidebar_position: 3
+title: Tween colors in different color spaces
+description:
+  Use Color.createLerp to interpolate colors through HSL, LAB, RGB, and other
+  spaces.
+---
+
+# Tween colors in different color spaces
+
+`Color.createLerp()` builds a custom interpolation function so you can tween
+colors through whichever color space gives the result you want:
+
+```tsx
+yield * node().fill('#4aaaf1', 2, easeInOutCubic, Color.createLerp('hsl'));
+```
+
+The supported color spaces are `lch` (the default), `rgb`, `hsl`, `hsv`, `hsi`,
+`lab`, `hcl`, and `lrgb`. Colors in Canvas Commons are powered by
+[chroma.js](https://gka.github.io/chroma.js/), which is where these spaces come
+from.

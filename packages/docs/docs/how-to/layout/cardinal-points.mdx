@@ -1,0 +1,87 @@
+---
+sidebar_position: 4
+title: Cardinal points
+description: Connect the edges of two nodes using their cardinal anchors.
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Cardinal points
+
+Cardinal points make it easy to connect the edges of nodes without hard-coding
+coordinates. Here, a line goes from the right edge of a rect to the left edge of
+a circle, curving around them:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx editor ratio=2
+import {makeScene2D, Rect, Circle, Line} from '@canvas-commons/2d';
+import {createRef} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const rect = createRef<Rect>();
+  const circle = createRef<Circle>();
+
+  view.add(
+    <>
+      <Rect x={-300} y={100} ref={rect} size={140} fill={'#f3303f'} />
+      <Circle x={300} y={-100} ref={circle} size={160} fill={'#FFC66D'} />
+      <Line
+        lineWidth={6}
+        stroke={'#bbb'}
+        startArrow
+        endArrow
+        startOffset={20}
+        endOffset={20}
+        radius={60}
+        points={[
+          rect().right,
+          () => rect().right().addX(120),
+          () => circle().left().addX(-120),
+          circle().left,
+        ]}
+      />
+    </>,
+  );
+});
+```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor ratio=2
+import {makeScene2D, Rect, Circle, Line} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  const rect = new Rect({x: -300, y: 100, size: 140, fill: '#f3303f'});
+  const circle = new Circle({x: 300, y: -100, size: 160, fill: '#FFC66D'});
+
+  view.add(rect);
+  view.add(circle);
+  view.add(
+    new Line({
+      lineWidth: 6,
+      stroke: '#bbb',
+      startArrow: true,
+      endArrow: true,
+      startOffset: 20,
+      endOffset: 20,
+      radius: 60,
+      points: [
+        rect.right,
+        () => rect.right().addX(120),
+        () => circle.left().addX(-120),
+        circle.left,
+      ],
+    }),
+  );
+});
+```
+
+</TabItem>
+</Tabs>
+
+See the [layouts page](/docs/layouts#cardinal-directions) for more on how
+cardinal anchors work.

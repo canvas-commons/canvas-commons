@@ -1,0 +1,66 @@
+---
+sidebar_position: 6
+title: Filled lines
+description: Set fill on a closed Line to turn it into a polygon.
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Filled lines
+
+A `Line` accepts a `fill` color, and combined with `closed` it becomes a
+polygon. `radius` rounds the corners just like on any other shape:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx editor ratio=2
+import {makeScene2D, Line} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  view.add(
+    <Line
+      fill={'#f19233'}
+      closed
+      radius={20}
+      points={[
+        [-160, -150],
+        [-160, 150],
+        [0, 220],
+        [160, 150],
+        [160, -150],
+        [0, -80],
+      ]}
+    />,
+  );
+});
+```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor ratio=2
+import {makeScene2D, Line} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  view.add(
+    new Line({
+      fill: '#f19233',
+      closed: true,
+      radius: 20,
+      points: [
+        [-160, -150],
+        [-160, 150],
+        [0, 220],
+        [160, 150],
+        [160, -150],
+        [0, -80],
+      ],
+    }),
+  );
+});
+```
+
+</TabItem>
+</Tabs>

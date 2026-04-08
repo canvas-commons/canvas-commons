@@ -1,0 +1,66 @@
+---
+sidebar_position: 2
+title: Composite operations
+description: Blend nodes together using canvas compositing modes.
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Composite operations
+
+Set `compositeOperation` on a node to blend it against whatever's drawn
+underneath. Here, a rounded rectangle is drawn on top of a circle using
+`'difference'`:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx editor ratio=2
+import {makeScene2D, Circle, Rect} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  view.add(
+    <>
+      <Circle size={320} fill={'white'} />
+      <Rect
+        x={160}
+        y={80}
+        size={320}
+        radius={80}
+        stroke={'white'}
+        lineWidth={8}
+        compositeOperation={'difference'}
+      />
+    </>,
+  );
+});
+```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor ratio=2
+import {makeScene2D, Circle, Rect} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  view.add(new Circle({size: 320, fill: 'white'}));
+  view.add(
+    new Rect({
+      x: 160,
+      y: 80,
+      size: 320,
+      radius: 80,
+      stroke: 'white',
+      lineWidth: 8,
+      compositeOperation: 'difference',
+    }),
+  );
+});
+```
+
+</TabItem>
+</Tabs>
+
+The full list of supported modes is on
+[MDN](https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/globalCompositeOperation).

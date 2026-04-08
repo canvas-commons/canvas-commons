@@ -1,0 +1,43 @@
+---
+sidebar_position: 2
+title: Loop an animation until the next slide
+description:
+  Run an infinite loop in the background and cancel it when the slide advances.
+---
+
+# Loop an animation until the next slide
+
+A pulsing dot, a rotating logo, anything you want running in the background
+while the audience reads a slide. You want an infinite loop, but you also want
+it to stop the moment you press space to advance. Start with
+`loop(Infinity, ...)`:
+
+```tsx
+yield loop(Infinity, () => rect().size(200, 1).to(100, 1));
+```
+
+Note the bare `yield` instead of `yield*`. You don't want to wait for an
+infinite task to finish, and the editor will hang if you try.
+
+Combine that with a presenter slide to keep the loop running until the audience
+is ready to move on:
+
+```tsx
+export function* loopUntilSlide(
+  name: string,
+  slideLoop: () => ThreadGenerator,
+): ThreadGenerator {
+  const loopTask = yield loop(Infinity, slideLoop);
+
+  if (usePlayback().state != PlaybackState.Presenting) {
+    yield* waitUntil(name);
+  }
+  yield* beginSlide(name);
+
+  cancel(loopTask);
+}
+
+yield * loopUntilSlide('test', () => rect().size(200, 1).to(100, 1));
+```
+
+`cancel(loopTask)` stops the loop the moment the slide is dismissed.

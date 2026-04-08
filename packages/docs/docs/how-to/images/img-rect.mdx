@@ -1,0 +1,55 @@
+---
+sidebar_position: 2
+title: Round-cornered images
+description: Img extends Rect, so it gets radius and smoothCorners for free.
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Round-cornered images
+
+`Img` extends `Rect`, which means it picks up `radius`, `smoothCorners`, and the
+rest of the rect-shape API. Set `clip` so the rounded corners actually crop the
+image:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx editor ratio=2
+import {makeScene2D, Img} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  view.add(
+    <Img
+      src={'https://images.unsplash.com/photo-1679218407381-a6f1660d60e9'}
+      width={720}
+      radius={32}
+      smoothCorners
+      clip
+    />,
+  );
+});
+```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor ratio=2
+import {makeScene2D, Img} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  view.add(
+    new Img({
+      src: 'https://images.unsplash.com/photo-1679218407381-a6f1660d60e9',
+      width: 720,
+      radius: 32,
+      smoothCorners: true,
+      clip: true,
+    }),
+  );
+});
+```
+
+</TabItem>
+</Tabs>

@@ -1,0 +1,57 @@
+---
+sidebar_position: 4
+title: Possible types
+description:
+  How PossibleVector2, PossibleColor, and friends let you write properties many
+  different ways.
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Possible types
+
+Each complex type in Canvas Commons has a `Possible` equivalent:
+
+- `Vector2` → `PossibleVector2`
+- `Spacing` → `PossibleSpacing`
+- `Color` → `PossibleColor`
+
+A `Possible` type describes every shape the framework will accept for that type.
+For example, the `position` property accepts `PossibleVector2`, which means all
+of these are equivalent:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx
+<>
+  <Node position={new Vector2(200, 200)} />
+  <Node position={{x: 200, y: 200}} />
+  <Node position={[200, 200]} />
+  <Node position={200} />
+</>
+```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+new Node({position: new Vector2(200, 200)});
+new Node({position: {x: 200, y: 200}});
+new Node({position: [200, 200]});
+new Node({position: 200});
+```
+
+</TabItem>
+</Tabs>
+
+When you read the property back, however, you always get the canonical type,
+never the shorthand:
+
+```ts
+nodeRef().position([320, 240]);
+// Even though we set the position with an array, the read returns a
+// Vector2, so members like .radians are available:
+const angle = nodeRef().position().radians;
+```

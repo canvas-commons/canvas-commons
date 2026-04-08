@@ -1,0 +1,93 @@
+---
+sidebar_position: 5
+title: Round line caps with arcLength
+description:
+  Use arcLength as the line width so round caps disappear cleanly when animated.
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Round line caps with `arcLength`
+
+When a line uses a `round` line cap, the cap adds extra visual length that can
+prevent the line from disappearing cleanly when you tween `start` or `end` to
+`0`. Pulling the line width from `arcLength` keeps the math consistent.
+
+In the example below, the red line uses a fixed `lineWidth` and you can see the
+cap stick around as the line shrinks. The green line ties its width to
+`arcLength` and disappears cleanly.
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx editor ratio=2
+import {makeScene2D, Ray} from '@canvas-commons/2d';
+import {all, clamp, createRef, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const fixed = createRef<Ray>();
+  const dynamic = createRef<Ray>();
+  view.add(
+    <>
+      <Ray
+        ref={fixed}
+        from={[-180, -80]}
+        to={[180, -80]}
+        end={0}
+        stroke={'#f3303f'}
+        lineCap={'round'}
+        lineWidth={64}
+      />
+      <Ray
+        ref={dynamic}
+        from={[-180, 80]}
+        to={[180, 80]}
+        end={0}
+        stroke={'#8bc34a'}
+        lineCap={'round'}
+        lineWidth={() => clamp(0, 64, dynamic().arcLength())}
+      />
+    </>,
+  );
+
+  yield* waitFor(0.5);
+  yield* all(fixed().end(1, 1).back(1), dynamic().end(1, 1).back(1));
+});
+```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor ratio=2
+import {makeScene2D, Ray} from '@canvas-commons/2d';
+import {all, clamp, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const fixed = new Ray({
+    from: [-180, -80],
+    to: [180, -80],
+    end: 0,
+    stroke: '#f3303f',
+    lineCap: 'round',
+    lineWidth: 64,
+  });
+  const dynamic = new Ray({
+    from: [-180, 80],
+    to: [180, 80],
+    end: 0,
+    stroke: '#8bc34a',
+    lineCap: 'round',
+  });
+  dynamic.lineWidth(() => clamp(0, 64, dynamic.arcLength()));
+
+  view.add(fixed);
+  view.add(dynamic);
+
+  yield* waitFor(0.5);
+  yield* all(fixed.end(1, 1).back(1), dynamic.end(1, 1).back(1));
+});
+```
+
+</TabItem>
+</Tabs>

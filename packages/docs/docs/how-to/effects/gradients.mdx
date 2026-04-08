@@ -1,0 +1,63 @@
+---
+sidebar_position: 1
+title: Gradients
+description: Fill or stroke a node with a linear, conic, or radial gradient.
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Gradients
+
+Both the `fill` and `stroke` properties accept a `Gradient` object:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx editor ratio=2
+import {makeScene2D, Circle, Gradient} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  const gradient = new Gradient({
+    type: 'radial',
+    from: -100,
+    to: -100,
+    toRadius: 320,
+    stops: [
+      {offset: 0, color: '#f3303f'},
+      {offset: 0.6, color: '#FFC66D'},
+      {offset: 1, color: '#4aaaf1'},
+    ],
+  });
+
+  view.add(<Circle size={320} fill={gradient} />);
+});
+```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor ratio=2
+import {makeScene2D, Circle, Gradient} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  const gradient = new Gradient({
+    type: 'radial',
+    from: -100,
+    to: -100,
+    toRadius: 320,
+    stops: [
+      {offset: 0, color: '#f3303f'},
+      {offset: 0.6, color: '#FFC66D'},
+      {offset: 1, color: '#4aaaf1'},
+    ],
+  });
+
+  view.add(new Circle({size: 320, fill: gradient}));
+});
+```
+
+</TabItem>
+</Tabs>
+
+The supported gradient types are `linear`, `conic`, and `radial`.

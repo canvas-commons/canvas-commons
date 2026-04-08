@@ -1,0 +1,84 @@
+---
+sidebar_position: 1
+title: Inherited font properties
+description:
+  Set font defaults on a parent and let every Txt descendant pick them up.
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Inherited font properties
+
+Nodes inherit their font properties from their parents, the same way CSS works:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx editor ratio=2
+import {makeScene2D, Rect, Txt} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  view.add(
+    <Rect layout fontSize={72} direction={'column'} fill={'#222'} padding={20}>
+      <Txt fill={'white'}>We all</Txt>
+      <Txt fill={'white'}>have the same</Txt>
+      <Txt fill={'white'}>font size: 72</Txt>
+      <Txt fontSize={36} fill={'white'}>
+        Not me though
+      </Txt>
+    </Rect>,
+  );
+});
+```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor ratio=2
+import {makeScene2D, Rect, Txt} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  const rect = new Rect({
+    layout: true,
+    fontSize: 72,
+    direction: 'column',
+    fill: '#222',
+    padding: 20,
+  });
+  rect.add(new Txt({fill: 'white', text: 'We all'}));
+  rect.add(new Txt({fill: 'white', text: 'have the same'}));
+  rect.add(new Txt({fill: 'white', text: 'font size: 72'}));
+  rect.add(new Txt({fill: 'white', fontSize: 36, text: 'Not me though'}));
+  view.add(rect);
+});
+```
+
+</TabItem>
+</Tabs>
+
+Right now inheritance only flows through nodes that have `layout` enabled.
+However, because `view` sits at the root of the hierarchy, every node in the
+scene inherits from it regardless of whether the chain in between is laid out.
+That makes `view` a handy place to set project-wide defaults:
+
+```ts
+export default makeScene2D(function* (view) {
+  // All <Txt> nodes will use these unless they override them.
+  view.fontFamily('Comic Sans MS');
+  view.fontWeight(700);
+  // ...
+});
+```
+
+The inheritable properties are:
+
+- `fontFamily`
+- `fontSize`
+- `fontStyle`
+- `fontWeight`
+- `lineHeight`
+- `letterSpacing`
+- `textWrap`
+- `textDirection` (coming soon)
+- `textAlign` (coming soon)

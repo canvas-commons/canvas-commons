@@ -1,0 +1,88 @@
+---
+sidebar_position: 3
+title: Sample a point along a line
+description:
+  Use Line.getPointAtPercentage() to find a position along a line at any
+  percentage of its length.
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Sample a point along a line
+
+`Line.getPointAtPercentage()` returns the position (and tangent) at any
+percentage of the line's length. Pair it with a signal and you can animate
+something gliding along the line:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx editor ratio=2
+import {makeScene2D, Line, Circle} from '@canvas-commons/2d';
+import {createRef, createSignal} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const ref = createRef<Line>();
+  const percentage = createSignal(0.3);
+
+  view.add(
+    <>
+      <Line
+        ref={ref}
+        stroke={'#ccc'}
+        lineWidth={8}
+        radius={80}
+        points={[
+          [-200, -150],
+          [-200, 150],
+          [200, 150],
+        ]}
+      />
+      <Circle
+        size={64}
+        fill={'#f19233'}
+        position={() => ref().getPointAtPercentage(percentage()).position}
+      />
+    </>,
+  );
+
+  yield* percentage(0.7, 2);
+});
+```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor ratio=2
+import {makeScene2D, Line, Circle} from '@canvas-commons/2d';
+import {createSignal} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const percentage = createSignal(0.3);
+
+  const line = new Line({
+    stroke: '#ccc',
+    lineWidth: 8,
+    radius: 80,
+    points: [
+      [-200, -150],
+      [-200, 150],
+      [200, 150],
+    ],
+  });
+  view.add(line);
+  view.add(
+    new Circle({
+      size: 64,
+      fill: '#f19233',
+      position: () => line.getPointAtPercentage(percentage()).position,
+    }),
+  );
+
+  yield* percentage(0.7, 2);
+});
+```
+
+</TabItem>
+</Tabs>

@@ -1,0 +1,249 @@
+---
+sidebar_position: 2
+slug: /animating-with-signals
+title: Animating with signals
+description:
+  Use createSignal and createComputed to drive multiple properties from a single
+  value.
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Animating with signals
+
+The [quickstart](/docs/quickstart) showed you how to tween individual
+properties. That works when each property animates on its own, but it gets
+awkward when several parts of the scene should move together. Change the radius?
+Now the area label is wrong, the radius line is too short, and the circle is the
+wrong size.
+
+Signals fix that. A signal holds a value, and anything that reads it recomputes
+automatically when the value changes. In this tutorial we'll build a reactive
+circle diagram where tweening one `radius` signal drives the circle size, a
+radius indicator, and an area label all at once.
+
+## Creating a signal
+
+`createSignal` gives you a reactive value. Call it with no parameters to read
+its value, or with a value to update it:
+
+```ts
+import {createSignal} from '@canvas-commons/core';
+
+const radius = createSignal(3);
+radius(); // 3
+radius(4); // set to 4
+radius(); // 4
+```
+
+## Connecting a signal to a node
+
+If you pass a function instead of a literal value, Canvas Commons re-evaluates
+it every frame. The property tracks the signal automatically:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx editor ratio=2
+import {Circle, makeScene2D} from '@canvas-commons/2d';
+import {createSignal, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const radius = createSignal(1);
+  const scale = 60;
+
+  view.add(
+    <Circle
+      width={() => radius() * scale * 2}
+      height={() => radius() * scale * 2}
+      fill={'#e13238'}
+    />,
+  );
+
+  yield* radius(3, 2);
+  yield* waitFor(0.5);
+  yield* radius(1, 2);
+});
+```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor ratio=2
+import {Circle, makeScene2D} from '@canvas-commons/2d';
+import {createSignal, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const radius = createSignal(1);
+  const scale = 60;
+
+  view.add(
+    new Circle({
+      width: () => radius() * scale * 2,
+      height: () => radius() * scale * 2,
+      fill: '#e13238',
+    }),
+  );
+
+  yield* radius(3, 2);
+  yield* waitFor(0.5);
+  yield* radius(1, 2);
+});
+```
+
+</TabItem>
+</Tabs>
+
+One `yield* radius(3, 2)` and both width and height animate together because
+they both read from the same signal.
+
+## Derived values with createSignal
+
+You can pass a function to `createSignal` to create a value that derives from
+other signals. It recalculates whenever its dependencies change. This is the
+same way our circle's size is computed in our previous example.
+
+```ts
+const radius = createSignal(3);
+const area = createSignal(() => Math.PI * radius() * radius());
+
+area(); // ~28.27
+radius(4);
+area(); // ~50.27
+```
+
+## Putting it together
+
+Here's the finished product: a red circle, a dashed radius line with arrows, a
+radius label, and an area label. Everything reacts to one `radius` signal.
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx editor ratio=2
+import {Circle, Line, Txt, makeScene2D} from '@canvas-commons/2d';
+import {Vector2, createSignal, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const radius = createSignal(3);
+  const area = createSignal(() => Math.PI * radius() * radius());
+
+  const scale = 50;
+  const textStyle = {
+    fontWeight: 700,
+    fontSize: 28,
+    offsetY: -1,
+    padding: 20,
+    cache: true,
+  };
+
+  view.add(
+    <>
+      <Circle
+        width={() => radius() * scale * 2}
+        height={() => radius() * scale * 2}
+        fill={'#e13238'}
+      />
+      <Line
+        points={[Vector2.zero, () => Vector2.right.scale(radius() * scale)]}
+        lineDash={[20, 20]}
+        startArrow
+        endArrow
+        endOffset={8}
+        lineWidth={8}
+        stroke={'#242424'}
+      />
+      <Txt
+        text={() => `r = ${radius().toFixed(2)}`}
+        x={() => (radius() * scale) / 2}
+        fill={'#242424'}
+        {...textStyle}
+      />
+      <Txt
+        text={() => `A = ${area().toFixed(2)}`}
+        y={() => radius() * scale}
+        fill={'#e13238'}
+        {...textStyle}
+      />
+    </>,
+  );
+
+  yield* radius(4, 2).to(3, 2);
+  yield* waitFor(1);
+});
+```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor ratio=2
+import {Circle, Line, Txt, makeScene2D} from '@canvas-commons/2d';
+import {Vector2, createSignal, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const radius = createSignal(3);
+  const area = createSignal(() => Math.PI * radius() * radius());
+
+  const scale = 50;
+  const textStyle = {
+    fontWeight: 700,
+    fontSize: 28,
+    offsetY: -1 as const,
+    padding: 20,
+    cache: true,
+  };
+
+  const circle = new Circle({
+    width: () => radius() * scale * 2,
+    height: () => radius() * scale * 2,
+    fill: '#e13238',
+  });
+
+  const line = new Line({
+    points: [Vector2.zero, () => Vector2.right.scale(radius() * scale)],
+    lineDash: [20, 20],
+    startArrow: true,
+    endArrow: true,
+    endOffset: 8,
+    lineWidth: 8,
+    stroke: '#242424',
+  });
+
+  const rLabel = new Txt({
+    text: () => `r = ${radius().toFixed(2)}`,
+    x: () => (radius() * scale) / 2,
+    fill: '#242424',
+    ...textStyle,
+  });
+
+  const aLabel = new Txt({
+    text: () => `A = ${area().toFixed(2)}`,
+    y: () => radius() * scale,
+    fill: '#e13238',
+    ...textStyle,
+  });
+
+  view.add(circle);
+  view.add(line);
+  view.add(rLabel);
+  view.add(aLabel);
+
+  yield* radius(4, 2).to(3, 2);
+  yield* waitFor(1);
+});
+```
+
+</TabItem>
+</Tabs>
+
+When you tween the radius and the circle resizes, the line stretches, the `r`
+label repositions, and the `A` label recalculates, all from one `yield*`.
+
+## What's next
+
+- The [signals](/docs/signals) explanation page covers dependency tracking,
+  default values, and the difference between `createSignal` and node-property
+  signals.
+- For running animations concurrently or in sequence, see
+  [flow control](/docs/flow).

@@ -1,0 +1,181 @@
+---
+sidebar_position: 4
+slug: /building-a-slide-presentation
+title: Building a slide presentation
+description:
+  Structure a scene into slides with beginSlide, animate between them, and
+  present live.
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Building a slide presentation
+
+Slides with animated math or simulations are exactly the thing Canvas Commons is
+good at. You can pause between named slides and wait for you to press space the
+same way you can sync a video to your voiceover. Each slide plays its animation,
+then holds until you're ready to move on.
+
+This tutorial builds a short three-slide deck from scratch.
+
+## The basic pattern
+
+`beginSlide` pauses the animation and waits for you to press **Space** to
+continue. Every call marks where a new slide begins. Between slides you run
+whatever animations you like:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx editor ratio=2
+import {makeScene2D, Rect, Txt} from '@canvas-commons/2d';
+import {beginSlide, createRef, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const title = createRef<Txt>();
+  view.add(<Txt ref={title} fill={'white'} fontSize={48} fontWeight={700} />);
+
+  title().text('Slide 1: Introduction');
+  yield* beginSlide('intro');
+  yield* title().opacity(0, 0.3);
+
+  title().text('Slide 2: The Main Idea');
+  yield* title().opacity(1, 0.3);
+  yield* beginSlide('main');
+  yield* title().opacity(0, 0.3);
+
+  title().text('Slide 3: Thanks!');
+  yield* title().opacity(1, 0.3);
+  yield* beginSlide('thanks');
+  yield* waitFor(1);
+});
+```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor ratio=2
+import {makeScene2D, Txt} from '@canvas-commons/2d';
+import {beginSlide, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const title = new Txt({
+    fill: 'white',
+    fontSize: 48,
+    fontWeight: 700,
+  });
+  view.add(title);
+
+  title.text('Slide 1: Introduction');
+  yield* beginSlide('intro');
+  yield* title.opacity(0, 0.3);
+
+  title.text('Slide 2: The Main Idea');
+  yield* title.opacity(1, 0.3);
+  yield* beginSlide('main');
+  yield* title.opacity(0, 0.3);
+
+  title.text('Slide 3: Thanks!');
+  yield* title.opacity(1, 0.3);
+  yield* beginSlide('thanks');
+  yield* waitFor(1);
+});
+```
+
+</TabItem>
+</Tabs>
+
+In the editor you'll see the timeline broken into named segments. Scrub to a
+slide to jump there, or enter Presentation Mode to step through them one at a
+time.
+
+## Entering presentation mode
+
+Open the **Video Settings** panel and click **Present**. The editor switches to
+fullscreen and waits at each `beginSlide` for a spacebar press.
+
+Navigation:
+
+- **Space** or **Right Arrow** advances to the next slide.
+- **Left Arrow** goes back one slide.
+- **Escape** exits presentation mode.
+
+## Adding a transition between slides
+
+Since the code between two `beginSlide` calls is a normal generator, you can do
+anything there: tween properties, spawn background tasks, add or remove nodes. A
+fade-through-black transition is a couple of opacity tweens:
+
+```ts
+yield * title().opacity(0, 0.3);
+// swap content while invisible
+title().text('Next Slide Title');
+yield * title().opacity(1, 0.3);
+```
+
+Or slide content off-screen and bring new content in:
+
+```ts
+yield * title().position.x(-500, 0.4);
+title().text('New content');
+title().position.x(500);
+yield * title().position.x(0, 0.4);
+```
+
+## Using waitUntil for timed pauses
+
+Sometimes you want the animation to play for a set duration during development
+but still pause for a keypress during a live presentation. `waitUntil` does
+this: it registers a named event in the timeline that you can drag to adjust
+timing in the editor:
+
+```ts
+import {waitUntil, beginSlide} from '@canvas-commons/core';
+
+yield * waitUntil('show diagram');
+// ... animate the diagram ...
+yield * beginSlide('diagram');
+```
+
+During export, the animation plays straight through `waitUntil`. In the editor,
+it will pause at the event and wait until you play the animation again. In
+presentation mode, `beginSlide` still pauses for a keypress.
+
+## Looping an animation on a slide
+
+If you want something to repeat (a pulsing dot, a rotating logo) while the
+audience is looking at a slide, spawn a background loop and cancel it when the
+slide advances:
+
+```ts
+import {
+  beginSlide,
+  cancel,
+  loop,
+  PlaybackState,
+  usePlayback,
+  waitUntil,
+} from '@canvas-commons/core';
+
+const task = yield loop(Infinity, () => dot().scale(1.2, 0.5).to(1, 0.5));
+
+if (usePlayback().state !== PlaybackState.Presenting) {
+  yield * waitUntil('done pulsing');
+}
+yield * beginSlide('next');
+cancel(task);
+```
+
+Note the bare `yield` (not `yield*`) on the loop: you want to fire it off
+without waiting for an infinite task to complete. The editor would hang if you
+used `yield*` here.
+
+## What's next
+
+- The [presentation](/docs/presentation) explanation page covers how
+  presentation mode interacts with the player lifecycle.
+- To package a presentation for someone else's machine, see
+  [portable presentations](/docs/how-to/project/portable-presentations).
+- The [slide loop](/docs/how-to/scenes/slide-loop) how-to wraps the cancel
+  pattern above into a reusable helper.

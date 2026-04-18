@@ -1,0 +1,93 @@
+---
+sidebar_position: 3
+slug: /rendering-your-first-video
+title: Rendering your first video
+description:
+  Go from a finished scene to an exported video file using the editor or the
+  FFmpeg exporter.
+---
+
+# Rendering your first video
+
+You've written an animation and it looks good in the editor. Now you want an
+actual video file. This tutorial walks through both export paths: image
+sequences (for handing off to a video editor) and direct video output via
+FFmpeg.
+
+## Before you start
+
+Make sure your project runs and the animation plays all the way through in the
+editor without errors. If the animation ends abruptly, check that your playback
+range covers the whole timeline.
+
+## Option A: image sequence
+
+Every Canvas Commons project ships with the built-in image sequence exporter. No
+extra setup required.
+
+1. Open the editor and click the **Video Settings** icon in the left panel.
+2. Set **Resolution**, **FPS**, and **Background** to whatever you need. For
+   YouTube, 1920x1080 at 60 fps is a safe default.
+3. Under **Exporter**, pick **Image sequence**.
+4. Press **Render**. The editor will step through every frame and write PNGs to
+   the `output/` directory inside your project.
+
+Once the render finishes, import the image sequence into your video editor of
+choice (DaVinci Resolve, Premiere, After Effects, etc.) and encode to whatever
+container you like.
+
+For more detail on the available settings, see the
+[image sequence](/docs/rendering/image-sequence) how-to.
+
+## Option B: direct video with FFmpeg
+
+If you just want a finished `.mp4` without opening another app, install the
+FFmpeg exporter.
+
+### Install the exporter
+
+```bash
+npm install --save @canvas-commons/ffmpeg
+```
+
+Then wire it into `vite.config.ts`:
+
+```ts title="vite.config.ts"
+import {defineConfig} from 'vite';
+import canvasCommons from '@canvas-commons/vite-plugin';
+import ffmpeg from '@canvas-commons/ffmpeg';
+
+export default defineConfig({
+  plugins: [canvasCommons(), ffmpeg()],
+});
+```
+
+Restart the dev server (`npm start`) so the new plugin loads.
+
+### Render
+
+1. Open **Video Settings** in the editor.
+2. Under **Exporter**, switch to **Video (FFmpeg)**.
+3. Press **Render**. You'll see a progress bar as FFmpeg encodes each frame. The
+   output lands in `output/` as an `.mp4`.
+
+You don't need FFmpeg installed on your machine; the exporter bundles its own
+copy.
+
+For codec options, bit rate, and other knobs, see the
+[video rendering](/docs/rendering/video) how-to.
+
+## Rendering tips
+
+- If you plan to composite in a video editor, leave the Background field empty
+  and export as an image sequence. PNGs support alpha, but most video codecs
+  don't.
+- The gray bar in the timeline determines what gets rendered. Drag it to cover
+  the full timeline if you want everything, or edit the Range field to set
+  specific values.
+
+## What's next
+
+- The [rendering](/docs/rendering) how-to has the full settings reference.
+- To share your animation as a web page instead of a video, see
+  [portable presentations](/docs/how-to/project/portable-presentations).

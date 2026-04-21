@@ -15,7 +15,7 @@ import {
   unwrap,
   Vector2,
 } from '@canvas-commons/core';
-import {cloneable, signal} from '../decorators';
+import {cloneable, computed, signal} from '../decorators';
 import {Curve} from './Curve';
 import {Node, NodeProps} from './Node';
 import {Rect, RectProps} from './Rect';
@@ -90,6 +90,23 @@ export class Camera extends Node {
 
     if (children) {
       this.scene().add(children);
+    }
+
+    const scene = this.scene();
+    if (scene.parent() !== this) {
+      scene.parent(this);
+    }
+  }
+
+  protected setScene(value: SignalValue<Node>) {
+    const previous = this.scene.context.raw();
+    this.scene.context.setter(value);
+    const current = this.scene.context.raw();
+    if (previous instanceof Node && previous !== current) {
+      previous.parent(null);
+    }
+    if (current instanceof Node && current.parent() !== this) {
+      current.parent(this);
     }
   }
 
@@ -330,13 +347,38 @@ export class Camera extends Node {
     );
   }
 
+  /**
+   * Extend the `localToWorld` chain so descendants of the camera's scene
+   * end up in canvas-pixel coordinates that match where they actually
+   * render.
+   */
+  @computed()
+  public override localToWorld(): DOMMatrix {
+    const parent = this.parent();
+    const matrix = this.localToParent().inverse();
+    return parent ? parent.localToWorld().multiply(matrix) : matrix;
+  }
+
+  /**
+   * Override parentToWorld to fix gizmo drawing; may have side effects on the
+   * absolute position of the camera, but direct reads from position
+   * should be fine.
+   *
+   * If you need the absolute position of the camera, use
+   * `view.localToWorld().transformPoint(camera.position())` instead.
+   */
+  @computed()
+  public override parentToWorld(): DOMMatrix {
+    return this.localToParent();
+  }
+
   public override hit(position: Vector2): Node | null {
     const local = position.transformAsPoint(this.localToParent());
     return this.scene().hit(local);
   }
 
   protected override drawChildren(context: CanvasRenderingContext2D) {
-    (this.scene() as Camera).drawChildren(context);
+    this.scene().render(context);
   }
 
   // eslint-disable-next-line @typescript-eslint/naming-convention

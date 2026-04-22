@@ -3,8 +3,9 @@
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: 'Canvas Commons',
+  // The tagline should be kept in sync with the description in the Header component.
   tagline:
-    'A community TypeScript library for creating animated videos using the Canvas API.',
+    'A community-driven TypeScript library for creating animated videos using the Canvas API. Forked from Motion Canvas to continue development.',
   url: 'https://canvascommons.io',
   baseUrl: '/',
   onBrokenLinks: 'throw',

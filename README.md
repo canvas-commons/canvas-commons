@@ -17,6 +17,9 @@
 
 # Canvas Commons
 
+Canvas Commons was forked from [Motion Canvas] to continue development, add community-requested
+changes and experiment with breaking changes.
+
 Canvas Commons is two things:
 
 - A TypeScript library that uses generators to program animations.
@@ -63,8 +66,8 @@ npm run template:dev
 ```
 
 It will start a vite server that watches the `core`, `2d`, `ui`, and
-`vite-plugin` packages. The `template` package itself contains a simple Motion
-Canvas project that can be used during development.
+`vite-plugin` packages. The `template` package itself contains a simple Canvas
+Commons project that can be used during development.
 
 ### Developing Player
 
@@ -129,6 +132,7 @@ You can use the same technique to test out any custom package you're working on.
 Read through our [Contribution Guide](./CONTRIBUTING.md) to learn how you can
 help make Canvas Commons better.
 
+[Motion Canvas]: https://github.com/motion-canvas/motion-canvas
 [authenticate]:
   https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-npm-registry#authenticating-with-a-personal-access-token
 [template]:

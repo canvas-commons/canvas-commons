@@ -5,7 +5,6 @@ import {useEffect, useMemo, useRef} from 'preact/hooks';
 import {useApplication, usePanels} from '../../contexts';
 import {useReducedMotion} from '../../hooks';
 import {IconButton} from '../controls';
-import {ChevronRight} from '../icons/ChevronRight';
 import styles from './Viewport.module.scss';
 
 export function Inspector() {
@@ -56,15 +55,15 @@ export function Inspector() {
       >
         <div className={styles.inspector}>{render.value && <Component />}</div>
       </div>
+      {/* TODO: use Toggle? */}
       <IconButton
-        className={clsx(styles.inspectorButton, open.value && styles.open)}
+        icon="chevron_right"
         title="Show inspector"
+        className={clsx(styles.inspectorButton, open.value && styles.open)}
         onClick={() => {
           open.value = !open.value;
         }}
-      >
-        <ChevronRight />
-      </IconButton>
+      />
     </>
   ) : null;
 }

@@ -7,14 +7,6 @@ import {
 } from '../../contexts/shortcuts';
 import {useSubscribableValue} from '../../hooks';
 import {IconButton} from '../controls';
-import {
-  Close,
-  Fullscreen,
-  Pause,
-  PlayArrow,
-  SkipNext,
-  SkipPrevious,
-} from '../icons';
 
 export function PresentationControls() {
   const {presenter} = useApplication();
@@ -45,33 +37,34 @@ export function PresentationControls() {
           .padStart(status.count.toString().length, '0')}
         /{status.count}]
       </div>
-      <IconButton title="Go back to editing" onClick={() => presenter.abort()}>
-        <Close />
-      </IconButton>
       <IconButton
+        icon="close"
+        title="Go back to editing"
+        onClick={() => presenter.abort()}
+      />
+      <IconButton
+        icon="skip_previous"
         title="Previous slide [Left arrow]"
         onClick={() => presenter.requestPreviousSlide()}
         disabled={!status.hasPrevious}
-      >
-        <SkipPrevious />
-      </IconButton>
+      />
       <IconButton
+        icon={status.isWaiting ? 'play_arrow' : 'pause'}
         title="Resume [Space]"
         onClick={() => presenter.resume()}
         disabled={!status.isWaiting}
-      >
-        {status.isWaiting ? <PlayArrow /> : <Pause />}
-      </IconButton>
+      />
       <IconButton
+        icon="skip_next"
         title="Next slide [Right arrow]"
         onClick={() => presenter.requestNextSlide()}
         disabled={!status.hasNext}
-      >
-        <SkipNext />
-      </IconButton>
-      <IconButton title="Enter fullscreen [F]" onClick={toggleFullscreen}>
-        <Fullscreen />
-      </IconButton>
+      />
+      <IconButton
+        icon="fullscreen"
+        title="Enter fullscreen [F]"
+        onClick={toggleFullscreen}
+      />
     </div>
   );
 }

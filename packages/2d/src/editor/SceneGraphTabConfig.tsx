@@ -1,6 +1,6 @@
 import {
-  AccountTree,
   emphasize,
+  Icon,
   Pane,
   PluginTabConfig,
   PluginTabProps,
@@ -54,7 +54,7 @@ function TabComponent({tab}: PluginTabProps) {
       id="scene-graph-tab"
       tab={tab}
     >
-      <AccountTree />
+      <Icon name="account_tree" />
     </Tab>
   );
 }

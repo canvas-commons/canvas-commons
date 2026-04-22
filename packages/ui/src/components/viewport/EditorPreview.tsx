@@ -13,9 +13,8 @@ import {
 } from '../../hooks';
 import {MouseButton} from '../../utils';
 import {highlight} from '../animations';
-import {Button, Select} from '../controls';
+import {Icon, IconButton, Select} from '../controls';
 import {ButtonCheckbox} from '../controls/ButtonCheckbox';
-import {Grid as GridIcon, Recenter} from '../icons';
 import {ColorPicker} from './ColorPicker';
 import {Coordinates} from './Coordinates';
 import {Inspector} from './Inspector';
@@ -204,19 +203,18 @@ export function EditorPreview() {
             options={zoomOptions}
             value={value}
           />
-          <Button
-            disabled={state.x === 0 && state.y === 0}
+          <IconButton
+            icon="recenter"
             title={'Recenter'}
+            disabled={state.x === 0 && state.y === 0}
             onClick={() => setPosition({x: 0, y: 0})}
-          >
-            <Recenter />
-          </Button>
+          />
           <ButtonCheckbox
             title={"Toggle grid [']"}
             onChecked={setGrid}
             checked={grid}
           >
-            <GridIcon />
+            <Icon name="grid" />
           </ButtonCheckbox>
           <ColorPicker />
           {coordinateSetting && <Coordinates />}

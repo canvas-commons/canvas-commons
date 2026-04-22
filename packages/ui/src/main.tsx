@@ -177,7 +177,6 @@ export function index(projects: ProjectData[]) {
 export * from './components/animations';
 export * from './components/controls';
 export * from './components/fields';
-export * from './components/icons';
 export * from './components/layout';
 export * from './components/meta';
 export * from './components/tabs';

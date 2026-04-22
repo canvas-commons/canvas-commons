@@ -19,3 +19,11 @@ The supported color spaces are `lch` (the default), `rgb`, `hsl`, `hsv`, `hsi`,
 `lab`, `hcl`, and `lrgb`. Colors in Canvas Commons are powered by
 [chroma.js](https://gka.github.io/chroma.js/), which is where these spaces come
 from.
+
+## Which space to pick
+
+The default `lch` works well for most transitions. Use `lab` when you want
+perceptually uniform steps (no unexpected brightness dips mid-tween). `hsl`
+rotates through the hue wheel, which can produce rainbow artifacts on long
+transitions. `rgb` is the fastest but often looks muddy when the two colors are
+far apart.

@@ -1,0 +1,147 @@
+---
+sidebar_position: 21
+title: Scene hooks
+description:
+  useScene, useScene2D, useRandom, useLogger, useDuration, usePlayback, and
+  useTime.
+---
+
+# Scene hooks
+
+Helpers and components don't usually get the view, the logger, or the random
+seed handed to them, but they often need one. Threading those through every
+function call gets old fast.
+
+Hooks are how Canvas Commons works around that. They're `use*` functions that
+reach into the currently-running scene and pull out what you need. Call them
+from a scene generator, a component constructor, or any helper that runs while a
+scene is executing.
+
+One caveat: they only work inside a scene's execution context. Calling one from
+a module-level initializer, or before a scene has started, throws an error about
+the thread not being available.
+
+## useScene
+
+Returns the current `Scene` instance. Use it to read the scene's size, name, or
+playback state:
+
+```ts
+import {useScene} from '@canvas-commons/core';
+
+const scene = useScene();
+const size = scene.getSize(); // Vector2
+```
+
+## useScene2D
+
+The 2D version of `useScene`, exported from `@canvas-commons/2d`. The reason to
+reach for it is `.getView()`, which returns the root `View2D` node. Handy when a
+helper needs to add nodes but doesn't have the view in scope:
+
+```ts
+import {useScene2D} from '@canvas-commons/2d';
+
+const view = useScene2D().getView();
+const realSize = useScene2D().getRealSize();
+```
+
+`View2D` only exists in the 2D renderer, which is why this hook lives in
+`@canvas-commons/2d` rather than `core`.
+
+## usePlayback
+
+Returns the `PlaybackManager`, which tracks the playback state:
+
+```ts
+import {usePlayback, PlaybackState} from '@canvas-commons/core';
+
+const playback = usePlayback();
+if (playback.state === PlaybackState.Presenting) {
+  // we're in live presentation mode
+}
+```
+
+This is mainly useful for branching between presentation mode and normal
+preview. See
+[building a slide presentation](/docs/building-a-slide-presentation) for the
+common patterns.
+
+## useRandom
+
+Returns a seeded `Random` instance. The seed is tied to the scene, so re-running
+the animation produces the same sequence of random values:
+
+```ts
+import {useRandom} from '@canvas-commons/core';
+
+const random = useRandom();
+const x = random.nextFloat(-100, 100);
+const index = random.nextInt(0, 5);
+const values = random.floatArray(10); // array of 10 random [0, 1) values
+```
+
+See the [random values](/docs/random-values) page for more.
+
+## useLogger
+
+Returns a `Logger` that writes to the editor's console panel:
+
+```ts
+import {useLogger} from '@canvas-commons/core';
+
+const logger = useLogger();
+logger.info('Starting animation');
+logger.warn('Frame took too long');
+logger.error('Missing asset');
+logger.debug({custom: 'payload'});
+```
+
+Logged messages show up in the editor's bottom panel. The `profile` method can
+be used to measure elapsed time:
+
+```ts
+logger.profile('my section');
+// ... do work ...
+logger.profile('my section'); // logs elapsed time
+```
+
+## useDuration
+
+Reads the duration (in seconds) of a named time event from code. The time event
+itself is set by dragging its marker in the editor's timeline:
+
+```ts
+import {useDuration} from '@canvas-commons/core';
+
+const dur = useDuration('intro');
+yield * circle().scale(2, dur);
+```
+
+Combined with the timeline UI, that means you can fine-tune the timing of
+specific tweens by ear without touching the code.
+
+## useTime
+
+Returns the current real time (in seconds) since the animation started. This is
+a snapshot, not a signal: calling it gives you a number at the moment, not a
+reactive value.
+
+```ts
+import {useTime} from '@canvas-commons/core';
+
+const elapsed = useTime(); // e.g. 1.5
+```
+
+If you need a reactive time signal for continuous animations, use
+`useThread().time` instead. That returns an actual signal you can read inside a
+reactive property:
+
+```ts
+import {useThread} from '@canvas-commons/core';
+
+const time = useThread().time;
+view.add(
+  <Circle x={() => Math.sin(time()) * 200} size={100} fill={'white'} />,
+);
+```

@@ -1,0 +1,137 @@
+---
+sidebar_position: 20
+title: yield vs yield*
+description:
+  The difference between spawning a task in the background and waiting for it to
+  finish.
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# `yield` vs `yield*`
+
+This trips up almost everyone the first time. Both `yield` and `yield*` hand a
+generator to the animation system, but they behave differently. The example
+below shows both: the red circle uses `yield*` (sequential) and the blue circle
+uses `yield` (concurrent):
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx editor ratio=2
+import {makeScene2D, Circle, Txt} from '@canvas-commons/2d';
+import {createRef, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const sequential = createRef<Circle>();
+  const concurrent = createRef<Circle>();
+
+  view.add(
+    <>
+      <Txt text="yield*" fill="#888" fontSize={24} position={[-200, -100]} />
+      <Circle ref={sequential} size={80} fill={'#e13238'} x={-200} />
+      <Txt text="yield" fill="#888" fontSize={24} position={[200, -100]} />
+      <Circle ref={concurrent} size={80} fill={'#4a9edd'} x={200} />
+    </>,
+  );
+
+  yield* waitFor(0.5);
+
+  // yield* waits for the move to finish before starting the scale:
+  yield* sequential().position.y(100, 0.8);
+  yield* sequential().scale(1.5, 0.5).back(0.5);
+
+  // yield fires both at the same time:
+  yield concurrent().position.y(100, 0.8);
+  yield* concurrent().scale(1.5, 0.5).back(0.5);
+});
+```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor ratio=2
+import {makeScene2D, Circle, Txt} from '@canvas-commons/2d';
+import {waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const sequential = new Circle({size: 80, fill: '#e13238', x: -200});
+  const concurrent = new Circle({size: 80, fill: '#4a9edd', x: 200});
+  view.add(
+    new Txt({
+      text: 'yield*',
+      fill: '#888',
+      fontSize: 24,
+      position: [-200, -100],
+    }),
+  );
+  view.add(sequential);
+  view.add(
+    new Txt({text: 'yield', fill: '#888', fontSize: 24, position: [200, -100]}),
+  );
+  view.add(concurrent);
+
+  yield* waitFor(0.5);
+
+  yield* sequential.position.y(100, 0.8);
+  yield* sequential.scale(1.5, 0.5).back(0.5);
+
+  yield concurrent.position.y(100, 0.8);
+  yield* concurrent.scale(1.5, 0.5).back(0.5);
+});
+```
+
+</TabItem>
+</Tabs>
+
+## `yield*` waits for completion
+
+`yield*` delegates to another generator and waits until it finishes before
+continuing. The lines after it won't run until the animation completes:
+
+```ts
+yield * circle().position.x(300, 1);
+// This line runs AFTER the circle reaches x=300.
+yield * circle().fill('#e6a700', 1);
+```
+
+This is what you want most of the time.
+
+## `yield` runs in the background
+
+Plain `yield` (no asterisk) hands the generator off and immediately continues.
+The animation runs in the background while your code moves on:
+
+```ts
+yield circle().position.x(300, 1);
+// This line runs RIGHT AWAY, while the circle is still moving.
+yield * circle().fill('#e6a700', 1);
+```
+
+The position tween and the fill tween overlap because the first one didn't
+block.
+
+## When to use each
+
+Use `yield*` for almost everything. Use bare `yield` only when you intentionally
+want to fire off a background task:
+
+```ts
+// Start a loop in the background, don't wait for it:
+const task = yield loop(Infinity, () => dot().scale(1.2, 0.5).to(1, 0.5));
+
+// Do other things while the loop runs...
+yield * waitFor(3);
+
+// Stop the loop when you're done:
+cancel(task);
+```
+
+If you accidentally write `yield* loop(Infinity, ...)`, the editor will hang.
+It's waiting for something that never finishes.
+
+## More information
+
+See [flow control](/docs/flow) for `all()`, `chain()`, `sequence()`, and other
+ways to compose generators.

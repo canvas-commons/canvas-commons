@@ -1,0 +1,83 @@
+---
+sidebar_position: 11
+title: Save and restore node state
+description:
+  Record a node's properties with save() and animate back to them with
+  restore().
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Save and restore node state
+
+`.save()` snapshots a node's current properties onto a stack. `.restore()` pops
+the most recent snapshot and tweens back to it. This is handy when you want to
+animate a node through several states and then rewind, without manually tracking
+what the original values were.
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx editor ratio=2
+import {Circle, makeScene2D} from '@canvas-commons/2d';
+import {all, createRef} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const circle = createRef<Circle>();
+
+  view.add(
+    <Circle ref={circle} size={100} position={[-200, -150]} fill={'#e13238'} />,
+  );
+
+  circle().save();
+  yield* all(circle().position.x(0, 1), circle().scale(1.5, 1));
+
+  circle().save();
+  yield* all(circle().position.y(0, 1), circle().scale(0.5, 1));
+
+  circle().save();
+  yield* all(circle().position.x(200, 1), circle().scale(1, 1));
+
+  yield* circle().restore(1);
+  yield* circle().restore(1);
+  yield* circle().restore(1);
+});
+```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor ratio=2
+import {Circle, makeScene2D} from '@canvas-commons/2d';
+import {all} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const circle = new Circle({
+    size: 100,
+    position: [-200, -150],
+    fill: '#e13238',
+  });
+  view.add(circle);
+
+  circle.save();
+  yield* all(circle.position.x(0, 1), circle.scale(1.5, 1));
+
+  circle.save();
+  yield* all(circle.position.y(0, 1), circle.scale(0.5, 1));
+
+  circle.save();
+  yield* all(circle.position.x(200, 1), circle.scale(1, 1));
+
+  yield* circle.restore(1);
+  yield* circle.restore(1);
+  yield* circle.restore(1);
+});
+```
+
+</TabItem>
+</Tabs>
+
+Each `.save()` pushes the current state. Each `.restore(duration)` pops the last
+saved state and tweens to it over `duration` seconds. The stack is LIFO, so
+three saves followed by three restores rewinds in reverse order.

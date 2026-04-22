@@ -1,0 +1,114 @@
+---
+sidebar_position: 13
+title: Chain tweens with .to() and .back()
+description:
+  Sequence multiple values on the same property without separate yield*
+  statements.
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Chain tweens with `.to()` and `.back()`
+
+Property tweens return a chainable handle. Instead of three `yield*` lines to
+say "go to A, then B, then bounce back to A", you can chain `.to()` and
+`.back()` onto the original tween. Reads better, and you pick up a couple of
+sequence-control helpers (`.wait()`, mostly) along the way.
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx editor ratio=2
+import {makeScene2D, Circle} from '@canvas-commons/2d';
+import {all, createRef} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const circle = createRef<Circle>();
+  view.add(<Circle ref={circle} size={120} fill={'#e13238'} x={-200} />);
+
+  yield* all(
+    circle().position.x(200, 1).to(-200, 1),
+    circle().fill('#e6a700', 1).to('#e13238', 1),
+    circle().scale(1.5, 0.5).back(0.5).wait(0.5).to(1.5, 0.5).back(0.5),
+  );
+});
+```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts editor ratio=2
+import {makeScene2D, Circle} from '@canvas-commons/2d';
+import {all} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const circle = new Circle({size: 120, fill: '#e13238', x: -200});
+  view.add(circle);
+
+  yield* all(
+    circle.position.x(200, 1).to(-200, 1),
+    circle.fill('#e6a700', 1).to('#e13238', 1),
+    circle.scale(1.5, 0.5).back(0.5).wait(0.5).to(1.5, 0.5).back(0.5),
+  );
+});
+```
+
+</TabItem>
+</Tabs>
+
+## .to()
+
+`.to(value, duration)` appends another tween that runs immediately after the
+previous one finishes:
+
+```ts
+// Move right, then back left, in one statement:
+yield * circle().position.x(300, 1).to(-300, 1);
+```
+
+This is equivalent to:
+
+```ts
+yield * circle().position.x(300, 1);
+yield * circle().position.x(-300, 1);
+```
+
+You can chain as many `.to()` calls as you like:
+
+```ts
+yield * circle().fill('#e6a700', 0.5).to('#4caf50', 0.5).to('#e13238', 0.5);
+```
+
+## .back()
+
+`.back(duration)` is shorthand for "tween back to whatever the value was before
+this chain started":
+
+```ts
+yield * circle().scale(2, 1).back(1);
+// scale goes 1 → 2 → 1
+```
+
+## .wait()
+
+`.wait(duration)` inserts a pause between chained tweens:
+
+```ts
+yield * circle().opacity(0, 0.5).wait(1).to(1, 0.5);
+// fade out, hold for 1 second, fade back in
+```
+
+## Combining with all()
+
+Chains work inside `all()` just like regular tweens:
+
+```ts
+yield *
+  all(
+    circle().position.x(300, 1).to(-300, 1),
+    circle().fill('#e6a700', 1).to('#e13238', 1),
+  );
+```
+
+Both chains run concurrently, each following its own timing.

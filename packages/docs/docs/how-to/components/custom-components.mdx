@@ -13,10 +13,189 @@ import TabItem from '@theme/TabItem';
 
 <AnimationPlayer name="components" banner />
 
-Components are classes like [`Rect`](/api/2d/components/Rect) and
-[`Circle`](/api/2d/components/Circle) that can abstract rendering and data
-functionality into reusable, modular pieces. To use a component in a scene, add
-it to the view and provide arguments to the component.
+There are three ways to make reusable components, from simplest to most
+flexible: `withDefaults`, functional components, and class components.
+
+## withDefaults
+
+If you just need an existing component with some props pre-filled,
+`withDefaults` wraps it and returns a new component with baked-in defaults:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx
+import {Txt, withDefaults} from '@canvas-commons/2d';
+
+const Heading = withDefaults(Txt, {
+  fill: 'white',
+  fontWeight: 700,
+  fontSize: 64,
+});
+
+view.add(<Heading text="Hello" />);
+```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+import {Txt, withDefaults} from '@canvas-commons/2d';
+
+const Heading = withDefaults(Txt, {
+  fill: 'white',
+  fontWeight: 700,
+  fontSize: 64,
+});
+
+view.add(Heading({text: 'Hello'}));
+```
+
+</TabItem>
+</Tabs>
+
+The caller can still override any default.
+
+## Functional components
+
+A functional component is a plain function that returns a `Node`:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx
+import {Rect, RectProps, Txt} from '@canvas-commons/2d';
+
+function LabeledBox({children, ...rest}: RectProps) {
+  return (
+    <Rect fill={'#333'} radius={8} padding={16} layout {...rest}>
+      {children}
+    </Rect>
+  );
+}
+
+view.add(
+  <LabeledBox>
+    <Txt fill={'white'}>Hello</Txt>
+  </LabeledBox>,
+);
+```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+import {Rect, RectProps, Txt} from '@canvas-commons/2d';
+
+function LabeledBox(props: RectProps) {
+  return new Rect({
+    fill: '#333',
+    radius: 8,
+    padding: 16,
+    layout: true,
+    ...props,
+  });
+}
+
+const box = LabeledBox({});
+box.add(new Txt({fill: 'white', text: 'Hello'}));
+view.add(box);
+```
+
+</TabItem>
+</Tabs>
+
+You can define your own props interface and pass values down into nested nodes.
+This lets you compose smaller pieces into something more complex without writing
+a class:
+
+<Tabs groupId="language" queryString>
+<TabItem value="tsx" label="TSX">
+
+```tsx
+import {Layout, LayoutProps, Rect, Txt} from '@canvas-commons/2d';
+import {SignalValue} from '@canvas-commons/core';
+
+interface StatCardProps extends LayoutProps {
+  label?: SignalValue<string>;
+  value?: SignalValue<string>;
+}
+
+function StatCard({label, value, ...rest}: StatCardProps) {
+  return (
+    <Layout direction={'column'} alignItems={'center'} gap={8} layout {...rest}>
+      <Txt fill={'#888'} fontSize={20} text={label} />
+      <Rect fill={'#333'} radius={8} padding={[12, 24]}>
+        <Txt fill={'white'} fontSize={36} fontWeight={700} text={value} />
+      </Rect>
+    </Layout>
+  );
+}
+
+view.add(
+  <Layout layout gap={40}>
+    <StatCard label="Users" value="1,204" />
+    <StatCard label="Revenue" value="$48k" />
+    <StatCard label="Growth" value="+12%" />
+  </Layout>,
+);
+```
+
+</TabItem>
+<TabItem value="ts" label="TS">
+
+```ts
+import {Layout, LayoutProps, Rect, Txt} from '@canvas-commons/2d';
+import {SignalValue} from '@canvas-commons/core';
+
+interface StatCardProps extends LayoutProps {
+  label?: SignalValue<string>;
+  value?: SignalValue<string>;
+}
+
+function StatCard({label, value, ...rest}: StatCardProps) {
+  const col = new Layout({
+    direction: 'column',
+    alignItems: 'center',
+    gap: 8,
+    layout: true,
+    ...rest,
+  });
+  col.add(new Txt({fill: '#888', fontSize: 20, text: label}));
+  const badge = new Rect({fill: '#333', radius: 8, padding: [12, 24]});
+  badge.add(
+    new Txt({fill: 'white', fontSize: 36, fontWeight: 700, text: value}),
+  );
+  col.add(badge);
+  return col;
+}
+
+const row = new Layout({layout: true, gap: 40});
+row.add(StatCard({label: 'Users', value: '1,204'}));
+row.add(StatCard({label: 'Revenue', value: '$48k'}));
+row.add(StatCard({label: 'Growth', value: '+12%'}));
+view.add(row);
+```
+
+</TabItem>
+</Tabs>
+
+Because the props use `SignalValue<string>`, the caller can pass a plain string
+or a signal — and if it's a signal, the card updates reactively when the value
+changes.
+
+When you need internal state, private refs, or generator methods, reach for a
+class.
+
+## Class components
+
+Classes like [`Rect`](/api/2d/components/Rect) and
+[`Circle`](/api/2d/components/Circle) can abstract rendering and data
+functionality into reusable, modular pieces. You can write your own components
+extending and composing these components.
+
+To use a component in a scene, add it to the view and provide arguments to the
+component.
 
 <Tabs groupId="language" queryString>
 <TabItem value="tsx" label="TSX">
@@ -39,28 +218,6 @@ To define what arguments a component will take, first define an interface. All
 properties of the interface must be wrapped in
 [`SignalValue<>`](/api/core/signals#SignalValue) as such:
 
-<Tabs groupId="language" queryString>
-<TabItem value="tsx" label="TSX">
-
-```tsx
-//  You can extend an existing props interface
-//  such as LayoutProps, ShapeProps or NodeProps to
-//  include their properties alongside the ones you
-//  define
-
-export interface SwitchProps extends NodeProps {
-  initialState?: SignalValue<boolean>;
-
-  // We don't use color here because we want
-  // to be able to pass hex strings and rgb
-  // values to accent rather than a `Color`
-  accent?: SignalValue<PossibleColor>;
-}
-```
-
-</TabItem>
-<TabItem value="ts" label="TS">
-
 ```ts
 //  You can extend an existing props interface
 //  such as LayoutProps, ShapeProps or NodeProps to
@@ -76,9 +233,6 @@ export interface SwitchProps extends NodeProps {
   accent?: SignalValue<PossibleColor>;
 }
 ```
-
-</TabItem>
-</Tabs>
 
 Next, create a class for your components. The component class must extend
 [`Node`](/api/2d/components/Node) or one of its subclasses. If you don't want to
@@ -89,22 +243,6 @@ building. For instance, if you were to make a component including a
 [`Layout`](/api/2d/components/Layout) and
 [`LayoutProps`](/api/2d/components/LayoutProps).
 
-<Tabs groupId="language" queryString>
-<TabItem value="tsx" label="TSX">
-
-```tsx
-export interface SwitchProps extends NodeProps {
-  // properties
-}
-
-export class Switch extends Node {
-  // implementation
-}
-```
-
-</TabItem>
-<TabItem value="ts" label="TS">
-
 ```ts
 export interface SwitchProps extends NodeProps {
   // properties
@@ -114,9 +252,6 @@ export class Switch extends Node {
   // implementation
 }
 ```
-
-</TabItem>
-</Tabs>
 
 To use the properties defined in the interface, your class _must_ contain a
 property with the same name. Canvas Commons provides type decorators to
@@ -125,32 +260,6 @@ for more information on signals.
 
 Here is an example of how you would define such properties:
 
-<Tabs groupId="language" queryString>
-<TabItem value="tsx" label="TSX">
-
-```tsx
-export class Switch extends Node {
-  // @initial - optional, sets the property to an
-  // initial value if it was not provided.
-  @initial(false)
-  // @signal - is required by Canvas Commons
-  // for every prop that was passed in.
-  @signal()
-  declare public readonly initialState: SimpleSignal<boolean, this>;
-
-  @initial('#68ABDF')
-  // @colorSignal - some complex types provide a dedicated decorator for
-  // signals that takes care of parsing.
-  // In this case, `accent` will automatically convert strings into `Color`s
-  @colorSignal()
-  declare public readonly accent: ColorSignal<this>;
-  // ...
-}
-```
-
-</TabItem>
-<TabItem value="ts" label="TS">
-
 ```ts
 export class Switch extends Node {
   // @initial - optional, sets the property to an
@@ -170,9 +279,6 @@ export class Switch extends Node {
   // ...
 }
 ```
-
-</TabItem>
-</Tabs>
 
 Notice how colors are wrapped in `ColorSignal<>` while any other type (even
 user-defined ones) are wrapped in `SimpleSignal<>`. The type does not need to be
@@ -314,3 +420,27 @@ export class Switch extends Node {
 Here is the source code for the component we have built throughout this guide:
 
 <CodeBlock language="tsx">{source}</CodeBlock>
+
+## @nodeName
+
+If your class shows up in the editor's scene graph, `@nodeName` gives it a
+readable label instead of the minified class name:
+
+```ts
+import {nodeName} from '@canvas-commons/2d';
+
+@nodeName('MyWidget')
+export class MyWidget extends Layout {
+  // ...
+}
+```
+
+## Custom drawing
+
+Most components compose other nodes. But when you need pixel-level control (tick
+marks along a line, a custom gradient, procedural geometry), you can override
+the draw method.
+
+`drawShape(context)` is the right hook for `Shape` subclasses. It runs after the
+shape's path is set up but before fill/stroke. `draw(context)` is the
+lower-level hook on `Node`, where you handle the full render pass yourself.

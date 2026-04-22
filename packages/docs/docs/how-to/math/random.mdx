@@ -42,3 +42,21 @@ The animation at the top of this page uses a random number generator to vary the
 height of rectangles and make them look like a sound-wave:
 
 <CodeBlock language="tsx">{source}</CodeBlock>
+
+## Generating arrays
+
+`floatArray()` and `intArray()` produce arrays of random numbers in one call,
+which is handy when you want to lay out a row of nodes whose values come from a
+seed:
+
+```tsx
+const random = useRandom();
+
+view.add(
+  <Layout layout gap={10}>
+    {random.floatArray(5).map(value => (
+      <Circle size={100} fill={Color.lerp('#a3ff60', '#3a84f3', value)} />
+    ))}
+  </Layout>,
+);
+```

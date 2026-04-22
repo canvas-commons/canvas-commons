@@ -1,0 +1,74 @@
+---
+sidebar_position: 10
+title: Troubleshooting
+description: Common gotchas and their fixes, sourced from the community forum.
+---
+
+# Troubleshooting
+
+Quick answers to recurring issues from the Canvas Commons community.
+
+## Editor hangs or freezes
+
+You probably wrote `yield* loop(Infinity, ...)`. An infinite loop with `yield*`
+blocks forever because the editor tries to run to completion. Use bare `yield`
+to fire it off in the background, and `cancel()` to stop it later:
+
+```ts
+const task = yield loop(Infinity, () => rect().scale(2, 1).to(1, 1));
+// later:
+cancel(task);
+```
+
+See [yield vs yield\*](/docs/explanation/yield-vs-yield-star) for more.
+
+## "React is not defined" after an update
+
+This is usually an IDE/LSP cache issue, not a Canvas Commons bug. Restart your
+editor (VS Code: `Developer: Reload Window`). If it persists, check that your
+barrel-file re-exports (`index.ts`) align with the `@canvas-commons/*` package
+versions in your `package.json`.
+
+## Flickering preview on Firefox
+
+Some NVIDIA driver + Firefox combinations cause flicker in the preview.
+Switching to Chrome or updating your GPU drivers usually fixes it. This is a
+browser compositing issue, not a Canvas Commons bug.
+
+## Shaders break on Firefox
+
+Add `precision highp float;` at the top of your fragment shader. Firefox's
+default `mediump` precision causes visual artifacts and errors on some GPUs:
+
+```glsl
+precision highp float;
+
+varying vec2 vUv;
+// rest of shader...
+```
+
+## compositeOperation has no effect
+
+The parent node needs `cache` enabled for compositing to work. Without it,
+there's no offscreen buffer to composite against:
+
+```tsx
+<Node cache>
+  <Circle compositeOperation={'destination-out'} ... />
+</Node>
+```
+
+Children using `compositeOperation` should also have `layout={false}` if they're
+inside a flex layout, otherwise the layout engine positions them before
+compositing kicks in.
+
+## Multiple player instances don't load images
+
+When embedding multiple `canvas-commons-player` elements on the same page, the
+shared `DependencyContext` can cause first-frame image loads to fail. Clear the
+context between player initializations or load assets ahead of time.
+
+## Animation ends abruptly or starts in the middle
+
+The playback range (the gray bar in the timeline) might not cover your full
+animation. Drag it to span the entire timeline, or press `0` to reset it.

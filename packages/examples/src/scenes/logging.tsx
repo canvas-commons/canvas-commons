@@ -30,14 +30,16 @@ export default makeScene2D(function* (view) {
   // Profiling
   yield* waitUntil('profiling');
 
-  logger.profile('id');
-  yield* waitFor(2);
-  logger.profile('id', {
-    message: 'Id second call',
-    object: {
-      someProperty: 'some property value',
-    },
-  });
+  if ('profile' in logger) {
+    logger.profile('id');
+    yield* waitFor(2);
+    logger.profile('id', {
+      message: 'Id second call',
+      object: {
+        someProperty: 'some property value',
+      },
+    });
+  }
 
   yield* waitFor(2);
 });

@@ -51,16 +51,16 @@ export default function Item({
         break;
       case ReflectionKind.SetSignature:
         break;
-      case ReflectionKind.ObjectLiteral:
-        break;
       case ReflectionKind.TypeAlias:
         return TypeAliasItem;
       case ReflectionKind.Reference:
         break;
+      case ReflectionKind.Document:
+        break;
     }
 
     throw new Error(
-      `Missing component for reflection: ${reflection.kindString}`,
+      `Missing component for reflection kind: ${reflection.kind} (${ReflectionKind[reflection.kind]})`,
     );
   }, [reflection.kind]);
 

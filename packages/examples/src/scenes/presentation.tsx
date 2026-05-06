@@ -1,4 +1,6 @@
+import type {CanvasStyle} from '@canvas-commons/2d';
 import {Rect, Txt, makeScene2D} from '@canvas-commons/2d';
+import type {InterpolationFunction} from '@canvas-commons/core';
 import {
   Color,
   all,
@@ -46,7 +48,12 @@ export default makeScene2D(function* (view) {
 
   yield* beginSlide('start');
   yield* all(
-    backdrop().fill(GREEN, 0.6, easeInOutCubic, Color.createLerp('lab')),
+    backdrop().fill(
+      GREEN,
+      0.6,
+      easeInOutCubic,
+      Color.createLerp('lab') as InterpolationFunction<CanvasStyle>,
+    ),
     backdrop().size.x('60%', 0.6),
     title().text('CONTENT', 0.6),
   );
@@ -54,7 +61,12 @@ export default makeScene2D(function* (view) {
   yield* beginSlide('content');
   const loopTask = yield loop(Infinity, () => rotation(-5, 1).to(5, 1));
   yield* all(
-    backdrop().fill(BLUE, 0.6, easeInOutCubic, Color.createLerp('lab')),
+    backdrop().fill(
+      BLUE,
+      0.6,
+      easeInOutCubic,
+      Color.createLerp('lab') as InterpolationFunction<CanvasStyle>,
+    ),
     backdrop().size.x('70%', 0.6),
     title().text('ANIMATION', 0.6),
     rotationScale(1, 0.6),
@@ -62,7 +74,12 @@ export default makeScene2D(function* (view) {
 
   yield* beginSlide('animation');
   yield* all(
-    backdrop().fill(YELLOW, 0.6, easeInOutCubic, Color.createLerp('lab')),
+    backdrop().fill(
+      YELLOW,
+      0.6,
+      easeInOutCubic,
+      Color.createLerp('lab') as InterpolationFunction<CanvasStyle>,
+    ),
     backdrop().size.x('50%', 0.6),
     title().text('FINISH', 0.6),
     rotationScale(0, 0.6),

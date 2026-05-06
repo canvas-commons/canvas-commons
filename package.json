@@ -47,11 +47,17 @@
     "lint-staged": "^15.2.9",
     "prettier": "^3.3.3",
     "prettier-plugin-organize-imports": "^4.0.0",
-    "typescript": "^5.2.2",
+    "typescript": "^6.0.2",
     "vite": "^4.5.0"
   },
   "lint-staged": {
     "*.{ts,tsx}": "eslint --fix",
     "*.{js,jsx,ts,tsx,md,scss}": "prettier --write"
+  },
+  "dependencies": {
+    "webpack": "5.105.4"
+  },
+  "overrides": {
+    "cytoscape": "3.28.1"
   }
 }

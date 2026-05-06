@@ -5,7 +5,7 @@ import {MouseButton, clamp} from '../../utils';
 import styles from './Controls.module.scss';
 
 type NumberInputProps = Omit<
-  JSX.HTMLAttributes<HTMLInputElement>,
+  JSX.InputHTMLAttributes<HTMLInputElement>,
   'value' | 'onChange' | 'min' | 'max' | 'step' | 'label'
 > & {
   value: number;

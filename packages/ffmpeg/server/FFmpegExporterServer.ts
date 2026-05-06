@@ -179,7 +179,7 @@ export class FFmpegExporterServer {
     }
 
     this.promise = new Promise<void>((resolve, reject) => {
-      this.command.on('end', resolve).on('error', reject);
+      this.command.on('end', () => resolve()).on('error', reject);
     });
   }
 

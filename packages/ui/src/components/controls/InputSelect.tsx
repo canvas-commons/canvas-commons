@@ -4,7 +4,7 @@ import {Input} from './Input';
 import {Select, SelectProps} from './Select';
 
 export type InputSelectProps<T> = Omit<
-  JSX.HTMLAttributes<HTMLInputElement>,
+  JSX.InputHTMLAttributes<HTMLInputElement>,
   'value' | 'onChange'
 > &
   SelectProps<T>;

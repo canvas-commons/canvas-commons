@@ -26,8 +26,12 @@ export default function TypeAliasPreview({
           ))}
         </TokenList>
       )}
-      {' = '}
-      <Type type={reflection.type} />
+      {reflection.type && (
+        <>
+          {' = '}
+          <Type type={reflection.type} />
+        </>
+      )}
     </>
   );
 }

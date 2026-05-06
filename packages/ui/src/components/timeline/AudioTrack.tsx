@@ -93,6 +93,7 @@ interface AudioClipProps extends JSX.HTMLAttributes<HTMLDivElement> {
   realPlaybackRate?: number;
   hoverable?: boolean;
   editable?: boolean;
+  disabled?: boolean;
 }
 
 export function AudioClip({

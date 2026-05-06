@@ -2,7 +2,6 @@
 
 const {
   Application,
-  TSConfigReader,
   ReflectionKind,
   Reflection,
   DeclarationReflection,
@@ -153,9 +152,7 @@ module.exports = () => ({
 });
 
 async function parseTypes(options, projectName, externalProject) {
-  const app = new Application();
-  app.options.addReader(new TSConfigReader());
-  app.bootstrap(options);
+  const app = await Application.bootstrap(options);
 
   app.converter.addUnknownSymbolResolver(ref => {
     const name = ref.symbolReference.path[0].path;
@@ -184,7 +181,7 @@ async function parseTypes(options, projectName, externalProject) {
     return mdn.getLink(name) ?? undefined;
   });
 
-  const project = app.convert();
+  const project = await app.convert();
   if (!project) return null;
 
   const hasOwnPage = [
@@ -381,7 +378,7 @@ async function parseTypes(options, projectName, externalProject) {
       return obj;
     },
   });
-  app.serializer.projectToObject(project);
+  app.serializer.projectToObject(project, process.cwd().replace(/\\/g, '/'));
 
   await Promise.all(promises);
 

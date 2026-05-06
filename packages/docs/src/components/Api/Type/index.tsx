@@ -7,14 +7,17 @@ import IntrinsicType from '@site/src/components/Api/Type/IntrinsicType';
 import LiteralType from '@site/src/components/Api/Type/LiteralType';
 import MappedType from '@site/src/components/Api/Type/MappedType';
 import NamedTupleMemberType from '@site/src/components/Api/Type/NamedTupleMemberType';
+import OptionalType from '@site/src/components/Api/Type/OptionalType';
 import PredicateType from '@site/src/components/Api/Type/PredicateType';
 import QueryType from '@site/src/components/Api/Type/QueryType';
 import ReferenceType from '@site/src/components/Api/Type/ReferenceType';
 import ReflectionType from '@site/src/components/Api/Type/ReflectionType';
+import RestType from '@site/src/components/Api/Type/RestType';
 import TemplateLiteralType from '@site/src/components/Api/Type/TemplateLiteralType';
 import TupleType from '@site/src/components/Api/Type/TupleType';
 import TypeOperatorType from '@site/src/components/Api/Type/TypeOperatorType';
 import UnionType from '@site/src/components/Api/Type/UnionType';
+import UnknownType from '@site/src/components/Api/Type/UnknownType';
 import React, {useMemo} from 'react';
 import type {JSONOutput} from 'typedoc';
 
@@ -26,7 +29,7 @@ export default function CodeType(props: CodeTypeProps) {
   const TypeComponent = useMemo(() => {
     switch (props.type.type) {
       case 'rest':
-        break;
+        return RestType;
       case 'typeOperator':
         return TypeOperatorType;
       case 'conditional':
@@ -35,10 +38,10 @@ export default function CodeType(props: CodeTypeProps) {
         return ReflectionType;
       case 'query':
         return QueryType;
-      case 'named-tuple-member':
+      case 'namedTupleMember':
         return NamedTupleMemberType;
       case 'optional':
-        break;
+        return OptionalType;
       case 'union':
         return UnionType;
       case 'intrinsic':
@@ -46,7 +49,7 @@ export default function CodeType(props: CodeTypeProps) {
       case 'literal':
         return LiteralType;
       case 'unknown':
-        break;
+        return UnknownType;
       case 'reference':
         return ReferenceType;
       case 'predicate':
@@ -61,7 +64,7 @@ export default function CodeType(props: CodeTypeProps) {
         return InferredType;
       case 'mapped':
         return MappedType;
-      case 'template-literal':
+      case 'templateLiteral':
         return TemplateLiteralType;
       case 'indexedAccess':
         return IndexedAccessType;

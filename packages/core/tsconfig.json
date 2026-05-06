@@ -1,13 +1,17 @@
 {
   "compilerOptions": {
+    "rootDir": "src",
     "outDir": "lib",
     "inlineSourceMap": true,
     "noImplicitAny": true,
     "strict": true,
     "module": "esnext",
-    "target": "es2020",
+    "target": "es2022",
     "allowJs": true,
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
+    "paths": {
+      "vite/types/customEvent": ["../../node_modules/vite/types/customEvent"]
+    },
     "resolveJsonModule": true,
     "declaration": true,
     "declarationMap": true,

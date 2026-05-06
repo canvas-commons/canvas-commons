@@ -2,8 +2,10 @@ import clsx from 'clsx';
 import type {JSX} from 'preact';
 import styles from './Controls.module.scss';
 
-export interface ButtonProps
-  extends Omit<JSX.HTMLAttributes<HTMLButtonElement>, 'loading'> {
+export interface ButtonProps extends Omit<
+  JSX.ButtonHTMLAttributes<HTMLButtonElement>,
+  'loading'
+> {
   main?: boolean;
   loading?: boolean;
 }

@@ -4,7 +4,7 @@ import {NumberInput} from './NumberInput';
 import {Select, SelectProps} from './Select';
 
 export type NumberInputSelectProps = Omit<
-  JSX.HTMLAttributes<HTMLInputElement>,
+  JSX.InputHTMLAttributes<HTMLInputElement>,
   'value' | 'onChange' | 'min' | 'max' | 'step' | 'label'
 > &
   SelectProps<number> & {

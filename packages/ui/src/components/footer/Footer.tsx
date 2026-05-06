@@ -1,12 +1,12 @@
 import {useComputed} from '@preact/signals';
 import clsx from 'clsx';
-import {useShortcutContext} from '../../contexts/shortcuts';
+import {Shortcut, useShortcutContext} from '../../contexts/shortcuts';
 import styles from './Footer.module.scss';
 import {Versions} from './Versions';
 
 export function Footer() {
   const {action, surface, configs} = useShortcutContext();
-  const hints = useComputed(() => {
+  const hints = useComputed<Shortcut[]>(() => {
     const config = configs.current.get(surface.value);
     if (!config) return [];
     return Object.values(config);

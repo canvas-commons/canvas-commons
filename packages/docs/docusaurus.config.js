@@ -93,9 +93,9 @@ const config = {
         copyright: `Copyright © ${new Date().getFullYear()} Canvas Commons. Built with Docusaurus.`,
       },
       algolia: {
-        appId: 'U5KSQOAXLC',
-        apiKey: '8794f8979879d1d5c1fe076c9b5a8791',
-        indexName: 'canvas-commons-commonsio',
+        appId: '4ANT70GVO5',
+        apiKey: '9b12a7a1ae8ffb54fdb6e8769882d140',
+        indexName: 'Canvas Commons',
       },
       prism: {
         theme: require('./config/codeTheme'),

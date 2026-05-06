@@ -104,9 +104,9 @@ export interface LayoutProps extends NodeProps {
   textAlign?: SignalValue<CanvasTextAlign>;
 
   size?: SignalValue<PossibleVector2<Length>>;
-  offsetX?: SignalValue<number>;
-  offsetY?: SignalValue<number>;
-  offset?: SignalValue<PossibleVector2>;
+  anchorX?: SignalValue<number>;
+  anchorY?: SignalValue<number>;
+  anchor?: SignalValue<PossibleVector2>;
   /**
    * The position of the center of this node.
    *
@@ -114,7 +114,7 @@ export interface LayoutProps extends NodeProps {
    * This shortcut property will set the node's position so that the center ends
    * up in the given place.
    * If present, overrides the {@link NodeProps.position} property.
-   * When {@link offset} is not set, this will be the same as the
+   * When {@link anchor} is not set, this will be the same as the
    * {@link NodeProps.position}.
    */
   middle?: SignalValue<PossibleVector2>;
@@ -511,14 +511,14 @@ export class Layout extends Node {
    * affect the placement of its children.
    *
    * The value is relative to the size of this node. A value of `1` means as far
-   * to the right/bottom as possible. Here are a few examples of offsets:
+   * to the right/bottom as possible. Here are a few examples of anchors:
    * - `[-1, -1]` - top left corner
    * - `[1, -1]` - top right corner
    * - `[0, 1]` - bottom edge
    * - `[-1, 1]` - bottom left corner
    */
-  @vector2Signal('offset')
-  public declare readonly offset: Vector2Signal<this>;
+  @vector2Signal('anchor')
+  public declare readonly anchor: Vector2Signal<this>;
 
   /**
    * The position of the center of this node.
@@ -527,7 +527,7 @@ export class Layout extends Node {
    * When set, this shortcut property will modify the node's position so that
    * the center ends up in the given place.
    *
-   * If the {@link offset} has not been changed, this will be the same as the
+   * If the {@link anchor} has not been changed, this will be the same as the
    * {@link position}.
    *
    * When retrieved, it will return the position of the center in the parent
@@ -697,7 +697,7 @@ export class Layout extends Node {
   @computed()
   public anchorPosition() {
     const size = this.computedSize();
-    const offset = this.offset();
+    const offset = this.anchor();
 
     return size.scale(0.5).mul(offset);
   }
@@ -723,7 +723,7 @@ export class Layout extends Node {
 
   public override localToParent(): DOMMatrix {
     const matrix = super.localToParent();
-    const offset = this.offset();
+    const offset = this.anchor();
     if (!offset.exactlyEquals(Vector2.zero)) {
       const translate = this.size().mul(offset).scale(-0.5);
       matrix.translateSelf(translate.x, translate.y);
@@ -745,7 +745,7 @@ export class Layout extends Node {
     matrix.rotateSelf(0, 0, this.rotation());
     matrix.scaleSelf(this.scale.x(), this.scale.y());
 
-    const offset = this.offset();
+    const offset = this.anchor();
     if (!offset.exactlyEquals(Vector2.zero)) {
       const translate = this.size().mul(offset).scale(-0.5);
       matrix.translateSelf(translate.x, translate.y);
@@ -764,8 +764,8 @@ export class Layout extends Node {
     const box = this.getComputedLayout();
 
     const position = new Vector2(
-      box.x + (box.width / 2) * this.offset.x(),
-      box.y + (box.height / 2) * this.offset.y(),
+      box.x + (box.width / 2) * this.anchor.x(),
+      box.y + (box.height / 2) * this.anchor.y(),
     );
 
     const parent = this.parentTransform();
@@ -879,7 +879,7 @@ export class Layout extends Node {
     matrix: DOMMatrix,
   ) {
     const size = this.computedSize();
-    const offset = size.mul(this.offset()).scale(0.5).transformAsPoint(matrix);
+    const offset = size.mul(this.anchor()).scale(0.5).transformAsPoint(matrix);
     const box = BBox.fromSizeCentered(size);
     const layout = box.transformCorners(matrix);
     const padding = box
@@ -915,7 +915,7 @@ export class Layout extends Node {
 
   public getOriginDelta(origin: Origin) {
     const size = this.computedSize().scale(0.5);
-    const offset = this.offset().mul(size);
+    const offset = this.anchor().mul(size);
     if (origin === Origin.Middle) {
       return offset.flipped;
     }
@@ -932,9 +932,9 @@ export class Layout extends Node {
    */
   public moveOffset(offset: Vector2) {
     const size = this.computedSize().scale(0.5);
-    const oldOffset = this.offset().mul(size);
+    const oldOffset = this.anchor().mul(size);
     const newOffset = offset.mul(size);
-    this.offset(offset);
+    this.anchor(offset);
     this.position(this.position().add(newOffset).sub(oldOffset));
   }
 

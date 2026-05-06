@@ -11,7 +11,7 @@ export default makeScene2D(function* (view) {
   const textStyle = {
     fontWeight: 700,
     fontSize: 56,
-    offsetY: -1,
+    anchorY: -1,
     padding: 20,
     cache: true,
   };

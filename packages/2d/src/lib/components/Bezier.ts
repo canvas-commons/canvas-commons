@@ -48,7 +48,7 @@ export abstract class Bezier extends Curve {
   ) {
     const size = this.computedSize();
     const box = this.childrenBBox().transformCorners(matrix);
-    const offset = size.mul(this.offset()).scale(0.5).transformAsPoint(matrix);
+    const offset = size.mul(this.anchor()).scale(0.5).transformAsPoint(matrix);
     const overlayInfo = this.overlayInfo(matrix);
 
     context.lineWidth = 1;

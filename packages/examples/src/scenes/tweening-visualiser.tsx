@@ -31,7 +31,7 @@ export default makeScene2D(function* (view) {
         <Rect
           layout
           size={100}
-          offset={[-1, 1]}
+          anchor={[-1, 1]}
           x={() => time() * 500 - 300}
           y={() => value() * -500 + 300}
         >

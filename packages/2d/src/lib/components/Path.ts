@@ -96,7 +96,7 @@ export class Path extends Curve {
   ): void {
     const box = this.childrenBBox().transformCorners(matrix);
     const size = this.computedSize();
-    const offset = size.mul(this.offset()).scale(0.5).transformAsPoint(matrix);
+    const offset = size.mul(this.anchor()).scale(0.5).transformAsPoint(matrix);
     const segments = this.profile().segments;
 
     context.lineWidth = 1;

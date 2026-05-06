@@ -70,13 +70,13 @@ describe('clone', () => {
 
   it('Clone compound signal', () => {
     const signal = Vector2.createSignal(200);
-    const template = (<Circle offset={1} position={signal} />) as Circle;
-    const clone = template.clone({x: 100, offsetY: -1});
+    const template = (<Circle anchor={1} position={signal} />) as Circle;
+    const clone = template.clone({x: 100, anchorY: -1});
 
     expect(clone.x()).toBe(100);
     expect(clone.y()).toBe(200);
-    expect(clone.offset.x()).toBe(1);
-    expect(clone.offset.y()).toBe(-1);
+    expect(clone.anchor.x()).toBe(1);
+    expect(clone.anchor.y()).toBe(-1);
 
     signal([300, 400]);
 

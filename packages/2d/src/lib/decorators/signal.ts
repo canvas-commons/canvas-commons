@@ -219,7 +219,7 @@ export function interpolation<T>(
  * class Example {
  *   \@wrapper(Vector2)
  *   \@property()
- *   public declare offset: Signal<Vector2, this>;
+ *   public declare anchor: Signal<Vector2, this>;
  * }
  * ```
  *
@@ -253,13 +253,13 @@ export function parser<T>(value: (value: any) => T): PropertyDecorator {
  * class Example {
  *   \@wrapper(Vector2)
  *   \@property()
- *   public declare offset: Signal<Vector2, this>;
+ *   public declare anchor: Signal<Vector2, this>;
  *
  *   // same as:
  *   \@parser(value => new Vector2(value))
  *   \@interpolation(Vector2.lerp)
  *   \@property()
- *   public declare offset: Signal<Vector2, this>;
+ *   public declare anchor: Signal<Vector2, this>;
  * }
  * ```
  *

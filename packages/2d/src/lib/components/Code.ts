@@ -106,7 +106,7 @@ export interface CodeProps extends ShapeProps {
  *   view.add(
  *     <Code
  *       ref={code}
- *       offset={-1}
+ *       anchor={-1}
  *       position={view.size().scale(-0.5).add(60)}
  *       fontFamily={'JetBrains Mono, monospace'}
  *       fontSize={36}

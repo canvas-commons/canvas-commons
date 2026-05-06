@@ -1522,8 +1522,8 @@ export class LayoutPositionSignalContext<
  *   \@positionSignal()
  *   declare readonly position: PositionSignal<this>;
  *
- *   \@positionSignal('offset')
- *   declare readonly offset: PositionSignal<this>; // Uses offsetX/offsetY
+ *   \@positionSignal('anchor')
+ *   declare readonly anchor: PositionSignal<this>; // Uses anchorX/anchorY
  * }
  * ```
  */

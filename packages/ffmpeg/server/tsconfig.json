@@ -1,13 +1,14 @@
 {
   "compilerOptions": {
-    "baseUrl": ".",
+    "rootDir": ".",
     "outDir": "../lib/server",
+    "ignoreDeprecations": "6.0",
     "inlineSourceMap": true,
     "esModuleInterop": true,
     "moduleResolution": "node",
     "skipLibCheck": true,
     "strict": true,
-    "module": "CommonJS",
+    "module": "commonjs",
     "target": "es2020",
     "declaration": true,
     "declarationMap": true

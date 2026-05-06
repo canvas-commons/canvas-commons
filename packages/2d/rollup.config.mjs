@@ -28,6 +28,7 @@ export default [
         tsconfig: './src/lib/tsconfig.json',
         compilerOptions: {
           composite: false,
+          outDir: './dist',
         },
       }),
       terser(),

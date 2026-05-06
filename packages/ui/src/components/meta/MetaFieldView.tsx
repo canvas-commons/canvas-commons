@@ -24,7 +24,7 @@ interface MetaFieldViewProps {
 
 type FiledView = FunctionComponent<{field: MetaField<any>}>;
 
-const TYPE_MAP = new Map<any, FiledView>([
+const TYPE_MAP = new Map<unknown, FiledView>([
   [Boolean, BoolMetaFieldView],
   [Number, NumberMetaFieldView],
   [String, StringMetaFieldView],
@@ -33,7 +33,7 @@ const TYPE_MAP = new Map<any, FiledView>([
   [Vector2.symbol, Vector2MetaFieldView],
   [RangeMetaField.symbol, RangeMetaFieldView],
   [Object, ObjectMetaFieldView],
-]);
+] as Array<[unknown, FiledView]>);
 
 export function MetaFieldView({field}: MetaFieldViewProps) {
   const Field: FiledView = TYPE_MAP.get(field.type) ?? UnknownMetaFieldView;

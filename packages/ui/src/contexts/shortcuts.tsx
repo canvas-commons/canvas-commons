@@ -424,8 +424,8 @@ export function useShortcuts<T extends string>(
       callbacks.current.set(config.context, callbackSet);
     }
 
-    const handler = async (key: T) => {
-      const callback = handlersRef.current[key];
+    const handler = async (key: string) => {
+      const callback = handlersRef.current[key as T];
       if (callback) {
         const result = await callback();
         if (typeof result === 'object') {

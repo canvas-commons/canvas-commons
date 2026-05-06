@@ -17,6 +17,7 @@ export default function DiscordNavbarLink() {
   return (
     <NavbarLink
       href={siteConfig.customFields.discordUrl as string}
+      ariaLabel="Discord"
       suffix={'online'}
       amount={activeUsers}
     >

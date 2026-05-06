@@ -26,7 +26,17 @@ export default function HomepageHeader() {
           <br />
           <b>Ideas</b> With Code
         </h1>
-        <p className={styles.description}>{siteConfig.tagline}</p>
+        <p className={styles.description}>
+          <>
+            {/* Keep this in sync with the tagline in docusaurus.config.js. */}
+          </>
+          A community-driven TypeScript library for creating animated videos
+          using the Canvas API. Forked from{' '}
+          <a href="https://github.com/motion-canvas/motion-canvas">
+            Motion Canvas
+          </a>{' '}
+          to continue development.
+        </p>
         <div className={styles.buttons}>
           <Link className="button button--primary button--lg" to="/docs">
             Get Started

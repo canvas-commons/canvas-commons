@@ -95,7 +95,7 @@ import {MetaFile} from '@canvas-commons/core';
         },
         esbuild: {
           jsx: 'automatic',
-          jsxImportSource: '@canvas-commons/2d/lib',
+          jsxImportSource: '@canvas-commons/2d',
         },
         optimizeDeps: {
           entries: projects.map(project => project.filePath),

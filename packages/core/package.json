@@ -2,7 +2,22 @@
   "name": "@canvas-commons/core",
   "version": "0.1.0",
   "description": "Web-based tool for creating animations programmatically",
-  "main": "lib/index.js",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./project": {
+      "types": "./project.d.ts"
+    },
+    "./tsconfig.project.json": "./tsconfig.project.json",
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "author": "canvas-commons",
   "homepage": "https://canvascommons.io/",
   "bugs": "https://github.com/canvas-commons/canvas-commons/issues",
@@ -17,7 +32,8 @@
   "sideEffects": false,
   "repository": {
     "type": "git",
-    "url": "https://github.com/canvas-commons/canvas-commons.git"
+    "url": "git+https://github.com/canvas-commons/canvas-commons.git",
+    "directory": "packages/core"
   },
   "files": [
     "lib",

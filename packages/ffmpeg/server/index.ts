@@ -10,7 +10,7 @@ export default (): Plugin => {
   return {
     name: 'canvas-commons/ffmpeg',
     [PLUGIN_OPTIONS]: {
-      entryPoint: '@canvas-commons/ffmpeg/lib/client',
+      entryPoint: '@canvas-commons/ffmpeg/client',
       async config(value) {
         config = value;
       },

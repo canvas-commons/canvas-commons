@@ -2,7 +2,18 @@
   "name": "@canvas-commons/vite-plugin",
   "version": "0.1.0",
   "description": "A Vite plugin for Canvas Commons projects",
-  "main": "lib/index.js",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "author": "canvas-commons",
   "homepage": "https://canvascommons.io/",
   "bugs": "https://github.com/canvas-commons/canvas-commons/issues",
@@ -14,13 +25,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/canvas-commons/canvas-commons.git"
+    "url": "git+https://github.com/canvas-commons/canvas-commons.git",
+    "directory": "packages/vite-plugin"
   },
   "files": [
     "lib"
   ],
   "peerDependencies": {
-    "vite": "4.x || 5.x"
+    "vite": "^4 || ^5 || ^7 || ^8"
   },
   "devDependencies": {
     "@types/follow-redirects": "^1.14.1",

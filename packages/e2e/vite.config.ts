@@ -5,7 +5,7 @@ import {defineConfig} from 'vite';
 
 export default defineConfig({
   plugins: [
-    canvasCommons.default({
+    canvasCommons({
       project: ['./tests/project.ts'],
     }),
   ],

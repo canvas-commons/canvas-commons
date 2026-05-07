@@ -15,4 +15,5 @@ export * from './Shaders';
 export * from './Slides';
 export * from './Sounds';
 export * from './Threadable';
+export * from './timeEvents';
 export * from './Variables';

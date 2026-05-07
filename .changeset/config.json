@@ -1,0 +1,30 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@3.1.4/schema.json",
+  "changelog": [
+    "@changesets/changelog-github",
+    {"repo": "canvas-commons/canvas-commons"}
+  ],
+  "commit": false,
+  "fixed": [
+    [
+      "@canvas-commons/core",
+      "@canvas-commons/2d",
+      "@canvas-commons/ui",
+      "@canvas-commons/vite-plugin",
+      "@canvas-commons/ffmpeg",
+      "@canvas-commons/player",
+      "@canvas-commons/create"
+    ]
+  ],
+  "linked": [],
+  "access": "public",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": [
+    "@canvas-commons/docs",
+    "@canvas-commons/e2e",
+    "@canvas-commons/examples",
+    "@canvas-commons/internal",
+    "@canvas-commons/template"
+  ]
+}

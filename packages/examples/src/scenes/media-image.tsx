@@ -1,7 +1,7 @@
 import {Img, makeScene2D} from '@canvas-commons/2d';
 import {all, createRef} from '@canvas-commons/core';
 
-import logoSvg from '@canvas-commons/examples/assets/logo.svg';
+import logoSvg from '../../assets/logo.svg';
 
 export default makeScene2D(function* (view) {
   const imageRef = createRef<Img>();

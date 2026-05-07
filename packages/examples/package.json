@@ -9,7 +9,8 @@
   },
   "dependencies": {
     "@canvas-commons/2d": "workspace:^",
-    "@canvas-commons/core": "workspace:^"
+    "@canvas-commons/core": "workspace:^",
+    "@lezer/javascript": "^1.4.13"
   },
   "devDependencies": {
     "@canvas-commons/ui": "workspace:^",

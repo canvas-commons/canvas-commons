@@ -36,10 +36,14 @@
     "eslint:fix": "eslint --fix \"**/*.ts?(x)\"",
     "prettier": "prettier --check .",
     "prettier:fix": "prettier --write .",
-    "lint:packages": "pnpm -r --if-present run lint:pkg"
+    "lint:packages": "pnpm -r --if-present run lint:pkg",
+    "changeset": "changeset",
+    "version": "changeset version && pnpm install --lockfile-only"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.2",
+    "@changesets/changelog-github": "^0.7.0",
+    "@changesets/cli": "^2.31.0",
     "@commitlint/cli": "^19.4.0",
     "@commitlint/config-conventional": "^19.2.2",
     "@typescript-eslint/eslint-plugin": "^6.11.0",
@@ -47,7 +51,6 @@
     "eslint": "^8.54.0",
     "eslint-plugin-tsdoc": "^0.2.17",
     "husky": "^9.1.5",
-    "lerna": "^8.1.8",
     "lint-staged": "^15.2.9",
     "prettier": "^3.3.3",
     "prettier-plugin-organize-imports": "^4.0.0",
@@ -61,8 +64,5 @@
   },
   "dependencies": {
     "webpack": "5.105.4"
-  },
-  "overrides": {
-    "cytoscape": "3.28.1"
   }
 }

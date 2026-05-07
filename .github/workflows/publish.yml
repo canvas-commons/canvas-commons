@@ -1,32 +1,26 @@
-name: Publish Packages to NPM
+name: Release
 
 on:
-  workflow_dispatch:
-    inputs:
-      releaseType:
-        type: choice
-        description: Release type
-        required: true
-        options:
-          - release
-          - prerelease
-          - graduate
+  push:
+    branches:
+      - main
+  workflow_dispatch: {}
 
 env:
   HUSKY: 0
 
 jobs:
-  publish:
-    name: Publish
+  release:
+    name: Release
     runs-on: ubuntu-latest
-    env:
-      NODE_AUTH_TOKEN: ${{secrets.NPM_AUTH_TOKEN}}
-      NPM_TOKEN: ${{secrets.NPM_AUTH_TOKEN}}
-      GH_TOKEN: ${{secrets.PUBLISH_TOKEN}}
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
           token: ${{secrets.PUBLISH_TOKEN}}
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
@@ -34,13 +28,17 @@ jobs:
           node-version: 20
           registry-url: 'https://registry.npmjs.org'
           cache: pnpm
-      - run: git config --global user.email "221908586+canvas-commons-bot@users.noreply.github.com"
-      - run: git config --global user.name "canvas-commons-bot"
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec lerna run build
-      - if: ${{ inputs.releaseType == 'release' }}
-        run: pnpm exec lerna publish --yes
-      - if: ${{ inputs.releaseType == 'prerelease' }}
-        run: pnpm exec lerna publish --yes --conventional-prerelease --dist-tag alpha
-      - if: ${{ inputs.releaseType == 'graduate' }}
-        run: pnpm exec lerna publish --yes --conventional-graduate
+      - run: pnpm run build
+      - id: changesets
+        uses: changesets/action@v1
+        with:
+          version: pnpm exec changeset version && pnpm install --lockfile-only
+          publish: pnpm exec changeset publish
+          createGithubReleases: true
+          commit: 'chore(release): version packages'
+          title: 'chore(release): version packages'
+        env:
+          GITHUB_TOKEN: ${{secrets.PUBLISH_TOKEN}}
+          NPM_TOKEN: ${{secrets.NPM_AUTH_TOKEN}}
+          NODE_AUTH_TOKEN: ${{secrets.NPM_AUTH_TOKEN}}

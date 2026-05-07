@@ -8,7 +8,7 @@ import {useModifiers} from '../../contexts/shortcuts';
 import {useDuration, usePreviewSettings, useSharedSettings} from '../../hooks';
 import {labelClipDraggingLeftSignal} from '../../signals';
 import {MouseButton} from '../../utils';
-import {DragIndicator} from '../icons';
+import {Icon} from '../controls';
 
 export interface RangeSelectorProps {
   rangeRef: RefObject<HTMLDivElement>;
@@ -127,7 +127,7 @@ function RangeHandle({value, setValue, onDrop}: RangeHandleProps) {
   const {player} = useApplication();
 
   return (
-    <DragIndicator
+    <span
       className={styles.handle}
       onPointerDown={event => {
         if (event.button === MouseButton.Left) {
@@ -154,6 +154,8 @@ function RangeHandle({value, setValue, onDrop}: RangeHandleProps) {
           onDrop(event);
         }
       }}
-    />
+    >
+      <Icon name="drag_indicator" />
+    </span>
   );
 }

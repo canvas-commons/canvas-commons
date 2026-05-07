@@ -1,18 +1,18 @@
 import styles from './Controls.module.scss';
 
 import clsx from 'clsx';
-import {ComponentChildren} from 'preact';
+import {Icon, IconName} from './Icon';
 
 interface IconButtonProps {
+  icon: IconName;
   title?: string;
   onClick?: () => void;
-  children: ComponentChildren;
   disabled?: boolean;
   className?: string;
 }
 
 export function IconButton({
-  children,
+  icon,
   onClick,
   title,
   className,
@@ -29,7 +29,7 @@ export function IconButton({
       type="button"
       onClick={disabled ? null : onClick}
     >
-      {children}
+      <Icon name={icon} />
     </button>
   );
 }

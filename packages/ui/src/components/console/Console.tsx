@@ -6,7 +6,6 @@ import {useLayoutEffect, useRef} from 'preact/hooks';
 import {useApplication} from '../../contexts';
 import {useStorage, useSubscribableValue} from '../../hooks';
 import {IconButton, Pill} from '../controls';
-import {Clear} from '../icons';
 import {Pane} from '../tabs';
 import {Log} from './Log';
 
@@ -49,9 +48,11 @@ export function Console() {
           })}
         </div>
         {logs.length > 0 && (
-          <IconButton onClick={() => logger.clear()} title={'Clear console'}>
-            <Clear />
-          </IconButton>
+          <IconButton
+            icon="clear"
+            title={'Clear console'}
+            onClick={() => logger.clear()}
+          />
         )}
       </div>
       <div

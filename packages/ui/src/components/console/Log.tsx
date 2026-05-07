@@ -7,7 +7,6 @@ import {useApplication} from '../../contexts';
 import {useFormattedNumber} from '../../hooks';
 import {StackTraceEntry, resolveStackTrace} from '../../utils';
 import {IconButton, Toggle} from '../controls';
-import {Locate} from '../icons';
 import {Collapse} from '../layout';
 import {SourceCodeFrame} from './SourceCodeFrame';
 import {StackTrace} from './StackTrace';
@@ -62,13 +61,12 @@ export function Log({payload}: LogProps) {
         )}
         {payload.inspect && (
           <IconButton
+            icon="locate"
             title="Select related node"
             onClick={() => {
               logger.inspect(payload.inspect);
             }}
-          >
-            <Locate />
-          </IconButton>
+          />
         )}
       </div>
       {hasBody && (

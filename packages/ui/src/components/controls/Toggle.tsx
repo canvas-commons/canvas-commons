@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import {JSX} from 'preact';
-import {ChevronRight} from '../icons/ChevronRight';
 import styles from './Controls.module.scss';
+import {Icon} from './Icon';
 
 export interface ToggleProps extends Omit<
   JSX.ButtonHTMLAttributes<HTMLButtonElement>,
@@ -19,6 +19,7 @@ export function Toggle({
   ...props
 }: ToggleProps) {
   return (
+    // TODO: use IconButton?
     <button
       className={clsx(
         styles.toggle,
@@ -28,7 +29,7 @@ export function Toggle({
       onClick={() => onToggle?.(!open)}
       {...props}
     >
-      <ChevronRight />
+      <Icon name="chevron_right" />
     </button>
   );
 }

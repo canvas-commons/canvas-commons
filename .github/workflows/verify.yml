@@ -57,8 +57,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec lerna run build
-      - run: pnpm run examples:build
+      - run: pnpm run build
   tests:
     name: Unit tests
     runs-on: ubuntu-latest
@@ -70,8 +69,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec lerna run build
-      - run: pnpm exec lerna run test
+      - run: pnpm run build
+      - run: pnpm run test
   playwright-version:
     name: Resolve Playwright version
     runs-on: ubuntu-latest
@@ -95,7 +94,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec lerna run build
+      - run: pnpm run build
       - run: pnpm run e2e:test
         env:
           HOME: /root
@@ -115,8 +114,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec lerna run build
-      - run: pnpm exec lerna run bundle
+      - run: pnpm run build
+      - run: pnpm run bundle
       - run: pnpm run docs:build
         env:
           NODE_OPTIONS: "--max-old-space-size=8192"
@@ -131,5 +130,5 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec lerna run build
+      - run: pnpm run build
       - run: pnpm run lint:packages

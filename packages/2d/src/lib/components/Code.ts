@@ -131,7 +131,7 @@ export interface CodeProps extends ShapeProps {
  * });
  * ```
  */
-@nodeName('CodeBlock')
+@nodeName('Code')
 export class Code extends Shape {
   /**
    * Create a standalone code signal.
@@ -160,7 +160,7 @@ export class Code extends Shape {
    */
   @initial(() => Code.defaultHighlighter)
   @signal()
-  public declare readonly highlighter: SimpleSignal<
+  declare public readonly highlighter: SimpleSignal<
     CodeHighlighter | null,
     this
   >;
@@ -169,7 +169,7 @@ export class Code extends Shape {
    * The code to display.
    */
   @codeSignal()
-  public declare readonly code: CodeSignal<this>;
+  declare public readonly code: CodeSignal<this>;
 
   /**
    * Custom drawing logic for the code.
@@ -205,7 +205,7 @@ export class Code extends Shape {
     },
   })
   @signal()
-  public declare readonly drawHooks: SimpleSignal<DrawHooks, this>;
+  declare public readonly drawHooks: SimpleSignal<DrawHooks, this>;
 
   protected setDrawHooks(value: DrawHooks) {
     if (
@@ -249,7 +249,7 @@ export class Code extends Shape {
   @initial(lines(0, Infinity))
   @parser(parseCodeSelection)
   @signal()
-  public declare readonly selection: Signal<
+  declare public readonly selection: Signal<
     PossibleCodeSelection,
     CodeSelection,
     this

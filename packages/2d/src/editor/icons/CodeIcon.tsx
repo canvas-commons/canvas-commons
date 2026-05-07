@@ -1,4 +1,4 @@
-export function CodeBlockIcon() {
+export function CodeIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="currentColor">
       <path d="M5,9L5,6.999C5,6.469 5.211,5.96 5.585,5.586C5.96,5.211 6.469,5 6.999,5L9,5L9,7L6.999,7L7,9L7,11L7,13L8.985,13L9,15L7,15C5.895,15 5,14.105 5,13L5,11L4,11L4,9L5,9Z" />

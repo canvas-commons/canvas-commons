@@ -46,9 +46,15 @@
     "chroma-js": "^3.2.0"
   },
   "devDependencies": {
-    "@canvas-commons/internal": "0.0.0",
+    "@canvas-commons/internal": "workspace:^",
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^11.1.5",
     "@types/chroma-js": "3.1.2",
-    "jsdom": "^22.1.0",
-    "vitest": "^0.34.6"
+    "jsdom": "catalog:",
+    "rollup": "^4.9.1",
+    "ts-patch": "^4.0.1",
+    "vitest": "catalog:"
   }
 }

@@ -1,6 +1,7 @@
-import React, {useEffect, useRef, useState} from 'react';
+import {RefObject} from 'preact';
+import {useEffect, useRef, useState} from 'preact/hooks';
 
-type UseHoverType<T extends HTMLElement> = [React.RefObject<T>, boolean];
+type UseHoverType<T extends HTMLElement> = [RefObject<T>, boolean];
 
 export function useHover<T extends HTMLElement>(
   handleMouseOver?: () => void,

@@ -28,18 +28,19 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{secrets.PUBLISH_TOKEN}}
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           registry-url: 'https://registry.npmjs.org'
-          cache: npm
+          cache: pnpm
       - run: git config --global user.email "221908586+canvas-commons-bot@users.noreply.github.com"
       - run: git config --global user.name "canvas-commons-bot"
-      - run: npm ci
-      - run: npx lerna run build
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec lerna run build
       - if: ${{ inputs.releaseType == 'release' }}
-        run: npx lerna publish --yes
+        run: pnpm exec lerna publish --yes
       - if: ${{ inputs.releaseType == 'prerelease' }}
-        run: npx lerna publish --yes --conventional-prerelease --dist-tag alpha
+        run: pnpm exec lerna publish --yes --conventional-prerelease --dist-tag alpha
       - if: ${{ inputs.releaseType == 'graduate' }}
-        run: npx lerna publish --yes --conventional-graduate
+        run: pnpm exec lerna publish --yes --conventional-graduate

@@ -11,11 +11,12 @@
     "build": "tsc && vite build"
   },
   "dependencies": {
-    "@canvas-commons/core": "*",
-    "@canvas-commons/2d": "*"
+    "@canvas-commons/core": "workspace:^",
+    "@canvas-commons/2d": "workspace:^"
   },
   "devDependencies": {
-    "@canvas-commons/ui": "*",
-    "@canvas-commons/vite-plugin": "*"
+    "@canvas-commons/ui": "workspace:^",
+    "@canvas-commons/vite-plugin": "workspace:^",
+    "@types/node": "catalog:"
   }
 }

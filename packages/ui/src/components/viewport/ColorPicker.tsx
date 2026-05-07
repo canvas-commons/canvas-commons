@@ -1,5 +1,4 @@
-import {useRef} from 'preact/hooks';
-import {useState} from 'react';
+import {useRef, useState} from 'preact/hooks';
 import {VIEWPORT_SHORTCUTS, useShortcut} from '../../contexts/shortcuts.js';
 import {ButtonCheckbox} from '../controls/ButtonCheckbox.js';
 import {Colorize} from '../icons/index.js';

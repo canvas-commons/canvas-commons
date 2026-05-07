@@ -60,8 +60,8 @@ Canvas Commons follows [semantic versioning][semver].
    ```
    When committing the changes, our git hooks should automatically run Prettier
    and ESLint for you. If, for some reason, hooks are not supported in your
-   working environement, you can run these tools using `npm run prettier:fix`
-   and `npm run eslint:fix` respectively.
+   working environement, you can run these tools using `pnpm run prettier:fix`
+   and `pnpm run eslint:fix` respectively.
 5. Push your branch to GitHub:
    ```shell
    git push origin my-fix-branch
@@ -77,12 +77,12 @@ it. There are a few checks that can fail:
 | Check name        | Description                                                                                                                                                                                                                                  |
 | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Commit name`     | The commit message doesn't follow the [Angular Commit Message Conventions][commit-format]. You can ignore this check since maintainers can modify your commit message before merging, but make sure to follow the conventions in the future. |
-| `Lint`            | ESLint has failed. Run `npm run eslint` locally to list the problems.                                                                                                                                                                        |
-| `Code&nbsp;style` | The code is not correctly formatted. Run `npm run prettier:fix` locally to fix the formatting issues.                                                                                                                                        |
-| `Build`           | The build process failed. Run `npx lerna run build` locally to see the errors.                                                                                                                                                               |
-| `Unit&nbsp;tests` | Unit tests failed. Run `npx lerna run test` locally to see the which tests are failing and fix them.                                                                                                                                         |
-| `E2E`             | End-to-end tests failed to build. Run `npm run e2e:test` locally to see the errors.                                                                                                                                                          |
-| `Documentation`   | The documentation website failed to build. Run `npm run docs:build` locally to see the errors.                                                                                                                                               |
+| `Lint`            | ESLint has failed. Run `pnpm run eslint` locally to list the problems.                                                                                                                                                                       |
+| `Code&nbsp;style` | The code is not correctly formatted. Run `pnpm run prettier:fix` locally to fix the formatting issues.                                                                                                                                       |
+| `Build`           | The build process failed. Run `pnpm run build` locally to see the errors.                                                                                                                                                                    |
+| `Unit&nbsp;tests` | Unit tests failed. Run `pnpm run test` locally to see the which tests are failing and fix them.                                                                                                                                              |
+| `E2E`             | End-to-end tests failed to build. Run `pnpm run e2e:test` locally to see the errors.                                                                                                                                                         |
+| `Documentation`   | The documentation website failed to build. Run `pnpm run docs:build` locally to see the errors.                                                                                                                                              |
 
 ### Addressing review feedback
 

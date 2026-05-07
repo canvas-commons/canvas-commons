@@ -1,5 +1,5 @@
 import {isInspectable, Vector2} from '@canvas-commons/core';
-import {useEffect, useState} from 'react';
+import {useEffect, useState} from 'preact/hooks';
 import {
   useShortcut,
   useViewportContext,

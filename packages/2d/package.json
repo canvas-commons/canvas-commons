@@ -33,7 +33,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "tspc -p src/lib -w",
-    "build": "npm run build-lib && npm run build-editor",
+    "build": "pnpm run build-lib && pnpm run build-editor",
     "build-lib": "tspc -p src/lib/tsconfig.build.json",
     "build-editor": "rollup -c rollup.editor.mjs",
     "bundle": "rollup -c rollup.config.mjs",
@@ -53,17 +53,26 @@
     "tsconfig.project.json"
   ],
   "devDependencies": {
-    "@canvas-commons/internal": "0.0.0",
-    "@canvas-commons/ui": "^0.1.0",
-    "@preact/signals": "^1.2.1",
-    "clsx": "^2.0.0",
+    "@canvas-commons/2d": "workspace:*",
+    "@canvas-commons/internal": "workspace:^",
+    "@canvas-commons/ui": "workspace:^",
+    "@preact/signals": "catalog:",
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^11.1.5",
+    "@types/node": "catalog:",
+    "clsx": "catalog:",
     "geometry-polyfill": "^1.0.7",
-    "jsdom": "^22.1.0",
-    "preact": "^10.19.2",
-    "vitest": "^0.34.6"
+    "jsdom": "catalog:",
+    "preact": "catalog:",
+    "rollup": "^4.9.1",
+    "rollup-plugin-postcss": "^4.0.2",
+    "ts-patch": "^4.0.1",
+    "vitest": "catalog:"
   },
   "dependencies": {
-    "@canvas-commons/core": "^0.1.0",
+    "@canvas-commons/core": "workspace:^",
     "@codemirror/language": "^6.10.1",
     "@lezer/common": "^1.2.1",
     "@lezer/highlight": "^1.2.0",

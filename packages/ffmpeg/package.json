@@ -28,7 +28,7 @@
   "bugs": "https://github.com/canvas-commons/canvas-commons/issues",
   "license": "GPLv3",
   "scripts": {
-    "build": "npm run client:build && npm run server:build",
+    "build": "pnpm run client:build && pnpm run server:build",
     "client:build": "tsc --project client/tsconfig.json",
     "client:dev": "tsc -w --project client/tsconfig.json",
     "server:build": "tsc --project server/tsconfig.json",
@@ -47,8 +47,8 @@
     "@types/fluent-ffmpeg": "^2.1.21"
   },
   "dependencies": {
-    "@canvas-commons/core": "^0.1.0",
-    "@canvas-commons/vite-plugin": "^0.1.0",
+    "@canvas-commons/core": "workspace:^",
+    "@canvas-commons/vite-plugin": "workspace:^",
     "ffmpeg-ffprobe-static": "^6.1.1-rc.5",
     "fluent-ffmpeg": "^2.1.3"
   }

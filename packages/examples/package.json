@@ -8,11 +8,11 @@
     "build": "tsc && vite build --base /examples/"
   },
   "dependencies": {
-    "@canvas-commons/2d": "*",
-    "@canvas-commons/core": "*"
+    "@canvas-commons/2d": "workspace:^",
+    "@canvas-commons/core": "workspace:^"
   },
   "devDependencies": {
-    "@canvas-commons/ui": "*",
-    "@canvas-commons/vite-plugin": "*"
+    "@canvas-commons/ui": "workspace:^",
+    "@canvas-commons/vite-plugin": "workspace:^"
   }
 }

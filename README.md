@@ -8,7 +8,7 @@
   </a>
 </p>
 <p align="center">
-  <a href="https://lerna.js.org"><img src="https://img.shields.io/badge/published%20with-lerna-c084fc?style=for-the-badge" alt="published with lerna"></a>
+  <a href="https://pnpm.io"><img src="https://img.shields.io/badge/managed%20with-pnpm-f69220?style=for-the-badge" alt="managed with pnpm"></a>
   <a href="https://vitejs.dev"><img src="https://img.shields.io/badge/powered%20by-vite-646cff?style=for-the-badge" alt="powered by vite"></a>
   <a href="https://www.npmjs.com/package/@canvas-commons/core"><img src="https://img.shields.io/npm/v/@canvas-commons/core?style=for-the-badge" alt="npm package version"></a>
   <a href="https://chat.canvascommons.io"><img src="https://img.shields.io/discord/1396626525331132437?style=for-the-badge&logo=discord&logoColor=fff&color=404eed" alt="discord"></a>
@@ -50,16 +50,15 @@ The project is maintained as one monorepo containing the following packages:
 | `ui`          | The user interface used for editing.                           |
 | `vite-plugin` | A plugin for Vite used for developing and bundling animations. |
 
-After cloning the repo, run `npm install` in the root of the project to install
-all necessary dependencies. Then run `npx lerna run build` to build all the
-packages.
+After cloning the repo, run `pnpm install` in the root of the project to install
+all necessary dependencies. Then run `pnpm run build` to build all the packages.
 
 ### Developing Editor
 
 When developing the editor, run the following command:
 
 ```bash
-npm run template:dev
+pnpm run template:dev
 ```
 
 It will start a vite server that watches the `core`, `2d`, `ui`, and
@@ -68,8 +67,8 @@ Canvas project that can be used during development.
 
 ### Developing Player
 
-To develop the player, first build the template: `npm run template:build`. Then,
-start `npm run player:dev`.
+To develop the player, first build the template: `pnpm run template:build`.
+Then, start `pnpm run player:dev`.
 
 ## Installing a local version of Canvas Commons in a project
 
@@ -120,7 +119,7 @@ This is necessary because the editor styles are loaded using the `/@fs/` prefix
 and since the linked `ui` package is outside the project, vite needs permission
 to access it.
 
-Then run `npm install` in to apply the changes and that's it.
+Then run `pnpm install` in to apply the changes and that's it.
 
 You can use the same technique to test out any custom package you're working on.
 

@@ -1,7 +1,6 @@
 import styles from './Timeline.module.scss';
 
-import type {Scene} from '@canvas-commons/core';
-import type {TimeEvent} from '@canvas-commons/core/lib/scenes/timeEvents';
+import type {Scene, TimeEvent} from '@canvas-commons/core';
 import {useLayoutEffect, useState} from 'preact/hooks';
 import {useApplication, useTimelineContext} from '../../contexts';
 import {labelClipDraggingLeftSignal} from '../../signals';

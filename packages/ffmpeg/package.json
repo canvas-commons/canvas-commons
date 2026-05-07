@@ -2,7 +2,26 @@
   "name": "@canvas-commons/ffmpeg",
   "version": "0.1.0",
   "description": "An FFmpeg video exporter for Canvas Commons",
-  "main": "lib/server/index.js",
+  "main": "./lib/server/index.js",
+  "types": "./lib/server/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/server/index.d.ts",
+      "default": "./lib/server/index.js"
+    },
+    "./server": {
+      "types": "./lib/server/index.d.ts",
+      "default": "./lib/server/index.js"
+    },
+    "./client": {
+      "types": "./lib/client/index.d.ts",
+      "default": "./lib/client/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "author": "canvas-commons",
   "homepage": "https://canvascommons.io/",
   "bugs": "https://github.com/canvas-commons/canvas-commons/issues",
@@ -17,7 +36,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/canvas-commons/canvas-commons.git"
+    "url": "git+https://github.com/canvas-commons/canvas-commons.git",
+    "directory": "packages/ffmpeg"
   },
   "files": [
     "lib"

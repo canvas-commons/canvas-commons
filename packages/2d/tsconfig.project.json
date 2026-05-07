@@ -2,6 +2,6 @@
   "extends": "@canvas-commons/core/tsconfig.project.json",
   "compilerOptions": {
     "jsx": "react-jsx",
-    "jsxImportSource": "@canvas-commons/2d/lib"
+    "jsxImportSource": "@canvas-commons/2d"
   }
 }

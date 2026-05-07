@@ -2,12 +2,35 @@
   "name": "@canvas-commons/2d",
   "version": "0.1.0",
   "description": "A 2D renderer for Canvas Commons",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./jsx-runtime": {
+      "types": "./lib/jsx-runtime.d.ts",
+      "default": "./lib/jsx-runtime.js"
+    },
+    "./jsx-dev-runtime": {
+      "types": "./lib/jsx-dev-runtime.d.ts",
+      "default": "./lib/jsx-dev-runtime.js"
+    },
+    "./editor": {
+      "types": "./editor/index.d.ts",
+      "default": "./editor/index.js"
+    },
+    "./tsconfig.project.json": "./tsconfig.project.json",
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "author": "canvas-commons",
   "homepage": "https://canvascommons.io/",
   "bugs": "https://github.com/canvas-commons/canvas-commons/issues",
   "license": "MIT",
-  "main": "lib/index.js",
-  "types": "./lib/index.d.ts",
   "scripts": {
     "dev": "tspc -p src/lib -w",
     "build": "npm run build-lib && npm run build-editor",
@@ -20,7 +43,8 @@
   "sideEffects": false,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/canvas-commons/canvas-commons.git"
+    "url": "git+https://github.com/canvas-commons/canvas-commons.git",
+    "directory": "packages/2d"
   },
   "files": [
     "lib",

@@ -2,6 +2,7 @@ import {
   FullSceneDescription,
   PlaybackManager,
   PlaybackStatus,
+  ReadOnlyTimeEvents,
   ThreadGeneratorFactory,
   ValueDispatcher,
   Vector2,
@@ -10,7 +11,6 @@ import {
   startPlayback,
   startScene,
 } from '@canvas-commons/core';
-import {ReadOnlyTimeEvents} from '@canvas-commons/core/lib/scenes/timeEvents';
 import {afterAll, beforeAll, beforeEach} from 'vitest';
 import {Scene2D, makeScene2D} from '../../scenes';
 import {View2D} from '../View2D';

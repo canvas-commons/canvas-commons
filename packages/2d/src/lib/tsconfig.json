@@ -5,7 +5,7 @@
     "outDir": "../../lib",
     "types": ["node"],
     "jsx": "react-jsx",
-    "jsxImportSource": "@canvas-commons/2d/src/lib",
+    "jsxImportSource": "@canvas-commons/2d",
     "plugins": [
       {
         "transform": "@canvas-commons/internal/transformers/markdown-literals.js"

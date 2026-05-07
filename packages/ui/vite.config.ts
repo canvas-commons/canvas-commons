@@ -25,9 +25,7 @@ export default defineConfig({
   plugins: [
     preact(),
     dts({
-      // NOTE: consider enabling it always once api-extractor can generate
-      // declaration maps: https://github.com/microsoft/rushstack/issues/1886
-      rollupTypes: process.env.CI === 'true',
+      rollupTypes: true,
     }),
     {
       name: 'copy-files',

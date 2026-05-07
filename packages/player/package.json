@@ -2,13 +2,26 @@
   "name": "@canvas-commons/player",
   "version": "0.1.0",
   "description": "A custom element for displaying animations made with Canvas Commons",
-  "main": "dist/main.js",
-  "types": "types/main.d.ts",
+  "type": "module",
+  "main": "./dist/main.js",
+  "types": "./types/main.d.ts",
+  "exports": {
+    ".": {
+      "types": "./types/main.d.ts",
+      "default": "./dist/main.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "author": "canvas-commons",
   "homepage": "https://canvascommons.io/",
   "bugs": "https://github.com/canvas-commons/canvas-commons/issues",
   "license": "MIT",
-  "type": "module",
+  "sideEffects": [
+    "./dist/main.js"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -16,7 +29,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/canvas-commons/canvas-commons.git"
+    "url": "git+https://github.com/canvas-commons/canvas-commons.git",
+    "directory": "packages/player"
   },
   "files": [
     "dist",

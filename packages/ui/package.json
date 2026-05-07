@@ -2,13 +2,24 @@
   "name": "@canvas-commons/ui",
   "version": "0.1.0",
   "description": "A visual editor for Canvas Commons",
-  "main": "dist/main.js",
-  "types": "dist/main.d.ts",
+  "type": "module",
+  "main": "./dist/main.js",
+  "types": "./dist/main.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/main.d.ts",
+      "default": "./dist/main.js"
+    },
+    "./style.css": "./dist/style.css",
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "author": "canvas-commons",
   "homepage": "https://canvascommons.io/",
   "bugs": "https://github.com/canvas-commons/canvas-commons/issues",
   "license": "MIT",
-  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -17,13 +28,16 @@
     "preview": "vite preview",
     "lint:pkg": "publint --strict && attw --pack ."
   },
+  "sideEffects": [
+    "**/*.css"
+  ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/canvas-commons/canvas-commons.git"
+    "url": "git+https://github.com/canvas-commons/canvas-commons.git",
+    "directory": "packages/ui"
   },
   "files": [
     "dist",
-    "types",
     "tsconfig.plugin.json"
   ],
   "dependencies": {

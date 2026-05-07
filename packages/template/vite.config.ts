@@ -16,10 +16,6 @@ export default defineConfig({
         replacement: '@canvas-commons/2d/src/editor',
       },
       {
-        find: '@canvas-commons/ffmpeg/lib/client',
-        replacement: '@canvas-commons/ffmpeg/client',
-      },
-      {
         find: /@canvas-commons\/2d(\/lib)?/,
         replacement: '@canvas-commons/2d/src/lib',
       },

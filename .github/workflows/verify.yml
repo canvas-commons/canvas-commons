@@ -113,3 +113,15 @@ jobs:
       - run: npm run docs:build
         env:
           NODE_OPTIONS: "--max-old-space-size=8192"
+  packaging:
+    name: Packaging
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx lerna run build
+      - run: npm run lint:packages

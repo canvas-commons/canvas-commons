@@ -14,7 +14,8 @@
     "build": "tsc && vite build",
     "type": "tsc -w",
     "showcase": "tsc && vite build -c vite.showcase.ts",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint:pkg": "publint --strict && attw --pack ."
   },
   "repository": {
     "type": "git",

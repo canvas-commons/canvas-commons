@@ -12,7 +12,8 @@
     "client:build": "tsc --project client/tsconfig.json",
     "client:dev": "tsc -w --project client/tsconfig.json",
     "server:build": "tsc --project server/tsconfig.json",
-    "server:dev": "tsc -w --project server/tsconfig.json"
+    "server:dev": "tsc -w --project server/tsconfig.json",
+    "lint:pkg": "publint --strict && attw --pack ."
   },
   "repository": {
     "type": "git",

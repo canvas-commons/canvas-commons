@@ -8,14 +8,14 @@
     "test": "vitest"
   },
   "dependencies": {
-    "@canvas-commons/2d": "*",
-    "@canvas-commons/core": "*",
+    "@canvas-commons/2d": "workspace:^",
+    "@canvas-commons/core": "workspace:^",
     "jest-image-snapshot": "^6.2.0",
     "playwright": "^1.46.1",
-    "vitest": "^0.34.6"
+    "vitest": "catalog:"
   },
   "devDependencies": {
-    "@canvas-commons/ui": "*",
-    "@canvas-commons/vite-plugin": "*"
+    "@canvas-commons/ui": "workspace:^",
+    "@canvas-commons/vite-plugin": "workspace:^"
   }
 }

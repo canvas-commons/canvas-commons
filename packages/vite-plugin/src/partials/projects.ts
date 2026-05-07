@@ -99,7 +99,15 @@ import {MetaFile} from '@canvas-commons/core';
         },
         optimizeDeps: {
           entries: projects.map(project => project.filePath),
-          exclude: ['preact', 'preact/*', '@preact/signals'],
+          exclude: [
+            '@canvas-commons/2d',
+            '@canvas-commons/2d/*',
+            '@canvas-commons/core',
+            '@canvas-commons/core/*',
+            'preact',
+            'preact/*',
+            '@preact/signals',
+          ],
         },
       };
     },

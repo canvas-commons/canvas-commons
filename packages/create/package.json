@@ -20,10 +20,10 @@
     "url": "https://github.com/canvas-commons/canvas-commons.git"
   },
   "devDependencies": {
-    "@canvas-commons/2d": "^0.1.0",
-    "@canvas-commons/core": "^0.1.0",
-    "@canvas-commons/ui": "^0.1.0",
-    "@canvas-commons/vite-plugin": "^0.1.0"
+    "@canvas-commons/2d": "workspace:^",
+    "@canvas-commons/core": "workspace:^",
+    "@canvas-commons/ui": "workspace:^",
+    "@canvas-commons/vite-plugin": "workspace:^"
   },
   "dependencies": {
     "minimist": "^1.2.8",

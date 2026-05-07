@@ -11,16 +11,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
-      - run: npm ci
-      - run: npx lerna run build
-      - run: npx lerna run bundle
-      - run: npm run examples:build
-      - run: npm run ui:showcase
-      - run: npm run docs:build
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+      - run: pnpm run bundle
+      - run: pnpm run examples:build
+      - run: pnpm run ui:showcase
+      - run: pnpm run docs:build
         env:
           NODE_OPTIONS: "--max-old-space-size=8192"
       - uses: peaceiris/actions-gh-pages@v3

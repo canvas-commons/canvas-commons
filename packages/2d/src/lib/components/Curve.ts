@@ -1,18 +1,22 @@
 import {
   BBox,
+  ColorSignal,
+  PossibleColor,
   SerializedVector2,
   SignalValue,
   SimpleSignal,
   Vector2,
   clamp,
 } from '@canvas-commons/core';
+import {ArrowDrawer, defaultArrowDrawer} from '../curves/ArrowDrawer';
 import {CurveDrawingInfo} from '../curves/CurveDrawingInfo';
 import {CurvePoint} from '../curves/CurvePoint';
 import {CurveProfile, profileToSVGPathData} from '../curves/CurveProfile';
 import {getPointAtDistance} from '../curves/getPointAtDistance';
 import {computed, initial, nodeName, signal} from '../decorators';
+import {colorSignal} from '../decorators/colorSignal';
 import {DesiredLength} from '../partials';
-import {lineTo, moveTo, resolveCanvasStyle} from '../utils';
+import {resolveCanvasStyle} from '../utils';
 import {Shape, ShapeProps} from './Shape';
 
 export interface CurveProps extends ShapeProps {
@@ -31,7 +35,7 @@ export interface CurveProps extends ShapeProps {
   /**
    * {@inheritDoc Curve.startArrow}
    */
-  startArrow?: SignalValue<boolean>;
+  startArrow?: SignalValue<boolean | ArrowDrawer>;
   /**
    * {@inheritDoc Curve.end}
    */
@@ -43,11 +47,39 @@ export interface CurveProps extends ShapeProps {
   /**
    * {@inheritDoc Curve.endArrow}
    */
-  endArrow?: SignalValue<boolean>;
+  endArrow?: SignalValue<boolean | ArrowDrawer>;
   /**
    * {@inheritDoc Curve.arrowSize}
    */
   arrowSize?: SignalValue<number>;
+  /**
+   * {@inheritDoc Curve.tickLength}
+   */
+  tickLength?: SignalValue<number>;
+  /**
+   * {@inheritDoc Curve.tickEvery}
+   */
+  tickEvery?: SignalValue<number>;
+  /**
+   * {@inheritDoc Curve.tickOffset}
+   */
+  tickOffset?: SignalValue<number>;
+  /**
+   * {@inheritDoc Curve.tickWidth}
+   */
+  tickWidth?: SignalValue<number>;
+  /**
+   * {@inheritDoc Curve.tickColor}
+   */
+  tickColor?: SignalValue<PossibleColor>;
+  /**
+   * {@inheritDoc Curve.tickStart}
+   */
+  tickStart?: SignalValue<number>;
+  /**
+   * {@inheritDoc Curve.tickEnd}
+   */
+  tickEnd?: SignalValue<number>;
 }
 
 @nodeName('Curve')
@@ -95,14 +127,16 @@ export abstract class Curve extends Shape {
   public declare readonly startOffset: SimpleSignal<number, this>;
 
   /**
-   * Whether to display an arrow at the start of the visible curve.
+   * Whether and how to display an arrow at the start of the visible curve.
    *
    * @remarks
-   * Use {@link arrowSize} to control the size of the arrow.
+   * When set to `true`, the default arrow drawer is used. An {@link ArrowDrawer}
+   * can be provided for custom arrow rendering. Use {@link arrowSize} to control
+   * the size of the arrow.
    */
   @initial(false)
   @signal()
-  public declare readonly startArrow: SimpleSignal<boolean, this>;
+  public declare readonly startArrow: SimpleSignal<boolean | ArrowDrawer, this>;
 
   /**
    * A percentage from the start after which the curve should be clipped.
@@ -137,14 +171,16 @@ export abstract class Curve extends Shape {
   public declare readonly endOffset: SimpleSignal<number, this>;
 
   /**
-   * Whether to display an arrow at the end of the visible curve.
+   * Whether and how to display an arrow at the end of the visible curve.
    *
    * @remarks
-   * Use {@link arrowSize} to control the size of the arrow.
+   * When set to `true`, the default arrow drawer is used. An {@link ArrowDrawer}
+   * can be provided for custom arrow rendering. Use {@link arrowSize} to control
+   * the size of the arrow.
    */
   @initial(false)
   @signal()
-  public declare readonly endArrow: SimpleSignal<boolean, this>;
+  public declare readonly endArrow: SimpleSignal<boolean | ArrowDrawer, this>;
 
   /**
    * Controls the size of the end and start arrows.
@@ -156,6 +192,81 @@ export abstract class Curve extends Shape {
   @initial(24)
   @signal()
   public declare readonly arrowSize: SimpleSignal<number, this>;
+
+  /**
+   * The total length of each tick mark perpendicular to the curve.
+   *
+   * @remarks
+   * When set to `0`, no ticks are drawn. The tick extends equally in both
+   * directions from the curve.
+   */
+  @initial(0)
+  @signal()
+  public declare readonly tickLength: SimpleSignal<number, this>;
+
+  /**
+   * The distance between consecutive tick marks along the curve.
+   */
+  @initial(100)
+  @signal()
+  public declare readonly tickEvery: SimpleSignal<number, this>;
+
+  /**
+   * The offset of the first tick mark from the start of the curve.
+   */
+  @initial(0)
+  @signal()
+  public declare readonly tickOffset: SimpleSignal<number, this>;
+
+  /**
+   * The stroke width of each tick mark.
+   *
+   * @remarks
+   * Defaults to the curve's {@link Shape.lineWidth | lineWidth}.
+   */
+  @initial(null)
+  @signal()
+  public declare readonly tickWidth: SimpleSignal<number, this>;
+
+  /**
+   * The color of the tick marks.
+   *
+   * @remarks
+   * Defaults to the curve's {@link Shape.stroke | stroke} color.
+   */
+  @initial(null)
+  @colorSignal()
+  public declare readonly tickColor: ColorSignal<this>;
+
+  /**
+   * A percentage along the curve before which no ticks are drawn.
+   *
+   * @remarks
+   * Works together with {@link start} to determine the effective tick range.
+   * The effective start is the larger of `start` and `tickStart`.
+   */
+  @initial(0)
+  @signal()
+  public declare readonly tickStart: SimpleSignal<number, this>;
+
+  /**
+   * A percentage along the curve after which no ticks are drawn.
+   *
+   * @remarks
+   * Works together with {@link end} to determine the effective tick range.
+   * The effective end is the smaller of `end` and `tickEnd`.
+   */
+  @initial(1)
+  @signal()
+  public declare readonly tickEnd: SimpleSignal<number, this>;
+
+  protected getDefaultTickWidth() {
+    return this.lineWidth();
+  }
+
+  protected getDefaultTickColor() {
+    return this.stroke();
+  }
 
   protected canHaveSubpath = false;
 
@@ -275,12 +386,15 @@ export abstract class Curve extends Shape {
     const distance = end - start;
     const arrowSize = Math.min(distance / 2, this.arrowSize());
 
-    if (this.startArrow()) {
-      start += arrowSize / 2;
+    const startArrowValue = this.startArrow();
+    const endArrowValue = this.endArrow();
+
+    if (this.hasArrow(startArrowValue)) {
+      start += this.arrowOffset(startArrowValue, arrowSize);
     }
 
-    if (this.endArrow()) {
-      end -= arrowSize / 2;
+    if (this.hasArrow(endArrowValue)) {
+      end -= this.arrowOffset(endArrowValue, arrowSize);
     }
 
     let length = 0;
@@ -362,6 +476,44 @@ export abstract class Curve extends Shape {
     return getPointAtDistance(this.profile(), this.percentageToDistance(value));
   }
 
+  /**
+   * The positions of all tick marks along the curve.
+   *
+   * @remarks
+   * Each entry contains the position, tangent, and normal at the tick's
+   * location on the curve. This can be used to place labels or other elements
+   * at tick positions.
+   */
+  @computed()
+  public tickPositions(): CurvePoint[] {
+    const tickLength = this.tickLength();
+    if (tickLength <= 0) return [];
+
+    const tickEvery = this.tickEvery();
+    if (tickEvery <= 0) return [];
+
+    const tickOffset = this.tickOffset();
+    const startOffset = this.startOffset();
+    const offsetLen = this.offsetArcLength();
+    const startDist = this.percentageToDistance(
+      Math.max(this.start(), this.tickStart()),
+    );
+    const endDist = this.percentageToDistance(
+      Math.min(this.end(), this.tickEnd()),
+    );
+    const minDist = Math.min(startDist, endDist);
+    const maxDist = Math.max(startDist, endDist);
+    const result: CurvePoint[] = [];
+
+    for (let d = tickOffset; d < offsetLen; d += tickEvery) {
+      const absoluteDist = d + startOffset;
+      if (absoluteDist < minDist || absoluteDist > maxDist) continue;
+      result.push(this.getPointAtDistance(d));
+    }
+
+    return result;
+  }
+
   protected override getComputedLayout(): BBox {
     return this.offsetComputedLayout(super.getComputedLayout());
   }
@@ -383,12 +535,17 @@ export abstract class Curve extends Shape {
   protected override getCacheBBox(): BBox {
     const box = this.childrenBBox();
     const arrowSize =
-      this.startArrow() || this.endArrow() ? this.arrowSize() : 0;
+      this.hasArrow(this.startArrow()) || this.hasArrow(this.endArrow())
+        ? this.arrowSize()
+        : 0;
     const lineWidth = this.lineWidth();
+    const tickExtent = this.tickLength() / 2;
 
     const coefficient = this.lineWidthCoefficient();
 
-    return box.expand(Math.max(0, arrowSize, lineWidth * coefficient));
+    return box.expand(
+      Math.max(0, arrowSize, lineWidth * coefficient, tickExtent),
+    );
   }
 
   protected lineWidthCoefficient(): number {
@@ -410,51 +567,128 @@ export abstract class Curve extends Shape {
       !this.startArrow.isInitial() ||
       !this.end.isInitial() ||
       !this.endOffset.isInitial() ||
-      !this.endArrow.isInitial()
+      !this.endArrow.isInitial() ||
+      this.tickLength() > 0
     );
   }
 
   protected override drawShape(context: CanvasRenderingContext2D) {
     super.drawShape(context);
-    if (this.startArrow() || this.endArrow()) {
-      this.drawArrows(context);
+    const startArrowValue = this.startArrow();
+    const endArrowValue = this.endArrow();
+    if (this.hasArrow(startArrowValue) || this.hasArrow(endArrowValue)) {
+      this.drawArrows(context, startArrowValue, endArrowValue);
+    }
+    if (this.tickLength() > 0) {
+      this.drawTicks(context);
     }
   }
 
-  private drawArrows(context: CanvasRenderingContext2D) {
+  private hasArrow(value: boolean | ArrowDrawer): value is true | ArrowDrawer {
+    return value !== false;
+  }
+
+  private getArrowDrawer(value: true | ArrowDrawer): ArrowDrawer {
+    return value === true ? defaultArrowDrawer : value;
+  }
+
+  private arrowOffset(
+    arrowValue: true | ArrowDrawer,
+    arrowSize: number,
+  ): number {
+    const drawer = this.getArrowDrawer(arrowValue);
+    return drawer.offset ? drawer.offset(arrowSize) : arrowSize / 2;
+  }
+
+  private drawArrows(
+    context: CanvasRenderingContext2D,
+    startArrowValue: boolean | ArrowDrawer,
+    endArrowValue: boolean | ArrowDrawer,
+  ) {
     const {startPoint, startTangent, endPoint, endTangent, arrowSize} =
       this.curveDrawingInfo();
     if (arrowSize < 0.001) {
       return;
     }
 
+    const stroke = resolveCanvasStyle(this.stroke(), context);
+    const lineWidth = this.lineWidth();
+
     context.save();
     context.beginPath();
-    if (this.endArrow()) {
-      this.drawArrow(context, endPoint, endTangent.flipped, arrowSize);
+    context.fillStyle = stroke;
+    if (this.hasArrow(endArrowValue)) {
+      this.getArrowDrawer(endArrowValue).draw({
+        context,
+        center: endPoint,
+        tangent: endTangent.flipped,
+        arrowSize,
+        stroke,
+        lineWidth,
+      });
     }
-    if (this.startArrow()) {
-      this.drawArrow(context, startPoint, startTangent, arrowSize);
+    if (this.hasArrow(startArrowValue)) {
+      this.getArrowDrawer(startArrowValue).draw({
+        context,
+        center: startPoint,
+        tangent: startTangent,
+        arrowSize,
+        stroke,
+        lineWidth,
+      });
     }
-    context.fillStyle = resolveCanvasStyle(this.stroke(), context);
     context.closePath();
     context.fill();
     context.restore();
   }
 
-  private drawArrow(
-    context: CanvasRenderingContext2D | Path2D,
-    center: Vector2,
-    tangent: Vector2,
-    arrowSize: number,
-  ) {
-    const normal = tangent.perpendicular;
-    const origin = center.add(tangent.scale(-arrowSize / 2));
+  private drawTicks(context: CanvasRenderingContext2D) {
+    const tickLength = this.tickLength();
+    const tickEvery = this.tickEvery();
+    if (tickLength <= 0 || tickEvery <= 0) return;
 
-    moveTo(context, origin);
-    lineTo(context, origin.add(tangent.add(normal).scale(arrowSize)));
-    lineTo(context, origin.add(tangent.sub(normal).scale(arrowSize)));
-    lineTo(context, origin);
-    context.closePath();
+    const tickOffset = this.tickOffset();
+    const startOffset = this.startOffset();
+    const offsetLen = this.offsetArcLength();
+    const startDist = this.percentageToDistance(
+      Math.max(this.start(), this.tickStart()),
+    );
+    const endDist = this.percentageToDistance(
+      Math.min(this.end(), this.tickEnd()),
+    );
+    const minDist = Math.min(startDist, endDist);
+    const maxDist = Math.max(startDist, endDist);
+    const halfTick = tickLength / 2;
+
+    context.save();
+    context.strokeStyle = resolveCanvasStyle(this.tickColor(), context);
+    context.lineWidth = this.tickWidth();
+    context.lineCap = 'butt';
+
+    for (let d = tickOffset; d < offsetLen; d += tickEvery) {
+      const absoluteDist = d + startOffset;
+      if (absoluteDist < minDist || absoluteDist > maxDist) continue;
+
+      const endScale = clamp(0, 1, (maxDist - absoluteDist) / halfTick);
+      const startScale = clamp(0, 1, (absoluteDist - minDist) / halfTick);
+      const scale = Math.min(endScale, startScale);
+
+      const point = this.getPointAtDistance(d);
+      const normal = point.normal;
+      const scaledHalf = halfTick * scale;
+
+      context.beginPath();
+      context.moveTo(
+        point.position.x + normal.x * scaledHalf,
+        point.position.y + normal.y * scaledHalf,
+      );
+      context.lineTo(
+        point.position.x - normal.x * scaledHalf,
+        point.position.y - normal.y * scaledHalf,
+      );
+      context.stroke();
+    }
+
+    context.restore();
   }
 }

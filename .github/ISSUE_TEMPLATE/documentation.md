@@ -6,6 +6,6 @@ labels: b-documentation
 assignees: hhenrichsen
 ---
 
-**Description**
+### Description
 A clear and concise description of what the issue is.
 How can it be improved?

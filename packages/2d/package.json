@@ -14,7 +14,8 @@
     "build-lib": "tspc -p src/lib/tsconfig.build.json",
     "build-editor": "rollup -c rollup.editor.mjs",
     "bundle": "rollup -c rollup.config.mjs",
-    "test": "vitest"
+    "test": "vitest",
+    "lint:pkg": "publint --strict && attw --pack ."
   },
   "sideEffects": false,
   "repository": {

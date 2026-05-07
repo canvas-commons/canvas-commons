@@ -33,9 +33,11 @@
     "eslint": "eslint \"**/*.ts?(x)\"",
     "eslint:fix": "eslint --fix \"**/*.ts?(x)\"",
     "prettier": "prettier --check .",
-    "prettier:fix": "prettier --write ."
+    "prettier:fix": "prettier --write .",
+    "lint:packages": "npm run lint:pkg --workspaces --if-present"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.2",
     "@commitlint/cli": "^19.4.0",
     "@commitlint/config-conventional": "^19.2.2",
     "@typescript-eslint/eslint-plugin": "^6.11.0",
@@ -47,6 +49,7 @@
     "lint-staged": "^15.2.9",
     "prettier": "^3.3.3",
     "prettier-plugin-organize-imports": "^4.0.0",
+    "publint": "^0.3.19",
     "typescript": "^6.0.2",
     "vite": "^4.5.0"
   },

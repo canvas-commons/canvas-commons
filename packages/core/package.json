@@ -11,7 +11,8 @@
     "dev": "tspc -p tsconfig.build.json -w",
     "build": "tspc -p tsconfig.build.json",
     "bundle": "rollup -c rollup.config.mjs",
-    "test": "vitest"
+    "test": "vitest",
+    "lint:pkg": "publint --strict && attw --pack ."
   },
   "sideEffects": false,
   "repository": {

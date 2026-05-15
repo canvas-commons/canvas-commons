@@ -67,11 +67,21 @@ jobs:
       - run: npm ci
       - run: npx lerna run build
       - run: npx lerna run test
+  playwright-version:
+    name: Resolve Playwright version
+    runs-on: ubuntu-latest
+    outputs:
+      playwright-version: ${{ steps.resolve.outputs.playwright-version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: resolve
+        uses: atos-actions/get-playwright-version@v1
   e2e:
     name: E2E
+    needs: playwright-version
     runs-on: ubuntu-latest
     container:
-      image: mcr.microsoft.com/playwright:v1.46.1-jammy
+      image: mcr.microsoft.com/playwright:${{ needs.playwright-version.outputs.playwright-version }}-jammy
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

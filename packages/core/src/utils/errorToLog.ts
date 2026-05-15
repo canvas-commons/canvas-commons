@@ -1,4 +1,4 @@
-import type {LogPayload} from '../app';
+import type {LogPayload} from '../app/index.js';
 
 export function errorToLog(error: any): LogPayload {
   return {

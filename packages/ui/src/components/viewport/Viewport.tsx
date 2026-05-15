@@ -1,22 +1,22 @@
 import {RendererState} from '@canvas-commons/core';
 import clsx from 'clsx';
 import {useEffect, useState} from 'preact/hooks';
-import {useApplication} from '../../contexts';
+import {useApplication} from '../../contexts/index.js';
 import {
   VIEWPORT_SHORTCUTS,
   useSurfaceShortcuts,
-} from '../../contexts/shortcuts';
-import {useDuration, useRendererState} from '../../hooks';
-import {formatDuration} from '../../utils';
+} from '../../contexts/shortcuts.js';
+import {useDuration, useRendererState} from '../../hooks/index.js';
+import {formatDuration} from '../../utils/index.js';
+import {CurrentTime} from '../playback/CurrentTime.js';
 import {
   PlaybackControls,
   PlaybackProgress,
   RenderingProgress,
-} from '../playback';
-import {CurrentTime} from '../playback/CurrentTime';
-import {EditorPreview} from './EditorPreview';
-import {StageView} from './StageView';
-import {Timestamp} from './Timestamp';
+} from '../playback/index.js';
+import {EditorPreview} from './EditorPreview.js';
+import {StageView} from './StageView.js';
+import {Timestamp} from './Timestamp.js';
 import styles from './Viewport.module.scss';
 
 export function Viewport() {

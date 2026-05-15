@@ -1,5 +1,5 @@
-import {useScene} from './useScene';
-import {useThread} from './useThread';
+import {useScene} from './useScene.js';
+import {useThread} from './useThread.js';
 
 /**
  * Register a time event and get its duration in seconds.

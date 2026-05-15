@@ -5,7 +5,7 @@ import {
   inverseCodeRange,
   isPointInCodeRange,
   pointToPoint,
-} from './CodeRange';
+} from './CodeRange.js';
 
 describe('CodeRange', () => {
   test('should detect ranges', () => {

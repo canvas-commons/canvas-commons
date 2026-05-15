@@ -1,5 +1,5 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest';
-import {isProxyEnabled, viaProxy} from './proxyUtils';
+import {isProxyEnabled, viaProxy} from './proxyUtils.js';
 const WindowMock = {
   location: {
     toString: () => 'https://mockhostname:1234',

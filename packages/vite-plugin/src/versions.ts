@@ -1,4 +1,5 @@
 import fs from 'fs';
+import {createRequire} from 'module';
 import path from 'path';
 
 export function getVersions() {
@@ -12,7 +13,10 @@ export function getVersions() {
 
 function loadVersion(module: string): string | null {
   try {
-    const modulePath = path.dirname(require.resolve(`${module}/package.json`));
+    const nodeRequire = createRequire(import.meta.url);
+    const modulePath = path.dirname(
+      nodeRequire.resolve(`${module}/package.json`),
+    );
     const packageJsonPath = path.resolve(modulePath, 'package.json');
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath).toString());
     return packageJson.version ?? null;

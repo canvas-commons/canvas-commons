@@ -1,6 +1,6 @@
-import {decorate, threadable} from '../decorators';
-import {ThreadGenerator} from '../threading';
-import {useThread} from '../utils';
+import {decorate, threadable} from '../decorators/index.js';
+import {ThreadGenerator} from '../threading/index.js';
+import {useThread} from '../utils/index.js';
 
 decorate(tween, threadable());
 export function* tween(

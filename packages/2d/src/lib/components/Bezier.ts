@@ -1,10 +1,10 @@
 import {BBox, SerializedVector2, Vector2} from '@canvas-commons/core';
-import {CurveProfile} from '../curves';
-import {PolynomialSegment} from '../curves/PolynomialSegment';
-import {computed} from '../decorators';
-import {DesiredLength} from '../partials';
-import {arc, drawLine, drawPivot, moveTo} from '../utils';
-import {Curve} from './Curve';
+import {CurveProfile} from '../curves/index.js';
+import {PolynomialSegment} from '../curves/PolynomialSegment.js';
+import {computed} from '../decorators/index.js';
+import {DesiredLength} from '../partials/index.js';
+import {arc, drawLine, drawPivot, moveTo} from '../utils/index.js';
+import {Curve} from './Curve.js';
 
 export interface BezierOverlayInfo {
   curve: Path2D;

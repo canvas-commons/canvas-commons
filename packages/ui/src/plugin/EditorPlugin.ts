@@ -1,6 +1,6 @@
 import {Plugin} from '@canvas-commons/core';
 import {FunctionComponent} from 'preact';
-import {ShortcutConfig} from '../contexts';
+import {ShortcutConfig} from '../contexts/index.js';
 
 /**
  * Properties passed to the {@link PluginTabConfig.tabComponent} and

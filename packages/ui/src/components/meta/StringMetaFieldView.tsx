@@ -1,7 +1,7 @@
 import type {StringMetaField} from '@canvas-commons/core';
-import {useSubscribableValue} from '../../hooks';
-import {Input, InputSelect} from '../controls';
-import {MetaFieldGroup} from './MetaFieldGroup';
+import {useSubscribableValue} from '../../hooks/index.js';
+import {Input, InputSelect} from '../controls/index.js';
+import {MetaFieldGroup} from './MetaFieldGroup.js';
 
 export interface StringMetaFieldViewProps {
   field: StringMetaField;

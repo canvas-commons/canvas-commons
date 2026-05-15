@@ -1,5 +1,5 @@
-import {SignalValue} from '../signals/types';
-import {useScene} from '../utils';
+import {SignalValue} from '../signals/types.js';
+import {useScene} from '../utils/index.js';
 
 /**
  * Transition to the current scene by altering the Context2D before scenes are rendered.

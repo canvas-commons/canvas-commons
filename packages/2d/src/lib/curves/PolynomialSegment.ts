@@ -1,9 +1,9 @@
 import {BBox, Vector2} from '@canvas-commons/core';
-import {moveTo} from '../utils';
-import {CurvePoint} from './CurvePoint';
-import {Polynomial2D} from './Polynomial2D';
-import {Segment} from './Segment';
-import {UniformPolynomialCurveSampler} from './UniformPolynomialCurveSampler';
+import {moveTo} from '../utils/index.js';
+import {CurvePoint} from './CurvePoint.js';
+import {Polynomial2D} from './Polynomial2D.js';
+import {Segment} from './Segment.js';
+import {UniformPolynomialCurveSampler} from './UniformPolynomialCurveSampler.js';
 
 export abstract class PolynomialSegment extends Segment {
   protected readonly pointSampler: UniformPolynomialCurveSampler;

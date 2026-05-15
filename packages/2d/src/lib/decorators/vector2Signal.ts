@@ -4,9 +4,9 @@ import {
   Vector2,
   Vector2SignalContext,
 } from '@canvas-commons/core';
-import type {Length} from '../partials';
-import {compound} from './compound';
-import {wrapper} from './signal';
+import type {Length} from '../partials/index.js';
+import {compound} from './compound.js';
+import {wrapper} from './signal.js';
 
 export type Vector2LengthSignal<TOwner> = Signal<
   PossibleVector2<Length>,

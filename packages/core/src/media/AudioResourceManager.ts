@@ -1,6 +1,6 @@
-import {Logger} from '../app';
-import {ValueDispatcher} from '../events';
-import {AudioData, EMPTY_AUDIO_DATA} from './AudioData';
+import {Logger} from '../app/index.js';
+import {ValueDispatcher} from '../events/index.js';
+import {AudioData, EMPTY_AUDIO_DATA} from './AudioData.js';
 
 export class AudioResourceManager {
   private readonly context = new AudioContext();

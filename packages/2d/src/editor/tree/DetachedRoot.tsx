@@ -1,7 +1,7 @@
-import {usePluginState} from '../Provider';
-import {NodeElement} from './NodeElement';
-import {TreeElement} from './TreeElement';
-import {TreeRoot} from './TreeRoot';
+import {usePluginState} from '../Provider.js';
+import {NodeElement} from './NodeElement.js';
+import {TreeElement} from './TreeElement.js';
+import {TreeRoot} from './TreeRoot.js';
 
 export function DetachedRoot() {
   const {afterRender, openDetached, scene} = usePluginState();

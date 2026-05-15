@@ -6,12 +6,16 @@ import {
   SimpleSignal,
   SpacingSignal,
 } from '@canvas-commons/core';
-import {getRectProfile} from '../curves/getRectProfile';
-import {computed, initial, nodeName, signal} from '../decorators';
-import {spacingSignal} from '../decorators/spacingSignal';
-import {DesiredLength} from '../partials';
-import {PathDataBuilder, drawRoundRect, roundedRectToSVGPath} from '../utils';
-import {Curve, CurveProps} from './Curve';
+import {getRectProfile} from '../curves/getRectProfile.js';
+import {computed, initial, nodeName, signal} from '../decorators/index.js';
+import {spacingSignal} from '../decorators/spacingSignal.js';
+import {DesiredLength} from '../partials/index.js';
+import {
+  PathDataBuilder,
+  drawRoundRect,
+  roundedRectToSVGPath,
+} from '../utils/index.js';
+import {Curve, CurveProps} from './Curve.js';
 
 export interface RectProps extends CurveProps {
   /**

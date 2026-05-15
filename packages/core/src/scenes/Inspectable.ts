@@ -1,4 +1,4 @@
-import {Vector2} from '../types/Vector';
+import {Vector2} from '../types/Vector.js';
 
 /**
  * Represents an element to inspect.

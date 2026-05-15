@@ -7,9 +7,9 @@ import {
   Vector2Signal,
   unwrap,
 } from '@canvas-commons/core';
-import {computed} from '../decorators/computed';
-import {initial, initializeSignals, signal} from '../decorators/signal';
-import {vector2Signal} from '../decorators/vector2Signal';
+import {computed} from '../decorators/computed.js';
+import {initial, initializeSignals, signal} from '../decorators/signal.js';
+import {vector2Signal} from '../decorators/vector2Signal.js';
 
 export type GradientType = 'linear' | 'conic' | 'radial';
 

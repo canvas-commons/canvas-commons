@@ -2,18 +2,22 @@ import {
   AsyncEventDispatcher,
   EventDispatcher,
   ValueDispatcher,
-} from '../events';
-import {AudioManager, AudioManagerPool, AudioResourceManager} from '../media';
-import {Scene, Sound} from '../scenes';
-import {EditableTimeEvents} from '../scenes/timeEvents';
-import {clamp} from '../tweening';
-import {Vector2} from '../types';
-import {Semaphore} from '../utils';
-import {Logger} from './Logger';
-import {PlaybackManager, PlaybackState} from './PlaybackManager';
-import {PlaybackStatus} from './PlaybackStatus';
-import {Project} from './Project';
-import {SharedWebGLContext} from './SharedWebGLContext';
+} from '../events/index.js';
+import {
+  AudioManager,
+  AudioManagerPool,
+  AudioResourceManager,
+} from '../media/index.js';
+import {Scene, Sound} from '../scenes/index.js';
+import {EditableTimeEvents} from '../scenes/timeEvents/index.js';
+import {clamp} from '../tweening/index.js';
+import {Vector2} from '../types/index.js';
+import {Semaphore} from '../utils/index.js';
+import {Logger} from './Logger.js';
+import {PlaybackManager, PlaybackState} from './PlaybackManager.js';
+import {PlaybackStatus} from './PlaybackStatus.js';
+import {Project} from './Project.js';
+import {SharedWebGLContext} from './SharedWebGLContext.js';
 
 export interface PlayerState extends Record<string, unknown> {
   paused: boolean;

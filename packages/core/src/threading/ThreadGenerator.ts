@@ -1,4 +1,4 @@
-import {Thread} from './Thread';
+import {Thread} from './Thread.js';
 
 export interface Promisable<T> {
   toPromise(): Promise<T>;

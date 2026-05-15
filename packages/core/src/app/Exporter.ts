@@ -1,7 +1,7 @@
-import type {MetaField} from '../meta';
-import type {Sound} from '../scenes';
-import type {Project} from './Project';
-import type {RendererResult, RendererSettings} from './Renderer';
+import type {MetaField} from '../meta/index.js';
+import type {Sound} from '../scenes/index.js';
+import type {Project} from './Project.js';
+import type {RendererResult, RendererSettings} from './Renderer.js';
 
 /**
  * The static interface for exporters.

@@ -5,11 +5,11 @@ import {
   SignalValue,
   SimpleSignal,
 } from '@canvas-commons/core';
-import {CurveProfile, getCircleProfile} from '../curves';
-import {computed, initial, nodeName, signal} from '../decorators';
-import {DesiredLength} from '../partials';
-import {PathDataBuilder} from '../utils';
-import {Curve, CurveProps} from './Curve';
+import {CurveProfile, getCircleProfile} from '../curves/index.js';
+import {computed, initial, nodeName, signal} from '../decorators/index.js';
+import {DesiredLength} from '../partials/index.js';
+import {PathDataBuilder} from '../utils/index.js';
+import {Curve, CurveProps} from './Curve.js';
 
 export interface CircleProps extends CurveProps {
   /**

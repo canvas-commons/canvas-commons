@@ -1,5 +1,5 @@
-import {Random} from '../scenes';
-import {useScene} from './useScene';
+import {Random} from '../scenes/index.js';
+import {useScene} from './useScene.js';
 
 /**
  * Get the random number generator for the current scene.

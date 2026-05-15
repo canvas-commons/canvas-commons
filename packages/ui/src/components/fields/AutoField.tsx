@@ -1,11 +1,11 @@
 import {Color, Spacing, Vector2, isType} from '@canvas-commons/core';
 import {FunctionComponent} from 'preact';
-import {ArrayField} from './ArrayField';
-import {ColorField} from './ColorField';
-import {NumberField} from './NumberField';
-import {SpacingField} from './SpacingField';
-import {UnknownField} from './UnknownField';
-import {Vector2Field} from './Vector2Field';
+import {ArrayField} from './ArrayField.js';
+import {ColorField} from './ColorField.js';
+import {NumberField} from './NumberField.js';
+import {SpacingField} from './SpacingField.js';
+import {UnknownField} from './UnknownField.js';
+import {Vector2Field} from './Vector2Field.js';
 
 export interface AutoFieldProps {
   value: any;

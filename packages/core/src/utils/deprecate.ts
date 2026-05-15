@@ -1,4 +1,4 @@
-import {useLogger} from './useScene';
+import {useLogger} from './useScene.js';
 
 /**
  * Mark the given function as deprecated.

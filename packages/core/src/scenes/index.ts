@@ -4,16 +4,16 @@
  * @packageDocumentation
  */
 
-export * from './GeneratorScene';
-export * from './Inspectable';
-export * from './LifecycleEvents';
-export * from './Random';
-export * from './Scene';
-export * from './SceneMetadata';
-export * from './SceneState';
-export * from './Shaders';
-export * from './Slides';
-export * from './Sounds';
-export * from './Threadable';
-export * from './timeEvents';
-export * from './Variables';
+export * from './GeneratorScene.js';
+export * from './Inspectable.js';
+export * from './LifecycleEvents.js';
+export * from './Random.js';
+export * from './Scene.js';
+export * from './SceneMetadata.js';
+export * from './SceneState.js';
+export * from './Shaders.js';
+export * from './Slides.js';
+export * from './Sounds.js';
+export * from './Threadable.js';
+export * from './timeEvents/index.js';
+export * from './Variables.js';

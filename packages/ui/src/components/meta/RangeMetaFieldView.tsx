@@ -1,12 +1,12 @@
 import type {RangeMetaField} from '@canvas-commons/core';
-import {useApplication} from '../../contexts';
+import {useApplication} from '../../contexts/index.js';
 import {
   useDuration,
   usePreviewSettings,
   useSubscribableValue,
-} from '../../hooks';
-import {NumberInput} from '../controls';
-import {MetaFieldGroup} from './MetaFieldGroup';
+} from '../../hooks/index.js';
+import {NumberInput} from '../controls/index.js';
+import {MetaFieldGroup} from './MetaFieldGroup.js';
 
 export interface RangeMetaFieldViewProps {
   field: RangeMetaField;

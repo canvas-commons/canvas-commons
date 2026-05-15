@@ -1,5 +1,5 @@
 import {VNode} from 'preact';
-import {usePlayerTime} from '../../hooks';
+import {usePlayerTime} from '../../hooks/index.js';
 
 interface CurrentTimeProps {
   render: (time: number) => VNode<unknown>;

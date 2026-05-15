@@ -1,6 +1,6 @@
 import {Spacing} from '@canvas-commons/core';
-import {compound} from './compound';
-import {wrapper} from './signal';
+import {compound} from './compound.js';
+import {wrapper} from './signal.js';
 
 export function spacingSignal(prefix?: string): PropertyDecorator {
   return (target, key) => {

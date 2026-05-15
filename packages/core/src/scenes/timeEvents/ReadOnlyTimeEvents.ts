@@ -1,7 +1,7 @@
-import {ValueDispatcher} from '../../events';
-import type {Scene} from '../Scene';
-import type {TimeEvent} from './TimeEvent';
-import type {TimeEvents} from './TimeEvents';
+import {ValueDispatcher} from '../../events/index.js';
+import type {Scene} from '../Scene.js';
+import type {TimeEvent} from './TimeEvent.js';
+import type {TimeEvents} from './TimeEvents.js';
 
 /**
  * Manages time events during rendering and presentation.

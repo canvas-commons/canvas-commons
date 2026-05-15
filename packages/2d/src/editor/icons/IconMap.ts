@@ -1,20 +1,20 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 
 import {FunctionComponent} from 'preact';
-import {CircleIcon} from './CircleIcon';
-import {CodeIcon} from './CodeIcon';
-import {CurveIcon} from './CurveIcon';
-import {GridIcon} from './GridIcon';
-import {ImgIcon} from './ImgIcon';
-import {LayoutIcon} from './LayoutIcon';
-import {LineIcon} from './LineIcon';
-import {NodeIcon} from './NodeIcon';
-import {RayIcon} from './RayIcon';
-import {RectIcon} from './RectIcon';
-import {ShapeIcon} from './ShapeIcon';
-import {TxtIcon} from './TxtIcon';
-import {VideoIcon} from './VideoIcon';
-import {View2DIcon} from './View2DIcon';
+import {CircleIcon} from './CircleIcon.js';
+import {CodeIcon} from './CodeIcon.js';
+import {CurveIcon} from './CurveIcon.js';
+import {GridIcon} from './GridIcon.js';
+import {ImgIcon} from './ImgIcon.js';
+import {LayoutIcon} from './LayoutIcon.js';
+import {LineIcon} from './LineIcon.js';
+import {NodeIcon} from './NodeIcon.js';
+import {RayIcon} from './RayIcon.js';
+import {RectIcon} from './RectIcon.js';
+import {ShapeIcon} from './ShapeIcon.js';
+import {TxtIcon} from './TxtIcon.js';
+import {VideoIcon} from './VideoIcon.js';
+import {View2DIcon} from './View2DIcon.js';
 
 export const IconMap: Record<string, FunctionComponent> = {
   Circle: CircleIcon,

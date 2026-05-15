@@ -1,9 +1,9 @@
 import {createRef} from '@canvas-commons/core';
 import {describe, expect, it} from 'vitest';
-import {useScene2D} from '../../scenes';
-import {Layout} from '../Layout';
-import {Txt} from '../Txt';
-import {mockScene2D} from './mockScene2D';
+import {useScene2D} from '../../scenes/index.js';
+import {Layout} from '../Layout.js';
+import {Txt} from '../Txt.js';
+import {mockScene2D} from './mockScene2D.js';
 
 describe('font inheritance', () => {
   mockScene2D();

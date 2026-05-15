@@ -1,5 +1,5 @@
-import type {Thread} from '../threading';
-import {DetailedError} from './DetailedError';
+import type {Thread} from '../threading/index.js';
+import {DetailedError} from './DetailedError.js';
 
 const ThreadStack: Thread[] = [];
 

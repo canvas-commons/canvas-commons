@@ -1,7 +1,7 @@
 import styles from './Playback.module.scss';
 
-import {useApplication} from '../../contexts';
-import {usePlayerTime, useSubscribableValue} from '../../hooks';
+import {useApplication} from '../../contexts/index.js';
+import {usePlayerTime, useSubscribableValue} from '../../hooks/index.js';
 
 export function PlaybackProgress() {
   const state = usePlayerTime();

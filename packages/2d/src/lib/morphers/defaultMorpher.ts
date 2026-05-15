@@ -1,7 +1,7 @@
-import {CurveProfile} from '../curves/CurveProfile';
-import {createCurveProfileLerp} from '../curves/createCurveProfileLerp';
-import {getPathProfile} from '../curves/getPathProfile';
-import {PathMorpher} from './PathMorpher';
+import {CurveProfile} from '../curves/CurveProfile.js';
+import {createCurveProfileLerp} from '../curves/createCurveProfileLerp.js';
+import {getPathProfile} from '../curves/getPathProfile.js';
+import {PathMorpher} from './PathMorpher.js';
 
 function curveProfileToPath(profile: CurveProfile): string {
   const parts: string[] = [];

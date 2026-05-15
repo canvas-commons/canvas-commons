@@ -1,6 +1,6 @@
 import {beforeEach, describe, expect, test} from 'vitest';
-import {Matrix2D} from './Matrix2D';
-import {PossibleVector2, Vector2} from './Vector';
+import {Matrix2D} from './Matrix2D.js';
+import {PossibleVector2, Vector2} from './Vector.js';
 
 type Matrix2DValues = [number, number, number, number, number, number];
 

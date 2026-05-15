@@ -1,13 +1,13 @@
 import {Stage} from '@canvas-commons/core';
 import {JSX} from 'preact';
 import {useEffect, useState} from 'preact/hooks';
-import {useApplication} from '../../contexts';
+import {useApplication} from '../../contexts/index.js';
 import {
   usePreviewSettings,
   useSharedSettings,
   useSubscribable,
-} from '../../hooks';
-import {StageView} from './StageView';
+} from '../../hooks/index.js';
+import {StageView} from './StageView.js';
 
 export function PreviewStage(props: JSX.HTMLAttributes<HTMLDivElement>) {
   const [stage] = useState(() => new Stage());

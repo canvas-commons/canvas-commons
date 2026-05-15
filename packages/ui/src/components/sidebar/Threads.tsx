@@ -5,8 +5,8 @@ import {
   useCurrentFrame,
   useCurrentScene,
   useSubscribableValue,
-} from '../../hooks';
-import {Pane} from '../tabs';
+} from '../../hooks/index.js';
+import {Pane} from '../tabs/index.js';
 
 export function Threads() {
   useCurrentFrame();

@@ -12,10 +12,10 @@ import {
   interpolation,
   nodeName,
   signal,
-} from '../decorators';
-import {Shape, ShapeProps} from './Shape';
-import {Txt} from './Txt';
-import {View2D} from './View2D';
+} from '../decorators/index.js';
+import {Shape, ShapeProps} from './Shape.js';
+import {Txt} from './Txt.js';
+import {View2D} from './View2D.js';
 
 export interface TxtLeafProps extends ShapeProps {
   children?: string;

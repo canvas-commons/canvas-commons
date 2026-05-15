@@ -3,12 +3,12 @@ import styles from './Console.module.scss';
 import {LogLevel, capitalize} from '@canvas-commons/core';
 import clsx from 'clsx';
 import {useLayoutEffect, useRef} from 'preact/hooks';
-import {useApplication} from '../../contexts';
-import {useStorage, useSubscribableValue} from '../../hooks';
-import {IconButton, Pill} from '../controls';
-import {Clear} from '../icons';
-import {Pane} from '../tabs';
-import {Log} from './Log';
+import {useApplication} from '../../contexts/index.js';
+import {useStorage, useSubscribableValue} from '../../hooks/index.js';
+import {IconButton, Pill} from '../controls/index.js';
+import {Clear} from '../icons/index.js';
+import {Pane} from '../tabs/index.js';
+import {Log} from './Log.js';
 
 const LOG_LEVELS: Record<string, boolean> = {
   [LogLevel.Error]: true,

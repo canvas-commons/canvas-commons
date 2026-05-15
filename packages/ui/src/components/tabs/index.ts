@@ -1,3 +1,3 @@
-export * from './Badge';
-export * from './Pane';
-export * from './Tabs';
+export * from './Badge.js';
+export * from './Pane.js';
+export * from './Tabs.js';

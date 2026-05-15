@@ -1,4 +1,4 @@
-import {Segment} from './Segment';
+import {Segment} from './Segment.js';
 
 export interface CurveProfile {
   arcLength: number;

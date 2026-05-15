@@ -5,7 +5,7 @@
  * the Proxy instead.
  */
 
-import {useLogger} from './useScene';
+import {useLogger} from './useScene.js';
 
 /**
  * Route the given url through a local proxy.

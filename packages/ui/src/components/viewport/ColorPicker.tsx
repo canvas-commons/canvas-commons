@@ -1,8 +1,8 @@
 import {useRef} from 'preact/hooks';
 import {useState} from 'react';
-import {VIEWPORT_SHORTCUTS, useShortcut} from '../../contexts/shortcuts';
-import {ButtonCheckbox} from '../controls/ButtonCheckbox';
-import {Colorize} from '../icons';
+import {VIEWPORT_SHORTCUTS, useShortcut} from '../../contexts/shortcuts.js';
+import {ButtonCheckbox} from '../controls/ButtonCheckbox.js';
+import {Colorize} from '../icons/index.js';
 
 export function ColorPicker() {
   return typeof EyeDropper === 'function' ? <ColorPickerImpl /> : <></>;

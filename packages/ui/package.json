@@ -26,7 +26,7 @@
     "type": "tsc -w",
     "showcase": "tsc && vite build -c vite.showcase.ts",
     "preview": "vite preview",
-    "lint:pkg": "publint --strict && attw --pack ."
+    "lint:pkg": "publint --strict && attw --pack . --profile esm-only --exclude-entrypoints ./style.css"
   },
   "sideEffects": [
     "**/*.css"

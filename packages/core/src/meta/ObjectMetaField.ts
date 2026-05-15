@@ -1,5 +1,5 @@
-import {ValueDispatcher} from '../events';
-import {MetaField} from './MetaField';
+import {ValueDispatcher} from '../events/index.js';
+import {MetaField} from './MetaField.js';
 
 export type ValueOf<T extends Record<string, any>> = {
   [K in keyof T]: T[K] extends MetaField<any, infer P> ? P : never;

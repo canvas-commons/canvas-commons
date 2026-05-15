@@ -1,7 +1,7 @@
-import {decorate, threadable} from '../decorators';
-import {ThreadGenerator} from '../threading';
-import {usePlayback, useThread} from '../utils';
-import {LoopCallback} from './loop';
+import {decorate, threadable} from '../decorators/index.js';
+import {ThreadGenerator} from '../threading/index.js';
+import {usePlayback, useThread} from '../utils/index.js';
+import {LoopCallback} from './loop.js';
 
 decorate(loopFor, threadable());
 /**

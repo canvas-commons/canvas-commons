@@ -1,5 +1,5 @@
 import {Signal, useSignal, useSignalEffect} from '@preact/signals';
-import {projectNameSignal} from './projectName';
+import {projectNameSignal} from './projectName.js';
 
 export function storedSignal<T>(
   value: T,

@@ -2,7 +2,7 @@ import fs from 'fs';
 import mime from 'mime-types';
 import path from 'path';
 import {Plugin} from 'vite';
-import {openInExplorer} from '../openInExplorer';
+import {openInExplorer} from '../openInExplorer.js';
 
 interface ExporterPluginConfig {
   outputPath: string;
@@ -51,9 +51,9 @@ export function exporterPlugin({outputPath}: ExporterPluginConfig): Plugin {
 }
 
 function writeBase64(filePath: string, base64: string) {
-  return new Promise((resolve, reject) => {
+  return new Promise<void>((resolve, reject) => {
     fs.createWriteStream(filePath)
-      .on('finish', resolve)
+      .on('finish', () => resolve())
       .on('error', reject)
       .end(Buffer.from(base64, 'base64'));
   });

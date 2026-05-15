@@ -4,17 +4,17 @@
  * @packageDocumentation
  */
 
-export * from './bootstrap';
-export * from './Exporter';
-export * from './ImageExporter';
-export * from './Logger';
-export * from './PlaybackManager';
-export * from './PlaybackStatus';
-export * from './Player';
-export * from './Presenter';
-export * from './Project';
-export * from './ProjectMetadata';
-export * from './Renderer';
-export * from './SettingsMetadata';
-export * from './SharedWebGLContext';
-export * from './Stage';
+export * from './bootstrap.js';
+export * from './Exporter.js';
+export * from './ImageExporter.js';
+export * from './Logger.js';
+export * from './PlaybackManager.js';
+export * from './PlaybackStatus.js';
+export * from './Player.js';
+export * from './Presenter.js';
+export * from './Project.js';
+export * from './ProjectMetadata.js';
+export * from './Renderer.js';
+export * from './SettingsMetadata.js';
+export * from './SharedWebGLContext.js';
+export * from './Stage.js';

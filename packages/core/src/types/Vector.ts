@@ -3,17 +3,17 @@ import {
   SignalValue,
   Vector2Signal,
   Vector2SignalContext,
-} from '../signals';
-import {arcLerp} from '../tweening';
+} from '../signals/index.js';
+import {arcLerp} from '../tweening/index.js';
 import {
   InterpolationFunction,
   clamp,
   map,
-} from '../tweening/interpolationFunctions';
-import {DEG2RAD, RAD2DEG} from '../utils';
-import {Matrix2D, PossibleMatrix2D} from './Matrix2D';
-import {Direction, Origin} from './Origin';
-import {EPSILON, Type, WebGLConvertible} from './Type';
+} from '../tweening/interpolationFunctions.js';
+import {DEG2RAD, RAD2DEG} from '../utils/index.js';
+import {Matrix2D, PossibleMatrix2D} from './Matrix2D.js';
+import {Direction, Origin} from './Origin.js';
+import {EPSILON, Type, WebGLConvertible} from './Type.js';
 
 export type SerializedVector2<T = number> = {
   x: T;

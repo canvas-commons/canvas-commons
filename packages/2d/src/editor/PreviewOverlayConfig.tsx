@@ -7,7 +7,7 @@ import {
   useViewportMatrix,
 } from '@canvas-commons/ui';
 import {ComponentChildren} from 'preact';
-import {usePluginState} from './Provider';
+import {usePluginState} from './Provider.js';
 
 function Component({children}: {children?: ComponentChildren}) {
   const state = useViewportContext();

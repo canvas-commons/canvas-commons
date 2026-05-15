@@ -9,12 +9,12 @@ import {
   tween,
   Vector2,
 } from '@canvas-commons/core';
-import {CurveProfile} from '../curves';
-import {createCurveProfileLerp} from '../curves/createCurveProfileLerp';
-import {getPathProfile} from '../curves/getPathProfile';
-import {computed, signal} from '../decorators';
-import {drawLine, drawPivot} from '../utils';
-import {Curve, CurveProps} from './Curve';
+import {createCurveProfileLerp} from '../curves/createCurveProfileLerp.js';
+import {getPathProfile} from '../curves/getPathProfile.js';
+import {CurveProfile} from '../curves/index.js';
+import {computed, signal} from '../decorators/index.js';
+import {drawLine, drawPivot} from '../utils/index.js';
+import {Curve, CurveProps} from './Curve.js';
 
 export interface PathProps extends CurveProps {
   data: SignalValue<string>;

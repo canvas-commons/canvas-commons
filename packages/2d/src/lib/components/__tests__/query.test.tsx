@@ -1,10 +1,10 @@
 import {createRef, createRefArray} from '@canvas-commons/core';
 import {describe, expect, it} from 'vitest';
-import {useScene2D} from '../../scenes';
-import {is} from '../../utils';
-import {Circle} from '../Circle';
-import {Rect} from '../Rect';
-import {mockScene2D} from './mockScene2D';
+import {useScene2D} from '../../scenes/index.js';
+import {is} from '../../utils/index.js';
+import {Circle} from '../Circle.js';
+import {Rect} from '../Rect.js';
+import {mockScene2D} from './mockScene2D.js';
 
 describe('query', () => {
   mockScene2D();

@@ -1,8 +1,8 @@
 import {HighlightStyle} from '@codemirror/language';
 import {Parser, SyntaxNode, Tree} from '@lezer/common';
 import {highlightTree} from '@lezer/highlight';
-import {CodeHighlighter, HighlightResult} from './CodeHighlighter';
-import {DefaultHighlightStyle} from './DefaultHighlightStyle';
+import {CodeHighlighter, HighlightResult} from './CodeHighlighter.js';
+import {DefaultHighlightStyle} from './DefaultHighlightStyle.js';
 
 interface LezerCache {
   tree: Tree;

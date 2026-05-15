@@ -1,8 +1,8 @@
 import {RendererState} from '@canvas-commons/core';
-import {useApplication} from '../contexts';
-import {useRendererState} from './useRendererState';
-import {usePreviewSettings, useRenderingSettings} from './useSettings';
-import {useSubscribableValue} from './useSubscribable';
+import {useApplication} from '../contexts/index.js';
+import {useRendererState} from './useRendererState.js';
+import {usePreviewSettings, useRenderingSettings} from './useSettings.js';
+import {useSubscribableValue} from './useSubscribable.js';
 
 export function useCurrentFrame() {
   const {player, renderer} = useApplication();

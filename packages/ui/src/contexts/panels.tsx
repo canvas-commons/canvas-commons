@@ -1,9 +1,9 @@
 import {computed, ReadonlySignal} from '@preact/signals';
 import {ComponentChildren, createContext} from 'preact';
 import {useContext, useMemo} from 'preact/hooks';
-import {PluginInspectorConfig, PluginTabConfig} from '../plugin';
-import {EditorPanel, storedSignal} from '../signals';
-import {useApplication} from './application';
+import {PluginInspectorConfig, PluginTabConfig} from '../plugin/index.js';
+import {EditorPanel, storedSignal} from '../signals/index.js';
+import {useApplication} from './application.js';
 
 interface Panel {
   current: ReadonlySignal<string | null>;

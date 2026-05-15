@@ -1,6 +1,6 @@
 import {Vector2, clamp} from '@canvas-commons/core';
-import {CurvePoint} from './CurvePoint';
-import {Segment} from './Segment';
+import {CurvePoint} from './CurvePoint.js';
+import {Segment} from './Segment.js';
 
 export class CircleSegment extends Segment {
   private readonly length: number;

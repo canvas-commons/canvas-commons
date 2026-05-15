@@ -12,8 +12,8 @@ import {
   startScene,
 } from '@canvas-commons/core';
 import {afterAll, beforeAll, beforeEach} from 'vitest';
-import {Scene2D, makeScene2D} from '../../scenes';
-import {View2D} from '../View2D';
+import {Scene2D, makeScene2D} from '../../scenes/index.js';
+import {View2D} from '../View2D.js';
 
 /**
  * Set up the test environment to support creating nodes.

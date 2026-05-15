@@ -5,7 +5,7 @@ import {
   useScene,
   WebGLConvertible,
 } from '@canvas-commons/core';
-import {Node} from '../components';
+import {Node} from '../components/index.js';
 
 /**
  * Describes a shader program used to apply effects to nodes.

@@ -1,5 +1,5 @@
 import {describe, expect, test, vi} from 'vitest';
-import {createSignal} from './createSignal';
+import {createSignal} from './createSignal.js';
 
 describe('createSignal()', () => {
   test('Works correctly with plain values', () => {

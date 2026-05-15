@@ -1,10 +1,10 @@
-import {MetaFile} from '../meta';
-import {Plugin} from '../plugin';
-import DefaultPlugin from '../plugin/DefaultPlugin';
-import {Logger} from './Logger';
-import {Project, ProjectSettings, Versions} from './Project';
-import {ProjectMetadata} from './ProjectMetadata';
-import {createSettingsMetadata} from './SettingsMetadata';
+import {MetaFile} from '../meta/index.js';
+import DefaultPlugin from '../plugin/DefaultPlugin.js';
+import {Plugin} from '../plugin/index.js';
+import {Logger} from './Logger.js';
+import {Project, ProjectSettings, Versions} from './Project.js';
+import {ProjectMetadata} from './ProjectMetadata.js';
+import {createSettingsMetadata} from './SettingsMetadata.js';
 
 /**
  * Bootstrap a project.

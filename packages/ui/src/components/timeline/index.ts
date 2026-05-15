@@ -1,2 +1,2 @@
-export {Playhead} from './Playhead';
-export * from './Timeline';
+export {Playhead} from './Playhead.js';
+export * from './Timeline.js';

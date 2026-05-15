@@ -5,10 +5,10 @@
     "ignoreDeprecations": "6.0",
     "inlineSourceMap": true,
     "esModuleInterop": true,
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "skipLibCheck": true,
     "strict": true,
-    "module": "commonjs",
+    "module": "esnext",
     "target": "es2020",
     "declaration": true,
     "declarationMap": true

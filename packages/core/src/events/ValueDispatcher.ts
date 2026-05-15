@@ -2,7 +2,7 @@ import {
   EventDispatcherBase,
   EventHandler,
   Subscribable,
-} from './EventDispatcherBase';
+} from './EventDispatcherBase.js';
 
 /**
  * Dispatches a {@link SubscribableValueEvent}

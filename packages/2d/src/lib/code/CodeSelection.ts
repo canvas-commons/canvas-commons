@@ -3,7 +3,7 @@ import {
   CodeRange,
   isCodeRange,
   isPointInCodeRange,
-} from './CodeRange';
+} from './CodeRange.js';
 
 export type CodeSelection = CodeRange[];
 export type PossibleCodeSelection = CodeRange | CodeRange[];

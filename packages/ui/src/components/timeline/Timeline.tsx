@@ -10,7 +10,7 @@ import {
   useApplication,
   useShortcuts,
   useSurfaceShortcuts,
-} from '../../contexts';
+} from '../../contexts/index.js';
 import {
   useDuration,
   usePlayerTime,
@@ -20,16 +20,16 @@ import {
   useSize,
   useStateChange,
   useStorage,
-} from '../../hooks';
-import {labelClipDraggingLeftSignal} from '../../signals';
-import {MouseButton, MouseMask, clamp} from '../../utils';
-import {borderHighlight} from '../animations';
-import {AudioTrack} from './AudioTrack';
-import {LabelTrack} from './LabelTrack';
-import {Playhead} from './Playhead';
-import {RangeSelector} from './RangeSelector';
-import {SceneTrack} from './SceneTrack';
-import {Timestamps} from './Timestamps';
+} from '../../hooks/index.js';
+import {labelClipDraggingLeftSignal} from '../../signals/index.js';
+import {MouseButton, MouseMask, clamp} from '../../utils/index.js';
+import {borderHighlight} from '../animations/index.js';
+import {AudioTrack} from './AudioTrack.js';
+import {LabelTrack} from './LabelTrack.js';
+import {Playhead} from './Playhead.js';
+import {RangeSelector} from './RangeSelector.js';
+import {SceneTrack} from './SceneTrack.js';
+import {Timestamps} from './Timestamps.js';
 
 const ZOOM_SPEED = 0.1;
 const ZOOM_MIN = 0.5;

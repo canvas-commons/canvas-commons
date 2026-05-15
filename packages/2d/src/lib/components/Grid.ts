@@ -5,8 +5,8 @@ import {
   Vector2Signal,
   map,
 } from '@canvas-commons/core';
-import {initial, nodeName, signal, vector2Signal} from '../decorators';
-import {Shape, ShapeProps} from './Shape';
+import {initial, nodeName, signal, vector2Signal} from '../decorators/index.js';
+import {Shape, ShapeProps} from './Shape.js';
 
 export interface GridProps extends ShapeProps {
   /**

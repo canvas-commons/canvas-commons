@@ -1,7 +1,7 @@
 import {useSignal, useSignalEffect} from '@preact/signals';
-import {usePluginState} from '../Provider';
-import {NodeElement} from './NodeElement';
-import {TreeRoot} from './TreeRoot';
+import {usePluginState} from '../Provider.js';
+import {NodeElement} from './NodeElement.js';
+import {TreeRoot} from './TreeRoot.js';
 
 export function ViewRoot() {
   const {scene} = usePluginState();

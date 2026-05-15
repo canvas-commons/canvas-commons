@@ -1,9 +1,9 @@
 import clsx from 'clsx';
 import {JSX} from 'preact';
 import {useLayoutEffect, useRef, useState} from 'preact/hooks';
-import {useApplication} from '../../contexts';
-import {useSubscribable, useViewportMatrix} from '../../hooks';
-import {PluginDrawFunction} from '../../plugin';
+import {useApplication} from '../../contexts/index.js';
+import {useSubscribable, useViewportMatrix} from '../../hooks/index.js';
+import {PluginDrawFunction} from '../../plugin/index.js';
 import styles from './Viewport.module.scss';
 
 interface OverlayCanvasProps extends JSX.CanvasHTMLAttributes<HTMLCanvasElement> {

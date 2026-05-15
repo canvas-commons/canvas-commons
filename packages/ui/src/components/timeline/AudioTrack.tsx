@@ -2,9 +2,17 @@ import type {Scene} from '@canvas-commons/core';
 import clsx from 'clsx';
 import type {JSX} from 'preact';
 import {useLayoutEffect, useMemo, useRef, useState} from 'preact/hooks';
-import {useApplication, useModifiers, useTimelineContext} from '../../contexts';
-import {useScenes, useSharedSettings, useSubscribableValue} from '../../hooks';
-import {MouseButton} from '../../utils';
+import {
+  useApplication,
+  useModifiers,
+  useTimelineContext,
+} from '../../contexts/index.js';
+import {
+  useScenes,
+  useSharedSettings,
+  useSubscribableValue,
+} from '../../hooks/index.js';
+import {MouseButton} from '../../utils/index.js';
 import styles from './Timeline.module.scss';
 
 const HEIGHT = 48;

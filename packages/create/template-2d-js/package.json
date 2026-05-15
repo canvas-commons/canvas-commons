@@ -14,6 +14,6 @@
   "devDependencies": {
     "@canvas-commons/editor": "*",
     "@canvas-commons/vite-plugin": "*",
-    "vite": "^4.0.0"
+    "vite": "^8.0.0"
   }
 }

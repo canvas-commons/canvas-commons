@@ -16,7 +16,8 @@ export async function createMeta(metaPath: string) {
 export function getProjects(project: string | string[]): ProjectData[] {
   const list: ProjectData[] = [];
   const projectList = expandFilePaths(project);
-  for (const filePath of projectList) {
+  for (const rawPath of projectList) {
+    const filePath = path.resolve(rawPath).split(path.sep).join(path.posix.sep);
     const {name, dir} = path.posix.parse(filePath);
     const metaFile = `${name}.meta`;
     const metaData = getMeta(path.join(dir, metaFile));

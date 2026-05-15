@@ -10,7 +10,7 @@ interface EditorPluginConfig {
 }
 
 export function editorPlugin({editor, projects}: EditorPluginConfig): Plugin {
-  const nodeRequire = createRequire(import.meta.url);
+  const nodeRequire = createRequire(path.join(process.cwd(), 'noop.js'));
   const editorPath = path.dirname(nodeRequire.resolve(editor));
   const editorFile = fs.readFileSync(path.resolve(editorPath, 'editor.html'));
   const htmlParts = editorFile

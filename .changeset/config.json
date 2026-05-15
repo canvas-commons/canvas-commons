@@ -24,7 +24,6 @@
     "@canvas-commons/docs",
     "@canvas-commons/e2e",
     "@canvas-commons/examples",
-    "@canvas-commons/internal",
     "@canvas-commons/template"
   ]
 }

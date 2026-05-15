@@ -10,14 +10,17 @@
 
 Modernize packaging, build, and release pipeline.
 
-- Closes the public API surface with explicit `exports` maps. Internal `/lib/`
-  paths are no longer accessible; subpaths previously reached that way
-  (`scenes`, `components`, `client`, `jsx-runtime`, etc.) are `exports` entries
-  on each package.
+- Closes the public API surface with explicit `exports` maps. Each package ships
+  a single root entry (`.`) plus only the subpaths that genuinely need to be
+  separate: `@canvas-commons/2d/{jsx-runtime,jsx-dev-runtime,editor}`,
+  `@canvas-commons/ffmpeg/{client,server}`, and the standard file exports
+  (`./project`, `./tsconfig.project.json`, `./package.json`). Previously
+  available subpaths like `@canvas-commons/core/scenes`,
+  `@canvas-commons/2d/components`, etc. are gone — re-import the same symbols
+  from the root entry. The packages are `sideEffects: false`, so tree-shaking
+  removes anything you don't use.
 - Drops Lerna for pnpm workspaces + Changesets.
 - Bumps `engines.node` floor to `>=20.19.0`.
-- `@canvas-commons/core/scenes` re-exports `timeEvents` so `Scene.timeEvents`
-  types are reachable through an `exports` entry.
 - `@canvas-commons/vite-plugin` peerDep range broadened to
   `^4 || ^5 || ^7 || ^8`.
 

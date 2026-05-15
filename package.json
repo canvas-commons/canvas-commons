@@ -7,7 +7,7 @@
     "prepare": "husky",
     "build": "pnpm --filter @canvas-commons/2d --filter @canvas-commons/core --filter @canvas-commons/ffmpeg --filter @canvas-commons/player --filter @canvas-commons/ui --filter @canvas-commons/vite-plugin run build",
     "bundle": "pnpm --filter @canvas-commons/2d --filter @canvas-commons/core run bundle",
-    "test": "pnpm -r --if-present run test",
+    "test": "pnpm --filter @canvas-commons/2d --filter @canvas-commons/core run test",
     "core:dev": "pnpm --filter @canvas-commons/core run dev",
     "core:build": "pnpm --filter @canvas-commons/core run build",
     "core:bundle": "pnpm --filter @canvas-commons/core run bundle",

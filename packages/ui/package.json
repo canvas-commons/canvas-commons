@@ -43,13 +43,14 @@
   "dependencies": {
     "@canvas-commons/core": "workspace:^",
     "@preact/signals": "catalog:",
+    "highlight.js": "^11.9.0",
+    "marked": "^15.0.0",
     "preact": "catalog:"
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.7.0",
     "@types/node": "catalog:",
     "clsx": "catalog:",
-    "highlight.js": "^11.9.0",
     "sass": "^1.69.5",
     "source-map-js": "^1.0.2",
     "vite-plugin-dts": "^4.0.3"

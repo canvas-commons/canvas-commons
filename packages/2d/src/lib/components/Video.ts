@@ -14,7 +14,7 @@ import {computed, initial, nodeName, signal} from '../decorators/index.js';
 import {DesiredLength} from '../partials/index.js';
 import {drawImage} from '../utils/index.js';
 import {Rect, RectProps} from './Rect.js';
-import reactivePlaybackRate from './__logs__/reactive-playback-rate.md';
+import reactivePlaybackRate from './__logs__/reactive-playback-rate.js';
 
 export interface VideoProps extends RectProps {
   /**

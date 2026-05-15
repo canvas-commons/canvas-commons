@@ -16,12 +16,7 @@
     "declaration": true,
     "declarationMap": true,
     "allowSyntheticDefaultImports": true,
-    "experimentalDecorators": true,
-    "plugins": [
-      {
-        "transform": "@canvas-commons/internal/transformers/markdown-literals.js"
-      }
-    ]
+    "experimentalDecorators": true
   },
   "include": ["src"]
 }

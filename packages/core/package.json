@@ -24,8 +24,8 @@
   "bugs": "https://github.com/canvas-commons/canvas-commons/issues",
   "license": "MIT",
   "scripts": {
-    "dev": "tspc -p tsconfig.build.json -w",
-    "build": "tspc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json -w",
+    "build": "tsc -p tsconfig.build.json",
     "bundle": "rollup -c rollup.config.mjs",
     "test": "vitest run",
     "lint:pkg": "publint --strict && attw --pack . --profile esm-only --ignore-rules internal-resolution-error"
@@ -54,7 +54,6 @@
     "@types/chroma-js": "3.1.2",
     "jsdom": "catalog:",
     "rollup": "^4.9.1",
-    "ts-patch": "^4.0.1",
     "vitest": "catalog:"
   }
 }

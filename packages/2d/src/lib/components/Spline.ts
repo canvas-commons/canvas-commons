@@ -26,7 +26,7 @@ import {
   moveTo,
   quadraticCurveTo,
 } from '../utils/index.js';
-import splineWithInsufficientKnots from './__logs__/spline-with-insufficient-knots.md';
+import splineWithInsufficientKnots from './__logs__/spline-with-insufficient-knots.js';
 import {Curve, CurveProps} from './Curve.js';
 import {Knot} from './Knot.js';
 import {Node} from './Node.js';

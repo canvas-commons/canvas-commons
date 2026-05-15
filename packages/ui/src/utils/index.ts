@@ -5,5 +5,6 @@ export * from './localStorage.js';
 export * from './LoggerManager.js';
 export * from './mouse.js';
 export * from './openOutputPath.js';
+export * from './renderMarkdown.js';
 export * from './sourceMaps.js';
 export * from './withLoader.js';

@@ -20,7 +20,7 @@ import {
 import {CurveProfile, getPolylineProfile} from '../curves/index.js';
 import {computed, initial, nodeName, signal} from '../decorators/index.js';
 import {arc, drawLine, drawPivot, lineTo, moveTo} from '../utils/index.js';
-import lineWithoutPoints from './__logs__/line-without-points.md';
+import lineWithoutPoints from './__logs__/line-without-points.js';
 import {Curve, CurveProps} from './Curve.js';
 import {Layout} from './Layout.js';
 

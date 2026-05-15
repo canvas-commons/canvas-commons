@@ -11,12 +11,7 @@
     "sourceMap": true,
     "declaration": true,
     "allowSyntheticDefaultImports": true,
-    "skipLibCheck": true,
-    "plugins": [
-      {
-        "transform": "@canvas-commons/internal/transformers/markdown-literals.js"
-      }
-    ]
+    "skipLibCheck": true
   },
   "include": ["src"]
 }

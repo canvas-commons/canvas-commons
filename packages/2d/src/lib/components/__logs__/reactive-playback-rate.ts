@@ -1,21 +1,22 @@
-The `playbackRate` of a `Video` cannot be reactive.
+export default `The \`playbackRate\` of a \`Video\` cannot be reactive.
 
 Make sure to use a concrete value and not a function:
 
-```ts wrong
+\`\`\`ts wrong
 video.playbackRate(() => 7);
-```
+\`\`\`
 
-```ts correct
+\`\`\`ts correct
 video.playbackRate(7);
-```
+\`\`\`
 
 If you're using a signal, extract its value before passing it to the property:
 
-```ts wrong
+\`\`\`ts wrong
 video.playbackRate(mySignal);
-```
+\`\`\`
 
-```ts correct
+\`\`\`ts correct
 video.playbackRate(mySignal());
-```
+\`\`\`
+`;

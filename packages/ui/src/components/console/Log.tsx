@@ -5,7 +5,11 @@ import clsx from 'clsx';
 import {useEffect, useMemo, useState} from 'preact/hooks';
 import {useApplication} from '../../contexts/index.js';
 import {useFormattedNumber} from '../../hooks/index.js';
-import {StackTraceEntry, resolveStackTrace} from '../../utils/index.js';
+import {
+  StackTraceEntry,
+  renderMarkdown,
+  resolveStackTrace,
+} from '../../utils/index.js';
 import {IconButton, Toggle} from '../controls/index.js';
 import {Locate} from '../icons/index.js';
 import {Collapse} from '../layout/index.js';
@@ -37,6 +41,10 @@ export function Log({payload}: LogProps) {
   const userEntry = useMemo(() => {
     return entries?.find(entry => !entry.isExternal) ?? null;
   }, [entries]);
+  const remarksHtml = useMemo(
+    () => (payload.remarks ? renderMarkdown(payload.remarks) : null),
+    [payload.remarks],
+  );
 
   const hasBody = !!object || !!entries || !!payload.remarks;
 
@@ -73,10 +81,10 @@ export function Log({payload}: LogProps) {
       </div>
       {hasBody && (
         <Collapse open={open}>
-          {payload.remarks && (
+          {remarksHtml && (
             <div
               className={clsx(styles.section, styles.remarks)}
-              dangerouslySetInnerHTML={{__html: payload.remarks}}
+              dangerouslySetInnerHTML={{__html: remarksHtml}}
             />
           )}
           {object && (

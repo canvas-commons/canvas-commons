@@ -1,12 +1,13 @@
-This feature requires enabling the `experimentalFeatures` flag in your project
+export default `This feature requires enabling the \`experimentalFeatures\` flag in your project
 configuration:
 
-```ts
+\`\`\`ts
 export default makeProject({
   experimentalFeatures: true,
   // ...
 });
-```
+\`\`\`
 
 [Learn more](https://canvascommons.io/docs/experimental) about experimental
 features.
+`;

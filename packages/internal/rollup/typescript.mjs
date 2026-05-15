@@ -1,5 +1,4 @@
 import typescriptBase from '@rollup/plugin-typescript';
-import markdownLiterals from '../transformers/markdown-literals.js';
 
 /**
  * @param {import('@rollup/plugin-typescript').RollupTypescriptOptions} options
@@ -12,14 +11,6 @@ export default function typescript(options = {}) {
       declaration: false,
       declarationMap: false,
       ...(compilerOptions ?? {}),
-    },
-    transformers: {
-      before: [
-        {
-          type: 'program',
-          factory: markdownLiterals,
-        },
-      ],
     },
     ...rest,
   });

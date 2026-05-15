@@ -7,10 +7,7 @@
     "@rollup/plugin-node-resolve": "^15.2.3",
     "@rollup/plugin-terser": "^0.4.4",
     "@rollup/plugin-typescript": "^11.1.5",
-    "highlight.js": "^11.9.0",
-    "marked": "^10.0.0",
     "rollup": "^4.9.1",
-    "rollup-plugin-postcss": "^4.0.2",
-    "ts-patch": "^4.0.1"
+    "rollup-plugin-postcss": "^4.0.2"
   }
 }

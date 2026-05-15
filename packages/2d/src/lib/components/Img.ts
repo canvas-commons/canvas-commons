@@ -20,7 +20,7 @@ import {computed, initial, nodeName, signal} from '../decorators/index.js';
 import {DesiredLength} from '../partials/index.js';
 import {drawImage} from '../utils/index.js';
 import {Rect, RectProps} from './Rect.js';
-import imageWithoutSource from './__logs__/image-without-source.md';
+import imageWithoutSource from './__logs__/image-without-source.js';
 
 export interface ImgProps extends RectProps {
   /**

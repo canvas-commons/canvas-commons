@@ -26,7 +26,6 @@
   "scripts": {
     "dev": "tsdown --watch",
     "build": "tsdown",
-    "bundle": "rollup -c rollup.config.mjs",
     "test": "vitest run",
     "lint:pkg": "publint --strict && attw --pack . --profile esm-only --ignore-rules internal-resolution-error"
   },
@@ -46,13 +45,8 @@
     "chroma-js": "^3.2.0"
   },
   "devDependencies": {
-    "@rollup/plugin-commonjs": "^25.0.7",
-    "@rollup/plugin-node-resolve": "^15.2.3",
-    "@rollup/plugin-terser": "^0.4.4",
-    "@rollup/plugin-typescript": "^11.1.5",
     "@types/chroma-js": "3.1.2",
     "jsdom": "catalog:",
-    "rollup": "^4.9.1",
     "vitest": "catalog:"
   }
 }

@@ -30,6 +30,9 @@ Modernize packaging, build, and release pipeline.
   `tsdown` (Rolldown-based) and emit a bundled single-file `lib/index.js` to
   match the single-entry `exports` map. Published output is still ESM with
   `.d.ts` declarations and source maps.
+- `core` and `2d` no longer ship a separate `bundle` script. The regular build
+  produces both the library (`lib/index.js`) and the minified single-file bundle
+  (`dist/index.js`) used by the in-browser docs examples.
 
 Pre-1.0, so this ships as a minor across the linked `core`+`2d` group and the
 rest of the publishable packages.

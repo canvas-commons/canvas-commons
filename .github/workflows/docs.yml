@@ -18,7 +18,6 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
-      - run: pnpm run bundle
       - run: pnpm run examples:build
       - run: pnpm run ui:showcase
       - run: pnpm run docs:build

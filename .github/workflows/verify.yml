@@ -115,7 +115,6 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
-      - run: pnpm run bundle
       - run: pnpm run docs:build
         env:
           NODE_OPTIONS: "--max-old-space-size=8192"

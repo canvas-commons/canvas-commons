@@ -74,30 +74,30 @@ export interface ShapeProps extends LayoutProps {
 @nodeName('Shape')
 export abstract class Shape extends Layout {
   @canvasStyleSignal()
-  public declare readonly fill: CanvasStyleSignal<this>;
+  declare public readonly fill: CanvasStyleSignal<this>;
   @canvasStyleSignal()
-  public declare readonly stroke: CanvasStyleSignal<this>;
+  declare public readonly stroke: CanvasStyleSignal<this>;
   @initial(false)
   @signal()
-  public declare readonly strokeFirst: SimpleSignal<boolean, this>;
+  declare public readonly strokeFirst: SimpleSignal<boolean, this>;
   @initial(0)
   @signal()
-  public declare readonly lineWidth: SimpleSignal<number, this>;
+  declare public readonly lineWidth: SimpleSignal<number, this>;
   @initial('miter')
   @signal()
-  public declare readonly lineJoin: SimpleSignal<CanvasLineJoin, this>;
+  declare public readonly lineJoin: SimpleSignal<CanvasLineJoin, this>;
   @initial('butt')
   @signal()
-  public declare readonly lineCap: SimpleSignal<CanvasLineCap, this>;
+  declare public readonly lineCap: SimpleSignal<CanvasLineCap, this>;
   @initial([])
   @signal()
-  public declare readonly lineDash: SimpleSignal<number[], this>;
+  declare public readonly lineDash: SimpleSignal<number[], this>;
   @initial(0)
   @signal()
-  public declare readonly lineDashOffset: SimpleSignal<number, this>;
+  declare public readonly lineDashOffset: SimpleSignal<number, this>;
   @initial(true)
   @signal()
-  public declare readonly antialiased: SimpleSignal<boolean, this>;
+  declare public readonly antialiased: SimpleSignal<boolean, this>;
 
   // Rough.js signals
   /**
@@ -105,30 +105,30 @@ export abstract class Shape extends Layout {
    */
   @initial(false)
   @signal()
-  public declare readonly rough: SimpleSignal<boolean, this>;
+  declare public readonly rough: SimpleSignal<boolean, this>;
   /**
    * {@inheritDoc RoughConfig.roughness}
    */
   @initial(1)
   @signal()
-  public declare readonly roughness: SimpleSignal<number, this>;
+  declare public readonly roughness: SimpleSignal<number, this>;
   /**
    * {@inheritDoc RoughConfig.bowing}
    */
   @initial(1)
   @signal()
-  public declare readonly bowing: SimpleSignal<number, this>;
+  declare public readonly bowing: SimpleSignal<number, this>;
   /**
    * {@inheritDoc RoughConfig.fillStyle}
    */
   @initial('hachure')
   @signal()
-  public declare readonly roughFillStyle: SimpleSignal<RoughFillStyle, this>;
+  declare public readonly roughFillStyle: SimpleSignal<RoughFillStyle, this>;
   /**
    * {@inheritDoc RoughConfig.fillWeight}
    */
   @signal()
-  public declare readonly roughFillWeight: SimpleSignal<
+  declare public readonly roughFillWeight: SimpleSignal<
     number | undefined,
     this
   >;
@@ -137,30 +137,30 @@ export abstract class Shape extends Layout {
    */
   @initial(-41)
   @signal()
-  public declare readonly roughHachureAngle: SimpleSignal<number, this>;
+  declare public readonly roughHachureAngle: SimpleSignal<number, this>;
   /**
    * {@inheritDoc RoughConfig.hachureGap}
    */
   @initial(4)
   @signal()
-  public declare readonly roughHachureGap: SimpleSignal<number, this>;
+  declare public readonly roughHachureGap: SimpleSignal<number, this>;
   /**
    * {@inheritDoc RoughConfig.seed}
    */
   @signal()
-  public declare readonly roughSeed: SimpleSignal<number | undefined, this>;
+  declare public readonly roughSeed: SimpleSignal<number | undefined, this>;
   /**
    * {@inheritDoc RoughConfig.disableMultiStroke}
    */
   @initial(false)
   @signal()
-  public declare readonly roughDisableMultiStroke: SimpleSignal<boolean, this>;
+  declare public readonly roughDisableMultiStroke: SimpleSignal<boolean, this>;
   /**
    * {@inheritDoc RoughConfig.disableMultiStrokeFill}
    */
   @initial(false)
   @signal()
-  public declare readonly roughDisableMultiStrokeFill: SimpleSignal<
+  declare public readonly roughDisableMultiStrokeFill: SimpleSignal<
     boolean,
     this
   >;

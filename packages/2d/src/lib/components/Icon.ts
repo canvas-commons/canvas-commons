@@ -46,7 +46,7 @@ export class Icon extends SVG {
    * * `ph:activity-bold`
    */
   @signal()
-  public declare readonly icon: SimpleSignal<string, this>;
+  declare public readonly icon: SimpleSignal<string, this>;
 
   /**
    * The color of the icon
@@ -62,7 +62,7 @@ export class Icon extends SVG {
    */
   @initial('white')
   @colorSignal()
-  public declare readonly color: ColorSignal<this>;
+  declare public readonly color: ColorSignal<this>;
 
   public constructor(props: IconProps) {
     super({

@@ -102,7 +102,7 @@ export class Img extends Rect {
    * ```
    */
   @signal()
-  public declare readonly src: SimpleSignal<string, this>;
+  declare public readonly src: SimpleSignal<string, this>;
 
   /**
    * The alpha value of this image.
@@ -113,7 +113,7 @@ export class Img extends Rect {
    */
   @initial(1)
   @signal()
-  public declare readonly alpha: SimpleSignal<number, this>;
+  declare public readonly alpha: SimpleSignal<number, this>;
 
   /**
    * Whether the image should be smoothed.
@@ -126,7 +126,7 @@ export class Img extends Rect {
    */
   @initial(true)
   @signal()
-  public declare readonly smoothing: SimpleSignal<boolean, this>;
+  declare public readonly smoothing: SimpleSignal<boolean, this>;
 
   public constructor(props: ImgProps) {
     super(props);

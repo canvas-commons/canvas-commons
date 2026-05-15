@@ -1,5 +1,5 @@
 export * from './CanvasUtils';
-export * from './PathDataBuilder';
 export * from './is';
+export * from './PathDataBuilder';
 export * from './rough';
 export * from './withDefaults';

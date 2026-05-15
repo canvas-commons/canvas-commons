@@ -17,10 +17,10 @@ for extending the editor interface itself.
 
 Let's update our plugin's entry point to export an editor plugin. The main
 difference is that we're now using the `makeEditorPlugin` function imported from
-`@canvas-commons/ui` to define it:
+`@canvas-commons/editor` to define it:
 
 ```ts title="src/plugin.ts"
-import {makeEditorPlugin} from '@canvas-commons/ui';
+import {makeEditorPlugin} from '@canvas-commons/editor';
 import {CustomTabConfig} from './CustomTabConfig';
 
 export default makeEditorPlugin({
@@ -49,7 +49,7 @@ import {
   PluginTabProps,
   Separator,
   Tab,
-} from '@canvas-commons/ui';
+} from '@canvas-commons/editor';
 
 function TabComponent({tab}: PluginTabProps) {
   return (
@@ -86,7 +86,7 @@ import {
   PluginTabProps,
   Separator,
   Tab,
-} from '@canvas-commons/ui';
+} from '@canvas-commons/editor';
 
 function TabComponent({tab}: PluginTabProps) {
   const tabElement = new Tab({title: 'My Tab', id: 'custom-tab', tab});
@@ -124,7 +124,7 @@ simple example, we'll just use a comment at the top of the file:
 
 Next, we define a component for the tab itself. This component will be rendered
 in the navigation bar on the left. We use the `Tab` component from
-`@canvas-commons/ui` to stay consistent with the rest of the editor. We also
+`@canvas-commons/editor` to stay consistent with the rest of the editor. We also
 borrow the `PhotoCamera` icon and put it inside:
 
 <Tabs groupId="language" queryString>

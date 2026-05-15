@@ -1,7 +1,7 @@
 ---
 '@canvas-commons/core': minor
 '@canvas-commons/2d': minor
-'@canvas-commons/ui': minor
+'@canvas-commons/editor': minor
 '@canvas-commons/vite-plugin': minor
 '@canvas-commons/ffmpeg': minor
 '@canvas-commons/player': minor
@@ -33,6 +33,9 @@ Modernize packaging, build, and release pipeline.
 - `core` and `2d` no longer ship a separate `bundle` script. The regular build
   produces both the library (`lib/index.js`) and the minified single-file bundle
   (`dist/index.js`) used by the in-browser docs examples.
+- `@canvas-commons/ui` renamed to `@canvas-commons/editor`. Update your
+  `package.json` deps and any imports. The package shape, exports map, and
+  `./style.css` subpath are unchanged.
 
 Pre-1.0, so this ships as a minor across the linked `core`+`2d` group and the
 rest of the publishable packages.

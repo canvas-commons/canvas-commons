@@ -1,5 +1,5 @@
 {
-  "name": "@canvas-commons/ui",
+  "name": "@canvas-commons/editor",
   "version": "0.1.0",
   "description": "A visual editor for Canvas Commons",
   "type": "module",
@@ -34,7 +34,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/canvas-commons/canvas-commons.git",
-    "directory": "packages/ui"
+    "directory": "packages/editor"
   },
   "files": [
     "dist",

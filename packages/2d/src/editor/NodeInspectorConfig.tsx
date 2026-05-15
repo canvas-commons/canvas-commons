@@ -9,7 +9,7 @@ import {
   UnknownField,
   findAndOpenFirstUserFile,
   useApplication,
-} from '@canvas-commons/ui';
+} from '@canvas-commons/editor';
 import {useComputed} from '@preact/signals';
 import {NodeInspectorKey, usePluginState} from './Provider';
 

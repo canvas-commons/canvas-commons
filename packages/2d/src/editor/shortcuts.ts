@@ -1,4 +1,4 @@
-import {makeShortcuts} from '@canvas-commons/ui';
+import {makeShortcuts} from '@canvas-commons/editor';
 export const SCENE_GRAPH_SHORTCUTS = makeShortcuts('scene-graph', {
   moveUp: {
     display: '↑',

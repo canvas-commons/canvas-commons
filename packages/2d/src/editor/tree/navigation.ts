@@ -1,5 +1,5 @@
 import {Node} from '@canvas-commons/2d';
-import {useShortcuts} from '@canvas-commons/ui';
+import {useShortcuts} from '@canvas-commons/editor';
 import {useComputed} from '@preact/signals';
 import {usePluginState} from '../Provider';
 import {SCENE_GRAPH_SHORTCUTS} from '../shortcuts';

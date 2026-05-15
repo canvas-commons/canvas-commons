@@ -12,7 +12,7 @@
     "@canvas-commons/2d": "*"
   },
   "devDependencies": {
-    "@canvas-commons/ui": "*",
+    "@canvas-commons/editor": "*",
     "@canvas-commons/vite-plugin": "*",
     "vite": "^4.0.0"
   }

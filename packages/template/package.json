@@ -16,7 +16,7 @@
   },
   "devDependencies": {
     "@canvas-commons/ffmpeg": "workspace:^",
-    "@canvas-commons/ui": "workspace:^",
+    "@canvas-commons/editor": "workspace:^",
     "@canvas-commons/vite-plugin": "workspace:^",
     "@types/node": "catalog:"
   }

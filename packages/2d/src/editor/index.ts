@@ -1,6 +1,6 @@
 import './index.css';
 
-import {makeEditorPlugin} from '@canvas-commons/ui';
+import {makeEditorPlugin} from '@canvas-commons/editor';
 import {NodeInspectorConfig} from './NodeInspectorConfig';
 import {PreviewOverlayConfig} from './PreviewOverlayConfig';
 import {Provider} from './Provider';

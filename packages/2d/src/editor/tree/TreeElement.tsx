@@ -1,4 +1,4 @@
-import {Toggle} from '@canvas-commons/ui';
+import {Toggle} from '@canvas-commons/editor';
 import {clsx} from 'clsx';
 import {ComponentChildren, JSX} from 'preact';
 import {Ref} from 'preact/hooks';

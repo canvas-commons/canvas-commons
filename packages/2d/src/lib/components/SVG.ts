@@ -96,7 +96,7 @@ export class SVG extends Shape {
    * SVG string to be rendered
    */
   @signal()
-  public declare readonly svg: SimpleSignal<string, this>;
+  declare public readonly svg: SimpleSignal<string, this>;
 
   /**
    * Child to wrap all SVG node

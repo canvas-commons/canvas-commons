@@ -86,7 +86,7 @@ export class Latex extends SVGNode {
 
   @initial({})
   @signal()
-  public declare readonly options: SimpleSignal<OptionList, this>;
+  declare public readonly options: SimpleSignal<OptionList, this>;
 
   @initial('')
   @parser(function (this: Latex, value: string[] | string): string[] {
@@ -99,7 +99,7 @@ export class Latex extends SVGNode {
       .filter(sub => sub.trim().length > 0);
   })
   @signal()
-  public declare readonly tex: Signal<string[] | string, string[], this>;
+  declare public readonly tex: Signal<string[] | string, string[], this>;
 
   public constructor(props: LatexProps) {
     super({

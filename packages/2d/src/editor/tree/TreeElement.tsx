@@ -6,11 +6,10 @@ import styles from './index.module.scss';
 
 const DEPTH_VAR = '--depth';
 
-interface TreeElementProps
-  extends Omit<
-    JSX.HTMLAttributes<HTMLDivElement>,
-    'label' | 'icon' | 'onToggle'
-  > {
+interface TreeElementProps extends Omit<
+  JSX.HTMLAttributes<HTMLDivElement>,
+  'label' | 'icon' | 'onToggle'
+> {
   icon?: ComponentChildren;
   label: ComponentChildren;
   children?: ComponentChildren;

@@ -132,8 +132,8 @@ export class Node implements Promisable<Node> {
   /**
    * @internal
    */
-  public declare readonly [NODE_NAME]: string;
-  public declare isClass: boolean;
+  declare public readonly [NODE_NAME]: string;
+  declare public isClass: boolean;
 
   /**
    * Represents the position of this node in local space of its parent.
@@ -166,7 +166,7 @@ export class Node implements Promisable<Node> {
    * ```
    */
   @positionSignal()
-  public declare readonly position: PositionSignal<this>;
+  declare public readonly position: PositionSignal<this>;
 
   public get x() {
     return this.position.x as SimpleSignal<number, this>;
@@ -196,7 +196,7 @@ export class Node implements Promisable<Node> {
   @wrapper(Vector2)
   @cloneable(false)
   @signal()
-  public declare readonly absolutePosition: SimpleVector2Signal<this>;
+  declare public readonly absolutePosition: SimpleVector2Signal<this>;
 
   protected getAbsolutePosition(): Vector2 {
     return this.position.abs();
@@ -211,7 +211,7 @@ export class Node implements Promisable<Node> {
    */
   @initial(0)
   @rotationSignal()
-  public declare readonly rotation: RotationSignal<this>;
+  declare public readonly rotation: RotationSignal<this>;
 
   /**
    * A helper signal for operating on the rotation in world space.
@@ -228,7 +228,7 @@ export class Node implements Promisable<Node> {
    */
   @cloneable(false)
   @signal()
-  public declare readonly absoluteRotation: SimpleSignal<number, this>;
+  declare public readonly absoluteRotation: SimpleSignal<number, this>;
 
   protected getAbsoluteRotation() {
     return this.rotation.abs();
@@ -270,7 +270,7 @@ export class Node implements Promisable<Node> {
    */
   @initial(Vector2.one)
   @scaleSignal('scale')
-  public declare readonly scale: ScaleSignal<this>;
+  declare public readonly scale: ScaleSignal<this>;
 
   /**
    * Represents the skew of this node in local space of its parent.
@@ -304,7 +304,7 @@ export class Node implements Promisable<Node> {
    */
   @initial(Vector2.zero)
   @vector2Signal('skew')
-  public declare readonly skew: Vector2Signal<this>;
+  declare public readonly skew: Vector2Signal<this>;
 
   /**
    * A helper signal for operating on the scale in world space.
@@ -325,7 +325,7 @@ export class Node implements Promisable<Node> {
   @wrapper(Vector2)
   @cloneable(false)
   @signal()
-  public declare readonly absoluteScale: SimpleVector2Signal<this>;
+  declare public readonly absoluteScale: SimpleVector2Signal<this>;
 
   protected getAbsoluteScale(): Vector2 {
     return this.scale.abs();
@@ -337,11 +337,11 @@ export class Node implements Promisable<Node> {
 
   @initial(0)
   @signal()
-  public declare readonly zIndex: SimpleSignal<number, this>;
+  declare public readonly zIndex: SimpleSignal<number, this>;
 
   @initial(false)
   @signal()
-  public declare readonly cache: SimpleSignal<boolean, this>;
+  declare public readonly cache: SimpleSignal<boolean, this>;
 
   /**
    * Controls the padding of the cached canvas used by this node.
@@ -353,15 +353,15 @@ export class Node implements Promisable<Node> {
    * Usually used to account for custom effects created by {@link shaders}.
    */
   @spacingSignal('cachePadding')
-  public declare readonly cachePadding: SpacingSignal<this>;
+  declare public readonly cachePadding: SpacingSignal<this>;
 
   @initial(false)
   @signal()
-  public declare readonly composite: SimpleSignal<boolean, this>;
+  declare public readonly composite: SimpleSignal<boolean, this>;
 
   @initial('source-over')
   @signal()
-  public declare readonly compositeOperation: SimpleSignal<
+  declare public readonly compositeOperation: SimpleSignal<
     GlobalCompositeOperation,
     this
   >;
@@ -395,7 +395,7 @@ export class Node implements Promisable<Node> {
   @initial(1)
   @parser((value: number) => clamp(0, 1, value))
   @signal()
-  public declare readonly opacity: SimpleSignal<number, this>;
+  declare public readonly opacity: SimpleSignal<number, this>;
 
   @computed()
   public absoluteOpacity(): number {
@@ -403,18 +403,18 @@ export class Node implements Promisable<Node> {
   }
 
   @filtersSignal()
-  public declare readonly filters: FiltersSignal<this>;
+  declare public readonly filters: FiltersSignal<this>;
 
   @initial('#0000')
   @colorSignal()
-  public declare readonly shadowColor: ColorSignal<this>;
+  declare public readonly shadowColor: ColorSignal<this>;
 
   @initial(0)
   @signal()
-  public declare readonly shadowBlur: SimpleSignal<number, this>;
+  declare public readonly shadowBlur: SimpleSignal<number, this>;
 
   @vector2Signal('shadowOffset')
-  public declare readonly shadowOffset: Vector2Signal<this>;
+  declare public readonly shadowOffset: Vector2Signal<this>;
 
   /**
    * @experimental
@@ -422,7 +422,7 @@ export class Node implements Promisable<Node> {
   @initial([])
   @parser(parseShader)
   @signal()
-  public declare readonly shaders: Signal<
+  declare public readonly shaders: Signal<
     PossibleShaderConfig,
     ShaderConfig[],
     this
@@ -462,7 +462,7 @@ export class Node implements Promisable<Node> {
   @inspectable(false)
   @cloneable(false)
   @signal()
-  protected declare readonly spawner: SimpleSignal<ComponentChildren, this>;
+  declare protected readonly spawner: SimpleSignal<ComponentChildren, this>;
   protected getSpawner(): ComponentChildren {
     return this.children();
   }
@@ -473,7 +473,7 @@ export class Node implements Promisable<Node> {
   @inspectable(false)
   @cloneable(false)
   @signal()
-  public declare readonly children: Signal<ComponentChildren, Node[], this>;
+  declare public readonly children: Signal<ComponentChildren, Node[], this>;
   protected setChildren(value: SignalValue<ComponentChildren>) {
     if (this.children.context.raw() === value) {
       return;

@@ -1,7 +1,7 @@
 import type {NumberMetaField} from '@canvas-commons/core';
-import {useSubscribableValue} from '../../hooks';
-import {NumberInput, NumberInputSelect} from '../controls';
-import {MetaFieldGroup} from './MetaFieldGroup';
+import {useSubscribableValue} from '../../hooks/index.js';
+import {NumberInput, NumberInputSelect} from '../controls/index.js';
+import {MetaFieldGroup} from './MetaFieldGroup.js';
 
 export interface NumberMetaFieldViewProps {
   field: NumberMetaField;

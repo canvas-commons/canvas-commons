@@ -1,6 +1,6 @@
 import {Vector2, clamp} from '@canvas-commons/core';
-import {CurvePoint} from './CurvePoint';
-import {CurveProfile} from './CurveProfile';
+import {CurvePoint} from './CurvePoint.js';
+import {CurveProfile} from './CurveProfile.js';
 
 export function getPointAtDistance(
   profile: CurveProfile,

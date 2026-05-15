@@ -1,1 +1,1 @@
-export * from './Console';
+export * from './Console.js';

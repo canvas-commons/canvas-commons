@@ -5,10 +5,10 @@ import {
   getSourceCodeFrame,
   openFileInEditor,
   StackTraceEntry,
-} from '../../utils';
+} from '../../utils/index.js';
 
-import {IconButton} from '../controls';
-import {OpenInNew} from '../icons';
+import {IconButton} from '../controls/index.js';
+import {OpenInNew} from '../icons/index.js';
 export interface SourceFrameProps {
   entry: StackTraceEntry;
 }

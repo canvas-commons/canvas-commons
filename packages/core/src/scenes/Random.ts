@@ -1,5 +1,5 @@
-import {map} from '../tweening';
-import {range} from '../utils';
+import {map} from '../tweening/index.js';
+import {range} from '../utils/index.js';
 
 /**
  * A random number generator based on

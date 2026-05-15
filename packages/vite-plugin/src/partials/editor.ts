@@ -1,7 +1,8 @@
 import fs from 'fs';
+import {createRequire} from 'module';
 import path from 'path';
 import {Plugin} from 'vite';
-import {ProjectData} from '../plugins';
+import {ProjectData} from '../plugins.js';
 
 interface EditorPluginConfig {
   editor: string;
@@ -9,7 +10,8 @@ interface EditorPluginConfig {
 }
 
 export function editorPlugin({editor, projects}: EditorPluginConfig): Plugin {
-  const editorPath = path.dirname(require.resolve(editor));
+  const nodeRequire = createRequire(import.meta.url);
+  const editorPath = path.dirname(nodeRequire.resolve(editor));
   const editorFile = fs.readFileSync(path.resolve(editorPath, 'editor.html'));
   const htmlParts = editorFile
     .toString()

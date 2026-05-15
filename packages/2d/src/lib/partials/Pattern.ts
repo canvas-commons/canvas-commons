@@ -1,6 +1,6 @@
 import {SimpleSignal} from '@canvas-commons/core';
-import {computed} from '../decorators/computed';
-import {initial, initializeSignals, signal} from '../decorators/signal';
+import {computed} from '../decorators/computed.js';
+import {initial, initializeSignals, signal} from '../decorators/signal.js';
 
 export type CanvasRepetition =
   | null

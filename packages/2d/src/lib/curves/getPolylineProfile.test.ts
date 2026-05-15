@@ -1,6 +1,6 @@
 import {Vector2} from '@canvas-commons/core';
 import {describe, expect, test} from 'vitest';
-import {getPolylineProfile} from './getPolylineProfile';
+import {getPolylineProfile} from './getPolylineProfile.js';
 
 describe('getPolylineProfile', () => {
   test('Correct arc length', () => {

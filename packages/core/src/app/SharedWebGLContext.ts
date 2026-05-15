@@ -1,4 +1,4 @@
-import {Logger} from './Logger';
+import {Logger} from './Logger.js';
 import includeWithoutPreprocessor from './__logs__/include-without-preprocessor.md';
 
 const SOURCE_URL_REGEX = /^\/\/# sourceURL=(.*)$/gm;

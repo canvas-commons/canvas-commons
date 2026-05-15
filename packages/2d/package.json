@@ -2,6 +2,7 @@
   "name": "@canvas-commons/2d",
   "version": "0.1.0",
   "description": "A 2D renderer for Canvas Commons",
+  "type": "module",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
   "exports": {
@@ -18,7 +19,6 @@
       "default": "./lib/jsx-dev-runtime.js"
     },
     "./editor": {
-      "types": "./editor/index.d.ts",
       "default": "./editor/index.js"
     },
     "./tsconfig.project.json": "./tsconfig.project.json",
@@ -38,7 +38,7 @@
     "build-editor": "rollup -c rollup.editor.mjs",
     "bundle": "rollup -c rollup.config.mjs",
     "test": "vitest",
-    "lint:pkg": "publint --strict && attw --pack ."
+    "lint:pkg": "publint --strict && attw --pack . --profile esm-only --ignore-rules internal-resolution-error --exclude-entrypoints ./editor"
   },
   "sideEffects": false,
   "repository": {

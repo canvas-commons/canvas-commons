@@ -1,5 +1,5 @@
 import {capitalize} from '@canvas-commons/core';
-import {Layout} from '../components';
+import {Layout} from '../components/index.js';
 
 export function defaultStyle<T>(initial?: T): PropertyDecorator {
   return (target: any, key) => {

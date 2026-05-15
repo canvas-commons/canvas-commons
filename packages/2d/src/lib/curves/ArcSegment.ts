@@ -1,7 +1,7 @@
 import {BBox, DEG2RAD, Matrix2D, Vector2, lazy} from '@canvas-commons/core';
-import {View2D} from '../components/View2D';
-import {CurvePoint} from './CurvePoint';
-import {Segment} from './Segment';
+import {View2D} from '../components/View2D.js';
+import {CurvePoint} from './CurvePoint.js';
+import {Segment} from './Segment.js';
 
 export class ArcSegment extends Segment {
   @lazy(() => {

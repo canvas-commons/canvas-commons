@@ -4,6 +4,6 @@
  * @packageDocumentation
  */
 
-export * from './decorate';
-export * from './lazy';
-export * from './threadable';
+export * from './decorate.js';
+export * from './lazy.js';
+export * from './threadable.js';

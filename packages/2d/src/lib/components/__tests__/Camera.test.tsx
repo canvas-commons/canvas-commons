@@ -1,11 +1,11 @@
 import {Vector2} from '@canvas-commons/core';
 import 'geometry-polyfill';
 import {describe, expect, it} from 'vitest';
-import {useScene2D} from '../../scenes';
-import {Camera} from '../Camera';
-import {Node} from '../Node';
-import {Rect} from '../Rect';
-import {mockScene2D} from './mockScene2D';
+import {useScene2D} from '../../scenes/index.js';
+import {Camera} from '../Camera.js';
+import {Node} from '../Node.js';
+import {Rect} from '../Rect.js';
+import {mockScene2D} from './mockScene2D.js';
 
 describe('Camera', () => {
   mockScene2D();

@@ -1,6 +1,6 @@
 import {describe, expect, test} from 'vitest';
-import {createSignal} from '../signals';
-import {BBox, Vector2} from '../types';
+import {createSignal} from '../signals/index.js';
+import {BBox, Vector2} from '../types/index.js';
 
 describe('BBox', () => {
   test('Correctly parses values', () => {

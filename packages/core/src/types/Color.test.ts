@@ -1,5 +1,5 @@
 import {describe, expect, test} from 'vitest';
-import {Color} from './Color';
+import {Color} from './Color.js';
 
 describe('Color', () => {
   describe('constructor', () => {

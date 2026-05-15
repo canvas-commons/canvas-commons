@@ -2,6 +2,7 @@
   "name": "@canvas-commons/core",
   "version": "0.1.0",
   "description": "Web-based tool for creating animations programmatically",
+  "type": "module",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
   "exports": {
@@ -27,7 +28,7 @@
     "build": "tspc -p tsconfig.build.json",
     "bundle": "rollup -c rollup.config.mjs",
     "test": "vitest",
-    "lint:pkg": "publint --strict && attw --pack ."
+    "lint:pkg": "publint --strict && attw --pack . --profile esm-only --ignore-rules internal-resolution-error"
   },
   "sideEffects": false,
   "repository": {

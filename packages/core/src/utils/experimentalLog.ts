@@ -1,4 +1,4 @@
-import {LogLevel, LogPayload} from '../app';
+import {LogLevel, LogPayload} from '../app/index.js';
 import experimentalFeatures from './__logs__/experimental-features.md';
 
 export function experimentalLog(message: string, remarks?: string): LogPayload {

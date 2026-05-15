@@ -1,4 +1,8 @@
-import {FunctionComponent, NodeConstructor, PropsOf} from '../components';
+import {
+  FunctionComponent,
+  NodeConstructor,
+  PropsOf,
+} from '../components/index.js';
 
 /**
  * Create a higher order component with default props.

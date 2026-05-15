@@ -1,6 +1,6 @@
-import {decorate, threadable} from '../decorators';
-import {ThreadGenerator} from '../threading';
-import {useLogger, useThread} from '../utils';
+import {decorate, threadable} from '../decorators/index.js';
+import {ThreadGenerator} from '../threading/index.js';
+import {useLogger, useThread} from '../utils/index.js';
 import infiniteLoop from './__logs__/infinite-loop.md';
 
 export interface LoopCallback {

@@ -1,6 +1,6 @@
 import {Vector2} from '@canvas-commons/core';
-import {useFormattedNumber} from '../../hooks';
-import {Field, FieldSet, FieldValue, NumericField} from './Layout';
+import {useFormattedNumber} from '../../hooks/index.js';
+import {Field, FieldSet, FieldValue, NumericField} from './Layout.js';
 
 export interface Vector2FieldProps {
   value: Vector2;

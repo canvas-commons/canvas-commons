@@ -1,7 +1,7 @@
 import {Fragment} from 'preact';
 import {useMemo} from 'preact/hooks';
-import {usePanels} from '../../contexts';
-import {PluginTabConfig} from '../../plugin';
+import {usePanels} from '../../contexts/index.js';
+import {PluginTabConfig} from '../../plugin/index.js';
 
 export interface ElementSwitchProps<T extends string> {
   value: T;

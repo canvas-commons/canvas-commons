@@ -1,8 +1,8 @@
 import type {ColorMetaField} from '@canvas-commons/core';
 import {useState} from 'preact/hooks';
-import {useSubscribableValue} from '../../hooks';
-import {ColorInput} from '../controls';
-import {MetaFieldGroup} from './MetaFieldGroup';
+import {useSubscribableValue} from '../../hooks/index.js';
+import {ColorInput} from '../controls/index.js';
+import {MetaFieldGroup} from './MetaFieldGroup.js';
 
 export interface ColorMetaFieldViewProps {
   field: ColorMetaField;

@@ -1,5 +1,5 @@
-import {ValueDispatcher} from '../events';
-import {clamp} from '../tweening';
+import {ValueDispatcher} from '../events/index.js';
+import {clamp} from '../tweening/index.js';
 
 /**
  * An estimate of the time remaining until the process is finished.

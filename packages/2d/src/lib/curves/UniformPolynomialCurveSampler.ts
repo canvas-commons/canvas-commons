@@ -1,6 +1,6 @@
 import {Vector2, clamp, remap} from '@canvas-commons/core';
-import {CurvePoint} from './CurvePoint';
-import {PolynomialSegment} from './PolynomialSegment';
+import {CurvePoint} from './CurvePoint.js';
+import {PolynomialSegment} from './PolynomialSegment.js';
 
 /**
  * Class to uniformly sample points on a given polynomial curve.

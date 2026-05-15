@@ -1,8 +1,8 @@
 import {useComputed} from '@preact/signals';
 import clsx from 'clsx';
-import {Shortcut, useShortcutContext} from '../../contexts/shortcuts';
+import {Shortcut, useShortcutContext} from '../../contexts/shortcuts.js';
 import styles from './Footer.module.scss';
-import {Versions} from './Versions';
+import {Versions} from './Versions.js';
 
 export function Footer() {
   const {action, surface, configs} = useShortcutContext();

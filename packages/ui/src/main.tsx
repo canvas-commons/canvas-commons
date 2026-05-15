@@ -8,16 +8,16 @@ import {
   type Project,
 } from '@canvas-commons/core';
 import {ComponentChild, render} from 'preact';
-import {Editor} from './Editor';
-import {ProjectData, ProjectSelection} from './ProjectSelection';
+import {Editor} from './Editor.js';
+import {ProjectData, ProjectSelection} from './ProjectSelection.js';
 import {
   ApplicationProvider,
   PanelsProvider,
   ShortcutsProvider,
-} from './contexts';
-import GridPlugin from './plugin/GridPlugin';
-import {projectNameSignal} from './signals';
-import {getItem, setItem} from './utils';
+} from './contexts/index.js';
+import GridPlugin from './plugin/GridPlugin/index.js';
+import {projectNameSignal} from './signals/index.js';
+import {getItem, setItem} from './utils/index.js';
 
 const ExperimentalHooks = [
   'tabs',
@@ -174,15 +174,15 @@ export function index(projects: ProjectData[]) {
   renderRoot(<ProjectSelection projects={projects} />);
 }
 
-export * from './components/animations';
-export * from './components/controls';
-export * from './components/fields';
-export * from './components/icons';
-export * from './components/layout';
-export * from './components/meta';
-export * from './components/tabs';
-export * from './contexts';
-export * from './hooks';
-export * from './plugin';
-export * from './signals';
-export * from './utils';
+export * from './components/animations/index.js';
+export * from './components/controls/index.js';
+export * from './components/fields/index.js';
+export * from './components/icons/index.js';
+export * from './components/layout/index.js';
+export * from './components/meta/index.js';
+export * from './components/tabs/index.js';
+export * from './contexts/index.js';
+export * from './hooks/index.js';
+export * from './plugin/index.js';
+export * from './signals/index.js';
+export * from './utils/index.js';

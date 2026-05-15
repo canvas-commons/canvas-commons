@@ -1,5 +1,5 @@
-import {useThread} from '../utils';
-import {ThreadGenerator} from './ThreadGenerator';
+import {useThread} from '../utils/index.js';
+import {ThreadGenerator} from './ThreadGenerator.js';
 
 /**
  * Run the given task concurrently.

@@ -1,5 +1,5 @@
 import type {ReferenceReceiver} from '@canvas-commons/core';
-import type {Node} from './Node';
+import type {Node} from './Node.js';
 
 export type ComponentChild =
   | Node

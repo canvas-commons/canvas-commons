@@ -1,7 +1,7 @@
 import {Vector2, clamp} from '@canvas-commons/core';
-import {CircleSegment} from './CircleSegment';
-import {CurveProfile} from './CurveProfile';
-import {LineSegment} from './LineSegment';
+import {CircleSegment} from './CircleSegment.js';
+import {CurveProfile} from './CurveProfile.js';
+import {LineSegment} from './LineSegment.js';
 
 export function getPolylineProfile(
   points: readonly Vector2[],

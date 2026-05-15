@@ -9,14 +9,18 @@ import {
   threadable,
   useRandom,
 } from '@canvas-commons/core';
-import {computed, initial, nodeName, signal} from '../decorators';
 import {
   CanvasStyleSignal,
   canvasStyleSignal,
-} from '../decorators/canvasStyleSignal';
-import {PossibleCanvasStyle, RoughFillStyle} from '../partials';
-import {createRoughConfig, drawRoughPath, resolveCanvasStyle} from '../utils';
-import {Layout, LayoutProps} from './Layout';
+} from '../decorators/canvasStyleSignal.js';
+import {computed, initial, nodeName, signal} from '../decorators/index.js';
+import {PossibleCanvasStyle, RoughFillStyle} from '../partials/index.js';
+import {
+  createRoughConfig,
+  drawRoughPath,
+  resolveCanvasStyle,
+} from '../utils/index.js';
+import {Layout, LayoutProps} from './Layout.js';
 
 export interface ShapeProps extends LayoutProps {
   fill?: SignalValue<PossibleCanvasStyle>;

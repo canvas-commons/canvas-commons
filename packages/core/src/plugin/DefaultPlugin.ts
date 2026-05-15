@@ -1,5 +1,5 @@
-import {ImageExporter} from '../app';
-import {makePlugin} from './makePlugin';
+import {ImageExporter} from '../app/index.js';
+import {makePlugin} from './makePlugin.js';
 
 /**
  * The default plugin included in every Canvas Commons project.

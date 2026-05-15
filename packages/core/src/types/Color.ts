@@ -1,7 +1,7 @@
 import chroma from 'chroma-js';
-import {Signal, SignalContext, SignalValue} from '../signals';
-import type {InterpolationFunction} from '../tweening';
-import type {Type, WebGLConvertible} from './Type';
+import {Signal, SignalContext, SignalValue} from '../signals/index.js';
+import type {InterpolationFunction} from '../tweening/index.js';
+import type {Type, WebGLConvertible} from './Type.js';
 
 export type SerializedColor = string;
 

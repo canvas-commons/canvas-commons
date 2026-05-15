@@ -9,12 +9,12 @@ import {
   TimingFunction,
   unwrap,
 } from '@canvas-commons/core';
-import {Code} from '../components';
-import {addInitializer, getPropertyMetaOrCreate} from '../decorators';
-import {defaultDiffer} from './CodeDiffer';
-import {insert, replace} from './CodeFragment';
-import {CodeHighlighter} from './CodeHighlighter';
-import {CodePoint, CodeRange} from './CodeRange';
+import {Code} from '../components/index.js';
+import {addInitializer, getPropertyMetaOrCreate} from '../decorators/index.js';
+import {defaultDiffer} from './CodeDiffer.js';
+import {insert, replace} from './CodeFragment.js';
+import {CodeHighlighter} from './CodeHighlighter.js';
+import {CodePoint, CodeRange} from './CodeRange.js';
 import {
   CODE,
   CodeScope,
@@ -22,9 +22,9 @@ import {
   parseCodeScope,
   PossibleCodeScope,
   resolveCodeTag,
-} from './CodeScope';
-import {defaultTokenize} from './CodeTokenizer';
-import {extractRange} from './extractRange';
+} from './CodeScope.js';
+import {defaultTokenize} from './CodeTokenizer.js';
+import {extractRange} from './extractRange.js';
 
 interface CodeModifier<TOwner> {
   (code: CodeTag): TOwner;

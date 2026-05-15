@@ -16,10 +16,10 @@ import {
   useLogger,
   viaProxy,
 } from '@canvas-commons/core';
-import {computed, initial, nodeName, signal} from '../decorators';
-import {DesiredLength} from '../partials';
-import {drawImage} from '../utils';
-import {Rect, RectProps} from './Rect';
+import {computed, initial, nodeName, signal} from '../decorators/index.js';
+import {DesiredLength} from '../partials/index.js';
+import {drawImage} from '../utils/index.js';
+import {Rect, RectProps} from './Rect.js';
 import imageWithoutSource from './__logs__/image-without-source.md';
 
 export interface ImgProps extends RectProps {

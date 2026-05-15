@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import {ComponentChildren, JSX} from 'preact';
 import {useEffect, useLayoutEffect, useRef, useState} from 'preact/hooks';
-import {useReducedMotion} from '../../hooks';
+import {useReducedMotion} from '../../hooks/index.js';
 import styles from './Collapse.module.scss';
 
 export interface CollapseProps extends JSX.HTMLAttributes<HTMLDivElement> {

@@ -10,7 +10,7 @@ import {
 } from '@preact/signals';
 import {ComponentChildren, createContext} from 'preact';
 import {useContext, useMemo} from 'preact/hooks';
-import {SignalSet} from './utils';
+import {SignalSet} from './utils/index.js';
 
 export interface PluginState {
   selectedNode: ReadonlySignal<Node | null>;

@@ -3,10 +3,10 @@ import {JSX, Ref} from 'preact';
 import {Color} from '@canvas-commons/core';
 import {forwardRef} from 'preact/compat';
 import {useEffect, useRef, useState} from 'preact/hooks';
-import {useSize} from '../../hooks';
-import {MouseButton, clamp} from '../../utils';
+import {useSize} from '../../hooks/index.js';
+import {MouseButton, clamp} from '../../utils/index.js';
 import styles from './Controls.module.scss';
-import {NumberInput} from './NumberInput';
+import {NumberInput} from './NumberInput.js';
 
 type ColorPickerProps = Omit<JSX.HTMLAttributes<HTMLDivElement>, 'onChange'> & {
   color: Color;

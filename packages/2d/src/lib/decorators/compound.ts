@@ -6,9 +6,9 @@ import {
   modify,
   useLogger,
 } from '@canvas-commons/core';
-import {makeSignalExtensions} from '../utils/makeSignalExtensions';
-import {addInitializer} from './initializers';
-import {getPropertyMetaOrCreate} from './signal';
+import {makeSignalExtensions} from '../utils/makeSignalExtensions.js';
+import {addInitializer} from './initializers.js';
+import {getPropertyMetaOrCreate} from './signal.js';
 
 /**
  * Create a compound property decorator.

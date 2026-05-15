@@ -1,12 +1,20 @@
 import clsx from 'clsx';
 import {useMemo, useRef} from 'preact/hooks';
-import {ViewportProvider, ViewportState, useApplication} from '../../contexts';
-import {useRenderingSettings, useSharedSettings, useSize} from '../../hooks';
-import {StageView} from '../viewport';
-import {OverlayCanvas} from '../viewport/OverlayCanvas';
+import {
+  ViewportProvider,
+  ViewportState,
+  useApplication,
+} from '../../contexts/index.js';
+import {
+  useRenderingSettings,
+  useSharedSettings,
+  useSize,
+} from '../../hooks/index.js';
+import {StageView} from '../viewport/index.js';
+import {OverlayCanvas} from '../viewport/OverlayCanvas.js';
 import styles from '../viewport/Viewport.module.scss';
-import {PresentationControls} from './PresentationControls';
-import {SlideGraph} from './SlideGraph';
+import {PresentationControls} from './PresentationControls.js';
+import {SlideGraph} from './SlideGraph.js';
 
 export function PresentationMode() {
   const {plugins, presenter} = useApplication();

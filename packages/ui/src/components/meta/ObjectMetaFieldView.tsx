@@ -1,6 +1,6 @@
 import type {MetaField, ObjectMetaField} from '@canvas-commons/core';
-import {useSubscribableValue} from '../../hooks';
-import {MetaFieldView} from './MetaFieldView';
+import {useSubscribableValue} from '../../hooks/index.js';
+import {MetaFieldView} from './MetaFieldView.js';
 
 export interface ObjectMetaFieldViewProps {
   field: ObjectMetaField<any>;

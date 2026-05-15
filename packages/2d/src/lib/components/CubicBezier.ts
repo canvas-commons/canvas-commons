@@ -3,12 +3,12 @@ import {
   SignalValue,
   Vector2Signal,
 } from '@canvas-commons/core';
-import {CubicBezierSegment} from '../curves';
-import {PolynomialSegment} from '../curves/PolynomialSegment';
-import {computed, vector2Signal} from '../decorators';
-import {bezierCurveTo, lineTo, moveTo} from '../utils';
-import {Bezier, BezierOverlayInfo} from './Bezier';
-import {CurveProps} from './Curve';
+import {CubicBezierSegment} from '../curves/index.js';
+import {PolynomialSegment} from '../curves/PolynomialSegment.js';
+import {computed, vector2Signal} from '../decorators/index.js';
+import {bezierCurveTo, lineTo, moveTo} from '../utils/index.js';
+import {Bezier, BezierOverlayInfo} from './Bezier.js';
+import {CurveProps} from './Curve.js';
 
 export interface CubicBezierProps extends CurveProps {
   p0?: SignalValue<PossibleVector2>;

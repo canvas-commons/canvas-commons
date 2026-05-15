@@ -1,8 +1,8 @@
 import path from 'path';
 import {Plugin, ResolvedConfig} from 'vite';
-import {PluginOptions, ProjectData} from '../plugins';
-import {createMeta} from '../utils';
-import {getVersions} from '../versions';
+import {PluginOptions, ProjectData} from '../plugins.js';
+import {createMeta} from '../utils.js';
+import {getVersions} from '../versions.js';
 
 const PROJECT_QUERY_REGEX = /[?&]project\b/;
 

@@ -1,4 +1,4 @@
-import {PathMorpher} from './PathMorpher';
+import {PathMorpher} from './PathMorpher.js';
 
 export interface ManimMorpherOptions {
   alignPoints?: boolean;

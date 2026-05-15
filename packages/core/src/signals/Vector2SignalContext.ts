@@ -1,8 +1,11 @@
-import {InterpolationFunction, TimingFunction} from '../tweening';
-import {PossibleVector2, Vector2} from '../types';
-import {CompoundSignal, CompoundSignalContext} from './CompoundSignalContext';
-import {Signal} from './SignalContext';
-import {SignalExtensions, SignalGenerator, SignalValue} from './types';
+import {InterpolationFunction, TimingFunction} from '../tweening/index.js';
+import {PossibleVector2, Vector2} from '../types/index.js';
+import {
+  CompoundSignal,
+  CompoundSignalContext,
+} from './CompoundSignalContext.js';
+import {Signal} from './SignalContext.js';
+import {SignalExtensions, SignalGenerator, SignalValue} from './types.js';
 
 export interface Vector2Edit<TOwner> {
   (callback: (current: Vector2) => SignalValue<PossibleVector2>): TOwner;

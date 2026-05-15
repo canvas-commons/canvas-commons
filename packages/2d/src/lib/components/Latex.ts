@@ -14,25 +14,25 @@ import {
   tween,
   useLogger,
 } from '@canvas-commons/core';
-import {liteAdaptor} from 'mathjax-full/js/adaptors/liteAdaptor';
-import {RegisterHTMLHandler} from 'mathjax-full/js/handlers/html';
-import {TeX} from 'mathjax-full/js/input/tex';
-import {AllPackages} from 'mathjax-full/js/input/tex/AllPackages';
-import {mathjax} from 'mathjax-full/js/mathjax';
-import {SVG} from 'mathjax-full/js/output/svg';
-import {OptionList} from 'mathjax-full/js/util/Options';
-import {computed, initial, parser, signal} from '../decorators';
-import {Curve} from './Curve';
-import {Node} from './Node';
-import {Path} from './Path';
-import {Rect} from './Rect';
+import {liteAdaptor} from 'mathjax-full/js/adaptors/liteAdaptor.js';
+import {RegisterHTMLHandler} from 'mathjax-full/js/handlers/html.js';
+import {TeX} from 'mathjax-full/js/input/tex.js';
+import {AllPackages} from 'mathjax-full/js/input/tex/AllPackages.js';
+import {mathjax} from 'mathjax-full/js/mathjax.js';
+import {SVG} from 'mathjax-full/js/output/svg.js';
+import {OptionList} from 'mathjax-full/js/util/Options.js';
+import {computed, initial, parser, signal} from '../decorators/index.js';
+import {Curve} from './Curve.js';
+import {Node} from './Node.js';
+import {Path} from './Path.js';
+import {Rect} from './Rect.js';
 import {
   SVGDocument,
   SVGDocumentData,
   SVG as SVGNode,
   SVGProps,
   SVGShapeData,
-} from './SVG';
+} from './SVG.js';
 
 const Adaptor = liteAdaptor();
 RegisterHTMLHandler(Adaptor);

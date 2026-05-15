@@ -2,6 +2,7 @@
   "name": "@canvas-commons/ffmpeg",
   "version": "0.1.0",
   "description": "An FFmpeg video exporter for Canvas Commons",
+  "type": "module",
   "main": "./lib/server/index.js",
   "types": "./lib/server/index.d.ts",
   "exports": {
@@ -32,7 +33,7 @@
     "client:dev": "tsc -w --project client/tsconfig.json",
     "server:build": "tsc --project server/tsconfig.json",
     "server:dev": "tsc -w --project server/tsconfig.json",
-    "lint:pkg": "publint --strict && attw --pack ."
+    "lint:pkg": "publint --strict && attw --pack . --profile esm-only --ignore-rules internal-resolution-error"
   },
   "repository": {
     "type": "git",

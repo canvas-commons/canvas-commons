@@ -1,7 +1,7 @@
 import type {Scene} from '@canvas-commons/core';
-import {useTimelineContext} from '../../contexts';
-import {useSubscribableValue} from '../../hooks';
-import {Label} from './Label';
+import {useTimelineContext} from '../../contexts/index.js';
+import {useSubscribableValue} from '../../hooks/index.js';
+import {Label} from './Label.js';
 
 interface LabelGroupProps {
   scene: Scene;

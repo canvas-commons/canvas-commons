@@ -5,11 +5,11 @@ import {
   SimpleSignal,
   Vector2,
 } from '@canvas-commons/core';
-import {CurveProfile, getPolylineProfile} from '../curves';
-import {computed, initial, signal} from '../decorators';
-import {DesiredLength} from '../partials';
-import {PathDataBuilder, drawPolygon} from '../utils';
-import {Curve, CurveProps} from './Curve';
+import {CurveProfile, getPolylineProfile} from '../curves/index.js';
+import {computed, initial, signal} from '../decorators/index.js';
+import {DesiredLength} from '../partials/index.js';
+import {PathDataBuilder, drawPolygon} from '../utils/index.js';
+import {Curve, CurveProps} from './Curve.js';
 
 export interface PolygonProps extends CurveProps {
   /**

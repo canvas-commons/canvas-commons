@@ -11,9 +11,14 @@ import {
   scenesPlugin,
   settingsPlugin,
   webglPlugin,
-} from './partials';
-import {PLUGIN_OPTIONS, PluginConfig, PluginOptions, isPlugin} from './plugins';
-import {getProjects} from './utils';
+} from './partials/index.js';
+import {
+  PLUGIN_OPTIONS,
+  PluginConfig,
+  PluginOptions,
+  isPlugin,
+} from './plugins.js';
+import {getProjects} from './utils.js';
 
 export interface CanvasCommonsPluginConfig {
   /**

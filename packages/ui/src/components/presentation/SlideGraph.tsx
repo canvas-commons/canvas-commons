@@ -1,7 +1,7 @@
-import {useApplication} from '../../contexts';
-import {useSubscribableValue} from '../../hooks';
-import {Header} from '../layout';
-import {SceneGroup} from './SceneGroup';
+import {useApplication} from '../../contexts/index.js';
+import {useSubscribableValue} from '../../hooks/index.js';
+import {Header} from '../layout/index.js';
+import {SceneGroup} from './SceneGroup.js';
 import styles from './SlideGraph.module.scss';
 
 export function SlideGraph() {

@@ -1,5 +1,5 @@
 import {createComputed} from '@canvas-commons/core';
-import {addInitializer} from './initializers';
+import {addInitializer} from './initializers.js';
 
 /**
  * Create a computed method decorator.

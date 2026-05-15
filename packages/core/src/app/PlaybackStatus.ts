@@ -1,4 +1,4 @@
-import {PlaybackManager, PlaybackState} from './PlaybackManager';
+import {PlaybackManager, PlaybackState} from './PlaybackManager.js';
 
 /**
  * A read-only representation of the playback.

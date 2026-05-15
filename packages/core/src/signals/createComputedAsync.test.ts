@@ -1,7 +1,7 @@
 import {describe, expect, test} from 'vitest';
 
-import {createComputedAsync} from './createComputedAsync';
-import {createSignal} from './createSignal';
+import {createComputedAsync} from './createComputedAsync.js';
+import {createSignal} from './createSignal.js';
 
 function sleep(duration = 0) {
   return new Promise(resolve => setTimeout(resolve, duration));

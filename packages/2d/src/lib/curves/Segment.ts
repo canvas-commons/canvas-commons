@@ -1,5 +1,5 @@
 import {Vector2} from '@canvas-commons/core';
-import {CurvePoint} from './CurvePoint';
+import {CurvePoint} from './CurvePoint.js';
 
 export abstract class Segment {
   public abstract readonly points: Vector2[];

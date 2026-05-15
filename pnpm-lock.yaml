@@ -113,9 +113,6 @@ importers:
       '@canvas-commons/2d':
         specifier: workspace:*
         version: 'link:'
-      '@canvas-commons/internal':
-        specifier: workspace:^
-        version: link:../internal
       '@canvas-commons/ui':
         specifier: workspace:^
         version: link:../ui
@@ -165,9 +162,6 @@ importers:
         specifier: ^3.2.0
         version: 3.2.0
     devDependencies:
-      '@canvas-commons/internal':
-        specifier: workspace:^
-        version: link:../internal
       '@rollup/plugin-commonjs':
         specifier: ^25.0.7
         version: 25.0.8(rollup@4.60.3)
@@ -371,27 +365,6 @@ importers:
       '@types/fluent-ffmpeg':
         specifier: ^2.1.21
         version: 2.1.28
-
-  packages/internal:
-    devDependencies:
-      '@rollup/plugin-commonjs':
-        specifier: ^25.0.7
-        version: 25.0.8(rollup@4.60.3)
-      '@rollup/plugin-node-resolve':
-        specifier: ^15.2.3
-        version: 15.3.1(rollup@4.60.3)
-      '@rollup/plugin-terser':
-        specifier: ^0.4.4
-        version: 0.4.4(rollup@4.60.3)
-      '@rollup/plugin-typescript':
-        specifier: ^11.1.5
-        version: 11.1.6(rollup@4.60.3)(tslib@2.8.1)(typescript@6.0.3)
-      rollup:
-        specifier: ^4.9.1
-        version: 4.60.3
-      rollup-plugin-postcss:
-        specifier: ^4.0.2
-        version: 4.0.2(postcss@8.5.14)
 
   packages/player:
     devDependencies:

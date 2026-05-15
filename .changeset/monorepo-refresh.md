@@ -23,6 +23,9 @@ Modernize packaging, build, and release pipeline.
 - Bumps `engines.node` floor to `>=20.19.0`.
 - `@canvas-commons/vite-plugin` peerDep range broadened to
   `^4 || ^5 || ^7 || ^8`.
+- `LogPayload.remarks` is markdown source now, not pre-rendered HTML. The
+  canvas-commons editor renders it at display time; consumers that read
+  `remarks` directly should pass it through a markdown parser like `marked`.
 
 Pre-1.0, so this ships as a minor across the linked `core`+`2d` group and the
 rest of the publishable packages.

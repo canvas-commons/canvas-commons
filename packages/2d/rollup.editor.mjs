@@ -1,5 +1,5 @@
-import typescript from '@canvas-commons/internal/rollup/typescript.mjs';
 import resolve from '@rollup/plugin-node-resolve';
+import typescript from '@rollup/plugin-typescript';
 import postcss from 'rollup-plugin-postcss';
 
 export default [
@@ -20,8 +20,10 @@ export default [
       typescript({
         tsconfig: './src/editor/tsconfig.build.json',
         compilerOptions: {
-          outDir: './editor',
           composite: false,
+          declaration: false,
+          declarationMap: false,
+          outDir: './editor',
         },
       }),
     ],

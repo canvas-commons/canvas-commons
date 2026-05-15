@@ -1,7 +1,7 @@
-import typescript from '@canvas-commons/internal/rollup/typescript.mjs';
 import commonjs from '@rollup/plugin-commonjs';
 import resolve from '@rollup/plugin-node-resolve';
 import terser from '@rollup/plugin-terser';
+import typescript from '@rollup/plugin-typescript';
 
 export default [
   {
@@ -11,6 +11,13 @@ export default [
       format: 'es',
       sourcemap: true,
     },
-    plugins: [resolve(), commonjs(), typescript(), terser()],
+    plugins: [
+      resolve(),
+      commonjs(),
+      typescript({
+        compilerOptions: {declaration: false, declarationMap: false},
+      }),
+      terser(),
+    ],
   },
 ];

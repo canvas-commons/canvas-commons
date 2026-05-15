@@ -54,7 +54,6 @@
   ],
   "devDependencies": {
     "@canvas-commons/2d": "workspace:*",
-    "@canvas-commons/internal": "workspace:^",
     "@canvas-commons/ui": "workspace:^",
     "@preact/signals": "catalog:",
     "@rollup/plugin-commonjs": "^25.0.7",

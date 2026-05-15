@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "test": "vitest"
+    "test": "vitest run"
   },
   "dependencies": {
     "@canvas-commons/2d": "workspace:^",

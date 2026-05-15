@@ -53,7 +53,7 @@
   ],
   "devDependencies": {
     "@canvas-commons/2d": "workspace:*",
-    "@canvas-commons/ui": "workspace:^",
+    "@canvas-commons/editor": "workspace:^",
     "@preact/signals": "catalog:",
     "@rollup/plugin-node-resolve": "^15.2.3",
     "@rollup/plugin-typescript": "^11.1.5",

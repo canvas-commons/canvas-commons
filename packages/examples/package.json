@@ -13,7 +13,7 @@
     "@lezer/javascript": "^1.4.13"
   },
   "devDependencies": {
-    "@canvas-commons/ui": "workspace:^",
+    "@canvas-commons/editor": "workspace:^",
     "@canvas-commons/vite-plugin": "workspace:^"
   }
 }

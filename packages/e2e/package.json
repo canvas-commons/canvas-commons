@@ -15,7 +15,7 @@
     "vitest": "catalog:"
   },
   "devDependencies": {
-    "@canvas-commons/ui": "workspace:^",
+    "@canvas-commons/editor": "workspace:^",
     "@canvas-commons/vite-plugin": "workspace:^"
   }
 }

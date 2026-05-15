@@ -22,7 +22,7 @@
   "devDependencies": {
     "@canvas-commons/2d": "workspace:^",
     "@canvas-commons/core": "workspace:^",
-    "@canvas-commons/ui": "workspace:^",
+    "@canvas-commons/editor": "workspace:^",
     "@canvas-commons/vite-plugin": "workspace:^"
   },
   "dependencies": {

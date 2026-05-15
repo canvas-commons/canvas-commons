@@ -1,6 +1,6 @@
 import {Node, Scene2D} from '@canvas-commons/2d';
 import {SceneRenderEvent} from '@canvas-commons/core';
-import {useApplication, useCurrentScene} from '@canvas-commons/ui';
+import {useApplication, useCurrentScene} from '@canvas-commons/editor';
 import {
   ReadonlySignal,
   Signal,

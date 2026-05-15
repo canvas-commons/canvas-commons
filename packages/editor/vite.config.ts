@@ -7,7 +7,7 @@ export default defineConfig({
   resolve: {
     alias: {
       // eslint-disable-next-line @typescript-eslint/naming-convention
-      '@canvas-commons/ui': '/src/main.tsx',
+      '@canvas-commons/editor': '/src/main.tsx',
       // eslint-disable-next-line @typescript-eslint/naming-convention
       '@canvas-commons/2d/editor': '@canvas-commons/2d/src/editor',
     },

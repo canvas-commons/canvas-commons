@@ -5,7 +5,7 @@ import {
   PluginOverlayConfig,
   useViewportContext,
   useViewportMatrix,
-} from '@canvas-commons/ui';
+} from '@canvas-commons/editor';
 import {ComponentChildren} from 'preact';
 import {usePluginState} from './Provider';
 

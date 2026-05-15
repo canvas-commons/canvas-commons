@@ -75,7 +75,7 @@ export interface CanvasCommonsPluginConfig {
    * - `index` - Receives a list of all projects as its first argument and
    *             creates the initial page for selecting a project.
    *
-   * @defaultValue '\@canvas-commons/ui'
+   * @defaultValue '\@canvas-commons/editor'
    */
   editor?: string;
   /**
@@ -99,7 +99,7 @@ export default ({
   project = './src/project.ts',
   output = './output',
   bufferedAssets = /^$/,
-  editor = '@canvas-commons/ui',
+  editor = '@canvas-commons/editor',
   proxy,
   buildForEditor,
 }: CanvasCommonsPluginConfig = {}): Plugin[] => {

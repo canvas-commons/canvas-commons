@@ -6,7 +6,7 @@ export function getVersions() {
   return {
     core: loadVersion('@canvas-commons/core'),
     two: loadVersion('@canvas-commons/2d'),
-    ui: loadVersion('@canvas-commons/ui'),
+    ui: loadVersion('@canvas-commons/editor'),
     vitePlugin: loadVersion('..'),
   };
 }

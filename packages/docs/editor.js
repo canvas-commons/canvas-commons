@@ -3,7 +3,7 @@ const fs = require('fs');
 module.exports = (context, options) => ({
   name: 'docusaurus-editor-plugin',
   async loadContent() {
-    const editorFile = await fs.promises.readFile('../ui/editor.html');
+    const editorFile = await fs.promises.readFile('../editor/editor.html');
     const html = editorFile
       .toString()
       .replace('{{style}}', '/editor/style.css')

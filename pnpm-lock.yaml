@@ -116,9 +116,9 @@ importers:
       '@canvas-commons/2d':
         specifier: workspace:*
         version: 'link:'
-      '@canvas-commons/ui':
+      '@canvas-commons/editor':
         specifier: workspace:^
-        version: link:../ui
+        version: link:../editor
       '@preact/signals':
         specifier: 'catalog:'
         version: 1.3.4(preact@10.29.1)
@@ -184,9 +184,9 @@ importers:
       '@canvas-commons/core':
         specifier: workspace:^
         version: link:../core
-      '@canvas-commons/ui':
+      '@canvas-commons/editor':
         specifier: workspace:^
-        version: link:../ui
+        version: link:../editor
       '@canvas-commons/vite-plugin':
         specifier: workspace:^
         version: link:../vite-plugin
@@ -303,12 +303,49 @@ importers:
         specifier: 'catalog:'
         version: 0.34.6(jsdom@22.1.0)(playwright@1.59.1)(sass@1.99.0)(terser@5.46.2)
     devDependencies:
-      '@canvas-commons/ui':
+      '@canvas-commons/editor':
         specifier: workspace:^
-        version: link:../ui
+        version: link:../editor
       '@canvas-commons/vite-plugin':
         specifier: workspace:^
         version: link:../vite-plugin
+
+  packages/editor:
+    dependencies:
+      '@canvas-commons/core':
+        specifier: workspace:^
+        version: link:../core
+      '@preact/signals':
+        specifier: 'catalog:'
+        version: 1.3.4(preact@10.29.1)
+      highlight.js:
+        specifier: ^11.9.0
+        version: 11.11.1
+      marked:
+        specifier: ^15.0.0
+        version: 15.0.12
+      preact:
+        specifier: 'catalog:'
+        version: 10.29.1
+    devDependencies:
+      '@preact/preset-vite':
+        specifier: ^2.7.0
+        version: 2.10.5(@babel/core@7.29.0)(preact@10.29.1)(rollup@4.60.3)(vite@4.5.14(@types/node@20.19.39)(sass@1.99.0)(terser@5.46.2))
+      '@types/node':
+        specifier: ^20.19.0
+        version: 20.19.39
+      clsx:
+        specifier: 'catalog:'
+        version: 2.1.1
+      sass:
+        specifier: ^1.69.5
+        version: 1.99.0
+      source-map-js:
+        specifier: ^1.0.2
+        version: 1.2.1
+      vite-plugin-dts:
+        specifier: ^4.0.3
+        version: 4.5.4(@types/node@20.19.39)(rollup@4.60.3)(typescript@6.0.3)(vite@4.5.14(@types/node@20.19.39)(sass@1.99.0)(terser@5.46.2))
 
   packages/examples:
     dependencies:
@@ -322,9 +359,9 @@ importers:
         specifier: ^1.4.13
         version: 1.5.4
     devDependencies:
-      '@canvas-commons/ui':
+      '@canvas-commons/editor':
         specifier: workspace:^
-        version: link:../ui
+        version: link:../editor
       '@canvas-commons/vite-plugin':
         specifier: workspace:^
         version: link:../vite-plugin
@@ -372,55 +409,18 @@ importers:
         specifier: workspace:^
         version: link:../core
     devDependencies:
+      '@canvas-commons/editor':
+        specifier: workspace:^
+        version: link:../editor
       '@canvas-commons/ffmpeg':
         specifier: workspace:^
         version: link:../ffmpeg
-      '@canvas-commons/ui':
-        specifier: workspace:^
-        version: link:../ui
       '@canvas-commons/vite-plugin':
         specifier: workspace:^
         version: link:../vite-plugin
       '@types/node':
         specifier: ^20.19.0
         version: 20.19.39
-
-  packages/ui:
-    dependencies:
-      '@canvas-commons/core':
-        specifier: workspace:^
-        version: link:../core
-      '@preact/signals':
-        specifier: 'catalog:'
-        version: 1.3.4(preact@10.29.1)
-      highlight.js:
-        specifier: ^11.9.0
-        version: 11.11.1
-      marked:
-        specifier: ^15.0.0
-        version: 15.0.12
-      preact:
-        specifier: 'catalog:'
-        version: 10.29.1
-    devDependencies:
-      '@preact/preset-vite':
-        specifier: ^2.7.0
-        version: 2.10.5(@babel/core@7.29.0)(preact@10.29.1)(rollup@4.60.3)(vite@4.5.14(@types/node@20.19.39)(sass@1.99.0)(terser@5.46.2))
-      '@types/node':
-        specifier: ^20.19.0
-        version: 20.19.39
-      clsx:
-        specifier: 'catalog:'
-        version: 2.1.1
-      sass:
-        specifier: ^1.69.5
-        version: 1.99.0
-      source-map-js:
-        specifier: ^1.0.2
-        version: 1.2.1
-      vite-plugin-dts:
-        specifier: ^4.0.3
-        version: 4.5.4(@types/node@20.19.39)(rollup@4.60.3)(typescript@6.0.3)(vite@4.5.14(@types/node@20.19.39)(sass@1.99.0)(terser@5.46.2))
 
   packages/vite-plugin:
     dependencies:

@@ -9,7 +9,7 @@
     [
       "@canvas-commons/core",
       "@canvas-commons/2d",
-      "@canvas-commons/ui",
+      "@canvas-commons/editor",
       "@canvas-commons/vite-plugin",
       "@canvas-commons/ffmpeg",
       "@canvas-commons/player",

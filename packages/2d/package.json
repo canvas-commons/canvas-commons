@@ -32,9 +32,9 @@
   "bugs": "https://github.com/canvas-commons/canvas-commons/issues",
   "license": "MIT",
   "scripts": {
-    "dev": "tsc -p src/lib -w",
+    "dev": "tsdown --watch",
     "build": "pnpm run build-lib && pnpm run build-editor",
-    "build-lib": "tsc -p src/lib/tsconfig.build.json",
+    "build-lib": "tsdown",
     "build-editor": "rollup -c rollup.editor.mjs",
     "bundle": "rollup -c rollup.config.mjs",
     "test": "vitest run",

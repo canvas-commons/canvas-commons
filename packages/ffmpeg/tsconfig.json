@@ -1,17 +1,14 @@
 {
   "compilerOptions": {
-    "rootDir": ".",
-    "outDir": "../lib/server",
-    "ignoreDeprecations": "6.0",
-    "inlineSourceMap": true,
+    "noImplicitAny": true,
     "esModuleInterop": true,
     "moduleResolution": "bundler",
     "skipLibCheck": true,
     "strict": true,
     "module": "esnext",
-    "target": "es2020",
+    "target": "es2022",
     "declaration": true,
     "declarationMap": true
   },
-  "include": ["."]
+  "include": ["client", "server"]
 }

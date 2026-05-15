@@ -20,8 +20,8 @@
   "bugs": "https://github.com/canvas-commons/canvas-commons/issues",
   "license": "MIT",
   "scripts": {
-    "dev": "tsc -w",
-    "build": "tsc",
+    "dev": "tsdown --watch",
+    "build": "tsdown",
     "lint:pkg": "publint --strict && attw --pack . --profile esm-only"
   },
   "repository": {

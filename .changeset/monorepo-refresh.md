@@ -26,6 +26,10 @@ Modernize packaging, build, and release pipeline.
 - `LogPayload.remarks` is markdown source now, not pre-rendered HTML. The
   canvas-commons editor renders it at display time; consumers that read
   `remarks` directly should pass it through a markdown parser like `marked`.
+- Library builds (`core`, `2d`, `vite-plugin`, `ffmpeg`) migrated from `tsc` to
+  `tsdown` (Rolldown-based) and emit a bundled single-file `lib/index.js` to
+  match the single-entry `exports` map. Published output is still ESM with
+  `.d.ts` declarations and source maps.
 
 Pre-1.0, so this ships as a minor across the linked `core`+`2d` group and the
 rest of the publishable packages.

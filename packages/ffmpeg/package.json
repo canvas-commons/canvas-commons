@@ -28,11 +28,8 @@
   "bugs": "https://github.com/canvas-commons/canvas-commons/issues",
   "license": "GPLv3",
   "scripts": {
-    "build": "pnpm run client:build && pnpm run server:build",
-    "client:build": "tsc --project client/tsconfig.json",
-    "client:dev": "tsc -w --project client/tsconfig.json",
-    "server:build": "tsc --project server/tsconfig.json",
-    "server:dev": "tsc -w --project server/tsconfig.json",
+    "dev": "tsdown --watch",
+    "build": "tsdown",
     "lint:pkg": "publint --strict && attw --pack . --profile esm-only --ignore-rules internal-resolution-error"
   },
   "repository": {

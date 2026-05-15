@@ -24,8 +24,8 @@
   "bugs": "https://github.com/canvas-commons/canvas-commons/issues",
   "license": "MIT",
   "scripts": {
-    "dev": "tsc -p tsconfig.build.json -w",
-    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsdown --watch",
+    "build": "tsdown",
     "bundle": "rollup -c rollup.config.mjs",
     "test": "vitest run",
     "lint:pkg": "publint --strict && attw --pack . --profile esm-only --ignore-rules internal-resolution-error"

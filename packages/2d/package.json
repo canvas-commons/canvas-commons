@@ -36,7 +36,6 @@
     "build": "pnpm run build-lib && pnpm run build-editor",
     "build-lib": "tsdown",
     "build-editor": "rollup -c rollup.editor.mjs",
-    "bundle": "rollup -c rollup.config.mjs",
     "test": "vitest run",
     "lint:pkg": "publint --strict && attw --pack . --profile esm-only --ignore-rules internal-resolution-error --exclude-entrypoints ./editor"
   },
@@ -56,9 +55,7 @@
     "@canvas-commons/2d": "workspace:*",
     "@canvas-commons/ui": "workspace:^",
     "@preact/signals": "catalog:",
-    "@rollup/plugin-commonjs": "^25.0.7",
     "@rollup/plugin-node-resolve": "^15.2.3",
-    "@rollup/plugin-terser": "^0.4.4",
     "@rollup/plugin-typescript": "^11.1.5",
     "@types/node": "catalog:",
     "clsx": "catalog:",

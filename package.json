@@ -54,7 +54,7 @@
     "publint": "^0.3.19",
     "tsdown": "^0.22.0",
     "typescript": "^6.0.2",
-    "vite": "^4.5.0"
+    "vite": "catalog:"
   },
   "lint-staged": {
     "*.{ts,tsx}": "eslint --fix",

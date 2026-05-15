@@ -18,6 +18,8 @@
     "@canvas-commons/ffmpeg": "workspace:^",
     "@canvas-commons/editor": "workspace:^",
     "@canvas-commons/vite-plugin": "workspace:^",
-    "@types/node": "catalog:"
+    "@preact/preset-vite": "^2.10.5",
+    "@types/node": "catalog:",
+    "vite": "catalog:"
   }
 }

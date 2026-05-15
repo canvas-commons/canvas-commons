@@ -14,6 +14,7 @@
   },
   "devDependencies": {
     "@canvas-commons/editor": "workspace:^",
-    "@canvas-commons/vite-plugin": "workspace:^"
+    "@canvas-commons/vite-plugin": "workspace:^",
+    "vite": "catalog:"
   }
 }

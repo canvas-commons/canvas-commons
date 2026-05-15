@@ -22,7 +22,16 @@ Modernize packaging, build, and release pipeline.
 - Drops Lerna for pnpm workspaces + Changesets.
 - Bumps `engines.node` floor to `>=20.19.0`.
 - `@canvas-commons/vite-plugin` peerDep range broadened to
-  `^4 || ^5 || ^7 || ^8`.
+  `^4 || ^5 || ^7 || ^8`. The editor, player, template, and examples now build
+  against Vite 8 (Rolldown-backed) by default, with Vitest 4 driving unit and
+  end-to-end tests. The plugin emits Vite 8's `oxc.jsx` configuration in place
+  of the deprecated `esbuild.jsx*` keys, resolves project entries to absolute
+  paths so they survive resolution from virtual modules, and looks up the editor
+  package from the consumer's cwd so pnpm's strict layout finds it.
+- `@canvas-commons/editor`'s library build now emits its CSS as `style.css` to
+  match the `./style.css` export. Vite 8's library mode renamed the default CSS
+  output, so the explicit `cssFileName: 'style'` keeps the consumer-visible
+  filename stable.
 - `LogPayload.remarks` is markdown source now, not pre-rendered HTML. The
   canvas-commons editor renders it at display time; consumers that read
   `remarks` directly should pass it through a markdown parser like `marked`.

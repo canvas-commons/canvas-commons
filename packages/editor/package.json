@@ -48,11 +48,12 @@
     "preact": "catalog:"
   },
   "devDependencies": {
-    "@preact/preset-vite": "^2.7.0",
+    "@preact/preset-vite": "^2.10.5",
     "@types/node": "catalog:",
     "clsx": "catalog:",
     "sass": "^1.69.5",
     "source-map-js": "^1.0.2",
-    "vite-plugin-dts": "^4.0.3"
+    "vite": "catalog:",
+    "vite-plugin-dts": "^4.5.4"
   }
 }

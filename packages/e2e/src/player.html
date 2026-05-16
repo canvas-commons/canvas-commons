@@ -1,0 +1,45 @@
+<!doctype html>
+<html>
+  <head>
+    <style>
+      body {
+        margin: 0;
+        padding: 16px;
+        background: white;
+      }
+      /* Page-level styles that intentionally collide with the player's
+         shadow CSS class names. The shadow root should keep its own
+         styling and never inherit these. */
+      .overlay {
+        background: red;
+      }
+      .button {
+        background: lime;
+      }
+      .canvas {
+        border: 5px solid blue;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      class="overlay"
+      id="page-overlay"
+      style="width: 50px; height: 50px"
+    ></div>
+    <button class="button" id="page-button">click</button>
+    <!--
+      `src` is set from the test driver so it can hand in a resolved
+      `/@fs/<absolute-path>?project` URL — the dev server runs with
+      `root: src/` but the project fixture lives at `<pkg>/tests/project.ts`.
+    -->
+    <canvas-commons-player
+      id="player"
+      style="display: block; width: 480px; height: 270px"
+      auto
+    ></canvas-commons-player>
+    <script type="module">
+      import '@canvas-commons/player';
+    </script>
+  </body>
+</html>

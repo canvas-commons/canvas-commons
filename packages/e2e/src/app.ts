@@ -10,7 +10,23 @@ export interface App {
   stop: () => Promise<void>;
 }
 
-export async function start(): Promise<App> {
+export interface StartOptions {
+  /**
+   * Path to navigate to on the dev server. Defaults to `'/'`, which loads
+   * the editor. Pass `'/player.html'` to load the standalone player smoke
+   * page instead.
+   */
+  path?: string;
+  /**
+   * Selector to wait for after navigation. Defaults to `'main'`, which is
+   * the editor's root element.
+   */
+  waitFor?: string;
+}
+
+export async function start(options: StartOptions = {}): Promise<App> {
+  const {path: targetPath = '/', waitFor = 'main'} = options;
+
   const [browser, server] = await Promise.all([
     firefox.launch({
       headless: true,
@@ -22,8 +38,8 @@ export async function start(): Promise<App> {
   ]);
 
   const page = await browser.newPage();
-  await page.goto(`http://localhost:${server.config.server.port}`);
-  await page.waitForSelector('main');
+  await page.goto(`http://localhost:${server.config.server.port}${targetPath}`);
+  await page.waitForSelector(waitFor);
 
   return {
     page,

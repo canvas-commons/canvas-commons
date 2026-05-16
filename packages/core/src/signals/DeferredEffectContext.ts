@@ -1,5 +1,5 @@
-import {useThread} from '../utils/index.js';
-import {DependencyContext} from './DependencyContext.js';
+import {useThread} from '../utils';
+import {DependencyContext} from './DependencyContext';
 
 export class DeferredEffectContext extends DependencyContext {
   private readonly unsubscribe;

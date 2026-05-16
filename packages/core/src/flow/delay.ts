@@ -1,6 +1,6 @@
-import {decorate, threadable} from '../decorators/index.js';
-import {ThreadGenerator, isThreadGenerator} from '../threading/index.js';
-import {waitFor} from './scheduling.js';
+import {decorate, threadable} from '../decorators';
+import {ThreadGenerator, isThreadGenerator} from '../threading';
+import {waitFor} from './scheduling';
 
 decorate(delay, threadable());
 /**

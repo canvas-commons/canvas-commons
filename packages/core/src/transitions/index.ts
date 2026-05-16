@@ -4,9 +4,9 @@
  * @packageDocumentation
  */
 
-export * from './fadeTransition.js';
-export * from './slideTransition.js';
-export * from './useTransition.js';
-export * from './waitTransition.js';
-export * from './zoomInTransition.js';
-export * from './zoomOutTransition.js';
+export * from './fadeTransition';
+export * from './slideTransition';
+export * from './useTransition';
+export * from './waitTransition';
+export * from './zoomInTransition';
+export * from './zoomOutTransition';

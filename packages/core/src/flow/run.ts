@@ -1,4 +1,4 @@
-import {setTaskName, ThreadGenerator} from '../threading/index.js';
+import {setTaskName, ThreadGenerator} from '../threading';
 /**
  * Turn the given generator function into a task.
  *

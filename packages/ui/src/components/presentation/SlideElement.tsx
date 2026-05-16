@@ -1,6 +1,6 @@
 import type {Slide} from '@canvas-commons/core';
 import clsx from 'clsx';
-import {useApplication} from '../../contexts/index.js';
+import {useApplication} from '../../contexts';
 import styles from './SlideGraph.module.scss';
 
 interface SlideElementProps {

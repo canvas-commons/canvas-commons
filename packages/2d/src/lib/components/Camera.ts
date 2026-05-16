@@ -15,10 +15,10 @@ import {
   unwrap,
   Vector2,
 } from '@canvas-commons/core';
-import {cloneable, computed, signal} from '../decorators/index.js';
-import {Curve} from './Curve.js';
-import {Node, NodeProps} from './Node.js';
-import {Rect, RectProps} from './Rect.js';
+import {cloneable, computed, signal} from '../decorators';
+import {Curve} from './Curve';
+import {Node, NodeProps} from './Node';
+import {Rect, RectProps} from './Rect';
 
 export interface CameraProps extends NodeProps {
   /**

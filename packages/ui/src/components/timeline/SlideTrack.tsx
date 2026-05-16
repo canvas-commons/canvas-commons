@@ -1,8 +1,8 @@
 import {Scene} from '@canvas-commons/core';
 import clsx from 'clsx';
-import {useApplication} from '../../contexts/index.js';
-import {useSubscribableValue} from '../../hooks/index.js';
-import {findAndOpenFirstUserFile} from '../../utils/index.js';
+import {useApplication} from '../../contexts';
+import {useSubscribableValue} from '../../hooks';
+import {findAndOpenFirstUserFile} from '../../utils';
 import styles from './Timeline.module.scss';
 
 export interface SlideTrackProps {

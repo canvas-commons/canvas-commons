@@ -1,6 +1,6 @@
-import type {LogPayload} from '../app/index.js';
-import {DetailedError} from './DetailedError.js';
-import experimentalFeatures from './__logs__/experimental-features.js';
+import type {LogPayload} from '../app';
+import {DetailedError} from './DetailedError';
+import experimentalFeatures from './__logs__/experimental-features';
 
 type ExperimentalErrorProps = Pick<
   LogPayload,

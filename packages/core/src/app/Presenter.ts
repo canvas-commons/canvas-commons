@@ -1,14 +1,14 @@
-import {ValueDispatcher} from '../events/index.js';
-import type {Scene, Slide} from '../scenes/index.js';
-import {ReadOnlyTimeEvents} from '../scenes/timeEvents/index.js';
-import {Vector2} from '../types/index.js';
-import {Semaphore} from '../utils/index.js';
-import type {Logger} from './Logger.js';
-import {PlaybackManager, PlaybackState} from './PlaybackManager.js';
-import {PlaybackStatus} from './PlaybackStatus.js';
-import type {Project} from './Project.js';
-import {SharedWebGLContext} from './SharedWebGLContext.js';
-import {Stage, StageSettings} from './Stage.js';
+import {ValueDispatcher} from '../events';
+import type {Scene, Slide} from '../scenes';
+import {ReadOnlyTimeEvents} from '../scenes/timeEvents';
+import {Vector2} from '../types';
+import {Semaphore} from '../utils';
+import type {Logger} from './Logger';
+import {PlaybackManager, PlaybackState} from './PlaybackManager';
+import {PlaybackStatus} from './PlaybackStatus';
+import type {Project} from './Project';
+import {SharedWebGLContext} from './SharedWebGLContext';
+import {Stage, StageSettings} from './Stage';
 
 export interface PresenterSettings extends StageSettings {
   name: string;

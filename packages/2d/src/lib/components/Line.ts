@@ -12,17 +12,17 @@ import {
   useLogger,
   Vector2,
 } from '@canvas-commons/core';
+import {CurveProfile, getPolylineProfile} from '../curves';
 import {
   calculateLerpDistance,
   polygonLength,
   polygonPointsLerp,
-} from '../curves/createCurveProfileLerp.js';
-import {CurveProfile, getPolylineProfile} from '../curves/index.js';
-import {computed, initial, nodeName, signal} from '../decorators/index.js';
-import {arc, drawLine, drawPivot, lineTo, moveTo} from '../utils/index.js';
-import lineWithoutPoints from './__logs__/line-without-points.js';
-import {Curve, CurveProps} from './Curve.js';
-import {Layout} from './Layout.js';
+} from '../curves/createCurveProfileLerp';
+import {computed, initial, nodeName, signal} from '../decorators';
+import {arc, drawLine, drawPivot, lineTo, moveTo} from '../utils';
+import lineWithoutPoints from './__logs__/line-without-points';
+import {Curve, CurveProps} from './Curve';
+import {Layout} from './Layout';
 
 export interface LineProps extends CurveProps {
   /**

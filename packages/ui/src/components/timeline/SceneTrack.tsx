@@ -2,10 +2,10 @@ import styles from './Timeline.module.scss';
 
 import type {Scene} from '@canvas-commons/core';
 import {useMemo} from 'preact/hooks';
-import {useApplication, useTimelineContext} from '../../contexts/index.js';
-import {useScenes, useSubscribableValue} from '../../hooks/index.js';
-import {findAndOpenFirstUserFile} from '../../utils/index.js';
-import {SlideTrack} from './SlideTrack.js';
+import {useApplication, useTimelineContext} from '../../contexts';
+import {useScenes, useSubscribableValue} from '../../hooks';
+import {findAndOpenFirstUserFile} from '../../utils';
+import {SlideTrack} from './SlideTrack';
 
 export function SceneTrack() {
   const scenes = useScenes();

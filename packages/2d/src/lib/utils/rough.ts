@@ -2,13 +2,13 @@ import {BBox, Spacing, Vector2} from '@canvas-commons/core';
 import rough from 'roughjs';
 import type {RoughCanvas} from 'roughjs/bin/canvas';
 import type {Drawable, Options} from 'roughjs/bin/core';
-import {RoughConfig, RoughFillStyle} from '../partials/index.js';
-import {PossibleCanvasStyle} from '../partials/types.js';
+import {RoughConfig, RoughFillStyle} from '../partials';
+import {PossibleCanvasStyle} from '../partials/types';
 import {
   adjustRectRadius,
   canvasStyleParser,
   resolveCanvasStyle,
-} from './CanvasUtils.js';
+} from './CanvasUtils';
 
 // Export Drawable type for use in other modules
 export type {Drawable};

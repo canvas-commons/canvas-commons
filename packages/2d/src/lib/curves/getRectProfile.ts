@@ -1,10 +1,10 @@
 import {BBox, Spacing, Vector2} from '@canvas-commons/core';
-import {adjustRectRadius} from '../utils/index.js';
-import {CircleSegment} from './CircleSegment.js';
-import {CubicBezierSegment} from './CubicBezierSegment.js';
-import {CurveProfile} from './CurveProfile.js';
-import {LineSegment} from './LineSegment.js';
-import {Segment} from './Segment.js';
+import {adjustRectRadius} from '../utils';
+import {CircleSegment} from './CircleSegment';
+import {CubicBezierSegment} from './CubicBezierSegment';
+import {CurveProfile} from './CurveProfile';
+import {LineSegment} from './LineSegment';
+import {Segment} from './Segment';
 
 export function getRectProfile(
   rect: BBox,

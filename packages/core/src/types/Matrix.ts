@@ -1,4 +1,4 @@
-import {Vector2} from './Vector.js';
+import {Vector2} from './Vector';
 
 export function transformAngle(angle: number, matrix: DOMMatrix) {
   return Vector2.fromDegrees(angle).transform(matrix).degrees;

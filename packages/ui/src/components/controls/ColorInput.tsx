@@ -1,13 +1,13 @@
 import {Color} from '@canvas-commons/core';
 import {useRef, useState} from 'preact/hooks';
-import {useReducedMotion} from '../../hooks/index.js';
-import {useClickOutside} from '../../hooks/useClickOutside.js';
-import {shake} from '../animations/index.js';
+import {useReducedMotion} from '../../hooks';
+import {useClickOutside} from '../../hooks/useClickOutside';
+import {shake} from '../animations';
 import tabsStyles from '../tabs/Tabs.module.scss';
-import {ColorPicker} from './ColorPicker.js';
-import {ColorPreview} from './ColorPreview.js';
+import {ColorPicker} from './ColorPicker';
+import {ColorPreview} from './ColorPreview';
 import styles from './Controls.module.scss';
-import {Input} from './Input.js';
+import {Input} from './Input';
 
 export interface ColorInputProps {
   value: Color | null;

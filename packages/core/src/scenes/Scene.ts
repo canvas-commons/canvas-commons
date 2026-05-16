@@ -1,20 +1,20 @@
-import type {Logger, PlaybackStatus, SharedWebGLContext} from '../app/index.js';
+import type {Logger, PlaybackStatus, SharedWebGLContext} from '../app';
 import type {
   SubscribableEvent,
   SubscribableValueEvent,
   ValueDispatcher,
-} from '../events/index.js';
-import type {Plugin} from '../plugin/index.js';
-import type {SignalValue} from '../signals/index.js';
-import type {Vector2} from '../types/index.js';
-import type {LifecycleEvents} from './LifecycleEvents.js';
-import type {Random} from './Random.js';
-import type {SceneMetadata} from './SceneMetadata.js';
-import type {Shaders} from './Shaders.js';
-import type {Slides} from './Slides.js';
-import type {Sounds} from './Sounds.js';
-import type {Variables} from './Variables.js';
-import type {TimeEvents} from './timeEvents/index.js';
+} from '../events';
+import type {Plugin} from '../plugin';
+import type {SignalValue} from '../signals';
+import type {Vector2} from '../types';
+import type {LifecycleEvents} from './LifecycleEvents';
+import type {Random} from './Random';
+import type {SceneMetadata} from './SceneMetadata';
+import type {Shaders} from './Shaders';
+import type {Slides} from './Slides';
+import type {Sounds} from './Sounds';
+import type {Variables} from './Variables';
+import type {TimeEvents} from './timeEvents';
 
 /**
  * The constructor used when creating new scenes.

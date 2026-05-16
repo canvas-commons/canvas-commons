@@ -1,4 +1,4 @@
-import {Computed, ComputedContext} from '../signals/index.js';
+import {Computed, ComputedContext} from '../signals';
 
 export function createComputed<TValue>(
   factory: (...args: any[]) => TValue,

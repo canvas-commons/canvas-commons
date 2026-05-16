@@ -3,8 +3,8 @@ import {
   DescriptionOf,
   ThreadGeneratorFactory,
 } from '@canvas-commons/core';
-import type {View2D} from '../components/index.js';
-import {Scene2D} from './Scene2D.js';
+import type {View2D} from '../components';
+import {Scene2D} from './Scene2D';
 
 export function makeScene2D(
   runner: ThreadGeneratorFactory<View2D>,

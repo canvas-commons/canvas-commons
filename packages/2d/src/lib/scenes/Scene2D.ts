@@ -10,7 +10,7 @@ import {
   Vector2,
   useLogger,
 } from '@canvas-commons/core';
-import {Node, View2D} from '../components/index.js';
+import {Node, View2D} from '../components';
 
 export class Scene2D extends GeneratorScene<View2D> implements Inspectable {
   private view: View2D | null = null;

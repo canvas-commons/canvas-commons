@@ -1,7 +1,7 @@
 import {Vector2} from '@canvas-commons/core';
-import {lineTo, moveTo} from '../utils/index.js';
-import {CurvePoint} from './CurvePoint.js';
-import {Segment} from './Segment.js';
+import {lineTo, moveTo} from '../utils';
+import {CurvePoint} from './CurvePoint';
+import {Segment} from './Segment';
 
 export class LineSegment extends Segment {
   private readonly length: number;

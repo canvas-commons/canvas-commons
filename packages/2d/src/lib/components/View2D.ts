@@ -1,9 +1,9 @@
 import {PlaybackState, SimpleSignal, lazy} from '@canvas-commons/core';
-import {initial, signal} from '../decorators/index.js';
-import {nodeName} from '../decorators/nodeName.js';
-import {useScene2D} from '../scenes/useScene2D.js';
-import type {Node} from './Node.js';
-import {Rect, RectProps} from './Rect.js';
+import {initial, signal} from '../decorators';
+import {nodeName} from '../decorators/nodeName';
+import {useScene2D} from '../scenes/useScene2D';
+import type {Node} from './Node';
+import {Rect, RectProps} from './Rect';
 
 export interface View2DProps extends RectProps {
   assetHash: string;

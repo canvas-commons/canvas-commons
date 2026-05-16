@@ -18,19 +18,19 @@ import {
   tween,
   useLogger,
 } from '@canvas-commons/core';
-import {computed, signal} from '../decorators/index.js';
-import {PathMorpher, defaultMorpher} from '../morphers/index.js';
-import {DesiredLength, PossibleCanvasStyle} from '../partials/index.js';
-import {applyTransformDiff, getTransformDiff} from '../utils/diff.js';
-import {Circle, CircleProps} from './Circle.js';
-import {Img, ImgProps} from './Img.js';
-import {Layout} from './Layout.js';
-import {Line, LineProps} from './Line.js';
-import {Node, NodeProps} from './Node.js';
-import {Path, PathProps} from './Path.js';
-import {Rect, RectProps} from './Rect.js';
-import {Shape, ShapeProps} from './Shape.js';
-import {View2D} from './View2D.js';
+import {computed, signal} from '../decorators';
+import {PathMorpher, defaultMorpher} from '../morphers';
+import {DesiredLength, PossibleCanvasStyle} from '../partials';
+import {applyTransformDiff, getTransformDiff} from '../utils/diff';
+import {Circle, CircleProps} from './Circle';
+import {Img, ImgProps} from './Img';
+import {Layout} from './Layout';
+import {Line, LineProps} from './Line';
+import {Node, NodeProps} from './Node';
+import {Path, PathProps} from './Path';
+import {Rect, RectProps} from './Rect';
+import {Shape, ShapeProps} from './Shape';
+import {View2D} from './View2D';
 
 /**
  * Represent SVG shape.

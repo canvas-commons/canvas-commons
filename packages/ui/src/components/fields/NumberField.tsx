@@ -1,4 +1,4 @@
-import {FieldSurface, NumericField} from './Layout.js';
+import {FieldSurface, NumericField} from './Layout';
 
 export interface NumberFieldProps {
   value: number;

@@ -1,6 +1,6 @@
 import {BBox, Vector2} from '@canvas-commons/core';
 
-import {Polynomial} from './Polynomial.js';
+import {Polynomial} from './Polynomial';
 
 export class Polynomial2D {
   public readonly x: Polynomial;

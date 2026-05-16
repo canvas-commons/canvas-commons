@@ -9,8 +9,8 @@ import {
   threadable,
   useLogger,
 } from '@canvas-commons/core';
-import {colorSignal, computed, initial, signal} from '../decorators/index.js';
-import {SVG, SVGProps} from './SVG.js';
+import {colorSignal, computed, initial, signal} from '../decorators';
+import {SVG, SVGProps} from './SVG';
 
 export interface IconProps extends Omit<SVGProps, 'svg'> {
   /**

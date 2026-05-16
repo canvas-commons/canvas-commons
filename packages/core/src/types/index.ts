@@ -4,12 +4,12 @@
  * @packageDocumentation
  */
 
-export * from './BBox.js';
-export * from './Canvas.js';
-export * from './Color.js';
-export * from './Matrix.js';
-export * from './Matrix2D.js';
-export * from './Origin.js';
-export * from './Spacing.js';
-export * from './Type.js';
-export * from './Vector.js';
+export * from './BBox';
+export * from './Canvas';
+export * from './Color';
+export * from './Matrix';
+export * from './Matrix2D';
+export * from './Origin';
+export * from './Spacing';
+export * from './Type';
+export * from './Vector';

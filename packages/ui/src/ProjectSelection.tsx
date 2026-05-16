@@ -1,4 +1,4 @@
-import {Header} from './components/layout/index.js';
+import {Header} from './components/layout';
 import styles from './Index.module.scss';
 
 export interface ProjectData {

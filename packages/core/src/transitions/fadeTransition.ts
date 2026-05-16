@@ -1,6 +1,6 @@
-import {createSignal} from '../signals/index.js';
-import {ThreadGenerator} from '../threading/index.js';
-import {useTransition} from './useTransition.js';
+import {createSignal} from '../signals';
+import {ThreadGenerator} from '../threading';
+import {useTransition} from './useTransition';
 
 /**
  * Perform a transition that fades between the scenes.

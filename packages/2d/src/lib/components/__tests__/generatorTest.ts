@@ -1,6 +1,6 @@
 import {ThreadGeneratorFactory, threads} from '@canvas-commons/core';
-import {useScene2D} from '../../scenes/index.js';
-import {View2D} from '../View2D.js';
+import {useScene2D} from '../../scenes';
+import {View2D} from '../View2D';
 
 /**
  * Turn a generator factory into a test function.

@@ -2,7 +2,7 @@ import fs from 'fs';
 import mime from 'mime-types';
 import path from 'path';
 import {Plugin} from 'vite';
-import {openInExplorer} from '../openInExplorer.js';
+import {openInExplorer} from '../openInExplorer';
 
 interface ExporterPluginConfig {
   outputPath: string;

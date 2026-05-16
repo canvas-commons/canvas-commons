@@ -1,1 +1,1 @@
-export * from './SignalSet.js';
+export * from './SignalSet';

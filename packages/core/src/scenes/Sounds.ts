@@ -1,6 +1,6 @@
-import {ValueDispatcher} from '../events/index.js';
-import {useScene} from '../utils/index.js';
-import type {Scene} from './Scene.js';
+import {ValueDispatcher} from '../events';
+import {useScene} from '../utils';
+import type {Scene} from './Scene';
 
 export interface SoundSettings {
   audio: string;

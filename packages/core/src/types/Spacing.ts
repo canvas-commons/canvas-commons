@@ -1,10 +1,6 @@
-import {
-  CompoundSignal,
-  CompoundSignalContext,
-  SignalValue,
-} from '../signals/index.js';
-import {InterpolationFunction, map} from '../tweening/index.js';
-import {Type, WebGLConvertible} from './Type.js';
+import {CompoundSignal, CompoundSignalContext, SignalValue} from '../signals';
+import {InterpolationFunction, map} from '../tweening';
+import {Type, WebGLConvertible} from './Type';
 
 export type SerializedSpacing = {
   top: number;

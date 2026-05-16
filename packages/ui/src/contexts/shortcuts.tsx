@@ -1,8 +1,8 @@
 import {Signal, useSignal} from '@preact/signals';
 import {ComponentChildren, RefObject, createContext} from 'preact';
 import {useContext, useEffect, useRef} from 'preact/hooks';
-import {MouseButton} from '../utils/index.js';
-import {useApplication} from './application.js';
+import {MouseButton} from '../utils';
+import {useApplication} from './application';
 
 export interface Action {
   name: string;

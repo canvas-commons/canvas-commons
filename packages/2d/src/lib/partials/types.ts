@@ -1,6 +1,6 @@
 import {Color, PossibleColor} from '@canvas-commons/core';
-import type {Gradient} from './Gradient.js';
-import type {Pattern} from './Pattern.js';
+import type {Gradient} from './Gradient';
+import type {Pattern} from './Pattern';
 
 export type FlexDirection = 'row' | 'row-reverse' | 'column' | 'column-reverse';
 

@@ -7,8 +7,8 @@ import {
   TimingFunction,
   useLogger,
 } from '@canvas-commons/core';
-import {makeSignalExtensions} from '../utils/makeSignalExtensions.js';
-import {addInitializer, initialize} from './initializers.js';
+import {makeSignalExtensions} from '../utils/makeSignalExtensions';
+import {addInitializer, initialize} from './initializers';
 
 export interface PropertyMetadata<T> {
   default?: T;

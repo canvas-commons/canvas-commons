@@ -1,4 +1,4 @@
-import type {Plugin} from './Plugin.js';
+import type {Plugin} from './Plugin';
 
 /**
  * A helper function for exporting Canvas Commons plugins.

@@ -1,7 +1,7 @@
 import {Vector2, lazy} from '@canvas-commons/core';
-import {bezierCurveTo} from '../utils/index.js';
-import {Polynomial2D} from './Polynomial2D.js';
-import {PolynomialSegment} from './PolynomialSegment.js';
+import {bezierCurveTo} from '../utils';
+import {Polynomial2D} from './Polynomial2D';
+import {PolynomialSegment} from './PolynomialSegment';
 
 /**
  * A spline segment representing a cubic Bézier curve.

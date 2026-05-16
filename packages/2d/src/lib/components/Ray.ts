@@ -4,10 +4,10 @@ import {
   SignalValue,
   Vector2Signal,
 } from '@canvas-commons/core';
-import {CurveProfile, LineSegment} from '../curves/index.js';
-import {nodeName, vector2Signal} from '../decorators/index.js';
-import {arc, drawLine, drawPivot} from '../utils/index.js';
-import {Curve, CurveProps} from './Curve.js';
+import {CurveProfile, LineSegment} from '../curves';
+import {nodeName, vector2Signal} from '../decorators';
+import {arc, drawLine, drawPivot} from '../utils';
+import {Curve, CurveProps} from './Curve';
 
 export interface RayProps extends CurveProps {
   /**

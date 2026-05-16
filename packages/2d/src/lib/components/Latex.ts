@@ -21,18 +21,18 @@ import {AllPackages} from 'mathjax-full/js/input/tex/AllPackages.js';
 import {mathjax} from 'mathjax-full/js/mathjax.js';
 import {SVG} from 'mathjax-full/js/output/svg.js';
 import {OptionList} from 'mathjax-full/js/util/Options.js';
-import {computed, initial, parser, signal} from '../decorators/index.js';
-import {Curve} from './Curve.js';
-import {Node} from './Node.js';
-import {Path} from './Path.js';
-import {Rect} from './Rect.js';
+import {computed, initial, parser, signal} from '../decorators';
+import {Curve} from './Curve';
+import {Node} from './Node';
+import {Path} from './Path';
+import {Rect} from './Rect';
 import {
   SVGDocument,
   SVGDocumentData,
   SVG as SVGNode,
   SVGProps,
   SVGShapeData,
-} from './SVG.js';
+} from './SVG';
 
 const Adaptor = liteAdaptor();
 RegisterHTMLHandler(Adaptor);

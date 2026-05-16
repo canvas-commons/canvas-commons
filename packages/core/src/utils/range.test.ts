@@ -1,5 +1,5 @@
 import {describe, expect, test} from 'vitest';
-import {range} from './range.js';
+import {range} from './range';
 
 describe('range', () => {
   test.each([

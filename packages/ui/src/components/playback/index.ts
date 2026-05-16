@@ -1,2 +1,2 @@
-export * from './PlaybackControls.js';
-export * from './PlaybackProgress.js';
+export * from './PlaybackControls';
+export * from './PlaybackProgress';

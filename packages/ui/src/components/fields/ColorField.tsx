@@ -1,6 +1,6 @@
 import {Color} from '@canvas-commons/core';
-import {ColorPreview} from '../controls/ColorPreview.js';
-import {Field, FieldSet, FieldValue, NumericField} from './Layout.js';
+import {ColorPreview} from '../controls/ColorPreview';
+import {Field, FieldSet, FieldValue, NumericField} from './Layout';
 
 export interface ColorFieldProps {
   value: Color;

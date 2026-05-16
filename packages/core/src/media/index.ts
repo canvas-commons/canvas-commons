@@ -4,8 +4,8 @@
  * @packageDocumentation
  */
 
-export * from './AudioData.js';
-export * from './AudioManager.js';
-export * from './AudioManagerPool.js';
-export * from './AudioResourceManager.js';
-export * from './loadImage.js';
+export * from './AudioData';
+export * from './AudioManager';
+export * from './AudioManagerPool';
+export * from './AudioResourceManager';
+export * from './loadImage';

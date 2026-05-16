@@ -1,6 +1,6 @@
-import {CodeScope, CodeTag, resolveScope} from './CodeScope.js';
-import {CodeTokenizer} from './CodeTokenizer.js';
-import {patienceDiff} from './diff.js';
+import {CodeScope, CodeTag, resolveScope} from './CodeScope';
+import {CodeTokenizer} from './CodeTokenizer';
+import {patienceDiff} from './diff';
 
 /**
  * A function that compares two code snippets and returns a list of

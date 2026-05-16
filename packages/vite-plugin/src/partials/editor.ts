@@ -2,7 +2,7 @@ import fs from 'fs';
 import {createRequire} from 'module';
 import path from 'path';
 import {Plugin} from 'vite';
-import {ProjectData} from '../plugins.js';
+import {ProjectData} from '../plugins';
 
 interface EditorPluginConfig {
   editor: string;

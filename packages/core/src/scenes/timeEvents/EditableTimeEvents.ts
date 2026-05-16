@@ -1,8 +1,8 @@
-import {ValueDispatcher} from '../../events/index.js';
-import type {Scene} from '../Scene.js';
-import type {SerializedTimeEvent} from './SerializedTimeEvent.js';
-import type {TimeEvent} from './TimeEvent.js';
-import type {TimeEvents} from './TimeEvents.js';
+import {ValueDispatcher} from '../../events';
+import type {Scene} from '../Scene';
+import type {SerializedTimeEvent} from './SerializedTimeEvent';
+import type {TimeEvent} from './TimeEvent';
+import type {TimeEvents} from './TimeEvents';
 
 /**
  * Manages time events during editing.

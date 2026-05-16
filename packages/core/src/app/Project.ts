@@ -1,8 +1,8 @@
-import type {Plugin} from '../plugin/index.js';
-import {FullSceneDescription} from '../scenes/index.js';
-import {Logger} from './Logger.js';
-import type {ProjectMetadata} from './ProjectMetadata.js';
-import {SettingsMetadata} from './SettingsMetadata.js';
+import type {Plugin} from '../plugin';
+import {FullSceneDescription} from '../scenes';
+import {Logger} from './Logger';
+import type {ProjectMetadata} from './ProjectMetadata';
+import {SettingsMetadata} from './SettingsMetadata';
 
 export interface ProjectSettings {
   /**

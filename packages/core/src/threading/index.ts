@@ -4,10 +4,10 @@
  * @packageDocumentation
  */
 
-export * from './cancel.js';
-export * from './join.js';
-export * from './names.js';
-export * from './spawn.js';
-export * from './Thread.js';
-export * from './ThreadGenerator.js';
-export * from './threads.js';
+export * from './cancel';
+export * from './join';
+export * from './names';
+export * from './spawn';
+export * from './Thread';
+export * from './ThreadGenerator';
+export * from './threads';

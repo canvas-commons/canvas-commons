@@ -1,5 +1,5 @@
 import {expect, test} from 'vitest';
-import {patienceDiff} from './diff.js';
+import {patienceDiff} from './diff';
 
 test('should find simple strings', () => {
   const result = patienceDiff(

@@ -4,7 +4,7 @@ import type {
   JSXProps,
   Node,
   NodeConstructor,
-} from './components/index.js';
+} from './components';
 
 export namespace JSX {
   export type Element = Node;

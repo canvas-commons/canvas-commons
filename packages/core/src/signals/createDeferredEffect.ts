@@ -1,4 +1,4 @@
-import {DeferredEffectContext} from './DeferredEffectContext.js';
+import {DeferredEffectContext} from './DeferredEffectContext';
 
 /**
  * Invoke the callback at the end of each frame if any of its dependencies

@@ -1,8 +1,8 @@
 import {Vector2} from '@canvas-commons/core';
-import {ArcSegment} from './ArcSegment.js';
-import {CurveProfile} from './CurveProfile.js';
-import {LineSegment} from './LineSegment.js';
-import {Segment} from './Segment.js';
+import {ArcSegment} from './ArcSegment';
+import {CurveProfile} from './CurveProfile';
+import {LineSegment} from './LineSegment';
+import {Segment} from './Segment';
 
 export function getCircleProfile(
   size: Vector2,

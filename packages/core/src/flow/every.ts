@@ -1,6 +1,6 @@
-import {decorate, threadable} from '../decorators/index.js';
-import {ThreadGenerator} from '../threading/index.js';
-import {usePlayback} from '../utils/index.js';
+import {decorate, threadable} from '../decorators';
+import {ThreadGenerator} from '../threading';
+import {usePlayback} from '../utils';
 
 export interface EveryCallback {
   /**

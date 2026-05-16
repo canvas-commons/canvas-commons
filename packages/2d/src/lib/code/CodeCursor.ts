@@ -6,13 +6,13 @@ import {
   unwrap,
   Vector2,
 } from '@canvas-commons/core';
-import {Code} from '../components/index.js';
-import {CodeFragment, parseCodeFragment} from './CodeFragment.js';
-import {CodeHighlighter} from './CodeHighlighter.js';
-import {CodeMetrics} from './CodeMetrics.js';
-import {CodePoint, CodeRange} from './CodeRange.js';
-import {CodeScope, isCodeScope} from './CodeScope.js';
-import {isPointInCodeSelection} from './CodeSelection.js';
+import {Code} from '../components';
+import {CodeFragment, parseCodeFragment} from './CodeFragment';
+import {CodeHighlighter} from './CodeHighlighter';
+import {CodeMetrics} from './CodeMetrics';
+import {CodePoint, CodeRange} from './CodeRange';
+import {CodeScope, isCodeScope} from './CodeScope';
+import {isPointInCodeSelection} from './CodeSelection';
 
 export interface CodeFragmentDrawingInfo {
   text: string;

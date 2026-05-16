@@ -34,12 +34,12 @@ import {
   signal,
   vector2Signal,
   wrapper,
-} from '../decorators/index.js';
-import {spacingSignal} from '../decorators/spacingSignal.js';
+} from '../decorators';
+import {spacingSignal} from '../decorators/spacingSignal';
 import {
   LayoutPositionSignal,
   LayoutPositionSignalContext,
-} from '../decorators/transformSignals.js';
+} from '../decorators/transformSignals';
 import {
   DesiredLength,
   FlexBasis,
@@ -51,9 +51,9 @@ import {
   Length,
   LengthLimit,
   TextWrap,
-} from '../partials/index.js';
-import {drawLine, drawPivot, is} from '../utils/index.js';
-import {Node, NodeProps} from './Node.js';
+} from '../partials';
+import {drawLine, drawPivot, is} from '../utils';
+import {Node, NodeProps} from './Node';
 
 export interface LayoutProps extends NodeProps {
   layout?: LayoutMode;

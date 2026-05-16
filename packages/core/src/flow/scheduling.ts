@@ -1,6 +1,6 @@
-import {decorate, threadable} from '../decorators/index.js';
-import {ThreadGenerator} from '../threading/index.js';
-import {useDuration, usePlayback, useThread} from '../utils/index.js';
+import {decorate, threadable} from '../decorators';
+import {ThreadGenerator} from '../threading';
+import {useDuration, usePlayback, useThread} from '../utils';
 
 decorate(waitUntil, threadable());
 /**

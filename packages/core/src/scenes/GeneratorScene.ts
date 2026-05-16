@@ -1,38 +1,33 @@
-import {Logger, PlaybackStatus} from '../app/index.js';
-import {decorate, threadable} from '../decorators/index.js';
-import {EventDispatcher, ValueDispatcher} from '../events/index.js';
-import {DependencyContext, SignalValue} from '../signals/index.js';
+import {Logger, PlaybackStatus} from '../app';
+import {decorate, threadable} from '../decorators';
+import {EventDispatcher, ValueDispatcher} from '../events';
+import {DependencyContext, SignalValue} from '../signals';
 import {
   Thread,
   ThreadGenerator,
   isPromisable,
   isPromise,
   threads,
-} from '../threading/index.js';
-import {Vector2} from '../types/index.js';
-import {
-  endPlayback,
-  endScene,
-  startPlayback,
-  startScene,
-} from '../utils/index.js';
-import {LifecycleEvents} from './LifecycleEvents.js';
-import {Random} from './Random.js';
+} from '../threading';
+import {Vector2} from '../types';
+import {endPlayback, endScene, startPlayback, startScene} from '../utils';
+import {LifecycleEvents} from './LifecycleEvents';
+import {Random} from './Random';
 import {
   CachedSceneData,
   FullSceneDescription,
   Scene,
   SceneDescriptionReload,
   SceneRenderEvent,
-} from './Scene.js';
-import {SceneMetadata} from './SceneMetadata.js';
-import {SceneState} from './SceneState.js';
-import {Shaders} from './Shaders.js';
-import {Slides} from './Slides.js';
-import {Sounds} from './Sounds.js';
-import {Threadable} from './Threadable.js';
-import {Variables} from './Variables.js';
-import {TimeEvents} from './timeEvents/index.js';
+} from './Scene';
+import {SceneMetadata} from './SceneMetadata';
+import {SceneState} from './SceneState';
+import {Shaders} from './Shaders';
+import {Slides} from './Slides';
+import {Sounds} from './Sounds';
+import {Threadable} from './Threadable';
+import {Variables} from './Variables';
+import {TimeEvents} from './timeEvents';
 
 export interface ThreadGeneratorFactory<T> {
   (view: T): ThreadGenerator;

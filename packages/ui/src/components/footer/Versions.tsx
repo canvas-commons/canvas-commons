@@ -1,4 +1,4 @@
-import {useApplication} from '../../contexts/index.js';
+import {useApplication} from '../../contexts';
 import styles from './Versions.module.scss';
 
 export function Versions() {

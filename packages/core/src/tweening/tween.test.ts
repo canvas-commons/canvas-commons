@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import {afterAll, beforeAll, describe, expect, test} from 'vitest';
-import {PlaybackManager, PlaybackStatus} from '../app/index.js';
-import {threads} from '../threading/index.js';
-import {endPlayback, startPlayback, useTime} from '../utils/index.js';
-import {tween} from './tween.js';
+import {PlaybackManager, PlaybackStatus} from '../app';
+import {threads} from '../threading';
+import {endPlayback, startPlayback, useTime} from '../utils';
+import {tween} from './tween';
 
 describe('tween()', () => {
   const playback = new PlaybackManager();

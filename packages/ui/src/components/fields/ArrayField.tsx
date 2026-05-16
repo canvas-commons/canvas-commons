@@ -1,5 +1,5 @@
-import {AutoField} from './AutoField.js';
-import {Field, FieldSet, FieldSurface, FieldValue} from './Layout.js';
+import {AutoField} from './AutoField';
+import {Field, FieldSet, FieldSurface, FieldValue} from './Layout';
 
 export interface NumberFieldProps {
   value: any[];

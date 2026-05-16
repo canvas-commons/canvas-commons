@@ -1,4 +1,4 @@
-import {Vector2} from './Vector.js';
+import {Vector2} from './Vector';
 
 export enum Center {
   Vertical = 1,

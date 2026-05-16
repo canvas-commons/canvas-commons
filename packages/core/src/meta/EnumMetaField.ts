@@ -1,5 +1,5 @@
-import {MetaField} from './MetaField.js';
-import {MetaOption} from './MetaOption.js';
+import {MetaField} from './MetaField';
+import {MetaOption} from './MetaOption';
 
 /**
  * Represents an enum value stored in a meta file.

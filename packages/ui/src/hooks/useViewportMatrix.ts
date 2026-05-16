@@ -1,6 +1,6 @@
 import {useMemo} from 'preact/hooks';
-import {useViewportContext} from '../contexts/index.js';
-import {useSharedSettings} from './useSettings.js';
+import {useViewportContext} from '../contexts';
+import {useSharedSettings} from './useSettings';
 
 /**
  * Get a matrix that transforms the overlay canvas space to the scene space.

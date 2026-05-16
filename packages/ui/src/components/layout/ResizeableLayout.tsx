@@ -4,8 +4,8 @@ import {Signal} from '@preact/signals';
 import clsx from 'clsx';
 import {ComponentChild} from 'preact';
 import {useRef} from 'preact/hooks';
-import {useStorage} from '../../hooks/index.js';
-import {clamp} from '../../utils/index.js';
+import {useStorage} from '../../hooks';
+import {clamp} from '../../utils';
 
 interface ResizeableLayoutProps {
   id: string;

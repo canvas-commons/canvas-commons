@@ -1,9 +1,9 @@
 import type {Scene} from '@canvas-commons/core';
 import {useEffect, useState} from 'preact/hooks';
-import {useApplication} from '../../contexts/index.js';
-import {useSubscribableValue} from '../../hooks/index.js';
-import {ControlledExpandable} from '../fields/index.js';
-import {SlideElement} from './SlideElement.js';
+import {useApplication} from '../../contexts';
+import {useSubscribableValue} from '../../hooks';
+import {ControlledExpandable} from '../fields';
+import {SlideElement} from './SlideElement';
 
 interface SceneGroupProps {
   scene: Scene;

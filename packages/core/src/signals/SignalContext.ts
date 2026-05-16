@@ -1,14 +1,14 @@
-import {run, waitFor} from '../flow/index.js';
-import {ThreadGenerator} from '../threading/index.js';
+import {run, waitFor} from '../flow';
+import {ThreadGenerator} from '../threading';
 import {
   InterpolationFunction,
   TimingFunction,
   easeInOutCubic,
   tween,
-} from '../tweening/index.js';
-import {errorToLog, useLogger} from '../utils/index.js';
-import {DependencyContext} from './DependencyContext.js';
-import {DEFAULT} from './symbols.js';
+} from '../tweening';
+import {errorToLog, useLogger} from '../utils';
+import {DependencyContext} from './DependencyContext';
+import {DEFAULT} from './symbols';
 import {
   SignalExtensions,
   SignalGenerator,
@@ -16,8 +16,8 @@ import {
   SignalSetter,
   SignalTween,
   SignalValue,
-} from './types.js';
-import {isReactive, unwrap} from './utils.js';
+} from './types';
+import {isReactive, unwrap} from './utils';
 
 export type SimpleSignal<TValue, TReturn = void> = Signal<
   TValue,

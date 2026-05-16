@@ -1,11 +1,11 @@
 import {Vector2, clamp} from '@canvas-commons/core';
 import parse, {PathCommand} from 'parse-svg-path';
-import {ArcSegment} from './ArcSegment.js';
-import {CubicBezierSegment} from './CubicBezierSegment.js';
-import {CurveProfile} from './CurveProfile.js';
-import {LineSegment} from './LineSegment.js';
-import {QuadBezierSegment} from './QuadBezierSegment.js';
-import {Segment} from './Segment.js';
+import {ArcSegment} from './ArcSegment';
+import {CubicBezierSegment} from './CubicBezierSegment';
+import {CurveProfile} from './CurveProfile';
+import {LineSegment} from './LineSegment';
+import {QuadBezierSegment} from './QuadBezierSegment';
+import {Segment} from './Segment';
 
 function addSegmentToProfile(profile: CurveProfile, segment: Segment) {
   profile.segments.push(segment);

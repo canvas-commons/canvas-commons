@@ -1,7 +1,7 @@
 import {Vector2MetaField} from '@canvas-commons/core';
-import {useSubscribableValue} from '../../hooks/index.js';
-import {NumberInput} from '../controls/index.js';
-import {MetaFieldGroup} from './MetaFieldGroup.js';
+import {useSubscribableValue} from '../../hooks';
+import {NumberInput} from '../controls';
+import {MetaFieldGroup} from './MetaFieldGroup';
 
 export interface Vector2MetaFieldViewProps {
   field: Vector2MetaField;

@@ -1,5 +1,5 @@
-import {useApplication} from '../contexts/index.js';
-import {useSubscribableValue} from './useSubscribable.js';
+import {useApplication} from '../contexts';
+import {useSubscribableValue} from './useSubscribable';
 
 export function usePlayerState() {
   const {player} = useApplication();

@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import type {JSX} from 'preact';
 import {useRef, useState} from 'preact/hooks';
-import {MouseButton, clamp} from '../../utils/index.js';
+import {MouseButton, clamp} from '../../utils';
 import styles from './Controls.module.scss';
 
 type NumberInputProps = Omit<

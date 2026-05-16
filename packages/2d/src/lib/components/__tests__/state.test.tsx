@@ -1,8 +1,8 @@
 import {createSignal, join, waitFor} from '@canvas-commons/core';
 import {describe, expect, it} from 'vitest';
-import {Circle} from '../Circle.js';
-import {generatorTest} from './generatorTest.js';
-import {mockScene2D} from './mockScene2D.js';
+import {Circle} from '../Circle';
+import {generatorTest} from './generatorTest';
+import {mockScene2D} from './mockScene2D';
 
 describe('state', () => {
   mockScene2D();

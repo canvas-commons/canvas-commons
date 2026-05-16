@@ -13,10 +13,10 @@ import {
   CurveProfile,
   KnotInfo,
   getBezierSplineProfile,
-} from '../curves/index.js';
-import {PolynomialSegment} from '../curves/PolynomialSegment.js';
-import {computed, initial, signal} from '../decorators/index.js';
-import {DesiredLength} from '../partials/index.js';
+} from '../curves';
+import {PolynomialSegment} from '../curves/PolynomialSegment';
+import {computed, initial, signal} from '../decorators';
+import {DesiredLength} from '../partials';
 import {
   arc,
   bezierCurveTo,
@@ -25,11 +25,11 @@ import {
   lineTo,
   moveTo,
   quadraticCurveTo,
-} from '../utils/index.js';
-import splineWithInsufficientKnots from './__logs__/spline-with-insufficient-knots.js';
-import {Curve, CurveProps} from './Curve.js';
-import {Knot} from './Knot.js';
-import {Node} from './Node.js';
+} from '../utils';
+import splineWithInsufficientKnots from './__logs__/spline-with-insufficient-knots';
+import {Curve, CurveProps} from './Curve';
+import {Knot} from './Knot';
+import {Node} from './Node';
 
 export interface SplineProps extends CurveProps {
   /**

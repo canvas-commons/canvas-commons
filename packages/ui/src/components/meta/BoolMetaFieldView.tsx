@@ -1,7 +1,7 @@
 import type {BoolMetaField} from '@canvas-commons/core';
-import {useSubscribableValue} from '../../hooks/index.js';
-import {Checkbox} from '../controls/index.js';
-import {MetaFieldGroup} from './MetaFieldGroup.js';
+import {useSubscribableValue} from '../../hooks';
+import {Checkbox} from '../controls';
+import {MetaFieldGroup} from './MetaFieldGroup';
 
 export interface BoolMetaFieldViewProps {
   field: BoolMetaField;

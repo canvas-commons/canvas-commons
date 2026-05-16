@@ -6,14 +6,14 @@ import {
   Vector2,
   clamp,
 } from '@canvas-commons/core';
-import {CurveDrawingInfo} from '../curves/CurveDrawingInfo.js';
-import {CurvePoint} from '../curves/CurvePoint.js';
-import {CurveProfile, profileToSVGPathData} from '../curves/CurveProfile.js';
-import {getPointAtDistance} from '../curves/getPointAtDistance.js';
-import {computed, initial, nodeName, signal} from '../decorators/index.js';
-import {DesiredLength} from '../partials/index.js';
-import {lineTo, moveTo, resolveCanvasStyle} from '../utils/index.js';
-import {Shape, ShapeProps} from './Shape.js';
+import {CurveDrawingInfo} from '../curves/CurveDrawingInfo';
+import {CurvePoint} from '../curves/CurvePoint';
+import {CurveProfile, profileToSVGPathData} from '../curves/CurveProfile';
+import {getPointAtDistance} from '../curves/getPointAtDistance';
+import {computed, initial, nodeName, signal} from '../decorators';
+import {DesiredLength} from '../partials';
+import {lineTo, moveTo, resolveCanvasStyle} from '../utils';
+import {Shape, ShapeProps} from './Shape';
 
 export interface CurveProps extends ShapeProps {
   /**

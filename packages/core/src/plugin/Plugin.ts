@@ -5,7 +5,7 @@ import type {
   Project,
   ProjectSettings,
   Renderer,
-} from '../app/index.js';
+} from '../app';
 
 /**
  * Represents a runtime Canvas Commons plugin.

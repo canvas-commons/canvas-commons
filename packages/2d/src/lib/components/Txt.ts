@@ -9,12 +9,12 @@ import {
   capitalize,
   threadable,
 } from '@canvas-commons/core';
-import {computed, initial, nodeName, signal} from '../decorators/index.js';
-import {is} from '../utils/index.js';
-import {Node} from './Node.js';
-import {Shape, ShapeProps} from './Shape.js';
-import {TxtLeaf} from './TxtLeaf.js';
-import {ComponentChildren} from './types.js';
+import {computed, initial, nodeName, signal} from '../decorators';
+import {is} from '../utils';
+import {Node} from './Node';
+import {Shape, ShapeProps} from './Shape';
+import {TxtLeaf} from './TxtLeaf';
+import {ComponentChildren} from './types';
 
 type TxtChildren = string | Node | (string | Node)[];
 type AnyTxt = Txt | TxtLeaf;

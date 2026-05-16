@@ -31,16 +31,10 @@ import {
   PossibleCodeScope,
   PossibleCodeSelection,
   resolveScope,
-} from '../code/index.js';
-import {
-  computed,
-  initial,
-  nodeName,
-  parser,
-  signal,
-} from '../decorators/index.js';
-import {DesiredLength} from '../partials/index.js';
-import {Shape, ShapeProps} from './Shape.js';
+} from '../code';
+import {computed, initial, nodeName, parser, signal} from '../decorators';
+import {DesiredLength} from '../partials';
+import {Shape, ShapeProps} from './Shape';
 
 /**
  * @experimental

@@ -1,8 +1,8 @@
 import {Vector2, createSignal, range} from '@canvas-commons/core';
 import {describe, expect, it} from 'vitest';
-import {Circle} from '../Circle.js';
-import {Node} from '../Node.js';
-import {mockScene2D} from './mockScene2D.js';
+import {Circle} from '../Circle';
+import {Node} from '../Node';
+import {mockScene2D} from './mockScene2D';
 
 describe('clone', () => {
   mockScene2D();

@@ -1,4 +1,4 @@
-import {Field, FieldSurface, FieldValue} from './Layout.js';
+import {Field, FieldSurface, FieldValue} from './Layout';
 
 export interface UnknownFieldProps {
   value: any;

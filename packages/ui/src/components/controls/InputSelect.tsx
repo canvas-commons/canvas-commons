@@ -1,7 +1,7 @@
 import type {JSX} from 'preact';
 import styles from './Controls.module.scss';
-import {Input} from './Input.js';
-import {Select, SelectProps} from './Select.js';
+import {Input} from './Input';
+import {Select, SelectProps} from './Select';
 
 export type InputSelectProps<T> = Omit<
   JSX.InputHTMLAttributes<HTMLInputElement>,

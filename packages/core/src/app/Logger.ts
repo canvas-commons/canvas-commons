@@ -1,4 +1,4 @@
-import {EventDispatcher} from '../events/index.js';
+import {EventDispatcher} from '../events';
 
 export enum LogLevel {
   Error = 'error',

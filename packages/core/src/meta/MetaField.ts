@@ -1,4 +1,4 @@
-import {ValueDispatcher} from '../events/index.js';
+import {ValueDispatcher} from '../events';
 
 /**
  * Represents an entry in the meta file.

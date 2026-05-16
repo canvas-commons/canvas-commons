@@ -1,7 +1,7 @@
 import {useMemo} from 'preact/hooks';
-import {useCurrentFrame} from './useCurrentFrame.js';
-import {useDuration} from './useDuration.js';
-import {usePreviewSettings} from './useSettings.js';
+import {useCurrentFrame} from './useCurrentFrame';
+import {useDuration} from './useDuration';
+import {usePreviewSettings} from './useSettings';
 
 export function usePlayerTime() {
   const {fps} = usePreviewSettings();

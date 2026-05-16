@@ -1,4 +1,4 @@
-import type {LogPayload} from '../app/index.js';
+import type {LogPayload} from '../app';
 
 type DetailedErrorProps = Pick<
   LogPayload,

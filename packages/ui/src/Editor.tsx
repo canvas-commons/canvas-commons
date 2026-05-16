@@ -1,21 +1,17 @@
 import {PresenterState} from '@canvas-commons/core';
 import {useEffect} from 'preact/hooks';
 import styles from './Editor.module.scss';
-import {Console} from './components/console/index.js';
-import {Footer} from './components/footer/index.js';
-import {
-  ElementSwitch,
-  Navigation,
-  ResizeableLayout,
-} from './components/layout/index.js';
-import {PresentationMode} from './components/presentation/index.js';
-import {Settings, Threads, VideoSettings} from './components/sidebar/index.js';
-import {Timeline} from './components/timeline/index.js';
-import {Viewport} from './components/viewport/index.js';
-import {usePanels} from './contexts/index.js';
-import {useShortcutContext} from './contexts/shortcuts.js';
-import {usePresenterState} from './hooks/index.js';
-import {EditorPanel} from './signals/index.js';
+import {Console} from './components/console';
+import {Footer} from './components/footer';
+import {ElementSwitch, Navigation, ResizeableLayout} from './components/layout';
+import {PresentationMode} from './components/presentation';
+import {Settings, Threads, VideoSettings} from './components/sidebar';
+import {Timeline} from './components/timeline';
+import {Viewport} from './components/viewport';
+import {usePanels} from './contexts';
+import {useShortcutContext} from './contexts/shortcuts';
+import {usePresenterState} from './hooks';
+import {EditorPanel} from './signals';
 
 export function Editor() {
   const state = usePresenterState();

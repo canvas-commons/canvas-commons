@@ -1,4 +1,4 @@
-import {EffectContext} from './EffectContext.js';
+import {EffectContext} from './EffectContext';
 
 /**
  * Invoke the callback immediately after any of its dependencies change.

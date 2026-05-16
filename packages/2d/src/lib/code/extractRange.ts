@@ -1,5 +1,5 @@
-import {CodeRange} from './CodeRange.js';
-import {CodeTag, resolveCodeTag} from './CodeScope.js';
+import {CodeRange} from './CodeRange';
+import {CodeTag, resolveCodeTag} from './CodeScope';
 
 /**
  * Transform the fragments to isolate the given range into its own fragment.

@@ -1,10 +1,5 @@
 import {BBox, Color, Spacing, Vector2} from '@canvas-commons/core';
-import {
-  CanvasStyle,
-  Gradient,
-  Pattern,
-  PossibleCanvasStyle,
-} from '../partials/index.js';
+import {CanvasStyle, Gradient, Pattern, PossibleCanvasStyle} from '../partials';
 
 export function canvasStyleParser(style: PossibleCanvasStyle) {
   if (style === null) {

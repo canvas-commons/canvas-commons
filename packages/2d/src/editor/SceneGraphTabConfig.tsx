@@ -12,9 +12,9 @@ import {
 } from '@canvas-commons/ui';
 import {useSignalEffect} from '@preact/signals';
 import {useEffect, useRef} from 'preact/hooks';
-import {usePluginState} from './Provider.js';
-import {SCENE_GRAPH_SHORTCUTS} from './shortcuts.js';
-import {DetachedRoot, useKeyboardNavigation, ViewRoot} from './tree/index.js';
+import {usePluginState} from './Provider';
+import {SCENE_GRAPH_SHORTCUTS} from './shortcuts';
+import {DetachedRoot, useKeyboardNavigation, ViewRoot} from './tree';
 
 function TabComponent({tab}: PluginTabProps) {
   const {sidebar} = usePanels();

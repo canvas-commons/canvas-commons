@@ -1,7 +1,7 @@
 import {Color, Signal} from '@canvas-commons/core';
-import type {CanvasStyle, PossibleCanvasStyle} from '../partials/index.js';
-import {canvasStyleParser} from '../utils/index.js';
-import {initial, interpolation, parser, signal} from './signal.js';
+import type {CanvasStyle, PossibleCanvasStyle} from '../partials';
+import {canvasStyleParser} from '../utils';
+import {initial, interpolation, parser, signal} from './signal';
 
 export type CanvasStyleSignal<T> = Signal<PossibleCanvasStyle, CanvasStyle, T>;
 

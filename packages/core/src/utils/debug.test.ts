@@ -1,8 +1,8 @@
 import {beforeEach, describe, expect, test, vi} from 'vitest';
-import {LogLevel, Logger} from '../app/index.js';
-import {Scene} from '../scenes/index.js';
-import {BBox, Vector2} from '../types/index.js';
-import {debug, startScene, useLogger} from '../utils/index.js';
+import {LogLevel, Logger} from '../app';
+import {Scene} from '../scenes';
+import {BBox, Vector2} from '../types';
+import {debug, startScene, useLogger} from '../utils';
 
 describe('debug()', () => {
   beforeEach(() => {

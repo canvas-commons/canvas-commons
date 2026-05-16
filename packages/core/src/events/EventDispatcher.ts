@@ -1,4 +1,4 @@
-import {EventDispatcherBase, Subscribable} from './EventDispatcherBase.js';
+import {EventDispatcherBase, Subscribable} from './EventDispatcherBase';
 
 /**
  * Dispatches a {@link SubscribableEvent}.

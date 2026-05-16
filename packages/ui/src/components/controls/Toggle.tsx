@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import {JSX} from 'preact';
-import {ChevronRight} from '../icons/ChevronRight.js';
+import {ChevronRight} from '../icons/ChevronRight';
 import styles from './Controls.module.scss';
 
 export interface ToggleProps extends Omit<

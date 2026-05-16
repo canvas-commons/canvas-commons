@@ -1,9 +1,9 @@
 import {linear, waitFor} from '@canvas-commons/core';
 import {describe, expect, it, vi} from 'vitest';
-import {Txt} from './Txt.js';
-import {TxtLeaf} from './TxtLeaf.js';
-import {generatorTest} from './__tests__/generatorTest.js';
-import {mockScene2D} from './__tests__/mockScene2D.js';
+import {Txt} from './Txt';
+import {TxtLeaf} from './TxtLeaf';
+import {generatorTest} from './__tests__/generatorTest';
+import {mockScene2D} from './__tests__/mockScene2D';
 
 describe('Txt', () => {
   mockScene2D();

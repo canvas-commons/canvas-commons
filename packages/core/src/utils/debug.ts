@@ -1,5 +1,5 @@
-import {LogPayload} from '../app/index.js';
-import {useLogger} from './useScene.js';
+import {LogPayload} from '../app';
+import {useLogger} from './useScene';
 
 function stringify(value: any): string {
   switch (typeof value) {

@@ -1,12 +1,12 @@
 import styles from './PresentationControls.module.scss';
 
-import {useApplication} from '../../contexts/index.js';
+import {useApplication} from '../../contexts';
 import {
   GLOBAL_PRESENTER_SHORTCUTS,
   useShortcuts,
-} from '../../contexts/shortcuts.js';
-import {useSubscribableValue} from '../../hooks/index.js';
-import {IconButton} from '../controls/index.js';
+} from '../../contexts/shortcuts';
+import {useSubscribableValue} from '../../hooks';
+import {IconButton} from '../controls';
 import {
   Close,
   Fullscreen,
@@ -14,7 +14,7 @@ import {
   PlayArrow,
   SkipNext,
   SkipPrevious,
-} from '../icons/index.js';
+} from '../icons';
 
 export function PresentationControls() {
   const {presenter} = useApplication();

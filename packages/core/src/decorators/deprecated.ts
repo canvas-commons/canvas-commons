@@ -1,4 +1,4 @@
-import {deprecate} from '../utils/index.js';
+import {deprecate} from '../utils';
 
 /**
  * Create a deprecated decorator that marks methods as deprecated.

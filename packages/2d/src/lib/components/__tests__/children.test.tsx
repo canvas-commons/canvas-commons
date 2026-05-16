@@ -1,8 +1,8 @@
 import {createRef, createSignal, range} from '@canvas-commons/core';
 import {describe, expect, it} from 'vitest';
-import {useScene2D} from '../../scenes/index.js';
-import {Node} from '../Node.js';
-import {mockScene2D} from './mockScene2D.js';
+import {useScene2D} from '../../scenes';
+import {Node} from '../Node';
+import {mockScene2D} from './mockScene2D';
 
 describe('children', () => {
   mockScene2D();

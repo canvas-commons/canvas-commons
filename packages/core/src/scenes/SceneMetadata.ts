@@ -1,6 +1,6 @@
-import {MetaField, ObjectMetaField} from '../meta/index.js';
-import {Random} from './Random.js';
-import {SerializedTimeEvent} from './timeEvents/index.js';
+import {MetaField, ObjectMetaField} from '../meta';
+import {Random} from './Random';
+import {SerializedTimeEvent} from './timeEvents';
 
 /**
  * Create a runtime representation of the scene metadata.

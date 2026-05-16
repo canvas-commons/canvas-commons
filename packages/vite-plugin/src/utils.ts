@@ -1,7 +1,7 @@
 import fg from 'fast-glob';
 import fs from 'fs';
 import path from 'path';
-import {ProjectData} from './plugins.js';
+import {ProjectData} from './plugins';
 
 export async function createMeta(metaPath: string) {
   if (!fs.existsSync(metaPath)) {

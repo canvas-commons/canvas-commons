@@ -1,6 +1,6 @@
 import {DEFAULT, SimpleSignal} from '@canvas-commons/core';
 import {beforeEach, describe, expect, test, vi} from 'vitest';
-import {initial, initializeSignals, parser, signal} from './signal.js';
+import {initial, initializeSignals, parser, signal} from './signal';
 
 interface OwnerProps {
   integer?: number;

@@ -1,5 +1,5 @@
-import {Logger} from './Logger.js';
-import includeWithoutPreprocessor from './__logs__/include-without-preprocessor.js';
+import {Logger} from './Logger';
+import includeWithoutPreprocessor from './__logs__/include-without-preprocessor';
 
 const SOURCE_URL_REGEX = /^\/\/# sourceURL=(.*)$/gm;
 const INFO_LOG_REGEX = /ERROR: \d+:(\d+): (.*)/g;

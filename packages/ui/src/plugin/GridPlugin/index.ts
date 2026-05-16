@@ -1,6 +1,6 @@
 import {useCallback, useMemo} from 'preact/hooks';
-import {useViewportContext} from '../../contexts/index.js';
-import {makeEditorPlugin} from '../makeEditorPlugin.js';
+import {useViewportContext} from '../../contexts';
+import {makeEditorPlugin} from '../makeEditorPlugin';
 
 const GRID_SIZE = 40;
 

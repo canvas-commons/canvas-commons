@@ -3,15 +3,15 @@
  * @packageDocumentation
  */
 
-export * from './all.js';
-export * from './any.js';
-export * from './chain.js';
-export * from './delay.js';
-export * from './every.js';
-export * from './loop.js';
-export * from './loopFor.js';
-export * from './loopUntil.js';
-export * from './noop.js';
-export * from './run.js';
-export * from './scheduling.js';
-export * from './sequence.js';
+export * from './all';
+export * from './any';
+export * from './chain';
+export * from './delay';
+export * from './every';
+export * from './loop';
+export * from './loopFor';
+export * from './loopUntil';
+export * from './noop';
+export * from './run';
+export * from './scheduling';
+export * from './sequence';

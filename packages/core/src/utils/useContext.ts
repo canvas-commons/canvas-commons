@@ -1,4 +1,4 @@
-import {useScene} from './useScene.js';
+import {useScene} from './useScene';
 
 /**
  * Provide a function to access the Context2D before the scene is rendered.

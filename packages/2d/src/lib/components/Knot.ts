@@ -5,7 +5,7 @@ import {
   Vector2,
   Vector2Signal,
 } from '@canvas-commons/core';
-import {KnotInfo} from '../curves/index.js';
+import {KnotInfo} from '../curves';
 import {
   cloneable,
   compound,
@@ -14,8 +14,8 @@ import {
   parser,
   signal,
   wrapper,
-} from '../decorators/index.js';
-import {Node, NodeProps} from './Node.js';
+} from '../decorators';
+import {Node, NodeProps} from './Node';
 
 export interface KnotProps extends NodeProps {
   /**

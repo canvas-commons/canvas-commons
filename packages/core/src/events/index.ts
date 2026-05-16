@@ -4,8 +4,8 @@
  * @packageDocumentation
  */
 
-export * from './AsyncEventDispatcher.js';
-export * from './EventDispatcher.js';
-export * from './EventDispatcherBase.js';
-export * from './FlagDispatcher.js';
-export * from './ValueDispatcher.js';
+export * from './AsyncEventDispatcher';
+export * from './EventDispatcher';
+export * from './EventDispatcherBase';
+export * from './FlagDispatcher';
+export * from './ValueDispatcher';

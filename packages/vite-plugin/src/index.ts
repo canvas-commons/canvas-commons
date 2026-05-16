@@ -1,4 +1,4 @@
-import canvasCommons from './main.js';
+import canvasCommons from './main';
 
 export default canvasCommons;
-export * from './plugins.js';
+export * from './plugins';

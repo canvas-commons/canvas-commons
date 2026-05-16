@@ -1,9 +1,9 @@
 import {NODE_NAME, Node} from '@canvas-commons/2d';
 import {useComputed, useSignal, useSignalEffect} from '@preact/signals';
 import {useEffect, useRef} from 'preact/hooks';
-import {usePluginState} from '../Provider.js';
-import {IconMap} from '../icons/IconMap.js';
-import {TreeElement} from './TreeElement.js';
+import {usePluginState} from '../Provider';
+import {IconMap} from '../icons/IconMap';
+import {TreeElement} from './TreeElement';
 
 interface NodeElementProps {
   node: Node;

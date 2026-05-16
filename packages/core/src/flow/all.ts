@@ -1,5 +1,5 @@
-import {decorate, threadable} from '../decorators/index.js';
-import {ThreadGenerator, join} from '../threading/index.js';
+import {decorate, threadable} from '../decorators';
+import {ThreadGenerator, join} from '../threading';
 
 decorate(all, threadable());
 /**

@@ -1,4 +1,4 @@
-import {withLoader} from './withLoader.js';
+import {withLoader} from './withLoader';
 
 export function openOutputPath() {
   return withLoader(async () => {

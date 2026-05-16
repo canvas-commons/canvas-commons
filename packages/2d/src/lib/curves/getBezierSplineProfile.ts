@@ -1,9 +1,9 @@
 import {Vector2, clamp} from '@canvas-commons/core';
-import {CubicBezierSegment} from './CubicBezierSegment.js';
-import {CurveProfile} from './CurveProfile.js';
-import {KnotInfo} from './KnotInfo.js';
-import {PolynomialSegment} from './PolynomialSegment.js';
-import {QuadBezierSegment} from './QuadBezierSegment.js';
+import {CubicBezierSegment} from './CubicBezierSegment';
+import {CurveProfile} from './CurveProfile';
+import {KnotInfo} from './KnotInfo';
+import {PolynomialSegment} from './PolynomialSegment';
+import {QuadBezierSegment} from './QuadBezierSegment';
 
 function isCubicSegment(
   segment: PolynomialSegment,

@@ -3,18 +3,14 @@ import styles from './Console.module.scss';
 import {LogLevel, LogPayload} from '@canvas-commons/core';
 import clsx from 'clsx';
 import {useEffect, useMemo, useState} from 'preact/hooks';
-import {useApplication} from '../../contexts/index.js';
-import {useFormattedNumber} from '../../hooks/index.js';
-import {
-  StackTraceEntry,
-  renderMarkdown,
-  resolveStackTrace,
-} from '../../utils/index.js';
-import {IconButton, Toggle} from '../controls/index.js';
-import {Locate} from '../icons/index.js';
-import {Collapse} from '../layout/index.js';
-import {SourceCodeFrame} from './SourceCodeFrame.js';
-import {StackTrace} from './StackTrace.js';
+import {useApplication} from '../../contexts';
+import {useFormattedNumber} from '../../hooks';
+import {StackTraceEntry, renderMarkdown, resolveStackTrace} from '../../utils';
+import {IconButton, Toggle} from '../controls';
+import {Locate} from '../icons';
+import {Collapse} from '../layout';
+import {SourceCodeFrame} from './SourceCodeFrame';
+import {StackTrace} from './StackTrace';
 
 export interface LogProps {
   payload: LogPayload;

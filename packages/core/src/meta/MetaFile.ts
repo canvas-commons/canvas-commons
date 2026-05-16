@@ -1,5 +1,5 @@
-import {Semaphore, useLogger} from '../utils/index.js';
-import type {MetaField} from './MetaField.js';
+import {Semaphore, useLogger} from '../utils';
+import type {MetaField} from './MetaField';
 
 /**
  * Represents the meta file of a given entity.

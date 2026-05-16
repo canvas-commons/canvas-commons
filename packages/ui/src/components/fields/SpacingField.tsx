@@ -1,5 +1,5 @@
 import {Spacing} from '@canvas-commons/core';
-import {Field, FieldSet, FieldValue, NumericField} from './Layout.js';
+import {Field, FieldSet, FieldValue, NumericField} from './Layout';
 
 export interface SpacingFieldProps {
   value: Spacing;

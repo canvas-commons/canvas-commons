@@ -1,6 +1,6 @@
 import {SignalValue, unwrap} from '@canvas-commons/core';
-import {PossibleCodeFragment} from './CodeFragment.js';
-import {isCodeMetrics} from './CodeMetrics.js';
+import {PossibleCodeFragment} from './CodeFragment';
+import {isCodeMetrics} from './CodeMetrics';
 
 export interface CodeScope {
   progress: SignalValue<number>;

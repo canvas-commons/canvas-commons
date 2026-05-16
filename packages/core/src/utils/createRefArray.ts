@@ -1,4 +1,4 @@
-import {Reference} from './createRef.js';
+import {Reference} from './createRef';
 
 type ProxyTarget<T> = {
   (): void;

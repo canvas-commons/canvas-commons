@@ -1,8 +1,5 @@
-import {
-  SharedWebGLContext,
-  WebGLContextOwner,
-} from '../app/SharedWebGLContext.js';
-import {Scene} from './Scene.js';
+import {SharedWebGLContext, WebGLContextOwner} from '../app/SharedWebGLContext';
+import {Scene} from './Scene';
 
 /**
  * @internal

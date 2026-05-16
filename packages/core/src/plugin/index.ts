@@ -1,2 +1,2 @@
-export * from './makePlugin.js';
-export * from './Plugin.js';
+export * from './makePlugin';
+export * from './Plugin';

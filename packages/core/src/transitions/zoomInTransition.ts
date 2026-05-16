@@ -1,10 +1,10 @@
-import {all} from '../flow/index.js';
-import {createSignal} from '../signals/index.js';
-import {ThreadGenerator} from '../threading/index.js';
-import {clampRemap, easeInOutCubic, linear} from '../tweening/index.js';
-import {BBox, Vector2} from '../types/index.js';
-import {useScene} from '../utils/index.js';
-import {useTransition} from './useTransition.js';
+import {all} from '../flow';
+import {createSignal} from '../signals';
+import {ThreadGenerator} from '../threading';
+import {clampRemap, easeInOutCubic, linear} from '../tweening';
+import {BBox, Vector2} from '../types';
+import {useScene} from '../utils';
+import {useTransition} from './useTransition';
 
 /**
  * Perform a transition that zooms in on a given area of the scene.

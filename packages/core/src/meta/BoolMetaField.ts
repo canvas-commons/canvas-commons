@@ -1,4 +1,4 @@
-import {MetaField} from './MetaField.js';
+import {MetaField} from './MetaField';
 
 /**
  * Represents a boolean value stored in a meta file.

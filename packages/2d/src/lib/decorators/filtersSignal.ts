@@ -10,9 +10,9 @@ import {
   easeInOutCubic,
   unwrap,
 } from '@canvas-commons/core';
-import {FILTERS, Filter, FilterName} from '../partials/index.js';
-import {addInitializer} from './initializers.js';
-import {getPropertyMetaOrCreate} from './signal.js';
+import {FILTERS, Filter, FilterName} from '../partials';
+import {addInitializer} from './initializers';
+import {getPropertyMetaOrCreate} from './signal';
 
 export type FiltersSignal<TOwner> = Signal<
   Filter[],

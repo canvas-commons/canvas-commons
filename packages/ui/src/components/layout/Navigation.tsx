@@ -1,9 +1,9 @@
 import {LogLevel} from '@canvas-commons/core';
 import {useEffect, useRef, useState} from 'preact/hooks';
-import {useApplication, usePanels} from '../../contexts/index.js';
-import {useReducedMotion} from '../../hooks/index.js';
-import {EditorPanel} from '../../signals/index.js';
-import {shake} from '../animations/index.js';
+import {useApplication, usePanels} from '../../contexts';
+import {useReducedMotion} from '../../hooks';
+import {EditorPanel} from '../../signals';
+import {shake} from '../animations';
 import {
   Bug,
   CanvasCommons,
@@ -13,8 +13,8 @@ import {
   Science,
   Settings,
   Videocam,
-} from '../icons/index.js';
-import {Badge, Space, Tab, TabGroup, TabLink, Tabs} from '../tabs/index.js';
+} from '../icons';
+import {Badge, Space, Tab, TabGroup, TabLink, Tabs} from '../tabs';
 import styles from './Navigation.module.scss';
 
 export function Navigation() {

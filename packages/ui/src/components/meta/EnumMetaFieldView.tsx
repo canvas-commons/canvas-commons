@@ -1,7 +1,7 @@
 import type {EnumMetaField} from '@canvas-commons/core';
-import {useSubscribableValue} from '../../hooks/index.js';
-import {Select} from '../controls/index.js';
-import {MetaFieldGroup} from './MetaFieldGroup.js';
+import {useSubscribableValue} from '../../hooks';
+import {Select} from '../controls';
+import {MetaFieldGroup} from './MetaFieldGroup';
 
 export interface EnumMetaFieldViewProps {
   field: EnumMetaField<any>;

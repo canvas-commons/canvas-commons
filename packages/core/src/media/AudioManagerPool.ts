@@ -1,7 +1,7 @@
-import {Logger} from '../app/index.js';
-import {Sound} from '../scenes/index.js';
-import {AudioManager} from './AudioManager.js';
-import {AudioResourceManager} from './AudioResourceManager.js';
+import {Logger} from '../app';
+import {Sound} from '../scenes';
+import {AudioManager} from './AudioManager';
+import {AudioResourceManager} from './AudioResourceManager';
 
 export class AudioManagerPool {
   private readonly context = new AudioContext();

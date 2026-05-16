@@ -11,7 +11,7 @@ import {
   useApplication,
 } from '@canvas-commons/ui';
 import {useComputed} from '@preact/signals';
-import {NodeInspectorKey, usePluginState} from './Provider.js';
+import {NodeInspectorKey, usePluginState} from './Provider';
 
 function Component() {
   const {inspection} = useApplication();

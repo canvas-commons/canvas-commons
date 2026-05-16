@@ -1,8 +1,8 @@
 import {Vector2} from '@canvas-commons/core';
-import {CurveProfile} from './CurveProfile.js';
-import {LineSegment} from './LineSegment.js';
-import {getPointAtDistance} from './getPointAtDistance.js';
-import {getPolylineProfile} from './getPolylineProfile.js';
+import {CurveProfile} from './CurveProfile';
+import {LineSegment} from './LineSegment';
+import {getPointAtDistance} from './getPointAtDistance';
+import {getPolylineProfile} from './getPolylineProfile';
 
 // Based on kute.js svgMorph plugin
 

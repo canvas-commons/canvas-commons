@@ -1,7 +1,7 @@
 import styles from './Timeline.module.scss';
 
-import {useScenes} from '../../hooks/index.js';
-import {LabelGroup} from './LabelGroup.js';
+import {useScenes} from '../../hooks';
+import {LabelGroup} from './LabelGroup';
 
 export function LabelTrack() {
   const scenes = useScenes();

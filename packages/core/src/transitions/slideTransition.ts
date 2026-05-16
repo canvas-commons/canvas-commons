@@ -1,8 +1,8 @@
-import {all} from '../flow/index.js';
-import {ThreadGenerator} from '../threading/index.js';
-import {Direction, Origin, Vector2} from '../types/index.js';
-import {useScene} from '../utils/index.js';
-import {useTransition} from './useTransition.js';
+import {all} from '../flow';
+import {ThreadGenerator} from '../threading';
+import {Direction, Origin, Vector2} from '../types';
+import {useScene} from '../utils';
+import {useTransition} from './useTransition';
 
 /**
  * Perform a transition that slides the scene in the given direction.

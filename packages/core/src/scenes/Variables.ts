@@ -1,5 +1,5 @@
-import {createSignal, SimpleSignal} from '../signals/index.js';
-import type {Scene} from './Scene.js';
+import {createSignal, SimpleSignal} from '../signals';
+import type {Scene} from './Scene';
 
 export class Variables {
   private signals: {[key: string]: SimpleSignal<any>} = {};

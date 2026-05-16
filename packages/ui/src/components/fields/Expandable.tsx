@@ -1,8 +1,8 @@
 import {ComponentChildren} from 'preact';
 
-import {useStorage} from '../../hooks/index.js';
-import {Toggle} from '../controls/index.js';
-import {Collapse} from '../layout/index.js';
+import {useStorage} from '../../hooks';
+import {Toggle} from '../controls';
+import {Collapse} from '../layout';
 
 import styles from './Expandable.module.scss';
 

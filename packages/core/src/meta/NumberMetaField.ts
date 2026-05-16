@@ -1,6 +1,6 @@
-import {clamp} from '../tweening/index.js';
-import {MetaField} from './MetaField.js';
-import {MetaOption} from './MetaOption.js';
+import {clamp} from '../tweening';
+import {MetaField} from './MetaField';
+import {MetaOption} from './MetaOption';
 
 /**
  * Represents a number stored in a meta file.

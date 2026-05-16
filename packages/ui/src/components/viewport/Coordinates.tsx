@@ -4,9 +4,9 @@ import {
   useShortcut,
   useViewportContext,
   VIEWPORT_SHORTCUTS,
-} from '../../contexts/index.js';
-import {useCurrentScene, useViewportMatrix} from '../../hooks/index.js';
-import {ReadOnlyInput} from '../controls/index.js';
+} from '../../contexts';
+import {useCurrentScene, useViewportMatrix} from '../../hooks';
+import {ReadOnlyInput} from '../controls';
 import styles from './Viewport.module.scss';
 
 export function Coordinates() {

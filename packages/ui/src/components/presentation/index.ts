@@ -1,1 +1,1 @@
-export * from './PresentationMode.js';
+export * from './PresentationMode';

@@ -1,5 +1,5 @@
-import {Color, PossibleColor} from '../types/index.js';
-import {MetaField} from './MetaField.js';
+import {Color, PossibleColor} from '../types';
+import {MetaField} from './MetaField';
 
 /**
  * Represents a color stored in a meta file.

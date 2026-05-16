@@ -1,4 +1,4 @@
-import {useThread} from './useThread.js';
+import {useThread} from './useThread';
 
 /**
  * Get the real time since the start of the animation.

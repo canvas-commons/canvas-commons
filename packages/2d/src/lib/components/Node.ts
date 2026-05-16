@@ -29,7 +29,6 @@ import {
   unwrap,
   useLogger,
 } from '@canvas-commons/core';
-import {FiltersSignal, filtersSignal} from '../decorators/filtersSignal.js';
 import {
   NODE_NAME,
   cloneable,
@@ -44,8 +43,9 @@ import {
   signal,
   vector2Signal,
   wrapper,
-} from '../decorators/index.js';
-import {spacingSignal} from '../decorators/spacingSignal.js';
+} from '../decorators';
+import {FiltersSignal, filtersSignal} from '../decorators/filtersSignal';
+import {spacingSignal} from '../decorators/spacingSignal';
 import {
   PositionSignal,
   RotationSignal,
@@ -53,21 +53,17 @@ import {
   positionSignal,
   rotationSignal,
   scaleSignal,
-} from '../decorators/transformSignals.js';
-import {Filter} from '../partials/index.js';
+} from '../decorators/transformSignals';
+import {Filter} from '../partials';
 import {
   PossibleShaderConfig,
   ShaderConfig,
   parseShader,
-} from '../partials/ShaderConfig.js';
-import {useScene2D} from '../scenes/useScene2D.js';
-import {drawLine} from '../utils/index.js';
-import type {
-  ComponentChild,
-  ComponentChildren,
-  NodeConstructor,
-} from './types.js';
-import type {View2D} from './View2D.js';
+} from '../partials/ShaderConfig';
+import {useScene2D} from '../scenes/useScene2D';
+import {drawLine} from '../utils';
+import type {ComponentChild, ComponentChildren, NodeConstructor} from './types';
+import type {View2D} from './View2D';
 
 export type NodeState = NodeProps & Record<string, any>;
 

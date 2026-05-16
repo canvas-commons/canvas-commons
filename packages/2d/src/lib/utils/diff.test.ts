@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {applyTransformDiff, getTransformDiff} from './diff.js';
+import {applyTransformDiff, getTransformDiff} from './diff';
 
 describe('diff', () => {
   it('Insert single item', () => {

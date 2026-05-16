@@ -1,12 +1,8 @@
 import clsx from 'clsx';
 import {ComponentChildren} from 'preact';
 import {useMemo, useRef} from 'preact/hooks';
-import {
-  ViewportProvider,
-  ViewportState,
-  useApplication,
-} from '../../contexts/index.js';
-import {VIEWPORT_SHORTCUTS, useShortcuts} from '../../contexts/shortcuts.js';
+import {ViewportProvider, ViewportState, useApplication} from '../../contexts';
+import {VIEWPORT_SHORTCUTS, useShortcuts} from '../../contexts/shortcuts';
 import {
   usePreviewSettings,
   useSharedSettings,
@@ -14,17 +10,17 @@ import {
   useStorage,
   useSubscribable,
   useSubscribableValue,
-} from '../../hooks/index.js';
-import {MouseButton} from '../../utils/index.js';
-import {highlight} from '../animations/index.js';
-import {ButtonCheckbox} from '../controls/ButtonCheckbox.js';
-import {Button, Select} from '../controls/index.js';
-import {Grid as GridIcon, Recenter} from '../icons/index.js';
-import {ColorPicker} from './ColorPicker.js';
-import {Coordinates} from './Coordinates.js';
-import {Inspector} from './Inspector.js';
-import {OverlayCanvas} from './OverlayCanvas.js';
-import {PreviewStage} from './PreviewStage.js';
+} from '../../hooks';
+import {MouseButton} from '../../utils';
+import {highlight} from '../animations';
+import {Button, Select} from '../controls';
+import {ButtonCheckbox} from '../controls/ButtonCheckbox';
+import {Grid as GridIcon, Recenter} from '../icons';
+import {ColorPicker} from './ColorPicker';
+import {Coordinates} from './Coordinates';
+import {Inspector} from './Inspector';
+import {OverlayCanvas} from './OverlayCanvas';
+import {PreviewStage} from './PreviewStage';
 import styles from './Viewport.module.scss';
 
 const ZOOM_SPEED = 0.1;

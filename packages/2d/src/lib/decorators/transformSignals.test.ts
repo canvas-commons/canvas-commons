@@ -1,10 +1,10 @@
 import {Vector2} from '@canvas-commons/core';
 import 'geometry-polyfill';
 import {beforeEach, describe, expect, test} from 'vitest';
-import {Layout} from '../components/Layout.js';
-import {Rect} from '../components/Rect.js';
-import {mockScene2D} from '../components/__tests__/mockScene2D.js';
-import {useScene2D} from '../scenes/index.js';
+import {Layout} from '../components/Layout';
+import {Rect} from '../components/Rect';
+import {mockScene2D} from '../components/__tests__/mockScene2D';
+import {useScene2D} from '../scenes';
 
 describe('Curried Transform Signals', () => {
   mockScene2D();

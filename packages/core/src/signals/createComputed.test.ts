@@ -1,6 +1,6 @@
 import {describe, expect, test, vi} from 'vitest';
-import {createComputed} from './createComputed.js';
-import {createSignal} from './createSignal.js';
+import {createComputed} from './createComputed';
+import {createSignal} from './createSignal';
 
 describe('createComputed()', () => {
   test('Value is updated when its dependencies change', () => {

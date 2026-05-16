@@ -1,5 +1,5 @@
 import {SignalExtensions, capitalize} from '@canvas-commons/core';
-import {PropertyMetadata} from '../decorators/index.js';
+import {PropertyMetadata} from '../decorators';
 
 export function makeSignalExtensions<TSetterValue, TValue extends TSetterValue>(
   meta: Partial<PropertyMetadata<TValue>> = {},

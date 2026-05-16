@@ -9,9 +9,9 @@ import {
 import {Signal, useSignal} from '@preact/signals';
 import {ComponentChildren, createContext} from 'preact';
 import {useContext, useRef} from 'preact/hooks';
-import {useSubscribable} from '../hooks/index.js';
-import {EditorPlugin} from '../plugin/index.js';
-import {LoggerManager} from '../utils/index.js';
+import {useSubscribable} from '../hooks';
+import {EditorPlugin} from '../plugin';
+import {LoggerManager} from '../utils';
 
 export interface Inspection {
   key: string;

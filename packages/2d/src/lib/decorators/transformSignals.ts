@@ -16,11 +16,11 @@ import {
   deepLerp,
   unwrap,
 } from '@canvas-commons/core';
-import {Node} from '../components/Node.js';
-import {makeSignalExtensions} from '../utils/makeSignalExtensions.js';
-import {compound} from './compound.js';
-import {addInitializer} from './initializers.js';
-import {getPropertyMetaOrCreate, wrapper} from './signal.js';
+import {Node} from '../components/Node';
+import {makeSignalExtensions} from '../utils/makeSignalExtensions';
+import {compound} from './compound';
+import {addInitializer} from './initializers';
+import {getPropertyMetaOrCreate, wrapper} from './signal';
 
 /**
  * Utility class for handling coordinate space transformations.

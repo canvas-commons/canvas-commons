@@ -1,7 +1,7 @@
 import type {MetaField} from '@canvas-commons/core';
 import type {ComponentChildren} from 'preact';
 import {useMemo} from 'preact/hooks';
-import {Group, Label} from '../controls/index.js';
+import {Group, Label} from '../controls';
 
 export interface MetaFieldGroupProps {
   children: ComponentChildren;

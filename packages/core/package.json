@@ -13,6 +13,7 @@
     "./project": {
       "types": "./project.d.ts"
     },
+    "./shaders/*": "./shaders/*",
     "./tsconfig.project.json": "./tsconfig.project.json",
     "./package.json": "./package.json"
   },

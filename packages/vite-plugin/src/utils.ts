@@ -18,9 +18,12 @@ export function getProjects(project: string | string[]): ProjectData[] {
   const projectList = expandFilePaths(project);
   for (const rawPath of projectList) {
     const filePath = path.resolve(rawPath).split(path.sep).join(path.posix.sep);
-    const {name, dir} = path.posix.parse(filePath);
+    // Derive `name`/`dir`/`url` from the user-supplied path, not the absolute
+    // form, so Rolldown's `[name]` placeholder in `entryFileNames` substitutes
+    // a relative project name instead of a full filesystem path.
+    const {name, dir} = path.posix.parse(rawPath);
     const metaFile = `${name}.meta`;
-    const metaData = getMeta(path.join(dir, metaFile));
+    const metaData = getMeta(path.join(path.dirname(filePath), metaFile));
     const url = path.posix.join(dir, name);
     const data = {
       name: metaData?.name ?? url,

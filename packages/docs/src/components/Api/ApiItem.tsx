@@ -1,5 +1,5 @@
 import {TOCItem} from '@docusaurus/mdx-loader';
-import {DocProvider} from '@docusaurus/theme-common/internal';
+import {DocProvider} from '@docusaurus/plugin-content-docs/client';
 import useIsBrowser from '@docusaurus/useIsBrowser';
 import Item from '@site/src/components/Api/Item';
 import Tooltip from '@site/src/components/Tooltip';

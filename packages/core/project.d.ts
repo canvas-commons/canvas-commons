@@ -22,7 +22,7 @@ declare module '*.glsl' {
 }
 
 declare module '*?scene' {
-  const value: import('./lib/scenes/Scene').FullSceneDescription;
+  const value: import('@canvas-commons/core').FullSceneDescription;
   export = value;
 }
 

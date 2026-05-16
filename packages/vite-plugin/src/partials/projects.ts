@@ -78,7 +78,7 @@ import {MetaFile} from '@canvas-commons/core';
     config(config) {
       return {
         build: {
-          target: buildForEditor ? 'esnext' : 'modules',
+          target: buildForEditor ? 'esnext' : 'es2020',
           assetsDir: './',
           rollupOptions: {
             preserveEntrySignatures: 'strict',

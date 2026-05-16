@@ -13,7 +13,8 @@ Modernize packaging, build, and release pipeline.
 - Closes the public API surface with explicit `exports` maps. Each package ships
   a single root entry (`.`) plus only the subpaths that genuinely need to be
   separate: `@canvas-commons/2d/{jsx-runtime,jsx-dev-runtime,editor}`,
-  `@canvas-commons/ffmpeg/{client,server}`, and the standard file exports
+  `@canvas-commons/ffmpeg/{client,server}`, `@canvas-commons/core/shaders/*`
+  (for `#include` directives in user shaders), and the standard file exports
   (`./project`, `./tsconfig.project.json`, `./package.json`). Previously
   available subpaths like `@canvas-commons/core/scenes`,
   `@canvas-commons/2d/components`, etc. are gone — re-import the same symbols

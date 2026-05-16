@@ -43,15 +43,16 @@ The project is maintained as one monorepo containing the following packages:
 | `create`      | A package for bootstrapping new projects.                      |
 | `docs`        | [Our documentation website.][docs]                             |
 | `e2e`         | End-to-end tests.                                              |
+| `editor`      | The user interface used for editing.                           |
 | `examples`    | Animation examples used in documentation.                      |
-| `internal`    | Internal helpers used for building the packages.               |
+| `ffmpeg`      | Vite plugin and exporter for FFmpeg-driven video rendering.    |
 | `player`      | A custom element for displaying animations in a browser.       |
 | `template`    | A template project included for developer's convenience.       |
-| `ui`          | The user interface used for editing.                           |
 | `vite-plugin` | A plugin for Vite used for developing and bundling animations. |
 
-After cloning the repo, run `pnpm install` in the root of the project to install
-all necessary dependencies. Then run `pnpm run build` to build all the packages.
+Node 20.19 or newer is required. After cloning the repo, run `pnpm install` in
+the root of the project to install all necessary dependencies. Then run
+`pnpm run build` to build all the packages.
 
 ### Developing Editor
 
@@ -61,9 +62,9 @@ When developing the editor, run the following command:
 pnpm run template:dev
 ```
 
-It will start a vite server that watches the `core`, `2d`, `ui`, and
-`vite-plugin` packages. The `template` package itself contains a simple Motion
-Canvas project that can be used during development.
+It will start a vite server that watches the `core`, `2d`, `editor`, and
+`vite-plugin` packages. The `template` package itself contains a simple
+canvas-commons project that can be used during development.
 
 ### Developing Player
 
@@ -91,14 +92,14 @@ relative path to the package you want to link:
 
 ```diff
   "dependencies": {
--   "@canvas-commons/core": "^3.11.0",
+-   "@canvas-commons/core": "^0.2.0",
 +   "@canvas-commons/core": "file:../canvas-commons/packages/core",
     // ...
   },
 ```
 
-If you're linking the `ui` package, you'll also need to modify `vite.config.ts`
-to allow vite to load external files:
+If you're linking the `editor` package, you'll also need to modify
+`vite.config.ts` to allow vite to load external files:
 
 ```ts
 import {defineConfig} from 'vite';
@@ -115,9 +116,9 @@ export default defineConfig({
 });
 ```
 
-This is necessary because the editor styles are loaded using the `/@fs/` prefix
-and since the linked `ui` package is outside the project, vite needs permission
-to access it.
+This is necessary because the editor styles are loaded using the `/@fs/` prefix,
+and since the linked `editor` package is outside the project, vite needs
+permission to access it.
 
 Then run `pnpm install` in to apply the changes and that's it.
 

@@ -41,7 +41,20 @@ on any issue you're working on, to let others know.
 
 ## Semantic Versioning
 
-Canvas Commons follows [semantic versioning][semver].
+Canvas Commons follows [semantic versioning][semver]. The packages (`core`,
+`2d`, `editor`, `vite-plugin`, `ffmpeg`, `player`, `create`) release at a shared
+version, managed by [Changesets](https://github.com/changesets/changesets).
+
+If your change is user-visible, add a changeset:
+
+```shell
+pnpm changeset
+```
+
+The CLI walks you through picking which packages to bump, the bump type
+(`patch`/`minor`/`major`), and the summary that lands in the changelog. Commit
+the generated file under `.changeset/` alongside your changes. Internal-only
+work (refactors, tests, CI tweaks) doesn't need one.
 
 ## Making a Pull Request
 
@@ -67,7 +80,7 @@ Canvas Commons follows [semantic versioning][semver].
    git push origin my-fix-branch
    ```
 6. In GitHub, send a pull request to [the main branch][main] and **request a
-   review** from [aarthificial](https://github.com/aarthificial).
+   review** from [@hhenrichsen](https://github.com/hhenrichsen).
 
 ### Going through verification
 

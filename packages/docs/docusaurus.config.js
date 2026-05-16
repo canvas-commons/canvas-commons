@@ -8,7 +8,6 @@ const config = {
   url: 'https://canvascommons.io',
   baseUrl: '/',
   onBrokenLinks: 'throw',
-  onBrokenMarkdownLinks: 'throw',
   favicon: 'img/favicon.svg',
   organizationName: 'canvas-commons',
   projectName: 'canvas-commons.github.io',
@@ -18,6 +17,22 @@ const config = {
   },
   markdown: {
     mermaid: true,
+    hooks: {
+      onBrokenMarkdownLinks: 'throw',
+    },
+  },
+  // Opt into Docusaurus v4 breaking-change behaviour ahead of the GA release
+  // so the eventual v4 bump is a one-line flag deletion. See
+  // https://docusaurus.io/docs/api/docusaurus-config#future
+  future: {
+    v4: {
+      removeLegacyPostBuildHeadAttribute: true,
+      useCssCascadeLayers: true,
+    },
+    faster: true,
+  },
+  storage: {
+    namespace: true,
   },
   customFields: {
     discordApi:
@@ -136,7 +151,6 @@ const config = {
         showLastUpdateAuthor: true,
         docItemComponent: '@site/src/components/DocPage',
         admonitions: {
-          tag: ':::',
           keywords: [
             'note',
             'tip',
@@ -161,6 +175,7 @@ const config = {
     '@docusaurus/plugin-content-pages',
     '@docusaurus/plugin-debug',
     '@docusaurus/plugin-sitemap',
+    '@docusaurus/plugin-svgr',
     [
       './editor',
       {

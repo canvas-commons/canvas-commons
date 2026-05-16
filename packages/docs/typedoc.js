@@ -7,6 +7,7 @@ const {
   DeclarationReflection,
   CommentTag,
   Comment,
+  TSConfigReader,
 } = require('typedoc');
 const mdn = require('mdn-links');
 const fs = require('fs');
@@ -152,7 +153,10 @@ module.exports = () => ({
 });
 
 async function parseTypes(options, projectName, externalProject) {
-  const app = await Application.bootstrap(options);
+  // Skip TypeDoc's default `TypeDocReader`; it auto-discovers `./typedoc.js`
+  // which is this file, not a typedoc config. Loading the TSConfigReader is
+  // still needed so typedoc honors `options.tsconfig`.
+  const app = await Application.bootstrap(options, [new TSConfigReader()]);
 
   app.converter.addUnknownSymbolResolver(ref => {
     const name = ref.symbolReference.path[0].path;

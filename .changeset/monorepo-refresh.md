@@ -45,6 +45,8 @@ Modernize packaging, build, and release pipeline.
 - `@canvas-commons/ui` renamed to `@canvas-commons/editor`. Update your
   `package.json` deps and any imports. The package shape, exports map, and
   `./style.css` subpath are unchanged.
+- Upgrades Docusaurus to v3, enables future v4 changes, and migrates to
+  React 18.
 
 Pre-1.0, so this ships as a minor across the linked `core`+`2d` group and the
 rest of the publishable packages.

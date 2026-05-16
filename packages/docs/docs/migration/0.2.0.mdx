@@ -1,0 +1,80 @@
+---
+sidebar_position: 1
+slug: /migration/0.2.0
+---
+
+# Migrating to 0.2.0
+
+0.2.0 is the first release after the canvas-commons monorepo migration. It
+closes the public API surface, renames one package, and changes how the editor
+consumes log remarks. Most projects will need a few small edits.
+
+## `@canvas-commons/ui` is now `@canvas-commons/editor`
+
+The editor package was renamed. Update your `package.json`:
+
+```diff
+  "devDependencies": {
+-   "@canvas-commons/ui": "^0.1.0",
++   "@canvas-commons/editor": "^0.2.0",
+  }
+```
+
+And any imports:
+
+```diff
+- import {makeEditorPlugin} from '@canvas-commons/ui';
++ import {makeEditorPlugin} from '@canvas-commons/editor';
+```
+
+The exports map, `./style.css` subpath, and the editor's behaviour are
+unchanged.
+
+## Subpath imports are gone
+
+Each package now ships a single root entry plus only the subpaths that genuinely
+need to be separate (JSX runtimes on `2d`, the editor's optional subpath on
+`2d`, `client`/`server` on `ffmpeg`, file exports like
+`./tsconfig.project.json`).
+
+Previously available subpaths — `@canvas-commons/core/scenes`,
+`@canvas-commons/2d/components`, `@canvas-commons/core/lib/...`, and similar —
+are no longer accessible. Re-import the same symbols from the root entry:
+
+```diff
+- import {timeEvents} from '@canvas-commons/core/scenes';
+- import {CodeBlock} from '@canvas-commons/2d/components';
++ import {timeEvents, CodeBlock} from '@canvas-commons/core';
+```
+
+The packages are `sideEffects: false`, so tree-shaking should remove anything
+you don't use.
+
+## `LogPayload.remarks` is markdown source
+
+The editor used to pre-parse log remarks to HTML at build time. They're now
+shipped as markdown, and the editor renders them instead.
+
+If you consume `LogPayload.remarks` directly (for example, in a custom log panel
+or analytics hook), parse it with a markdown library:
+
+```ts
+import {marked} from 'marked';
+
+const html = marked.parse(payload.remarks);
+```
+
+If you only ever showed remarks through the canvas-commons editor itself, no
+change is needed.
+
+## Node 20.19 or newer
+
+`engines.node` was bumped from 16/18-ish to `>=20.19.0` across all packages.
+Vite 8 requires it too. Bump your CI and local toolchain accordingly.
+
+## Vite plugin works on Vite 4, 5, 7, and 8
+
+`@canvas-commons/vite-plugin`'s peer dependency range broadened to
+`^4 || ^5 || ^7 || ^8`. New projects scaffolded with
+`pnpm create @canvas-commons` use Vite 8 by default; existing projects on Vite 4
+or 5 continue to work without changes.

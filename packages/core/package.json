@@ -1,6 +1,6 @@
 {
   "name": "@canvas-commons/core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Web-based tool for creating animations programmatically",
   "type": "module",
   "main": "./lib/index.js",

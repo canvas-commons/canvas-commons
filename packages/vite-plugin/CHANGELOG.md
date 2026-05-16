@@ -1,118 +1,143 @@
 # Change Log
 
-All notable changes to this project will be documented in this file.
-See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
+## 0.2.0
+
+### Minor Changes
+
+- [#59](https://github.com/canvas-commons/canvas-commons/pull/59)
+  [`dc986d0`](https://github.com/canvas-commons/canvas-commons/commit/dc986d05c85ac203d46e3bfd82735cf896cd29cb)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Modernize packaging,
+  build, and release pipeline.
+  - Closes the public API surface with explicit `exports` maps. Each package
+    ships a single root entry (`.`) plus only the subpaths that genuinely need
+    to be separate: `@canvas-commons/2d/{jsx-runtime,jsx-dev-runtime,editor}`,
+    `@canvas-commons/ffmpeg/{client,server}`, `@canvas-commons/core/shaders/*`
+    (for `#include` directives in user shaders), and the standard file exports
+    (`./project`, `./tsconfig.project.json`, `./package.json`). Previously
+    available subpaths like `@canvas-commons/core/scenes`,
+    `@canvas-commons/2d/components`, etc. are gone — re-import the same symbols
+    from the root entry. The packages are `sideEffects: false`, so tree-shaking
+    removes anything you don't use.
+  - Drops Lerna for pnpm workspaces + Changesets.
+  - Bumps `engines.node` floor to `>=20.19.0`.
+  - `@canvas-commons/vite-plugin` peerDep range broadened to
+    `^4 || ^5 || ^7 || ^8`. The editor, player, template, and examples now build
+    against Vite 8 (Rolldown-backed) by default, with Vitest 4 driving unit and
+    end-to-end tests. The plugin emits Vite 8's `oxc.jsx` configuration in place
+    of the deprecated `esbuild.jsx*` keys, resolves project entries to absolute
+    paths so they survive resolution from virtual modules, and looks up the
+    editor package from the consumer's cwd so pnpm's strict layout finds it.
+  - `@canvas-commons/editor`'s library build now emits its CSS as `style.css` to
+    match the `./style.css` export. Vite 8's library mode renamed the default
+    CSS output, so the explicit `cssFileName: 'style'` keeps the
+    consumer-visible filename stable.
+  - `LogPayload.remarks` is markdown source now, not pre-rendered HTML. The
+    canvas-commons editor renders it at display time; consumers that read
+    `remarks` directly should pass it through a markdown parser like `marked`.
+  - Library builds (`core`, `2d`, `vite-plugin`, `ffmpeg`) migrated from `tsc`
+    to `tsdown` (Rolldown-based) and emit a bundled single-file `lib/index.js`
+    to match the single-entry `exports` map. Published output is still ESM with
+    `.d.ts` declarations and source maps.
+  - `core` and `2d` no longer ship a separate `bundle` script. The regular build
+    produces both the library (`lib/index.js`) and the minified single-file
+    bundle (`dist/index.js`) used by the in-browser docs examples.
+  - `@canvas-commons/ui` renamed to `@canvas-commons/editor`. Update your
+    `package.json` deps and any imports. The package shape, exports map, and
+    `./style.css` subpath are unchanged.
+  - Upgrades Docusaurus to v3, enables future v4 changes, and migrates to
+    React 18.
+
+  Pre-1.0, so this ships as a minor across the linked `core`+`2d` group and the
+  rest of the publishable packages.
+
+All notable changes to this project will be documented in this file. See
+[Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
-
 ### Bug Fixes
 
-* **vite-plugin, ui:** project file path on selection ([#1090](https://github.com/motion-canvas/motion-canvas/issues/1090)) ([f15b375](https://github.com/motion-canvas/motion-canvas/commit/f15b3753d47bcca8cd2d3f213f5624cf5e54142d))
-
-
-
-
+- **vite-plugin, ui:** project file path on selection
+  ([#1090](https://github.com/motion-canvas/motion-canvas/issues/1090))
+  ([f15b375](https://github.com/motion-canvas/motion-canvas/commit/f15b3753d47bcca8cd2d3f213f5624cf5e54142d))
 
 # [3.17.0](https://github.com/motion-canvas/motion-canvas/compare/v3.16.0...v3.17.0) (2024-08-13)
 
-
 ### Features
 
-* **vite-plugin:** let plugins override config ([#1054](https://github.com/motion-canvas/motion-canvas/issues/1054)) ([9b01eb5](https://github.com/motion-canvas/motion-canvas/commit/9b01eb58b746dd2b4019db2af32f5f3ec1f7b761))
-
-
-
-
+- **vite-plugin:** let plugins override config
+  ([#1054](https://github.com/motion-canvas/motion-canvas/issues/1054))
+  ([9b01eb5](https://github.com/motion-canvas/motion-canvas/commit/9b01eb58b746dd2b4019db2af32f5f3ec1f7b761))
 
 ## [3.15.1](https://github.com/motion-canvas/motion-canvas/compare/v3.15.0...v3.15.1) (2024-03-21)
 
-
 ### Bug Fixes
 
-* optimize saving frames to disk ([#1007](https://github.com/motion-canvas/motion-canvas/issues/1007)) ([d79af91](https://github.com/motion-canvas/motion-canvas/commit/d79af91a4caa5bcf3ca98ec3a4b6d892c29c7fd9))
-
-
-
-
+- optimize saving frames to disk
+  ([#1007](https://github.com/motion-canvas/motion-canvas/issues/1007))
+  ([d79af91](https://github.com/motion-canvas/motion-canvas/commit/d79af91a4caa5bcf3ca98ec3a4b6d892c29c7fd9))
 
 ## [3.14.1](https://github.com/motion-canvas/motion-canvas/compare/v3.14.0...v3.14.1) (2024-02-06)
 
-
 ### Bug Fixes
 
-* fix project selection screen ([#938](https://github.com/motion-canvas/motion-canvas/issues/938)) ([3b3f287](https://github.com/motion-canvas/motion-canvas/commit/3b3f2871d9884c67f7d46215dd12fc02e27f8054))
-
-
-
-
+- fix project selection screen
+  ([#938](https://github.com/motion-canvas/motion-canvas/issues/938))
+  ([3b3f287](https://github.com/motion-canvas/motion-canvas/commit/3b3f2871d9884c67f7d46215dd12fc02e27f8054))
 
 # [3.14.0](https://github.com/motion-canvas/motion-canvas/compare/v3.13.0...v3.14.0) (2024-02-04)
 
-
 ### Features
 
-* webgl shaders ([#920](https://github.com/motion-canvas/motion-canvas/issues/920)) ([849216e](https://github.com/motion-canvas/motion-canvas/commit/849216ed34c4d29742c621b43a95ec4d99f8c755))
-
-
-
-
+- webgl shaders
+  ([#920](https://github.com/motion-canvas/motion-canvas/issues/920))
+  ([849216e](https://github.com/motion-canvas/motion-canvas/commit/849216ed34c4d29742c621b43a95ec4d99f8c755))
 
 # [3.13.0](https://github.com/motion-canvas/motion-canvas/compare/v3.12.4...v3.13.0) (2024-01-10)
 
 **Note:** Version bump only for package @motion-canvas/vite-plugin
 
-
-
-
-
 ## [3.12.3](https://github.com/motion-canvas/motion-canvas/compare/v3.12.2...v3.12.3) (2024-01-04)
 
 **Note:** Version bump only for package @motion-canvas/vite-plugin
 
-
-
-
-
 ## [3.12.2](https://github.com/motion-canvas/motion-canvas/compare/v3.12.1...v3.12.2) (2023-12-31)
-
 
 ### Bug Fixes
 
-* fix dependency bundling again ([#898](https://github.com/motion-canvas/motion-canvas/issues/898)) ([d6e0f48](https://github.com/motion-canvas/motion-canvas/commit/d6e0f48e67cf6baee710b8d5b185e620e67ceda5))
-
-
-
-
+- fix dependency bundling again
+  ([#898](https://github.com/motion-canvas/motion-canvas/issues/898))
+  ([d6e0f48](https://github.com/motion-canvas/motion-canvas/commit/d6e0f48e67cf6baee710b8d5b185e620e67ceda5))
 
 ## [3.12.1](https://github.com/motion-canvas/motion-canvas/compare/v3.12.0...v3.12.1) (2023-12-31)
 
-
 ### Bug Fixes
 
-* fix dependency bundling ([#897](https://github.com/motion-canvas/motion-canvas/issues/897)) ([5376012](https://github.com/motion-canvas/motion-canvas/commit/5376012cd02b8bca5abc2d3cf5a724662244c449))
-
-
-
-
+- fix dependency bundling
+  ([#897](https://github.com/motion-canvas/motion-canvas/issues/897))
+  ([5376012](https://github.com/motion-canvas/motion-canvas/commit/5376012cd02b8bca5abc2d3cf5a724662244c449))
 
 # [3.12.0](https://github.com/motion-canvas/motion-canvas/compare/v3.11.0...v3.12.0) (2023-12-31)
 
-
 ### Bug Fixes
 
-* exclude preact from optimizations ([#894](https://github.com/motion-canvas/motion-canvas/issues/894)) ([15687cc](https://github.com/motion-canvas/motion-canvas/commit/15687cc975abcf4538a5ce51402d2308057d42e5))
-* **vite-plugin:** create empty output directory if not exist ([#787](https://github.com/motion-canvas/motion-canvas/issues/787)) ([20cceef](https://github.com/motion-canvas/motion-canvas/commit/20cceef8525e809bff9706fcd7082d7e103a085b))
-* **vite-plugin:** handle unusual characters in file names ([#821](https://github.com/motion-canvas/motion-canvas/issues/821)) ([1e57497](https://github.com/motion-canvas/motion-canvas/commit/1e5749785d55a41605a5438eee08672ef01f3914)), closes [#764](https://github.com/motion-canvas/motion-canvas/issues/764)
-
+- exclude preact from optimizations
+  ([#894](https://github.com/motion-canvas/motion-canvas/issues/894))
+  ([15687cc](https://github.com/motion-canvas/motion-canvas/commit/15687cc975abcf4538a5ce51402d2308057d42e5))
+- **vite-plugin:** create empty output directory if not exist
+  ([#787](https://github.com/motion-canvas/motion-canvas/issues/787))
+  ([20cceef](https://github.com/motion-canvas/motion-canvas/commit/20cceef8525e809bff9706fcd7082d7e103a085b))
+- **vite-plugin:** handle unusual characters in file names
+  ([#821](https://github.com/motion-canvas/motion-canvas/issues/821))
+  ([1e57497](https://github.com/motion-canvas/motion-canvas/commit/1e5749785d55a41605a5438eee08672ef01f3914)),
+  closes [#764](https://github.com/motion-canvas/motion-canvas/issues/764)
 
 ### Features
 
-* **vite-plugin:** support glob for project files ([#834](https://github.com/motion-canvas/motion-canvas/issues/834)) ([67029c4](https://github.com/motion-canvas/motion-canvas/commit/67029c4c2cf756cbe2b7ed59dc55cb895de81d52)), closes [#324](https://github.com/motion-canvas/motion-canvas/issues/324)
-
-
-
-
+- **vite-plugin:** support glob for project files
+  ([#834](https://github.com/motion-canvas/motion-canvas/issues/834))
+  ([67029c4](https://github.com/motion-canvas/motion-canvas/commit/67029c4c2cf756cbe2b7ed59dc55cb895de81d52)),
+  closes [#324](https://github.com/motion-canvas/motion-canvas/issues/324)
 
 # Change Log
 

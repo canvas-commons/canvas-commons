@@ -309,6 +309,9 @@ importers:
       '@canvas-commons/editor':
         specifier: workspace:^
         version: link:../editor
+      '@canvas-commons/player':
+        specifier: workspace:^
+        version: link:../player
       '@canvas-commons/vite-plugin':
         specifier: workspace:^
         version: link:../vite-plugin

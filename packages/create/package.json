@@ -13,7 +13,8 @@
   },
   "files": [
     "index.js",
-    "template-*"
+    "template-2d-js",
+    "template-2d-ts"
   ],
   "repository": {
     "type": "git",

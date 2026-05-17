@@ -2,6 +2,8 @@ name: Deploy Documentation to GitHub Pages
 
 on: workflow_dispatch
 
+permissions: {}
+
 env:
   HUSKY: 0
 
@@ -9,21 +11,29 @@ jobs:
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: step-security/harden-runner@ab7a9404c0f3da075243ca237b5fac12c98deaa5 # v2.19.3
+        with:
+          egress-policy: audit
+          disable-sudo: true
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
       - run: pnpm run examples:build
-      - run: pnpm run ui:showcase
+      - run: pnpm run editor:showcase
       - run: pnpm run docs:build
         env:
-          NODE_OPTIONS: "--max-old-space-size=8192"
-      - uses: peaceiris/actions-gh-pages@v3
+          NODE_OPTIONS: '--max-old-space-size=8192'
+      - uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0
         with:
           personal_token: ${{ secrets.PERSONAL_TOKEN }}
           publish_dir: ./packages/docs/build

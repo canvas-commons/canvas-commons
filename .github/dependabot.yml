@@ -1,0 +1,34 @@
+version: 2
+
+updates:
+  # Keep SHA-pinned actions current. Without this, Dependabot would have
+  # nothing to update once tags are replaced with commit SHAs in workflows.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      actions:
+        patterns: ['*']
+    cooldown:
+      default-days: 3
+
+  # npm dependencies across the workspace. The cooldown is the supply-chain
+  # mitigation called out in
+  # https://www.wiz.io/blog/github-actions-security-guide — 7 days lets the
+  # community surface compromised versions before they reach our PRs.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      dev-dependencies:
+        dependency-type: development
+        update-types: [patch, minor]
+      production-dependencies:
+        dependency-type: production
+        update-types: [patch, minor]
+    cooldown:
+      default-days: 7

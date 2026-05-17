@@ -29,7 +29,7 @@ const PLUGINS = {
   ffmpeg: {
     package: '@canvas-commons/ffmpeg',
     variable: 'ffmpeg',
-    version: '^1.1.0',
+    version: '*',
   },
 };
 

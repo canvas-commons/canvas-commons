@@ -55,7 +55,7 @@
     "@canvas-commons/2d": "workspace:*",
     "@canvas-commons/editor": "workspace:^",
     "@preact/signals": "catalog:",
-    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-typescript": "^11.1.5",
     "@types/node": "catalog:",
     "clsx": "catalog:",

@@ -10,3 +10,48 @@ node_modules
 .idea
 .nx/cache
 .nx/workspace-data
+
+# ─── AI / agent local artifacts ─────────────────────────────────
+
+# Claude Code
+.claude/settings.local.json
+.claude/agent-memory-local/
+.claude/.credentials.json
+.claude/worktrees/
+.claude/projects/
+.claude/shell-snapshots/
+.claude/todos/
+CLAUDE.local.md
+
+# Cursor
+.cursorignore.local
+.cursorindexingignore.local
+.cursor/plans/
+.cursor/logs/
+.cursorrules
+
+# OpenAI Codex
+AGENTS.override.md
+.codex/auth.json
+.codex/history.jsonl
+.codex/sessions/
+.codex/logs/
+.codex/local/
+
+# Aider / Continue / Windsurf / Cline
+.aider*
+.continue/
+.windsurf/
+.cline/
+
+# Local agent prompts (assistant-specific filenames)
+AGENTS.local.md
+
+# MCP & browser automation stubs
+.mcp.local.json
+.playwright-mcp/
+
+# Inside-repo worktree fallbacks (if you ever opt into them)
+.worktrees/
+.trees/
+.agents/

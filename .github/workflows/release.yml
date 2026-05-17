@@ -64,7 +64,6 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
           ref: ${{ needs.build.outputs.sha }}
-          token: ${{ secrets.PUBLISH_TOKEN }}
       - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -79,7 +78,11 @@ jobs:
           commit: 'chore(release): version packages'
           title: 'chore(release): version packages'
         env:
-          GITHUB_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+          # Built-in token: the release PR opens fine, but downstream
+          # `verify.yml` won't auto-run on it (GitHub anti-loop). Push an
+          # empty commit to the PR or close/reopen it to trigger CI when
+          # you want to re-verify before merging.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   publish-npm:
     name: Publish to npm

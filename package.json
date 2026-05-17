@@ -61,6 +61,6 @@
     "*.{js,jsx,ts,tsx,md,scss}": "prettier --write"
   },
   "dependencies": {
-    "webpack": "5.105.4"
+    "webpack": "5.106.2"
   }
 }

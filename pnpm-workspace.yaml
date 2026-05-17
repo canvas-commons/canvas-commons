@@ -11,7 +11,7 @@ allowBuilds:
   nx: true
 
 catalog:
-  '@preact/signals': ^1.2.1
+  '@preact/signals': ^2.9.0
   '@types/node': ^20.19.0
   clsx: ^2.0.0
   jsdom: ^29.1.0

@@ -1,6 +1,6 @@
 {
   "name": "@canvas-commons/create",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Quickly scaffold Canvas Commons projects",
   "main": "index.js",
   "author": "canvas-commons",

@@ -1,5 +1,14 @@
 # Change Log
 
+## 0.2.1
+
+### Patch Changes
+
+- [#69](https://github.com/canvas-commons/canvas-commons/pull/69)
+  [`0978c35`](https://github.com/canvas-commons/canvas-commons/commit/0978c35c04a5154ab2c48a94fc48d31f0ecdb47d)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - fix(create): include
+  template directories in the published tarball
+
 ## 0.2.0
 
 ### Minor Changes

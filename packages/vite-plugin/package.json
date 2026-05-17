@@ -1,6 +1,6 @@
 {
   "name": "@canvas-commons/vite-plugin",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A Vite plugin for Canvas Commons projects",
   "type": "module",
   "main": "./lib/index.js",

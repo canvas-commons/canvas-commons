@@ -1,6 +1,6 @@
 {
   "name": "@canvas-commons/player",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A custom element for displaying animations made with Canvas Commons",
   "type": "module",
   "main": "./dist/main.js",

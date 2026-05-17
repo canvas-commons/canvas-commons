@@ -151,7 +151,9 @@ async function loadPlugin(
     if (version) {
       url += `?v=${version}`;
     }
-    return (await import(/* @vite-ignore */ url)).default() as Plugin;
+    return (
+      await import(/* @vite-ignore */ /* webpackIgnore: true */ url)
+    ).default() as Plugin;
   } catch (e: any) {
     console.error(e);
     logger.error({

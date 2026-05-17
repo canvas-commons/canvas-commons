@@ -24,6 +24,7 @@
     "@canvas-commons/2d": "workspace:^",
     "@canvas-commons/core": "workspace:^",
     "@canvas-commons/editor": "workspace:^",
+    "@canvas-commons/ffmpeg": "workspace:^",
     "@canvas-commons/vite-plugin": "workspace:^"
   },
   "dependencies": {

@@ -1,6 +1,5 @@
 import {TOCItem} from '@docusaurus/mdx-loader';
 import {DocProvider} from '@docusaurus/plugin-content-docs/client';
-import useIsBrowser from '@docusaurus/useIsBrowser';
 import Item from '@site/src/components/Api/Item';
 import Tooltip from '@site/src/components/Tooltip';
 import {useApiLookup} from '@site/src/contexts/api';
@@ -35,7 +34,6 @@ export default function ApiItem({route}: ApiItemProps): JSX.Element {
     lookup[route.reflectionId];
   const [filters] = useFilters();
 
-  const isBrowser = useIsBrowser();
   const toc = useMemo(() => {
     const toc: TOCItem[] = [];
     if (!reflection.groups || reflection.kind === ReflectionKind.Project) {
@@ -43,33 +41,29 @@ export default function ApiItem({route}: ApiItemProps): JSX.Element {
     }
 
     for (const group of reflection.groups) {
+      const passing = (group.children ?? [])
+        .map(id => lookup[id])
+        .filter(child => child && matchFilters(filters, child));
+      if (passing.length === 0) continue;
+
       toc.push({
         value: group.title,
         id: group.title,
         level: 2,
       });
-      if (group.children) {
-        for (const id of group.children) {
-          const child = lookup[id];
-          if (
-            !child ||
-            child.hasOwnPage ||
-            (isBrowser && !matchFilters(filters, child))
-          ) {
-            continue;
-          }
-          toc.push({
-            value: `${child.experimental ? ExperimentalIcon : ''}<code>${
-              child.name
-            }</code>`,
-            id: child.anchor,
-            level: 3,
-          });
-        }
+      for (const child of passing) {
+        if (child.hasOwnPage) continue;
+        toc.push({
+          value: `${child.experimental ? ExperimentalIcon : ''}<code>${
+            child.name
+          }</code>`,
+          id: child.anchor,
+          level: 3,
+        });
       }
     }
     return toc;
-  }, [filters, reflection, isBrowser]);
+  }, [filters, reflection]);
 
   return (
     <DocProvider

@@ -81,6 +81,8 @@ work (refactors, tests, CI tweaks) doesn't need one.
    ```
 6. In GitHub, send a pull request to [the main branch][main] and **request a
    review** from [@hhenrichsen](https://github.com/hhenrichsen).
+7. Fill out the Pull Request Template. Pull requests that do not follow the
+   template will not be accepted.
 
 ### Going through verification
 
@@ -108,9 +110,7 @@ it. There are a few checks that can fail:
 
 ## Using generative AI
 
-Using generative AI to help you write code and documentation is allowed, but use
-it to enhance your work, not replace it. Pull requests that are a mindless copy
-of the output of an AI model will be rejected.
+See the [AI Policy][ai-policy] for more information.
 
 ## Getting the _Contributor_ Discord role
 
@@ -140,3 +140,4 @@ This Contribution Guide was partially inspired by [React][react] and
 [label-accepted]:
   https://github.com/canvas-commons/canvas-commons/labels/c-accepted
 [gist]: https://gist.github.com/
+[ai-policy]: https://github.com/canvas-commons/.github/blob/main/AI_POLICY.md

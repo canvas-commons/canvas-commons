@@ -1,5 +1,8 @@
 packages:
   - 'packages/*'
+  - '!**/node_modules/**'
+  - '!**/.worktrees/**'
+  - '!**/.claude/worktrees/**'
 
 allowBuilds:
   '@parcel/watcher': true

@@ -109,9 +109,10 @@ jobs:
           node-version: 22
           cache: pnpm
       # OIDC trusted publishing needs npm >= 11.5.1 for the id-token exchange
-      # to attach provenance attestations. Pinning explicitly so the
-      # node-version bundled npm doesn't quietly fall out of range.
-      - run: npm install -g npm@latest
+      # to attach provenance attestations. Corepack handles the upgrade
+      # cleanly; `npm install -g npm@latest` self-mutates and can leave the
+      # in-flight npm process with missing internal modules.
+      - run: corepack prepare npm@latest --activate
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
       - run: pnpm exec changeset publish

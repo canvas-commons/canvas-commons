@@ -13,6 +13,9 @@ updates:
         patterns: ['*']
     cooldown:
       default-days: 3
+    commit-message:
+      prefix: ci
+      include: scope
 
   # npm dependencies across the workspace. The cooldown is the supply-chain
   # mitigation called out in
@@ -32,3 +35,7 @@ updates:
         update-types: [patch, minor]
     cooldown:
       default-days: 7
+    commit-message:
+      prefix: chore
+      prefix-development: chore
+      include: scope

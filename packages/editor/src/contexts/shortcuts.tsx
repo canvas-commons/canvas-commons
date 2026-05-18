@@ -98,6 +98,18 @@ export const VIEWPORT_SHORTCUTS = makeShortcuts('viewport', {
     key: 'p',
     modifiers: {},
   },
+  copyFrame: {
+    display: 'Shift + C',
+    description: 'Copy frame to clipboard',
+    key: 'C',
+    modifiers: {shift: true},
+  },
+  downloadFrame: {
+    display: 'Shift + D',
+    description: 'Download frame as PNG',
+    key: 'D',
+    modifiers: {shift: true},
+  },
   ...(typeof EyeDropper !== 'undefined'
     ? {
         colorPicker: {

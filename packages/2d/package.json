@@ -68,12 +68,14 @@
   },
   "dependencies": {
     "@canvas-commons/core": "workspace:^",
+    "@chenglou/pretext": "~0.0.7",
     "@codemirror/language": "^6.10.1",
     "@lezer/common": "^1.2.1",
     "@lezer/highlight": "^1.2.0",
     "escape-string-regexp": "^5.0.0",
     "mathjax-full": "^3.2.2",
     "parse-svg-path": "^0.1.2",
-    "roughjs": "^4.6.6"
+    "roughjs": "^4.6.6",
+    "yoga-layout": "^3.2.1"
   }
 }

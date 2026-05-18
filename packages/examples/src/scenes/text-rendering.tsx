@@ -34,7 +34,7 @@ export default makeScene2D(function* (view) {
         fontFamily={'"JetBrains Mono", monospace'}
         fill={'#fff'}
         width={1400}
-        textWrap={'pre-wrap'}
+        textWrap={'pre'}
         textAlign={'left'}
         text={Paragraph}
       />

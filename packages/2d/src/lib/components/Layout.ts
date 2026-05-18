@@ -51,14 +51,28 @@ import {
   Length,
   LengthLimit,
   TextWrap,
+  WordBreak,
 } from '../partials';
+import {buildCanvasFontString, resolveLineHeight} from '../text';
 import {drawLine, drawPivot, is} from '../utils';
+import {
+  PositionType,
+  createYogaNode,
+  setYogaDimension,
+  setYogaFlexBasis,
+  setYogaGap,
+  setYogaSpacing,
+  toYogaAlignContent,
+  toYogaAlignItems,
+  toYogaFlexDirection,
+  toYogaFlexWrap,
+  toYogaJustifyContent,
+  type YogaNode,
+} from '../utils/yoga';
 import {Node, NodeProps} from './Node';
 
 export interface LayoutProps extends NodeProps {
   layout?: LayoutMode;
-  tagName?: keyof HTMLElementTagNameMap;
-
   width?: SignalValue<Length>;
   height?: SignalValue<Length>;
   maxWidth?: SignalValue<LengthLimit>;
@@ -102,6 +116,7 @@ export interface LayoutProps extends NodeProps {
   textWrap?: SignalValue<TextWrap>;
   textDirection?: SignalValue<CanvasDirection>;
   textAlign?: SignalValue<CanvasTextAlign>;
+  wordBreak?: SignalValue<WordBreak>;
 
   size?: SignalValue<PossibleVector2<Length>>;
   anchorX?: SignalValue<number>;
@@ -279,7 +294,7 @@ export class Layout extends Node {
   @signal()
   declare public readonly letterSpacing: SimpleSignal<number, this>;
 
-  @defaultStyle(false)
+  @defaultStyle(true)
   @signal()
   declare public readonly textWrap: SimpleSignal<TextWrap, this>;
   @initial('ltr')
@@ -288,6 +303,9 @@ export class Layout extends Node {
   @defaultStyle('start')
   @signal()
   declare public readonly textAlign: SimpleSignal<CanvasTextAlign, this>;
+  @defaultStyle('normal')
+  @signal()
+  declare public readonly wordBreak: SimpleSignal<WordBreak, this>;
 
   protected getX(): number {
     if (this.isLayoutRoot()) {
@@ -669,8 +687,7 @@ export class Layout extends Node {
   @signal()
   declare public readonly clip: SimpleSignal<boolean, this>;
 
-  declare public element: HTMLElement;
-  declare public styles: CSSStyleDeclaration;
+  declare public yogaNode: YogaNode;
 
   @initial(0)
   @signal()
@@ -678,7 +695,6 @@ export class Layout extends Node {
 
   public constructor(props: LayoutProps) {
     super(props);
-    this.element.dataset.canvasCommonsKey = this.key;
   }
 
   public lockSize() {
@@ -703,22 +719,33 @@ export class Layout extends Node {
   }
 
   /**
-   * Get the resolved layout mode of this node.
+   * Resolved layout mode of this node.
    *
    * @remarks
-   * When the mode is `null`, its value will be inherited from the parent.
-   *
-   * Use {@link layout} to get the raw mode set for this node (without
-   * inheritance).
+   * When the {@link layout} signal is `null`, the value is inherited from the
+   * parent. Returns `false` for the View2D root.
    */
   @computed()
   public layoutEnabled(): boolean {
     return this.layout() ?? this.parentTransform()?.layoutEnabled() ?? false;
   }
 
+  /**
+   * Whether this node hosts flex children. Defaults to {@link layoutEnabled};
+   * overridden by `Txt` (and similar leaves) that must not have yoga children.
+   */
+  @computed()
+  public layoutChildrenEnabled(): boolean {
+    return this.layoutEnabled();
+  }
+
   @computed()
   public isLayoutRoot(): boolean {
-    return !this.layoutEnabled() || !this.parentTransform()?.layoutEnabled();
+    // A parent that doesn't host yoga children (e.g. Txt) leaves this node
+    // detached from any yoga tree, so it must lay itself out as a root.
+    return (
+      !this.layoutEnabled() || !this.parentTransform()?.layoutChildrenEnabled()
+    );
   }
 
   public override localToParent(): DOMMatrix {
@@ -755,7 +782,8 @@ export class Layout extends Node {
   }
 
   protected getComputedLayout(): BBox {
-    return new BBox(this.element.getBoundingClientRect());
+    const layout = this.yogaNode.getComputedLayout();
+    return new BBox(layout.left, layout.top, layout.width, layout.height);
   }
 
   @computed()
@@ -764,15 +792,16 @@ export class Layout extends Node {
     const box = this.getComputedLayout();
 
     const position = new Vector2(
-      box.x + (box.width / 2) * this.anchor.x(),
-      box.y + (box.height / 2) * this.anchor.y(),
+      box.x + box.width / 2 + (box.width / 2) * this.anchor.x(),
+      box.y + box.height / 2 + (box.height / 2) * this.anchor.y(),
     );
 
     const parent = this.parentTransform();
     if (parent) {
-      const parentRect = parent.getComputedLayout();
-      position.x -= parentRect.x + (parentRect.width - box.width) / 2;
-      position.y -= parentRect.y + (parentRect.height - box.height) / 2;
+      const parentBox = parent.getComputedLayout();
+      const parentLayout = parent.yogaNode.getComputedLayout();
+      position.x -= parentBox.x - parentLayout.left + parentBox.width / 2;
+      position.y -= parentBox.y - parentLayout.top + parentBox.height / 2;
     }
 
     return position;
@@ -790,22 +819,101 @@ export class Layout extends Node {
   @computed()
   protected requestLayoutUpdate() {
     const parent = this.parentTransform();
-    if (this.appendedToView()) {
+    if (this.isLayoutRoot()) {
       parent?.requestFontUpdate();
       this.updateLayout();
+      const {width, height} = this.resolveLayoutConstraint();
+      this.calculateRootLayout(width, height);
     } else {
-      parent!.requestLayoutUpdate();
+      parent?.requestLayoutUpdate();
     }
   }
 
-  @computed()
-  protected appendedToView() {
-    const root = this.isLayoutRoot();
-    if (root) {
-      this.view().element.append(this.element);
+  /**
+   * Run yoga layout for this root, resolving percent-sized children of
+   * auto-sized containers with a second pass when needed.
+   */
+  protected calculateRootLayout(
+    width: number | undefined,
+    height: number | undefined,
+  ) {
+    this.yogaNode.calculateLayout(width, height);
+    if (this.resolvePercentageDimensions()) {
+      this.yogaNode.calculateLayout(width, height);
     }
+  }
 
-    return root;
+  /**
+   * Resolve the `calculateLayout` constraint for this layout root.
+   *
+   * @remarks
+   * Definite dimensions pass straight through. Percent dimensions resolve to
+   * the parent's computed size — yoga then applies the node's own percent
+   * against that available space, so the percent is applied exactly once
+   * (a Rect with `width='50%'` under View2D gets half the view width), and
+   * stacked percent roots compose recursively through `computedSize`.
+   */
+  private resolveLayoutConstraint(): {
+    width: number | undefined;
+    height: number | undefined;
+  } {
+    const size = this.desiredSize();
+    return {
+      width: this.resolveDimensionConstraint(size.x, 'width'),
+      height: this.resolveDimensionConstraint(size.y, 'height'),
+    };
+  }
+
+  private resolveDimensionConstraint(
+    value: DesiredLength,
+    axis: 'width' | 'height',
+  ): number | undefined {
+    if (typeof value === 'number') return value;
+    if (typeof value !== 'string' || !value.endsWith('%')) return undefined;
+
+    const parent = this.parentTransform();
+    if (!parent) return undefined;
+    const parentSize = parent.computedSize();
+    const available = axis === 'width' ? parentSize.x : parentSize.y;
+    return isFinite(available) && available > 0 ? available : undefined;
+  }
+
+  private resolvePercentageDimensions(): boolean {
+    let resolved = false;
+    this.walkFlexTree((child, parent) => {
+      const size = child.desiredSize();
+      const parentLayout = parent.yogaNode.getComputedLayout();
+
+      if (typeof size.x === 'string' && size.x.endsWith('%')) {
+        const parentDesired = parent.desiredSize();
+        if (parentDesired.x === null) {
+          const percent = parseFloat(size.x);
+          child.yogaNode.setWidth((parentLayout.width * percent) / 100);
+          resolved = true;
+        }
+      }
+
+      if (typeof size.y === 'string' && size.y.endsWith('%')) {
+        const parentDesired = parent.desiredSize();
+        if (parentDesired.y === null) {
+          const percent = parseFloat(size.y);
+          child.yogaNode.setHeight((parentLayout.height * percent) / 100);
+          resolved = true;
+        }
+      }
+    });
+    return resolved;
+  }
+
+  private walkFlexTree(visitor: (child: Layout, parent: Layout) => void): void {
+    const walk = (parent: Layout) => {
+      if (!parent.layoutChildrenEnabled()) return;
+      for (const child of parent.flexChildren()) {
+        visitor(child, parent);
+        walk(child);
+      }
+    };
+    walk(this);
   }
 
   /**
@@ -815,8 +923,8 @@ export class Layout extends Node {
   protected updateLayout() {
     this.applyFont();
     this.applyFlex();
-    if (this.layoutEnabled()) {
-      const children = this.layoutChildren();
+    if (this.layoutChildrenEnabled()) {
+      const children = this.flexChildren();
       for (const child of children) {
         child.updateLayout();
       }
@@ -824,22 +932,26 @@ export class Layout extends Node {
   }
 
   @computed()
-  protected layoutChildren(): Layout[] {
+  protected flexChildren(): Layout[] {
     const queue = [...this.children()];
     const result: Layout[] = [];
-    const elements: HTMLElement[] = [];
     while (queue.length) {
       const child = queue.shift();
       if (child instanceof Layout) {
         if (child.layoutEnabled()) {
           result.push(child);
-          elements.push(child.element);
         }
       } else if (child) {
         queue.unshift(...child.children());
       }
     }
-    this.element.replaceChildren(...elements);
+
+    for (let i = this.yogaNode.getChildCount() - 1; i >= 0; i--) {
+      this.yogaNode.removeChild(this.yogaNode.getChild(i));
+    }
+    for (let i = 0; i < result.length; i++) {
+      this.yogaNode.insertChild(result[i].yogaNode, i);
+    }
 
     return result;
   }
@@ -849,9 +961,23 @@ export class Layout extends Node {
    */
   @computed()
   protected requestFontUpdate() {
-    this.appendedToView();
     this.parentTransform()?.requestFontUpdate();
     this.applyFont();
+  }
+
+  @computed()
+  public canvasFont(): string {
+    return buildCanvasFontString(
+      this.fontStyle(),
+      this.fontWeight(),
+      this.fontSize(),
+      this.fontFamily(),
+    );
+  }
+
+  @computed()
+  public resolvedLineHeight(): number {
+    return resolveLineHeight(this.lineHeight(), this.fontSize());
   }
 
   protected override getCacheBBox(): BBox {
@@ -938,97 +1064,90 @@ export class Layout extends Node {
     this.position(this.position().add(newOffset).sub(oldOffset));
   }
 
-  protected parsePixels(value: number | null): string {
-    return value === null ? '' : `${value}px`;
-  }
-
-  protected parseLength(value: number | string | null): string {
-    if (value === null) {
-      return '';
-    }
-    if (typeof value === 'string') {
-      return value;
-    }
-    return `${value}px`;
-  }
-
   @computed()
   protected applyFlex() {
-    this.element.style.position = this.isLayoutRoot() ? 'absolute' : 'relative';
+    const node = this.yogaNode;
+
+    node.setPositionType(
+      this.isLayoutRoot() ? PositionType.Absolute : PositionType.Relative,
+    );
 
     const size = this.desiredSize();
-    this.element.style.width = this.parseLength(size.x);
-    this.element.style.height = this.parseLength(size.y);
-    this.element.style.maxWidth = this.parseLength(this.maxWidth());
-    this.element.style.minWidth = this.parseLength(this.minWidth());
-    this.element.style.maxHeight = this.parseLength(this.maxHeight());
-    this.element.style.minHeight = this.parseLength(this.minHeight()!);
-    this.element.style.aspectRatio =
-      this.ratio() === null ? '' : this.ratio()!.toString();
+    setYogaDimension(node, 'setWidth', size.x);
+    setYogaDimension(node, 'setHeight', size.y);
+    setYogaDimension(node, 'setMaxWidth', this.maxWidth());
+    setYogaDimension(node, 'setMinWidth', this.minWidth());
+    setYogaDimension(node, 'setMaxHeight', this.maxHeight());
+    setYogaDimension(node, 'setMinHeight', this.minHeight());
 
-    this.element.style.marginTop = this.parsePixels(this.margin.top());
-    this.element.style.marginBottom = this.parsePixels(this.margin.bottom());
-    this.element.style.marginLeft = this.parsePixels(this.margin.left());
-    this.element.style.marginRight = this.parsePixels(this.margin.right());
+    const ratio = this.ratio();
+    node.setAspectRatio(ratio ?? undefined);
 
-    this.element.style.paddingTop = this.parsePixels(this.padding.top());
-    this.element.style.paddingBottom = this.parsePixels(this.padding.bottom());
-    this.element.style.paddingLeft = this.parsePixels(this.padding.left());
-    this.element.style.paddingRight = this.parsePixels(this.padding.right());
+    setYogaSpacing(
+      node,
+      'Margin',
+      this.margin.top(),
+      this.margin.right(),
+      this.margin.bottom(),
+      this.margin.left(),
+    );
+    setYogaSpacing(
+      node,
+      'Padding',
+      this.padding.top(),
+      this.padding.right(),
+      this.padding.bottom(),
+      this.padding.left(),
+    );
 
-    this.element.style.flexDirection = this.direction();
-    this.element.style.flexBasis = this.parseLength(this.basis()!);
-    this.element.style.flexWrap = this.wrap();
+    node.setFlexDirection(toYogaFlexDirection(this.direction()));
+    setYogaFlexBasis(node, this.basis());
+    node.setFlexWrap(toYogaFlexWrap(this.wrap()));
 
-    this.element.style.justifyContent = this.justifyContent();
-    this.element.style.alignContent = this.alignContent();
-    this.element.style.alignItems = this.alignItems();
-    this.element.style.alignSelf = this.alignSelf();
-    this.element.style.columnGap = this.parseLength(this.gap.x());
-    this.element.style.rowGap = this.parseLength(this.gap.y());
+    const direction = this.direction();
+    const wrap = this.wrap();
+    node.setJustifyContent(
+      toYogaJustifyContent(this.justifyContent(), direction),
+    );
+    node.setAlignContent(toYogaAlignContent(this.alignContent(), wrap));
+    node.setAlignItems(toYogaAlignItems(this.alignItems(), wrap));
+    node.setAlignSelf(toYogaAlignItems(this.alignSelf(), wrap));
+
+    setYogaGap(node, this.gap.x(), this.gap.y());
 
     if (this.sizeLockCounter() > 0) {
-      this.element.style.flexGrow = '0';
-      this.element.style.flexShrink = '0';
+      node.setFlexGrow(0);
+      node.setFlexShrink(0);
     } else {
-      this.element.style.flexGrow = this.grow().toString();
-      this.element.style.flexShrink = this.shrink().toString();
+      node.setFlexGrow(this.grow());
+      node.setFlexShrink(this.shrink());
     }
   }
 
   @computed()
   protected applyFont() {
-    this.element.style.fontFamily = this.fontFamily();
-    this.element.style.fontSize = `${this.fontSize()}px`;
-    this.element.style.fontStyle = this.fontStyle();
-
-    const lineHeight = this.lineHeight();
-    this.element.style.lineHeight =
-      typeof lineHeight === 'number'
-        ? `${lineHeight}px`
-        : (parseFloat(lineHeight as string) / 100).toString();
-
-    this.element.style.fontWeight = this.fontWeight().toString();
-    this.element.style.letterSpacing = `${this.letterSpacing()}px`;
-    this.element.style.textAlign = this.textAlign();
-
-    const wrap = this.textWrap();
-    if (typeof wrap === 'boolean') {
-      this.element.style.whiteSpace = wrap ? 'normal' : 'nowrap';
-    } else {
-      this.element.style.whiteSpace = wrap;
-    }
+    // Dependency checkpoint: touching every font signal invalidates downstream
+    // measurement caches when any font property changes.
+    this.fontFamily();
+    this.fontSize();
+    this.fontStyle();
+    this.fontWeight();
+    this.lineHeight();
+    this.letterSpacing();
+    this.textWrap();
+    this.textAlign();
+    this.wordBreak();
   }
 
   public override dispose() {
+    if (this.isDisposed) {
+      return;
+    }
     super.dispose();
     this.sizeLockCounter?.context.dispose();
-    if (this.element) {
-      this.element.remove();
-      this.element.innerHTML = '';
+    if (this.yogaNode) {
+      this.yogaNode.free();
     }
-    this.element = null as unknown as HTMLElement;
-    this.styles = null as unknown as CSSStyleDeclaration;
   }
 
   public override hit(position: Vector2): Node | null {
@@ -1094,8 +1213,5 @@ function originSignal(origin: Origin): PropertyDecorator {
 }
 
 addInitializer<Layout>(Layout.prototype, instance => {
-  instance.element = document.createElement('div');
-  instance.element.style.display = 'flex';
-  instance.element.style.boxSizing = 'border-box';
-  instance.styles = getComputedStyle(instance.element);
+  instance.yogaNode = createYogaNode();
 });

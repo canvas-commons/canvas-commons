@@ -518,10 +518,10 @@ export class Code extends Shape {
 
   protected override applyText(context: CanvasRenderingContext2D) {
     super.applyText(context);
-    context.font = this.styles.font;
+    context.font = this.canvasFont();
     context.textBaseline = 'top';
     if ('letterSpacing' in context) {
-      context.letterSpacing = this.styles.letterSpacing;
+      context.letterSpacing = `${this.letterSpacing()}px`;
     }
   }
 

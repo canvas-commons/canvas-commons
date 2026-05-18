@@ -1161,6 +1161,13 @@ export class Node implements Promisable<Node> {
   }
 
   /**
+   * Whether this node has already been disposed of.
+   */
+  protected get isDisposed(): boolean {
+    return !this.unregister;
+  }
+
+  /**
    * Prepare this node to be disposed of.
    *
    * @remarks
@@ -1171,7 +1178,7 @@ export class Node implements Promisable<Node> {
    * node to be garbage collected.
    */
   public dispose() {
-    if (!this.unregister) {
+    if (this.isDisposed) {
       return;
     }
 

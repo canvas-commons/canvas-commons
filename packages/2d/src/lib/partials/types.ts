@@ -6,15 +6,10 @@ export type FlexDirection = 'row' | 'row-reverse' | 'column' | 'column-reverse';
 
 export type FlexWrap = 'nowrap' | 'wrap' | 'wrap-reverse';
 
-export type FlexBasis =
-  | Length
-  | 'content'
-  | 'max-content'
-  | 'min-content'
-  | 'fit-content'
-  | null;
+export type FlexBasis = Length | null;
 
 export type FlexContent =
+  | 'normal'
   | 'center'
   | 'start'
   | 'end'
@@ -23,9 +18,17 @@ export type FlexContent =
   | 'space-evenly'
   | 'stretch';
 
-export type FlexItems = 'center' | 'start' | 'end' | 'stretch' | 'baseline';
+export type FlexItems =
+  | 'auto'
+  | 'center'
+  | 'start'
+  | 'end'
+  | 'stretch'
+  | 'baseline';
 
 export type TextWrap = boolean | 'pre';
+
+export type WordBreak = 'normal' | 'keep-all';
 
 export type LayoutMode = boolean | null;
 
@@ -52,7 +55,7 @@ export type DesiredLength = Length | null;
 /**
  * Represents a length limit used by layout properties such as `max-width`.
  */
-export type LengthLimit = Length | null | 'max-content' | 'min-content';
+export type LengthLimit = Length | null;
 
 export type PossibleCanvasStyle = null | PossibleColor | Gradient | Pattern;
 export type CanvasStyle = null | Color | Gradient | Pattern;

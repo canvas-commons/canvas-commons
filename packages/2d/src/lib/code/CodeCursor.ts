@@ -64,7 +64,7 @@ export class CodeCursor {
       metrics.fontBoundingBoxDescent + metrics.fontBoundingBoxAscent;
     this.verticalOffset = metrics.fontBoundingBoxAscent;
     this.context = context;
-    this.lineHeight = parseFloat(this.node.styles.lineHeight);
+    this.lineHeight = this.node.resolvedLineHeight();
     this.cursor = new Vector2();
     this.tweenCursor = new Vector2();
     this.beforeCursor = new Vector2();

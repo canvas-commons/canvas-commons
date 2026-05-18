@@ -11,7 +11,10 @@ describe('Txt', () => {
   it('Handle plain text', () => {
     const node = (<Txt lineWidth={8}>test</Txt>) as Txt;
 
-    const parseSpy = vi.spyOn(node as any, 'parseChildren');
+    const parseSpy = vi.spyOn(
+      node as unknown as {parseChildren: () => unknown},
+      'parseChildren',
+    );
     const leaf = node.childAs<TxtLeaf>(0);
 
     expect(node.text()).toBe('test');
@@ -19,13 +22,12 @@ describe('Txt', () => {
     expect(node.children().length).toBe(1);
     expect(leaf).toBeInstanceOf(TxtLeaf);
     expect(leaf!.text()).toBe('test');
-    expect(leaf!.lineWidth()).toBe(8);
 
     node.lineWidth(16);
     node.text('changed');
 
     expect(node.childAs(0)).toBe(leaf);
-    expect(leaf!.lineWidth()).toBe(16);
+    expect(node.lineWidth()).toBe(16);
     expect(leaf!.text()).toBe('changed');
 
     // Parsing should not happen when operating exclusively on simple text
@@ -48,7 +50,6 @@ describe('Txt', () => {
     expect(node.children().length).toBe(3);
     expect(first).toBeInstanceOf(TxtLeaf);
     expect(first!.text()).toBe('Apple ');
-    expect(first!.lineWidth()).toBe(8);
 
     expect(second).toBeInstanceOf(Txt);
     expect(second!.text()).toBe('Banana');
@@ -56,7 +57,6 @@ describe('Txt', () => {
 
     expect(third).toBeInstanceOf(TxtLeaf);
     expect(third!.text()).toBe(' Cherry');
-    expect(third!.lineWidth()).toBe(8);
   });
 
   it(

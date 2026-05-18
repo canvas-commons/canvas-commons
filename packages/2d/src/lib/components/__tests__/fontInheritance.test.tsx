@@ -1,4 +1,4 @@
-import {createRef} from '@canvas-commons/core';
+import {Color, createRef} from '@canvas-commons/core';
 import {describe, expect, it} from 'vitest';
 import {useScene2D} from '../../scenes';
 import {Layout} from '../Layout';
@@ -80,6 +80,22 @@ describe('font inheritance', () => {
     expect(layout().fontSize()).toBe(48);
   });
 
+  it('a Txt with layout={false} still inherits font properties', () => {
+    const view = useScene2D().getView();
+    view.fontSize(100);
+    view.fontFamily('Comic Sans');
+    const txt = createRef<Txt>();
+
+    view.add(
+      <Txt ref={txt} layout={false}>
+        hello
+      </Txt>,
+    );
+
+    expect(txt().fontSize()).toBe(100);
+    expect(txt().fontFamily()).toBe('Comic Sans');
+  });
+
   it('inherits the full set of text properties from the view', () => {
     const view = useScene2D().getView();
     view.fontWeight(800);
@@ -87,7 +103,7 @@ describe('font inheritance', () => {
     view.lineHeight(42);
     view.letterSpacing(3);
     view.textAlign('center');
-    view.textWrap(true);
+    view.wordBreak('keep-all');
     const txt = createRef<Txt>();
 
     view.add(<Txt ref={txt}>hello</Txt>);
@@ -97,6 +113,64 @@ describe('font inheritance', () => {
     expect(txt().lineHeight()).toBe(42);
     expect(txt().letterSpacing()).toBe(3);
     expect(txt().textAlign()).toBe('center');
+    expect(txt().wordBreak()).toBe('keep-all');
+  });
+
+  it('defaults textWrap to true', () => {
+    const view = useScene2D().getView();
+    const txt = createRef<Txt>();
+
+    view.add(<Txt ref={txt}>hello</Txt>);
+
+    expect(view.textWrap()).toBe(true);
     expect(txt().textWrap()).toBe(true);
+  });
+
+  it('inherits textWrap set on an ancestor', () => {
+    const view = useScene2D().getView();
+    view.textWrap('pre');
+    const txt = createRef<Txt>();
+
+    view.add(
+      <Layout>
+        <Txt ref={txt}>hello</Txt>
+      </Layout>,
+    );
+
+    expect(txt().textWrap()).toBe('pre');
+  });
+
+  it('nested Txt inherits fill, stroke, and fontSize from the outer Txt', () => {
+    const view = useScene2D().getView();
+    const inner = createRef<Txt>();
+
+    view.add(
+      <Txt fill={'#ff0000'} stroke={'#00ff00'} fontSize={30}>
+        outer <Txt ref={inner}>inner</Txt>
+      </Txt>,
+    );
+
+    const fill = inner().fill();
+    const stroke = inner().stroke();
+    expect(fill instanceof Color ? fill.hex() : fill).toBe('#ff0000');
+    expect(stroke instanceof Color ? stroke.hex() : stroke).toBe('#00ff00');
+    expect(inner().fontSize()).toBe(30);
+  });
+
+  it('nested Txt overrides inherited fill with its own', () => {
+    const view = useScene2D().getView();
+    const inner = createRef<Txt>();
+
+    view.add(
+      <Txt fill={'#ff0000'}>
+        outer{' '}
+        <Txt ref={inner} fill={'#0000ff'}>
+          inner
+        </Txt>
+      </Txt>,
+    );
+
+    const fill = inner().fill();
+    expect(fill instanceof Color ? fill.hex() : fill).toBe('#0000ff');
   });
 });

@@ -75,6 +75,9 @@ export async function renderFrame(
 
   await page.evaluate(
     async ({globalFrame, exporterId, exporterOptions, resolutionScale}) => {
+      // Snapshot determinism: measure and paint with loaded faces, never a
+      // race against in-flight web font fetches.
+      await document.fonts.ready;
       const settings = window.commons.meta.getFullRenderingSettings();
       const fps = settings.fps;
       await window.commons.renderer.render({
@@ -107,6 +110,7 @@ async function renderRelativeFrame(
 
   await page.evaluate(
     async ({exporterId, exporterOptions, resolutionScale}) => {
+      await document.fonts.ready;
       const playback = window.commons.player.playback;
       const sceneSeconds = playback.duration / playback.fps;
       const settings = window.commons.meta.getFullRenderingSettings();

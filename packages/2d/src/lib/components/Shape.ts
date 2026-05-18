@@ -181,7 +181,6 @@ export abstract class Shape extends Layout {
 
   protected applyText(context: CanvasRenderingContext2D) {
     context.direction = this.textDirection();
-    this.element.dir = this.textDirection();
   }
 
   protected applyStyle(context: CanvasRenderingContext2D) {

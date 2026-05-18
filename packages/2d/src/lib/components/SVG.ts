@@ -22,6 +22,7 @@ import {computed, signal} from '../decorators';
 import {PathMorpher, defaultMorpher} from '../morphers';
 import {DesiredLength, PossibleCanvasStyle} from '../partials';
 import {applyTransformDiff, getTransformDiff} from '../utils/diff';
+import {getDomContainer} from '../utils/domContainer';
 import {Circle, CircleProps} from './Circle';
 import {Img, ImgProps} from './Img';
 import {Layout} from './Layout';
@@ -30,7 +31,6 @@ import {Node, NodeProps} from './Node';
 import {Path, PathProps} from './Path';
 import {Rect, RectProps} from './Rect';
 import {Shape, ShapeProps} from './Shape';
-import {View2D} from './View2D';
 
 /**
  * Represent SVG shape.
@@ -86,7 +86,7 @@ If you're not interested in animating SVG, you can use {@link Img} instead.
 export class SVG extends Shape {
   @lazy(() => {
     const element = document.createElement('div');
-    View2D.shadowRoot.appendChild(element);
+    getDomContainer().appendChild(element);
     return element;
   })
   protected static containerElement: HTMLDivElement;

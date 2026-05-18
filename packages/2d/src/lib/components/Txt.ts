@@ -42,6 +42,7 @@ type AnyTxt = Txt | TxtLeaf;
 export interface TxtProps extends ShapeProps {
   children?: TxtChildren;
   text?: SignalValue<string>;
+  autoSize?: SignalValue<boolean>;
 }
 
 type FontComponents = {
@@ -107,6 +108,30 @@ export type TextLayoutResult = {
 };
 
 /**
+ * Fold line statistics over per-line rich groups. `null` entries are blank
+ * lines — one line of height, no width.
+ */
+function measureGroupStats(
+  groups: Array<PreparedRichInline | null>,
+  maxWidth: number,
+): {lineCount: number; maxLineWidth: number} {
+  let lineCount = 0;
+  let maxLineWidth = 0;
+  for (const prepared of groups) {
+    if (prepared === null) {
+      lineCount++;
+      continue;
+    }
+    const stats = measureRichInlineStats(prepared, maxWidth);
+    lineCount += stats.lineCount;
+    if (stats.maxLineWidth > maxLineWidth) {
+      maxLineWidth = stats.maxLineWidth;
+    }
+  }
+  return {lineCount, maxLineWidth};
+}
+
+/**
  * A {@link TextLine} with alignment fully resolved: `alignOffset` is the
  * horizontal shift for the current `textAlign`.
  */
@@ -166,6 +191,27 @@ export class Txt extends Shape {
   @initial('')
   @signal()
   declare public readonly text: SimpleSignal<string, this>;
+
+  /**
+   * Automatically shrink the font to fit the configured `width` and `height`.
+   *
+   * @remarks
+   * When `true`, the rendered font size is computed by {@link fitFontSize}
+   * against the configured `width` and `height`, clamped to the user's
+   * `fontSize` (which acts as an upper bound). Requires both `width` and
+   * `height` to resolve to concrete pixel numbers; falls back to the raw
+   * `fontSize` otherwise.
+   *
+   * @example
+   * ```tsx
+   * <Txt autoSize width={400} height={120} fontSize={96}>
+   *   This text shrinks to fit the box
+   * </Txt>
+   * ```
+   */
+  @initial(false)
+  @signal()
+  declare public readonly autoSize: SimpleSignal<boolean, this>;
 
   protected getText(): string {
     return this.innerText();
@@ -318,17 +364,39 @@ export class Txt extends Shape {
   }
 
   @computed()
+  public override resolvedLineHeight(): number {
+    return resolveLineHeight(this.lineHeight(), this.effectiveFontSize());
+  }
+
+  @computed()
   public override canvasFont(): string {
     return buildCanvasFontString(
       this.fontStyle(),
       this.fontWeight(),
-      this.fontSize(),
+      this.effectiveFontSize(),
       this.fontFamily(),
     );
   }
 
+  /**
+   * Effective font size used for rendering this text block.
+   *
+   * @remarks
+   * Equals {@link fontSize} unless {@link autoSize} is enabled with concrete
+   * `width` and `height` — in which case it is `fitFontSize(width, height)`.
+   */
   @computed()
-  protected collectInlineItems(): {
+  public effectiveFontSize(): number {
+    if (!this.autoSize()) return this.fontSize();
+    const w = this.width.context.getter();
+    const h = this.height.context.getter();
+    if (typeof w !== 'number' || typeof h !== 'number') {
+      return this.fontSize();
+    }
+    return this.fitFontSize(w, h);
+  }
+
+  private collectItemsWithScale(scale: number): {
     items: RichInlineItem[];
     styles: FragmentStyle[];
   } {
@@ -343,7 +411,7 @@ export class Txt extends Shape {
         const fontComponents: FontComponents = {
           style: txt.fontStyle(),
           weight: txt.fontWeight(),
-          size: txt.fontSize(),
+          size: txt.fontSize() * scale,
           family: txt.fontFamily(),
         };
         const font = buildCanvasFontString(
@@ -353,7 +421,7 @@ export class Txt extends Shape {
           fontComponents.family,
         );
         requestFontLoad(font);
-        const letterSpacing = txt.letterSpacing();
+        const letterSpacing = txt.letterSpacing() * scale;
         items.push({
           text: node.text(),
           font,
@@ -380,6 +448,22 @@ export class Txt extends Shape {
     }
 
     return {items, styles};
+  }
+
+  /**
+   * Collect all descendant text runs as RichInlineItems with their styles.
+   *
+   * Walks `TxtLeaf` and nested `Txt` descendants; non-text children are
+   * ignored.
+   */
+  @computed()
+  protected collectInlineItems(): {
+    items: RichInlineItem[];
+    styles: FragmentStyle[];
+  } {
+    const raw = this.fontSize();
+    const scale = raw > 0 ? this.effectiveFontSize() / raw : 1;
+    return this.collectItemsWithScale(scale);
   }
 
   @computed()
@@ -745,10 +829,11 @@ export class Txt extends Shape {
   public shrinkWrapWidth(): number {
     const prepared = this.preparedLayout();
     if (!prepared) return 0;
-    return prepared.kind === 'rich'
-      ? measureRichInlineStats(prepared.prepared, Number.POSITIVE_INFINITY)
-          .maxLineWidth
-      : measureNaturalWidth(prepared.prepared);
+    if (prepared.kind === 'simple') {
+      return measureNaturalWidth(prepared.prepared);
+    }
+    return measureGroupStats([prepared.prepared], Number.POSITIVE_INFINITY)
+      .maxLineWidth;
   }
 
   /**
@@ -762,9 +847,9 @@ export class Txt extends Shape {
     if (!prepared) return 0;
 
     const measureStats = (maxWidth: number) =>
-      prepared.kind === 'rich'
-        ? measureRichInlineStats(prepared.prepared, maxWidth)
-        : measureLineStats(prepared.prepared, maxWidth);
+      prepared.kind === 'simple'
+        ? measureLineStats(prepared.prepared, maxWidth)
+        : measureGroupStats([prepared.prepared], maxWidth);
 
     const naturalStats = measureStats(Number.POSITIVE_INFINITY);
     const target = targetLineCount ?? naturalStats.lineCount;
@@ -788,19 +873,24 @@ export class Txt extends Shape {
 
   /**
    * Binary search for the largest font size that fits text within given
-   * dimensions.
+   * dimensions, clamped at the configured {@link fontSize}.
+   *
+   * @remarks
+   * Reads each leaf at its raw (unscaled) size, so this method is safe to
+   * call from inside {@link effectiveFontSize} without creating a dependency
+   * cycle.
    */
   public fitFontSize(maxWidth: number, maxHeight: number): number {
-    const {items, styles} = this.collectInlineItems();
-    if (items.length === 0) return this.fontSize();
+    const {items, styles} = this.collectItemsWithScale(1);
+    const rawSize = this.fontSize();
+    if (items.length === 0 || !this.measurementContext()) return rawSize;
 
-    const baseFontSize = this.fontSize();
     let lo = 1;
-    let hi = maxHeight;
+    let hi = rawSize;
 
     for (let i = 0; i < 20; i++) {
       const mid = (lo + hi) / 2;
-      const scale = mid / baseFontSize;
+      const scale = mid / rawSize;
       const scaledItems = items.map((item, idx) => {
         const {fontComponents} = styles[idx];
         const scaledFont = buildCanvasFontString(
@@ -811,11 +901,14 @@ export class Txt extends Shape {
         );
         return {...item, font: scaledFont};
       });
-      const prepared = prepareRichInline(scaledItems);
+      const stats = measureGroupStats(
+        [prepareRichInline(scaledItems)],
+        maxWidth,
+      );
       const lh = resolveLineHeight(this.lineHeight(), mid);
-      const stats = measureRichInlineStats(prepared, maxWidth);
       const height = stats.lineCount * lh;
-      if (height <= maxHeight) {
+      const fits = stats.maxLineWidth <= maxWidth && height <= maxHeight;
+      if (fits) {
         lo = mid;
       } else {
         hi = mid;

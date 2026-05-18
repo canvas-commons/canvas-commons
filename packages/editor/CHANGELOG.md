@@ -1,5 +1,17 @@
 # Change Log
 
+## 0.2.2
+
+### Patch Changes
+
+- [#96](https://github.com/canvas-commons/canvas-commons/pull/96)
+  [`eab18d5`](https://github.com/canvas-commons/canvas-commons/commit/eab18d5ab1e95af7ee043727f5859a9cce6d1a8f)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Slightly tweak
+  spacing on icon to be more balanced with other spacing
+
+- Updated dependencies []:
+  - @canvas-commons/core@0.2.2
+
 ## 0.2.1
 
 ### Patch Changes

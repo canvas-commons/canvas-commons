@@ -1,5 +1,13 @@
 # Change Log
 
+## 0.2.2
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @canvas-commons/core@0.2.2
+  - @canvas-commons/vite-plugin@0.2.2
+
 ## 0.2.1
 
 ### Patch Changes

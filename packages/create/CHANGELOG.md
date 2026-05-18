@@ -1,5 +1,20 @@
 # Change Log
 
+## 0.2.2
+
+### Patch Changes
+
+- [#100](https://github.com/canvas-commons/canvas-commons/pull/100)
+  [`6a5c29e`](https://github.com/canvas-commons/canvas-commons/commit/6a5c29e4d12d3e4d1811cf290e5907246d686b0f)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Moved
+  motion-canvas.d.ts to canvas-commons.d.ts
+
+- [#95](https://github.com/canvas-commons/canvas-commons/pull/95)
+  [`9ceea2c`](https://github.com/canvas-commons/canvas-commons/commit/9ceea2c597de8270cdd0ce45ae48fa910f8c40cf)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Treat
+  `@canvas-commons/ffmpeg` version placeholder the same as the
+  `core`/`2d`/`editor`/`vite-plugin` versions are handled.
+
 ## 0.2.1
 
 ### Patch Changes

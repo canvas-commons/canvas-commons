@@ -31,6 +31,21 @@ export type TextWrap = boolean | 'pre';
 export type WordBreak = 'normal' | 'keep-all';
 
 /**
+ * Line-level text alignment. Extends `CanvasTextAlign` with `'justify'`,
+ * which distributes line-end slack across word gaps. Justification only
+ * affects non-last lines of a paragraph; the last line falls back to the
+ * `start` orientation.
+ */
+export type TextAlign = CanvasTextAlign | 'justify';
+
+/**
+ * Vertical placement of text when the rendered text block is shorter than
+ * the configured height. `'top'` (default) aligns to the top edge,
+ * `'middle'` centers, `'bottom'` aligns to the bottom edge.
+ */
+export type VerticalAlign = 'top' | 'middle' | 'bottom';
+
+/**
  * A region of a `<Txt>` block that text wraps around. Coordinates are in the
  * `Txt`'s local pretext layout space, where `(0, 0)` is the top-left of the
  * text content area.

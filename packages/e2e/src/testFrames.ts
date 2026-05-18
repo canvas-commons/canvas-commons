@@ -141,4 +141,8 @@ export const testFrames: Record<string, TestFrame[]> = {
     {frame: 240, label: 'contrasted'},
     {frame: -1, label: 'final'},
   ],
+  text: [
+    {frame: 0, label: 'initial'},
+    {frame: -1, label: 'final'},
+  ],
 };

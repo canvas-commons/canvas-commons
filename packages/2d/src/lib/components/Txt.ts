@@ -26,6 +26,7 @@ import {
   Interval,
   PreparedRichInline,
   RichInlineItem,
+  SegmentGranularity,
   buildCanvasFontString,
   carveTextLineSlots,
   getPolygonIntervalForBand,
@@ -138,6 +139,21 @@ export type TextLayoutResult = {
   width: number;
   height: number;
   lineHeight: number;
+};
+
+/**
+ * A positioned slice of text within a {@link Txt}. Coordinates are in
+ * Txt-local center-origin space (the same coordinate system used for `draw()`),
+ * so the unit's center is at `(x, y)` relative to the `Txt`'s own position.
+ */
+export type TextUnit = {
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  lineIndex: number;
+  indexInLine: number;
 };
 
 const HORIZONTAL_WHITESPACE_RE = /[ \t\f\r]+/g;
@@ -1394,10 +1410,160 @@ export class Txt extends Shape {
   }
 
   /**
+   * Walk every line of the current layout, segmenting each line's text at
+   * the requested granularity.
+   *
+   * @remarks
+   * Used by {@link textWords}, {@link textGlyphs}, and {@link textSentences}.
+   * Positions are in Txt-local center-origin coordinates.
+   *
+   * When no real 2D canvas context is available (e.g. jsdom), widths fall
+   * back to zero so callers can still inspect text and order.
+   */
+  private splitLayout(granularity: SegmentGranularity): TextUnit[] {
+    const lines = this.positionedLines();
+    if (lines.length === 0) {
+      return this.fallbackSplit(granularity);
+    }
+    const {x: blockWidth, y: blockHeight} = this.size();
+    const result: TextUnit[] = [];
+
+    for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+      const line = lines[lineIdx];
+      const topY = line.top - blockHeight / 2;
+
+      let indexInLine = 0;
+      for (const fragment of line.fragments) {
+        if (fragment.inline) continue;
+        let cursorLeft = fragment.x + line.alignOffset - blockWidth / 2;
+        // Cumulative `measureText` preserves kerning against the prefix —
+        // measuring graphemes in isolation drifts.
+        let cumulativeText = '';
+        let prevCum = 0;
+        for (const seg of segment(fragment.text, granularity)) {
+          cumulativeText += seg.segment;
+          const cumWidth = this.measureStyledText(
+            cumulativeText,
+            fragment.style,
+          );
+          const isWhitespace = /^\s+$/.test(seg.segment);
+          const advance =
+            cumWidth - prevCum + (isWhitespace ? line.extraPerSpace : 0);
+          prevCum = cumWidth;
+          if (granularity === 'word' && seg.isWordLike === false) {
+            cursorLeft += advance;
+            continue;
+          }
+          if (seg.segment.length === 0) continue;
+          result.push({
+            text: seg.segment,
+            x: cursorLeft + advance / 2,
+            y: topY + line.height / 2,
+            width: advance,
+            height: line.height,
+            lineIndex: lineIdx,
+            indexInLine: indexInLine++,
+          });
+          cursorLeft += advance;
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Cheap segment-only split used when a real layout is unavailable (jsdom or
+   * other headless environments where pretext throws on canvas access).
+   * Produces a single-line layout with zero widths; preserves text order.
+   */
+  private fallbackSplit(granularity: SegmentGranularity): TextUnit[] {
+    const {items} = this.collectInlineItems();
+    if (items.length === 0) return [];
+    const joined = items.map(item => item.text).join('');
+    const lh = this.resolvedLineHeight();
+    const result: TextUnit[] = [];
+    let indexInLine = 0;
+    for (const seg of segment(joined, granularity)) {
+      if (granularity === 'word' && seg.isWordLike === false) continue;
+      if (seg.segment.length === 0) continue;
+      result.push({
+        text: seg.segment,
+        x: 0,
+        y: 0,
+        width: 0,
+        height: lh,
+        lineIndex: 0,
+        indexInLine: indexInLine++,
+      });
+    }
+    return result;
+  }
+
+  /**
+   * Word-level layout info. Each entry is one word with its center position
+   * (Txt-local), width, and line index. Whitespace runs are skipped.
+   *
+   * @remarks
+   * {@link textGlyphs} and {@link textSentences} mirror this at grapheme and
+   * sentence granularity.
+   *
+   * @example
+   * ```tsx
+   * for (const word of label().textWords()) {
+   *   view.add(<Circle position={label().position().add(word)} size={8} />);
+   * }
+   * ```
+   */
+  public textWords(): TextUnit[] {
+    return this.wordUnits();
+  }
+
+  /**
+   * Grapheme-level layout info. One entry per Unicode grapheme cluster, with
+   * its center position and width.
+   *
+   * @remarks
+   * Operates at the grapheme level (via `Intl.Segmenter`), not at the
+   * rendered-glyph level — rendered ligatures (e.g. `fi` shaped as one glyph)
+   * still produce two entries.
+   */
+  public textGlyphs(): TextUnit[] {
+    return this.graphemeUnits();
+  }
+
+  /**
+   * Sentence-level layout info. One entry per sentence span, in reading order.
+   */
+  public textSentences(): TextUnit[] {
+    return this.sentenceUnits();
+  }
+
+  @computed()
+  private wordUnits(): TextUnit[] {
+    return this.splitLayout('word');
+  }
+
+  @computed()
+  private graphemeUnits(): TextUnit[] {
+    return this.splitLayout('grapheme');
+  }
+
+  @computed()
+  private sentenceUnits(): TextUnit[] {
+    return this.splitLayout('sentence');
+  }
+
+  /**
    * Find the tightest container width that still fits all the text.
    *
    * @remarks
    * Uses Pretext's line-stats measurement without allocating fragment strings.
+   *
+   * @example
+   * ```ts
+   * label().width(label().shrinkWrapWidth());
+   * ```
    */
   public shrinkWrapWidth(): number {
     const prepared = this.preparedLayout();
@@ -1416,6 +1582,11 @@ export class Txt extends Shape {
    *
    * @param targetLineCount - Optional target line count. If not provided,
    *   uses the natural (single-line) layout count.
+   *
+   * @example
+   * ```ts
+   * label().width(label().balancedWidth(2));
+   * ```
    */
   public balancedWidth(targetLineCount?: number): number {
     const prepared = this.preparedLayout();
@@ -1457,6 +1628,11 @@ export class Txt extends Shape {
    * Reads each leaf at its raw (unscaled) size, so this method is safe to
    * call from inside {@link effectiveFontSize} without creating a dependency
    * cycle.
+   *
+   * @example
+   * ```ts
+   * label().fontSize(label().fitFontSize(400, 120));
+   * ```
    */
   public fitFontSize(maxWidth: number, maxHeight: number): number {
     const {items, styles} = this.collectItemsWithScale(1);

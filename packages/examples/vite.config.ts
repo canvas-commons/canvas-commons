@@ -31,6 +31,7 @@ export default defineConfig({
         './src/composite-operations.ts',
         './src/filters-order.ts',
         './src/primitives.ts',
+        './src/text.ts',
       ],
     }),
   ],

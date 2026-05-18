@@ -50,7 +50,9 @@ import {
   LayoutMode,
   Length,
   LengthLimit,
+  TextAlign,
   TextWrap,
+  VerticalAlign,
   WordBreak,
 } from '../partials';
 import {buildCanvasFontString, resolveLineHeight} from '../text';
@@ -115,7 +117,8 @@ export interface LayoutProps extends NodeProps {
   letterSpacing?: SignalValue<number>;
   textWrap?: SignalValue<TextWrap>;
   textDirection?: SignalValue<CanvasDirection>;
-  textAlign?: SignalValue<CanvasTextAlign>;
+  textAlign?: SignalValue<TextAlign>;
+  verticalAlign?: SignalValue<VerticalAlign>;
   wordBreak?: SignalValue<WordBreak>;
 
   size?: SignalValue<PossibleVector2<Length>>;
@@ -302,7 +305,10 @@ export class Layout extends Node {
   declare public readonly textDirection: SimpleSignal<CanvasDirection, this>;
   @defaultStyle('start')
   @signal()
-  declare public readonly textAlign: SimpleSignal<CanvasTextAlign, this>;
+  declare public readonly textAlign: SimpleSignal<TextAlign, this>;
+  @defaultStyle('top')
+  @signal()
+  declare public readonly verticalAlign: SimpleSignal<VerticalAlign, this>;
   @defaultStyle('normal')
   @signal()
   declare public readonly wordBreak: SimpleSignal<WordBreak, this>;

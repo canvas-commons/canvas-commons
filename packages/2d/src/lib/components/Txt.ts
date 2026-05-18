@@ -244,15 +244,25 @@ function measureGroupStats(
   return {lineCount, maxLineWidth};
 }
 
+type JustifiedSegment = {
+  text: string;
+  advance: number;
+  whitespace: boolean;
+};
+
 /**
- * A {@link TextLine} with alignment fully resolved: `alignOffset` is the
- * horizontal shift for the current `textAlign`.
+ * A {@link TextLine} with alignment fully resolved: `top` includes the
+ * vertical-align offset, `alignOffset` is the horizontal shift for the
+ * current `textAlign`, and `justified` carries pre-measured word segments
+ * (one list per fragment) when the line is justified.
  */
 type PositionedLine = {
   fragments: StyledFragment[];
   top: number;
   height: number;
   alignOffset: number;
+  extraPerSpace: number;
+  justified: JustifiedSegment[][] | null;
   /**
    * Offset from the line-box top to each fragment's alphabetic baseline,
    * computed from real font metrics so glyphs land where CSS inline layout
@@ -1176,17 +1186,29 @@ export class Txt extends Shape {
 
   /**
    * The current layout with alignment fully resolved per line: line widths
-   * measured (inline-aware) and `textAlign` offsets applied. Single source of
-   * truth for `draw()` and inline child positioning.
+   * measured (inline-aware), `textAlign` / `verticalAlign` offsets applied,
+   * and justify slack pre-measured. Single source of truth for `draw()`,
+   * {@link splitLayout}, and inline child positioning.
    */
   @computed()
   protected positionedLines(): PositionedLine[] {
     const layout = this.textLayout();
     if (layout.lines.length === 0) return [];
-    const {x: blockWidth} = this.size();
+    const {x: blockWidth, y: blockHeight} = this.size();
+    const align = this.textAlign();
+    const verticalAlign = this.verticalAlign();
+    const verticalOffset =
+      verticalAlign === 'middle'
+        ? (blockHeight - layout.height) / 2
+        : verticalAlign === 'bottom'
+          ? blockHeight - layout.height
+          : 0;
 
     const result: PositionedLine[] = [];
-    for (const line of layout.lines) {
+    for (let i = 0; i < layout.lines.length; i++) {
+      const line = layout.lines[i];
+      const isLastLine = i === layout.lines.length - 1;
+
       let lineWidth = 0;
       for (const frag of line.fragments) {
         lineWidth = Math.max(
@@ -1198,6 +1220,34 @@ export class Txt extends Shape {
         );
       }
 
+      const justifyLine =
+        align === 'justify' && !isLastLine && lineWidth < blockWidth;
+      let extraPerSpace = 0;
+      let justified: JustifiedSegment[][] | null = null;
+      if (justifyLine) {
+        let spaceCount = 0;
+        justified = line.fragments.map(frag => {
+          if (frag.inline) return [];
+          const segments: JustifiedSegment[] = [];
+          for (const seg of segment(frag.text, 'word')) {
+            // Slack rides only whitespace runs, not punctuation.
+            const whitespace = !seg.isWordLike && /^\s+$/.test(seg.segment);
+            if (whitespace) spaceCount++;
+            segments.push({
+              text: seg.segment,
+              advance: this.measureStyledText(seg.segment, frag.style),
+              whitespace,
+            });
+          }
+          return segments;
+        });
+        if (spaceCount > 0) {
+          extraPerSpace = (blockWidth - lineWidth) / spaceCount;
+        } else {
+          justified = null;
+        }
+      }
+
       const baselineOffsets = line.fragments.map(frag => {
         if (frag.inline) return 0;
         const {ascent, descent} = this.measureFontMetrics(frag.style);
@@ -1206,9 +1256,13 @@ export class Txt extends Shape {
 
       result.push({
         fragments: line.fragments,
-        top: line.top,
+        top: line.top + verticalOffset,
         height: line.height,
-        alignOffset: this.computeAlignOffset(blockWidth, lineWidth),
+        alignOffset: justifyLine
+          ? 0
+          : this.computeAlignOffset(blockWidth, lineWidth),
+        extraPerSpace,
+        justified: extraPerSpace > 0 ? justified : null,
         baselineOffsets,
       });
     }
@@ -1254,7 +1308,27 @@ export class Txt extends Shape {
         context.strokeStyle = resolveCanvasStyle(style.stroke, context);
         context.lineWidth = style.lineWidth;
 
-        if (style.lineWidth <= 0) {
+        const justified = line.justified?.[fragIndex];
+        if (justified && line.extraPerSpace > 0) {
+          // Whitespace runs absorb the per-space slack; words paint at cursor.
+          let cursorX = x;
+          for (const seg of justified) {
+            if (!seg.whitespace) {
+              if (style.lineWidth <= 0) {
+                context.fillText(seg.text, cursorX, fragY);
+              } else if (style.strokeFirst) {
+                context.strokeText(seg.text, cursorX, fragY);
+                context.fillText(seg.text, cursorX, fragY);
+              } else {
+                context.fillText(seg.text, cursorX, fragY);
+                context.strokeText(seg.text, cursorX, fragY);
+              }
+              cursorX += seg.advance;
+            } else {
+              cursorX += seg.advance + line.extraPerSpace;
+            }
+          }
+        } else if (style.lineWidth <= 0) {
           context.fillText(fragment.text, x, fragY);
         } else if (style.strokeFirst) {
           context.strokeText(fragment.text, x, fragY);

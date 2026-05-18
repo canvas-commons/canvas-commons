@@ -12,6 +12,7 @@ import {
 } from '@canvas-commons/core';
 import {
   PreparedTextWithSegments,
+  layoutNextLine,
   materializeLineRange,
   measureLineStats,
   measureNaturalWidth,
@@ -20,10 +21,15 @@ import {
 } from '@chenglou/pretext';
 import {computed, initial, nodeName, signal} from '../decorators';
 import {CanvasStyle} from '../partials';
+import type {TextExclusion} from '../partials/types';
 import {
+  Interval,
   PreparedRichInline,
   RichInlineItem,
   buildCanvasFontString,
+  carveTextLineSlots,
+  getPolygonIntervalForBand,
+  getRectIntervalsForBand,
   knuthPlass,
   materializeRichInlineLineRange,
   measureRichInlineStats,
@@ -57,6 +63,7 @@ export interface TxtProps extends ShapeProps {
   autoSize?: SignalValue<boolean>;
   wrapMode?: SignalValue<TxtWrapMode>;
   hyphenate?: SignalValue<HyphenateFn | null>;
+  exclusions?: SignalValue<TextExclusion[]>;
 }
 
 type FontComponents = {
@@ -106,7 +113,8 @@ export type StyledFragment = {
  * @remarks
  * `top` is the line box's top edge in pretext-space (`0` is the top of the
  * text block). `height` is the line box height — the base line height unless
- * an inline element on this line is taller.
+ * an inline element on this line is taller, or an exclusion band pushed the
+ * line down (in which case `top` reflects the skipped bands).
  */
 export type TextLine = {
   fragments: StyledFragment[];
@@ -133,6 +141,7 @@ export type TextLayoutResult = {
 };
 
 const HORIZONTAL_WHITESPACE_RE = /[ \t\f\r]+/g;
+const MAX_BAND_ITERATIONS = 2048;
 
 /**
  * Normalize runs of horizontal whitespace to a single space while preserving
@@ -362,6 +371,26 @@ export class Txt extends Shape {
   @signal()
   declare public readonly hyphenate: SimpleSignal<HyphenateFn | null, this>;
 
+  /**
+   * Shapes that text should flow around (CSS `shape-outside`-style obstacles).
+   *
+   * @remarks
+   * Coordinates are in pretext-space: `(0, 0)` is the top-left of the text
+   * block (which corresponds to Txt-local `(-width/2, -height/2)` in canvas
+   * coordinates). Rects are axis-aligned; polygons are closed point lists.
+   *
+   * When any exclusions are present, the line-walking loop switches from
+   * pretext's single-`maxWidth` greedy pass to a per-band loop that carves
+   * the available width on every line. `wrapMode === 'knuth-plass'` falls back
+   * to greedy under exclusions (KP over non-uniform widths is non-trivial).
+   *
+   * Exclusions currently apply only to single-style text without inline
+   * children; rich (nested styled) or inline content ignores them.
+   */
+  @initial([])
+  @signal()
+  declare public readonly exclusions: SimpleSignal<TextExclusion[], this>;
+
   protected getText(): string {
     return this.innerText();
   }
@@ -483,6 +512,7 @@ export class Txt extends Shape {
       prepared,
       this.resolvedLineHeight(),
       this.wrapMode(),
+      this.exclusions(),
     ];
     if (prepared?.kind === 'rich') {
       for (const inline of prepared.inlines) {
@@ -726,6 +756,94 @@ export class Txt extends Shape {
   }
 
   /**
+   * Band-by-band greedy layout that wraps around `exclusions`. Used when one
+   * or more `exclusions` are present; falls back to pretext's single-width
+   * walker otherwise.
+   *
+   * @returns one entry per laid-out line, with `x` being the slot's left
+   *   offset (in Txt-local pretext-space, where 0 = block left).
+   */
+  private layoutWithExclusions(
+    prepared: PreparedTextWithSegments,
+    maxWidth: number,
+    exclusions: TextExclusion[],
+  ): {text: string; x: number; width: number; lineTop: number}[] {
+    const lh = this.resolvedLineHeight();
+    const lines: {
+      text: string;
+      x: number;
+      width: number;
+      lineTop: number;
+    }[] = [];
+    let cursor = {segmentIndex: 0, graphemeIndex: 0};
+    let lineTop = 0;
+    const blocked: Interval[] = [];
+
+    for (let i = 0; i < MAX_BAND_ITERATIONS; i++) {
+      const bandTop = lineTop;
+      const bandBottom = lineTop + lh;
+      blocked.length = 0;
+      for (const ex of exclusions) {
+        const hp = ex.horizontalPadding ?? 0;
+        const vp = ex.verticalPadding ?? 0;
+        if (ex.kind === 'rect') {
+          for (const interval of getRectIntervalsForBand(
+            [
+              {
+                x: ex.x,
+                y: ex.y,
+                width: ex.width,
+                height: ex.height,
+              },
+            ],
+            bandTop,
+            bandBottom,
+            hp,
+            vp,
+          )) {
+            blocked.push(interval);
+          }
+        } else {
+          const interval = getPolygonIntervalForBand(
+            ex.points,
+            bandTop,
+            bandBottom,
+            hp,
+            vp,
+          );
+          if (interval) blocked.push(interval);
+        }
+      }
+
+      const slots = carveTextLineSlots({left: 0, right: maxWidth}, blocked);
+      if (slots.length === 0) {
+        lineTop += lh;
+        continue;
+      }
+
+      let slot = slots[0];
+      for (const candidate of slots) {
+        if (candidate.right - candidate.left > slot.right - slot.left) {
+          slot = candidate;
+        }
+      }
+
+      const line = layoutNextLine(prepared, cursor, slot.right - slot.left);
+      if (line === null) break;
+      lines.push({
+        text: line.text,
+        x: slot.left,
+        width: line.width,
+        lineTop,
+      });
+      cursor = line.end;
+      lineTop += lh;
+    }
+
+    return lines;
+  }
+
+  /**
    * Measure widths for the layout-time constants (`' '`, `'-'`) used by the
    * Knuth-Plass scorer.
    */
@@ -874,6 +992,36 @@ export class Txt extends Shape {
         lineHeight: baseLineHeight,
       };
     };
+
+    const exclusions = this.exclusions();
+    if (
+      exclusions.length > 0 &&
+      prepared.kind === 'simple' &&
+      Number.isFinite(maxWidth)
+    ) {
+      const bandLines = this.layoutWithExclusions(
+        prepared.prepared,
+        maxWidth,
+        exclusions,
+      );
+      const lines: TextLine[] = [];
+      for (const line of bandLines) {
+        lines.push({
+          fragments: [{text: line.text, x: line.x, style: prepared.style}],
+          top: line.lineTop,
+          height: baseLineHeight,
+        });
+        const fullRight = line.x + line.width;
+        if (fullRight > totalWidth) totalWidth = fullRight;
+      }
+      const lastLine = lines[lines.length - 1];
+      return {
+        lines,
+        width: totalWidth,
+        height: lastLine ? lastLine.top + lastLine.height : 0,
+        lineHeight: baseLineHeight,
+      };
+    }
 
     if (prepared.kind === 'simple' && this.wrapMode() === 'knuth-plass') {
       const {normalSpaceWidth, hyphenWidth} = this.measureFontConstants(

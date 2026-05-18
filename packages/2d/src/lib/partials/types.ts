@@ -30,6 +30,28 @@ export type TextWrap = boolean | 'pre';
 
 export type WordBreak = 'normal' | 'keep-all';
 
+/**
+ * A region of a `<Txt>` block that text wraps around. Coordinates are in the
+ * `Txt`'s local pretext layout space, where `(0, 0)` is the top-left of the
+ * text content area.
+ */
+export type TextExclusion =
+  | {
+      kind: 'rect';
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      horizontalPadding?: number;
+      verticalPadding?: number;
+    }
+  | {
+      kind: 'polygon';
+      points: {x: number; y: number}[];
+      horizontalPadding?: number;
+      verticalPadding?: number;
+    };
+
 export type LayoutMode = boolean | null;
 
 /**

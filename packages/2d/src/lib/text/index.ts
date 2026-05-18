@@ -22,3 +22,4 @@ export type {
 export * from './font';
 export * from './knuthPlass';
 export * from './segmenter';
+export * from './wrapGeometry';

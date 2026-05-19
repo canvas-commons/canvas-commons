@@ -1,32 +1,46 @@
 import * as path from 'path';
+import {Page} from 'playwright';
 import {fileURLToPath} from 'url';
 import {afterAll, beforeAll, describe, expect, test} from 'vitest';
-import {App, start} from './app';
+import {newPage} from './app';
 
 const ProjectPath = path
-  .resolve(fileURLToPath(new URL('.', import.meta.url)), '../tests/project.ts')
+  .resolve(
+    fileURLToPath(new URL('.', import.meta.url)),
+    '../tests/projects/quickstart.ts',
+  )
   .split(path.sep)
   .join('/');
 
 describe('Player', () => {
-  let app: App;
+  let page: Page;
 
   beforeAll(async () => {
-    app = await start({path: '/player.html', waitFor: '#player'});
-    await app.page.waitForFunction(
-      () => !!document.getElementById('player')?.shadowRoot,
-    );
-    await app.page.evaluate(src => {
-      document.getElementById('player')!.setAttribute('src', src);
-    }, `/@fs/${ProjectPath}?project`);
+    page = await newPage({path: '/player.html', waitFor: '#player'});
+    const src = `/@fs/${ProjectPath}?project`;
+    const setSrc = async () => {
+      await page.waitForFunction(
+        () => !!document.getElementById('player')?.shadowRoot,
+      );
+      await page.evaluate(value => {
+        document.getElementById('player')!.setAttribute('src', value);
+      }, src);
+    };
+    // Vite optimizing the project's deps the first time triggers a full
+    // reload, which drops the dynamic `src`. Reassert it whenever the
+    // page reloads so we don't lose the project mid-test.
+    page.on('load', () => {
+      setSrc().catch(() => {});
+    });
+    await setSrc();
   });
 
   afterAll(async () => {
-    await app.stop();
+    await page.close();
   });
 
   test('builds shadow DOM with player template', async () => {
-    const shape = await app.page.evaluate(() => {
+    const shape = await page.evaluate(() => {
       const player = document.getElementById('player');
       const shadow = player!.shadowRoot!;
       const style = shadow.querySelector('style');
@@ -57,7 +71,7 @@ describe('Player', () => {
   });
 
   test('CSS does not leak across the shadow root boundary', async () => {
-    const scoping = await app.page.evaluate(() => {
+    const scoping = await page.evaluate(() => {
       const player = document.getElementById('player')!;
       const shadow = player.shadowRoot!;
       const shadowOverlay = shadow.querySelector('.overlay')!;
@@ -80,7 +94,7 @@ describe('Player', () => {
   test('loads the project and reaches ready state', async () => {
     // Player drives state through the canvas className: state-initial,
     // state-loading, state-ready, state-error.
-    await app.page.waitForFunction(
+    await page.waitForFunction(
       () =>
         document
           .getElementById('player')
@@ -90,7 +104,7 @@ describe('Player', () => {
       {timeout: 30000},
     );
 
-    const status = await app.page.evaluate(() => {
+    const status = await page.evaluate(() => {
       const canvas = document
         .getElementById('player')
         ?.shadowRoot?.querySelector(
@@ -106,7 +120,6 @@ describe('Player', () => {
 
     expect(status.hasCanvas).toBe(true);
     expect(status.classes).toContain('state-ready');
-    // The e2e test project renders at 1920x1080 by default
     expect(status.canvasWidth).toBeGreaterThan(0);
     expect(status.canvasHeight).toBeGreaterThan(0);
   });

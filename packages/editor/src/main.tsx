@@ -16,7 +16,7 @@ import {
   ShortcutsProvider,
 } from './contexts';
 import GridPlugin from './plugin/GridPlugin';
-import {projectNameSignal} from './signals';
+import {inspectionSignal, projectNameSignal} from './signals';
 import {getItem, setItem} from './utils';
 
 const ExperimentalHooks = [
@@ -146,6 +146,31 @@ export function editor(project: Project) {
   meta.preview.onChanged.subscribe(updatePlayer);
 
   document.title = `${project.name} | Canvas Commons`;
+
+  // Debug surface.
+  window.commons = {
+    project,
+    meta,
+    renderer,
+    presenter,
+    player,
+    get playback() {
+      return player.playback;
+    },
+    get selected() {
+      const {key, payload} = inspectionSignal.value;
+      if (
+        key !== '@canvas-commons/2d/node-inspector' ||
+        typeof payload !== 'string'
+      ) {
+        return null;
+      }
+      const scene = player.playback.currentScene as {
+        getNode?: (key: string) => unknown;
+      } | null;
+      return scene?.getNode?.(payload) ?? null;
+    },
+  };
 
   const plugins = [GridPlugin(), ...project.plugins];
 

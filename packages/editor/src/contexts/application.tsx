@@ -6,17 +6,15 @@ import {
   Renderer,
   SettingsMetadata,
 } from '@canvas-commons/core';
-import {Signal, useSignal} from '@preact/signals';
+import {Signal} from '@preact/signals';
 import {ComponentChildren, createContext} from 'preact';
 import {useContext, useRef} from 'preact/hooks';
 import {useSubscribable} from '../hooks';
 import {EditorPlugin} from '../plugin';
+import {Inspection, inspectionSignal} from '../signals';
 import {LoggerManager} from '../utils';
 
-export interface Inspection {
-  key: string;
-  payload: unknown;
-}
+export type {Inspection};
 
 interface Application {
   project: Project;
@@ -43,7 +41,6 @@ export function ApplicationProvider({
   application: Omit<Application, 'logger' | 'inspection'>;
   children: ComponentChildren;
 }) {
-  const inspection = useSignal<Inspection>({key: '', payload: null});
   const manager = useRef<LoggerManager | null>(null);
   manager.current ??= new LoggerManager(application.project.logger);
   useSubscribable(
@@ -57,7 +54,7 @@ export function ApplicationProvider({
       value={{
         ...application,
         logger: manager.current,
-        inspection,
+        inspection: inspectionSignal,
       }}
     >
       {application.plugins.reduce((children, plugin) => {

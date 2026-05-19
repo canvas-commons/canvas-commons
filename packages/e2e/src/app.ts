@@ -1,50 +1,36 @@
-import * as path from 'path';
-import {Page, firefox} from 'playwright';
-import {fileURLToPath} from 'url';
-import {createServer} from 'vite';
+import {Browser, firefox, Page} from 'playwright';
+import {inject} from 'vitest';
 
-const Root = fileURLToPath(new URL('.', import.meta.url));
+let BrowserPromise: Promise<Browser> | null = null;
 
-export interface App {
-  page: Page;
-  stop: () => Promise<void>;
-}
-
-export interface StartOptions {
+export interface PageOptions {
   /**
    * Path to navigate to on the dev server. Defaults to `'/'`, which loads
-   * the editor. Pass `'/player.html'` to load the standalone player smoke
-   * page instead.
+   * the project selection screen in a multi-project package and the editor
+   * directly in a single-project one.
    */
   path?: string;
   /**
-   * Selector to wait for after navigation. Defaults to `'main'`, which is
-   * the editor's root element.
+   * Selector to wait for after navigation. Defaults to `'main'`, which both
+   * the editor and the project selection screen render into.
    */
   waitFor?: string;
 }
 
-export async function start(options: StartOptions = {}): Promise<App> {
+export async function getSharedBrowser(): Promise<Browser> {
+  BrowserPromise ??= firefox.connect(inject('browserWsEndpoint'));
+  return BrowserPromise;
+}
+
+export function baseUrl(): string {
+  return `http://localhost:${inject('vitePort')}`;
+}
+
+export async function newPage(options: PageOptions = {}): Promise<Page> {
   const {path: targetPath = '/', waitFor = 'main'} = options;
-
-  const [browser, server] = await Promise.all([
-    firefox.launch({
-      headless: true,
-    }),
-    createServer({
-      root: Root,
-      configFile: path.resolve(Root, '../vite.config.ts'),
-    }).then(server => server.listen()),
-  ]);
-
+  const browser = await getSharedBrowser();
   const page = await browser.newPage();
-  await page.goto(`http://localhost:${server.config.server.port}${targetPath}`);
+  await page.goto(`${baseUrl()}${targetPath}`);
   await page.waitForSelector(waitFor);
-
-  return {
-    page,
-    async stop() {
-      await Promise.all([browser.close(), server.close()]);
-    },
-  };
+  return page;
 }

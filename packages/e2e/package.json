@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:docker": "node scripts/test-docker.mjs"
   },
   "dependencies": {
     "@canvas-commons/2d": "workspace:^",

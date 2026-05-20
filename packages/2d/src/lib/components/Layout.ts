@@ -18,6 +18,7 @@ import {
   Vector2Signal,
   boolLerp,
   deepLerp,
+  easeInOutCubic,
   modify,
   originToOffset,
   threadable,
@@ -59,6 +60,11 @@ import {
 } from '../partials';
 import {buildCanvasFontString, resolveLineHeight} from '../text';
 import {drawLine, drawPivot, is} from '../utils';
+import {
+  invertPositions,
+  playInverted,
+  snapshotPositions,
+} from '../utils/layoutFlip';
 import {
   PositionType,
   createYogaNode,
@@ -1266,6 +1272,37 @@ export class Layout extends Node {
     this.textWrap();
     this.textAlign();
     this.wordBreak();
+  }
+
+  /**
+   * Snap each laid-out child to its current visual position, then disable
+   * `layoutChildren`. Pair with {@link thawLayout} to bring children back
+   * under flex.
+   */
+  public freezeLayout(): void {
+    for (const child of this.applyLayout()) {
+      child.position(child.computedPosition());
+    }
+    this.layoutChildren(false);
+  }
+
+  /**
+   * Re-enable `layoutChildren` and animate each child from its manual
+   * position to wherever the flex layout now places it.
+   */
+  @threadable()
+  public *thawLayout(
+    duration: number,
+    timing: TimingFunction = easeInOutCubic,
+    interpolation: InterpolationFunction<Vector2> = Vector2.lerp,
+  ): ThreadGenerator {
+    const children = this.applyLayout();
+    const pre = snapshotPositions(children);
+    this.layoutChildren(true);
+    this.requestLayoutUpdate();
+    const post = snapshotPositions(children);
+    const inverted = invertPositions(pre, post);
+    yield* playInverted(inverted, duration, timing, interpolation);
   }
 
   public override dispose() {

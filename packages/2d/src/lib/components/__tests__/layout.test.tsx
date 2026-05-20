@@ -3,6 +3,7 @@ import {describe, expect, it} from 'vitest';
 import {useScene2D} from '../../scenes';
 import {Layout} from '../Layout';
 import {Rect} from '../Rect';
+import {Txt} from '../Txt';
 import {mockScene2D} from './mockScene2D';
 
 describe('Layout (yoga)', () => {
@@ -175,6 +176,27 @@ describe('Layout (yoga)', () => {
       view.add(node);
 
       expect(node.isLayoutRoot()).toBe(true);
+    });
+
+    it('should treat child of a non-flex-hosting parent as a root', () => {
+      const view = useScene2D().getView();
+      const inline = (<Rect width={32} height={32} />) as Rect;
+      const wrapper = (
+        <Layout layout={true}>
+          <Txt fontSize={10}>
+            before
+            {inline}
+            after
+          </Txt>
+        </Layout>
+      ) as Layout;
+      view.add(wrapper);
+
+      // Txt never hosts yoga children, so the inline Rect detaches from the
+      // yoga tree and self-calculates its declared size.
+      expect(inline.isLayoutRoot()).toBe(true);
+      expect(inline.size().x).toBe(32);
+      expect(inline.size().y).toBe(32);
     });
   });
 

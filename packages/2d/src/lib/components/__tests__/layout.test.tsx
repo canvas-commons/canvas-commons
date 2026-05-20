@@ -1,4 +1,4 @@
-import {createRef, waitFor} from '@canvas-commons/core';
+import {Vector2, createRef, waitFor} from '@canvas-commons/core';
 import {describe, expect, it} from 'vitest';
 import {useScene2D} from '../../scenes';
 import {Layout} from '../Layout';
@@ -415,6 +415,35 @@ function lockCounter(layout: Layout): number {
 
 describe('Layout', () => {
   mockScene2D();
+
+  describe('translate', () => {
+    it('defaults to zero', () => {
+      const layout = (<Layout />) as Layout;
+      expect(layout.translate().equals(Vector2.zero)).toBe(true);
+    });
+
+    it('reads x and y from props', () => {
+      const layout = (<Layout translateX={20} translateY={-15} />) as Layout;
+      expect(layout.translate().x).toBe(20);
+      expect(layout.translate().y).toBe(-15);
+    });
+
+    it('reads a compound translate prop', () => {
+      const layout = (<Layout translate={[10, 30]} />) as Layout;
+      expect(layout.translate().x).toBe(10);
+      expect(layout.translate().y).toBe(30);
+    });
+
+    it('is independently tweenable from position', () => {
+      const layout = (<Layout x={10} translate={[40, 50]} />) as Layout;
+      expect(layout.position.x()).toBe(10);
+      expect(layout.translate().x).toBe(40);
+
+      layout.translate([0, 0]);
+      expect(layout.translate().x).toBe(0);
+      expect(layout.position.x()).toBe(10);
+    });
+  });
 
   describe('layout lock', () => {
     it('lockLayout increments and releaseLayout decrements the counter', () => {

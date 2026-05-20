@@ -6,6 +6,7 @@ import {
   SimpleSignal,
   ThreadGenerator,
   TimingFunction,
+  Vector2,
   all,
   threadable,
 } from '@canvas-commons/core';
@@ -33,13 +34,13 @@ import {
 } from '../text';
 import {fontsVersion, requestFontLoad, resolveCanvasStyle} from '../utils';
 import {MeasureMode} from '../utils/yoga';
+import {Layout} from './Layout';
 import {Node} from './Node';
 import {Shape, ShapeProps} from './Shape';
 import {TxtLeaf} from './TxtLeaf';
 import {ComponentChildren} from './types';
 
 type TxtChildren = string | Node | (string | Node)[];
-type AnyTxt = Txt | TxtLeaf;
 
 export type TxtWrapMode = 'greedy' | 'knuth-plass';
 
@@ -87,6 +88,16 @@ export type StyledFragment = {
   text: string;
   x: number;
   style: FragmentStyle;
+  /**
+   * Set when this fragment is an inline non-text node placeholder. The owning
+   * `Txt` derives `inline`'s position from the fragment's slot center.
+   */
+  inline?: Layout;
+  /**
+   * Slot width allocated to an inline element. Only set when `inline` is
+   * present; matches the slot width pretext used for layout.
+   */
+  inlineWidth?: number;
 };
 
 /**
@@ -94,7 +105,8 @@ export type StyledFragment = {
  *
  * @remarks
  * `top` is the line box's top edge in pretext-space (`0` is the top of the
- * text block). `height` is the line box height — the base line height.
+ * text block). `height` is the line box height — the base line height unless
+ * an inline element on this line is taller.
  */
 export type TextLine = {
   fragments: StyledFragment[];
@@ -111,7 +123,7 @@ export type TextLine = {
  *
  * - `lines` is one entry per visual line, with its fragments and line box.
  * - `width` / `height` are the natural rendered size of the text block.
- * - `lineHeight` is the base per-line advance.
+ * - `lineHeight` is the base per-line advance before any line grows.
  */
 export type TextLayoutResult = {
   lines: TextLine[];
@@ -119,6 +131,85 @@ export type TextLayoutResult = {
   height: number;
   lineHeight: number;
 };
+
+const HORIZONTAL_WHITESPACE_RE = /[ \t\f\r]+/g;
+
+/**
+ * Normalize runs of horizontal whitespace to a single space while preserving
+ * literal newlines. Matches CSS `white-space: pre-line` semantics when the
+ * result is fed to pretext under `pre-wrap`.
+ */
+function collapseInlineWhitespace(text: string): string {
+  return text.replace(HORIZONTAL_WHITESPACE_RE, ' ');
+}
+
+/**
+ * Map a `textWrap` value to the text+whiteSpace pair that pretext's simple
+ * path expects.
+ */
+function prepareTextForWrapMode(
+  text: string,
+  wrap: boolean | 'pre',
+): {text: string; whiteSpace: 'normal' | 'pre-wrap'} {
+  if (wrap === 'pre') return {text, whiteSpace: 'pre-wrap'};
+  if (wrap === false) return {text, whiteSpace: 'normal'};
+  return {text: collapseInlineWhitespace(text), whiteSpace: 'pre-wrap'};
+}
+
+type RichGroup = {
+  // `null` represents a blank line — no items to feed to pretext.
+  prepared: PreparedRichInline | null;
+  // Maps the group's local item index back to the shared styles/inlines arrays.
+  itemMap: number[];
+};
+
+/**
+ * Split rich items at explicit newline boundaries into per-line groups.
+ *
+ * @remarks
+ * Pretext's `prepareRichInline` always normalizes whitespace, so a literal
+ * `\n` inside an item is collapsed into a space. To preserve newlines under
+ * `wrap === true` or `'pre'`, the caller emits each line as its own
+ * `prepareRichInline` group and stacks the resulting lines vertically. Empty
+ * groups (from `'\\n\\n'`, leading `'\\n'`, or trailing `'\\n'`) survive as
+ * blank-line entries so the rendered output matches CSS `pre-wrap`.
+ * `wrap === false` ignores newlines (one group with the items as-is).
+ */
+export function buildRichGroups(
+  items: RichInlineItem[],
+  wrap: boolean | 'pre',
+): Array<{items: RichInlineItem[]; itemMap: number[]}> {
+  if (wrap === false) {
+    return [{items: items.slice(), itemMap: items.map((_, i) => i)}];
+  }
+
+  const groups: Array<{items: RichInlineItem[]; itemMap: number[]}> = [
+    {items: [], itemMap: []},
+  ];
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (!item.text.includes('\n')) {
+      const cur = groups[groups.length - 1];
+      cur.items.push(item);
+      cur.itemMap.push(i);
+      continue;
+    }
+    const lines = item.text.split('\n');
+    for (let j = 0; j < lines.length; j++) {
+      if (lines[j].length > 0) {
+        const cur = groups[groups.length - 1];
+        cur.items.push({...item, text: lines[j]});
+        cur.itemMap.push(i);
+      }
+      if (j < lines.length - 1) {
+        groups.push({items: [], itemMap: []});
+      }
+    }
+  }
+
+  return groups;
+}
 
 /**
  * Fold line statistics over per-line rich groups. `null` entries are blank
@@ -156,13 +247,18 @@ type PositionedLine = {
   /**
    * Offset from the line-box top to each fragment's alphabetic baseline,
    * computed from real font metrics so glyphs land where CSS inline layout
-   * would put them.
+   * would put them. `0` for inline-element fragments.
    */
   baselineOffsets: number[];
 };
 
 type PreparedLayout =
-  | {kind: 'rich'; prepared: PreparedRichInline; styles: FragmentStyle[]}
+  | {
+      kind: 'rich';
+      groups: RichGroup[];
+      styles: FragmentStyle[];
+      inlines: (Layout | null)[];
+    }
   | {
       kind: 'simple';
       prepared: PreparedTextWithSegments;
@@ -388,6 +484,11 @@ export class Txt extends Shape {
       this.resolvedLineHeight(),
       this.wrapMode(),
     ];
+    if (prepared?.kind === 'rich') {
+      for (const inline of prepared.inlines) {
+        if (inline) key.push(inline.size.y());
+      }
+    }
     const last = this.lastMeasureKey;
     if (
       !last ||
@@ -456,11 +557,13 @@ export class Txt extends Shape {
   private collectItemsWithScale(scale: number): {
     items: RichInlineItem[];
     styles: FragmentStyle[];
+    inlines: (Layout | null)[];
   } {
     // Re-collect when a web font finishes loading; it has no signal to track.
     fontsVersion();
     const items: RichInlineItem[] = [];
     const styles: FragmentStyle[] = [];
+    const inlines: (Layout | null)[] = [];
 
     const collect = (node: Node, ownerTxt: Txt) => {
       if (node instanceof TxtLeaf) {
@@ -493,10 +596,46 @@ export class Txt extends Shape {
           fontComponents,
           letterSpacing,
         });
+        inlines.push(null);
       } else if (node instanceof Txt && node !== this) {
         for (const child of node.children()) {
           collect(child, node);
         }
+      } else if (node instanceof Layout) {
+        // Inline children render at native size, not scaled by autoSize.
+        const childWidth = node.size.x();
+        const fontComponents: FontComponents = {
+          style: ownerTxt.fontStyle(),
+          weight: ownerTxt.fontWeight(),
+          size: ownerTxt.fontSize() * scale,
+          family: ownerTxt.fontFamily(),
+        };
+        const font = buildCanvasFontString(
+          fontComponents.style,
+          fontComponents.weight,
+          fontComponents.size,
+          fontComponents.family,
+        );
+        requestFontLoad(font);
+        // Subtract the placeholder's own advance so the slot equals the
+        // child's width (pretext reserves measured + extraWidth).
+        const placeholderWidth = this.measurePlaceholderWidth(font);
+        items.push({
+          text: '￼',
+          font,
+          break: 'never',
+          extraWidth: Math.max(0, childWidth - placeholderWidth),
+        });
+        styles.push({
+          fill: null,
+          stroke: null,
+          lineWidth: 0,
+          strokeFirst: false,
+          font,
+          fontComponents,
+          letterSpacing: 0,
+        });
+        inlines.push(node);
       }
     };
 
@@ -504,19 +643,21 @@ export class Txt extends Shape {
       collect(child, this);
     }
 
-    return {items, styles};
+    return {items, styles, inlines};
   }
 
   /**
    * Collect all descendant text runs as RichInlineItems with their styles.
    *
-   * Walks `TxtLeaf` and nested `Txt` descendants; non-text children are
-   * ignored.
+   * Walks `TxtLeaf` and nested `Txt` descendants; direct `Layout` children of
+   * a top-level `Txt` become atomic inline slots (`break: 'never'`) sized by
+   * the child's own `width`/`height` signals.
    */
   @computed()
   protected collectInlineItems(): {
     items: RichInlineItem[];
     styles: FragmentStyle[];
+    inlines: (Layout | null)[];
   } {
     const raw = this.fontSize();
     const scale = raw > 0 ? this.effectiveFontSize() / raw : 1;
@@ -543,33 +684,65 @@ export class Txt extends Shape {
   @computed()
   protected preparedLayout(): PreparedLayout | null {
     if (!this.measurementContext()) return null;
-    const {items, styles} = this.collectInlineItems();
+    const {items, styles, inlines} = this.collectInlineItems();
     if (items.length === 0) return null;
 
+    const hasInline = inlines.some(n => n !== null);
     const hyphenate = this.hyphenate();
     const wordBreak = this.wordBreak();
-    const isPreWrap = this.textWrap() === 'pre';
-    const useSimplePath = items.length === 1;
+    const wrap = this.textWrap();
+    const useSimplePath = !hasInline && items.length === 1;
 
-    const prepItems = hyphenate
-      ? items.map(item => ({
-          ...item,
-          text: this.applyHyphenation(item.text, hyphenate),
-        }))
-      : items;
+    const prepItems =
+      hyphenate && !hasInline
+        ? items.map(item => ({
+            ...item,
+            text: this.applyHyphenation(item.text, hyphenate),
+          }))
+        : items;
 
     if (useSimplePath) {
-      const prepared = prepareWithSegments(
+      const {text: sourceText, whiteSpace} = prepareTextForWrapMode(
         prepItems[0].text,
-        prepItems[0].font,
-        {
-          whiteSpace: isPreWrap ? 'pre-wrap' : 'normal',
-          wordBreak,
-        },
+        wrap,
       );
+      const prepared = prepareWithSegments(sourceText, prepItems[0].font, {
+        whiteSpace,
+        wordBreak,
+        letterSpacing: styles[0].letterSpacing || undefined,
+      });
       return {kind: 'simple', prepared, style: styles[0]};
     }
-    return {kind: 'rich', prepared: prepareRichInline(prepItems), styles};
+    const groups = buildRichGroups(prepItems, wrap);
+    return {
+      kind: 'rich',
+      groups: groups.map(g => ({
+        prepared: g.items.length > 0 ? prepareRichInline(g.items) : null,
+        itemMap: g.itemMap,
+      })),
+      styles,
+      inlines,
+    };
+  }
+
+  /**
+   * Measure widths for the layout-time constants (`' '`, `'-'`) used by the
+   * Knuth-Plass scorer.
+   */
+  private measureFontConstants(font: string): {
+    normalSpaceWidth: number;
+    hyphenWidth: number;
+  } {
+    const ctx = this.cacheCanvas();
+    ctx.save();
+    ctx.font = font;
+    if ('letterSpacing' in ctx) {
+      (ctx as CanvasRenderingContext2D).letterSpacing = '0px';
+    }
+    const normalSpaceWidth = ctx.measureText(' ').width;
+    const hyphenWidth = ctx.measureText('-').width;
+    ctx.restore();
+    return {normalSpaceWidth, hyphenWidth};
   }
 
   /**
@@ -646,23 +819,17 @@ export class Txt extends Shape {
   }
 
   /**
-   * Measure widths for the layout-time constants (`' '`, `'-'`) used by the
-   * Knuth-Plass scorer.
+   * Width of the U+FFFC placeholder glyph in the given font. Subtracted from
+   * an inline child's width when computing the slot's `extraWidth`.
    */
-  private measureFontConstants(font: string): {
-    normalSpaceWidth: number;
-    hyphenWidth: number;
-  } {
-    const ctx = this.cacheCanvas();
-    ctx.save();
+  private measurePlaceholderWidth(font: string): number {
+    const ctx = this.measurementContext();
+    if (!ctx) return 0;
     ctx.font = font;
     if ('letterSpacing' in ctx) {
-      (ctx as CanvasRenderingContext2D).letterSpacing = '0px';
+      ctx.letterSpacing = '0px';
     }
-    const normalSpaceWidth = ctx.measureText(' ').width;
-    const hyphenWidth = ctx.measureText('-').width;
-    ctx.restore();
-    return {normalSpaceWidth, hyphenWidth};
+    return ctx.measureText('￼').width;
   }
 
   private static readonly emptyLayout: TextLayoutResult = {
@@ -685,12 +852,20 @@ export class Txt extends Shape {
     const fragmentLines: StyledFragment[][] = [];
     let totalWidth = 0;
 
+    // A tall inline element grows only its own line's box, CSS-style.
     const finish = (): TextLayoutResult => {
       const lines: TextLine[] = [];
       let top = 0;
       for (const fragments of fragmentLines) {
-        lines.push({fragments, top, height: baseLineHeight});
-        top += baseLineHeight;
+        let height = baseLineHeight;
+        for (const frag of fragments) {
+          if (frag.inline) {
+            const inlineHeight = frag.inline.size.y();
+            if (inlineHeight > height) height = inlineHeight;
+          }
+        }
+        lines.push({fragments, top, height});
+        top += height;
       }
       return {
         lines,
@@ -716,27 +891,38 @@ export class Txt extends Shape {
     }
 
     if (prepared.kind === 'rich') {
-      walkRichInlineLineRanges(prepared.prepared, maxWidth, range => {
-        const line = materializeRichInlineLineRange(prepared.prepared, range);
-        const styledFragments: StyledFragment[] = [];
-        let x = 0;
-        for (const fragment of line.fragments) {
-          x += fragment.gapBefore;
-          const style = prepared.styles[fragment.itemIndex];
-          if (style) {
-            styledFragments.push({
-              text: fragment.text,
-              x,
-              style,
-            });
+      for (const group of prepared.groups) {
+        if (group.prepared === null) {
+          fragmentLines.push([]);
+          continue;
+        }
+        const groupPrepared = group.prepared;
+        walkRichInlineLineRanges(groupPrepared, maxWidth, range => {
+          const line = materializeRichInlineLineRange(groupPrepared, range);
+          const styledFragments: StyledFragment[] = [];
+          let x = 0;
+          for (const fragment of line.fragments) {
+            x += fragment.gapBefore;
+            const originalIndex = group.itemMap[fragment.itemIndex];
+            const style = prepared.styles[originalIndex];
+            const inline = prepared.inlines[originalIndex] ?? undefined;
+            if (style) {
+              styledFragments.push({
+                text: fragment.text,
+                x,
+                style,
+                inline,
+                inlineWidth: inline ? fragment.occupiedWidth : undefined,
+              });
+            }
+            x += fragment.occupiedWidth;
           }
-          x += fragment.occupiedWidth;
-        }
-        fragmentLines.push(styledFragments);
-        if (line.width > totalWidth) {
-          totalWidth = line.width;
-        }
-      });
+          fragmentLines.push(styledFragments);
+          if (line.width > totalWidth) {
+            totalWidth = line.width;
+          }
+        });
+      }
     } else {
       walkLineRanges(prepared.prepared, maxWidth, range => {
         const line = materializeLineRange(prepared.prepared, range);
@@ -791,11 +977,16 @@ export class Txt extends Shape {
     return {width: layout.width, height: layout.height};
   }
 
-  protected override parseChildren(children: ComponentChildren): AnyTxt[] {
-    const result: AnyTxt[] = [];
+  protected override parseChildren(children: ComponentChildren): Node[] {
+    const result: Node[] = [];
     const array = Array.isArray(children) ? children : [children];
     for (const child of array) {
       if (child instanceof Txt || child instanceof TxtLeaf) {
+        result.push(child);
+      } else if (child instanceof Layout) {
+        // Bind position to the text slot; an explicit position() later opts
+        // the child out of the flow.
+        child.position(() => this.inlinePositionOf(child));
         result.push(child);
       } else if (typeof child === 'string') {
         result.push(new TxtLeaf({text: child}));
@@ -805,10 +996,40 @@ export class Txt extends Shape {
     return result;
   }
 
+  @computed()
+  protected rootTxt(): Txt {
+    return this.parentTxt()?.rootTxt() ?? this;
+  }
+
+  /**
+   * Position of an inline child, derived from the laid-out slot it occupies
+   * in the root `Txt`'s text flow. Returns the slot center in root-local
+   * coordinates; `(0, 0)` when the child has no slot (e.g. headless layout).
+   */
+  protected inlinePositionOf(child: Layout): Vector2 {
+    const root = this.rootTxt();
+    const lines = root.positionedLines();
+    const {x: width, y: height} = root.size();
+    for (const line of lines) {
+      for (const fragment of line.fragments) {
+        if (fragment.inline === child) {
+          return new Vector2(
+            width / -2 +
+              fragment.x +
+              line.alignOffset +
+              (fragment.inlineWidth ?? 0) / 2,
+            height / -2 + line.top + line.height / 2,
+          );
+        }
+      }
+    }
+    return Vector2.zero;
+  }
+
   /**
    * The current layout with alignment fully resolved per line: line widths
-   * measured and `textAlign` offsets applied. Single source of truth for
-   * `draw()`.
+   * measured (inline-aware) and `textAlign` offsets applied. Single source of
+   * truth for `draw()` and inline child positioning.
    */
   @computed()
   protected positionedLines(): PositionedLine[] {
@@ -822,11 +1043,15 @@ export class Txt extends Shape {
       for (const frag of line.fragments) {
         lineWidth = Math.max(
           lineWidth,
-          frag.x + this.measureStyledText(frag.text, frag.style),
+          frag.x +
+            (frag.inline
+              ? (frag.inlineWidth ?? 0)
+              : this.measureStyledText(frag.text, frag.style)),
         );
       }
 
       const baselineOffsets = line.fragments.map(frag => {
+        if (frag.inline) return 0;
         const {ascent, descent} = this.measureFontMetrics(frag.style);
         return (line.height - (ascent + descent)) / 2 + ascent;
       });
@@ -845,6 +1070,9 @@ export class Txt extends Shape {
 
   protected override draw(context: CanvasRenderingContext2D) {
     if (this.parentTxt()) {
+      // The root Txt paints all text; a nested Txt only renders its own
+      // inline children (positioned reactively off the root's layout).
+      this.drawChildren(context);
       return;
     }
 
@@ -860,6 +1088,8 @@ export class Txt extends Shape {
     for (const line of lines) {
       for (let fragIndex = 0; fragIndex < line.fragments.length; fragIndex++) {
         const fragment = line.fragments[fragIndex];
+        if (fragment.inline) continue;
+
         const {style} = fragment;
         const x = width / -2 + fragment.x + line.alignOffset;
         // Alphabetic baseline with metric offsets matches CSS line-box
@@ -889,6 +1119,7 @@ export class Txt extends Shape {
     }
 
     context.restore();
+    this.drawChildren(context);
   }
 
   protected override getCacheBBox(): BBox {
@@ -952,8 +1183,10 @@ export class Txt extends Shape {
     if (prepared.kind === 'simple') {
       return measureNaturalWidth(prepared.prepared);
     }
-    return measureGroupStats([prepared.prepared], Number.POSITIVE_INFINITY)
-      .maxLineWidth;
+    return measureGroupStats(
+      prepared.groups.map(g => g.prepared),
+      Number.POSITIVE_INFINITY,
+    ).maxLineWidth;
   }
 
   /**
@@ -969,7 +1202,10 @@ export class Txt extends Shape {
     const measureStats = (maxWidth: number) =>
       prepared.kind === 'simple'
         ? measureLineStats(prepared.prepared, maxWidth)
-        : measureGroupStats([prepared.prepared], maxWidth);
+        : measureGroupStats(
+            prepared.groups.map(g => g.prepared),
+            maxWidth,
+          );
 
     const naturalStats = measureStats(Number.POSITIVE_INFINITY);
     const target = targetLineCount ?? naturalStats.lineCount;
@@ -1005,6 +1241,7 @@ export class Txt extends Shape {
     const rawSize = this.fontSize();
     if (items.length === 0 || !this.measurementContext()) return rawSize;
 
+    const wrap = this.textWrap();
     let lo = 1;
     let hi = rawSize;
 
@@ -1021,8 +1258,11 @@ export class Txt extends Shape {
         );
         return {...item, font: scaledFont};
       });
+      const groups = buildRichGroups(scaledItems, wrap);
       const stats = measureGroupStats(
-        [prepareRichInline(scaledItems)],
+        groups.map(g =>
+          g.items.length > 0 ? prepareRichInline(g.items) : null,
+        ),
         maxWidth,
       );
       const lh = resolveLineHeight(this.lineHeight(), mid);

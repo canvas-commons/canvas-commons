@@ -77,6 +77,17 @@ import {Node, NodeProps} from './Node';
 
 export interface LayoutProps extends NodeProps {
   layout?: LayoutMode;
+  /**
+   * Whether this node participates in its parent's flex layout. When
+   * `null` (the default), falls back to {@link layout}.
+   */
+  layoutSelf?: LayoutMode;
+  /**
+   * Whether this node lays out its own children with flex. When `null`
+   * (the default), falls back to {@link layout}.
+   */
+  layoutChildren?: LayoutMode;
+
   width?: SignalValue<Length>;
   height?: SignalValue<Length>;
   maxWidth?: SignalValue<LengthLimit>;
@@ -222,6 +233,24 @@ export class Layout extends Node {
   @interpolation(boolLerp)
   @signal()
   declare public readonly layout: SimpleSignal<LayoutMode, this>;
+
+  /**
+   * Whether this node participates in its parent's flex layout. Use
+   * {@link layoutEnabled} to read the resolved mode.
+   */
+  @initial(null)
+  @interpolation(boolLerp)
+  @signal()
+  declare public readonly layoutSelf: SimpleSignal<LayoutMode, this>;
+
+  /**
+   * Whether this node lays out its own children with flex. Use
+   * {@link canLayoutChildren} to read the resolved mode.
+   */
+  @initial(null)
+  @interpolation(boolLerp)
+  @signal()
+  declare public readonly layoutChildren: SimpleSignal<LayoutMode, this>;
 
   @initial(null)
   @signal()
@@ -796,24 +825,36 @@ export class Layout extends Node {
   }
 
   /**
-   * Resolved layout mode of this node.
-   *
-   * @remarks
-   * When the {@link layout} signal is `null`, the value is inherited from the
-   * parent. Returns `false` for the View2D root.
+   * Whether this node participates in its parent's flex layout. Resolves
+   * {@link layoutSelf}, then {@link layout}, then the parent's
+   * {@link canLayoutChildren}.
    */
   @computed()
   public layoutEnabled(): boolean {
-    return this.layout() ?? this.parentTransform()?.layoutEnabled() ?? false;
+    return (
+      this.layoutSelf() ??
+      this.layout() ??
+      this.parentTransform()?.canLayoutChildren() ??
+      false
+    );
   }
 
   /**
-   * Whether this node hosts flex children. Defaults to {@link layoutEnabled};
-   * overridden by `Txt` (and similar leaves) that must not have yoga children.
+   * Whether this node lays out its own children with flex. Resolves
+   * {@link layoutChildren}, then {@link layout}, then the parent's
+   * {@link canLayoutChildren}.
+   *
+   * @remarks
+   * Overridden by `Txt` (and similar leaves) that must not host yoga children.
    */
   @computed()
-  public layoutChildrenEnabled(): boolean {
-    return this.layoutEnabled();
+  public canLayoutChildren(): boolean {
+    return (
+      this.layoutChildren() ??
+      this.layout() ??
+      this.parentTransform()?.canLayoutChildren() ??
+      false
+    );
   }
 
   @computed()
@@ -821,7 +862,7 @@ export class Layout extends Node {
     // A parent that doesn't host yoga children (e.g. Txt) leaves this node
     // detached from any yoga tree, so it must lay itself out as a root.
     return (
-      !this.layoutEnabled() || !this.parentTransform()?.layoutChildrenEnabled()
+      !this.layoutEnabled() || !this.parentTransform()?.canLayoutChildren()
     );
   }
 
@@ -995,8 +1036,8 @@ export class Layout extends Node {
 
   private walkFlexTree(visitor: (child: Layout, parent: Layout) => void): void {
     const walk = (parent: Layout) => {
-      if (!parent.layoutChildrenEnabled()) return;
-      for (const child of parent.flexChildren()) {
+      if (!parent.canLayoutChildren()) return;
+      for (const child of parent.applyLayout()) {
         visitor(child, parent);
         walk(child);
       }
@@ -1011,8 +1052,8 @@ export class Layout extends Node {
   protected updateLayout() {
     this.applyFont();
     this.applyFlex();
-    if (this.layoutChildrenEnabled()) {
-      const children = this.flexChildren();
+    if (this.canLayoutChildren()) {
+      const children = this.applyLayout();
       for (const child of children) {
         child.updateLayout();
       }
@@ -1020,7 +1061,7 @@ export class Layout extends Node {
   }
 
   @computed()
-  protected flexChildren(): Layout[] {
+  protected applyLayout(): Layout[] {
     const queue = [...this.children()];
     const result: Layout[] = [];
     while (queue.length) {

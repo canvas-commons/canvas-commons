@@ -445,6 +445,53 @@ describe('Layout', () => {
     });
   });
 
+  describe('layoutSelf / layoutChildren split', () => {
+    it('defaults both to null so the legacy `layout` is the source of truth', () => {
+      const layout = (<Layout layout />) as Layout;
+      expect(layout.layoutSelf()).toBe(null);
+      expect(layout.layoutChildren()).toBe(null);
+      expect(layout.layoutEnabled()).toBe(true);
+      expect(layout.canLayoutChildren()).toBe(true);
+    });
+
+    it('falls back to `layout` when the new signals are null', () => {
+      const off = (<Layout layout={false} />) as Layout;
+      expect(off.layoutEnabled()).toBe(false);
+      expect(off.canLayoutChildren()).toBe(false);
+
+      const on = (<Layout layout />) as Layout;
+      expect(on.layoutEnabled()).toBe(true);
+      expect(on.canLayoutChildren()).toBe(true);
+    });
+
+    it('`layoutSelf` overrides `layout` for the self axis only', () => {
+      const layout = (<Layout layout={false} layoutSelf />) as Layout;
+      expect(layout.layoutEnabled()).toBe(true);
+      expect(layout.canLayoutChildren()).toBe(false);
+    });
+
+    it('`layoutChildren` overrides `layout` for the children axis only', () => {
+      const layout = (<Layout layout layoutChildren={false} />) as Layout;
+      expect(layout.layoutEnabled()).toBe(true);
+      expect(layout.canLayoutChildren()).toBe(false);
+    });
+
+    it('a parent with `layoutChildren=false` stops a layoutSelf=true child from being laid out', () => {
+      const view = useScene2D().getView();
+      const parent = createRef<Layout>();
+      const child = createRef<Layout>();
+      view.add(
+        <Layout ref={parent} layout layoutChildren={false}>
+          <Layout ref={child} layoutSelf />
+        </Layout>,
+      );
+
+      expect(parent().canLayoutChildren()).toBe(false);
+      expect(child().layoutEnabled()).toBe(true);
+      expect(child().isLayoutRoot()).toBe(true);
+    });
+  });
+
   describe('layout lock', () => {
     it('lockLayout increments and releaseLayout decrements the counter', () => {
       const layout = (<Layout />) as Layout;

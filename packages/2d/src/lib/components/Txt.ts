@@ -695,7 +695,7 @@ export class Txt extends Shape {
   }
 
   @computed()
-  public override layoutChildrenEnabled(): boolean {
+  public override canLayoutChildren(): boolean {
     // Txt is a yoga leaf: children render through pretext, not yoga placement.
     return false;
   }

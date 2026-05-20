@@ -51,8 +51,8 @@ describe('Txt with inline elements', () => {
     const inline = (<Rect width={20} height={20} />) as Rect;
     const txt = (<Txt>before {inline} after</Txt>) as Txt;
 
-    // Txt is always a yoga leaf — see Txt.layoutChildrenEnabled override.
-    expect(txt.layoutChildrenEnabled()).toBe(false);
+    // Txt is always a yoga leaf — see Txt.canLayoutChildren override.
+    expect(txt.canLayoutChildren()).toBe(false);
   });
 });
 

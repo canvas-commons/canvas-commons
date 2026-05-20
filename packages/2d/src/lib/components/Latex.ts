@@ -395,6 +395,12 @@ export class Latex extends SVGNode {
       (s): s is Rect => s instanceof Rect,
     );
 
+    const oldSize = new Vector2(this.size());
+    this.svg.context.setter(newSVG);
+    const newSize = new Vector2(this.size());
+
+    this.lockLayout();
+
     yield* all(
       ...this.createFragmentMorphAnimations(
         currentPaths,
@@ -408,11 +414,17 @@ export class Latex extends SVGNode {
         time,
         timingFunction,
       ),
+      tween(time, t => {
+        const progress = timingFunction(t);
+        this.size(Vector2.lerp(oldSize, newSize, progress));
+      }),
     );
 
-    this.svg.context.setter(newSVG);
     this.tex.context.setter(parsedValue);
     this.wrapper.children(this.documentNodes);
+    this.releaseLayout();
+    this.width.reset();
+    this.height.reset();
   }
 
   /**

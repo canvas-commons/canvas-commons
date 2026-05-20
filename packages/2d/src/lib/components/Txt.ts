@@ -23,10 +23,12 @@ import {
   PreparedRichInline,
   RichInlineItem,
   buildCanvasFontString,
+  knuthPlass,
   materializeRichInlineLineRange,
   measureRichInlineStats,
   prepareRichInline,
   resolveLineHeight,
+  segment,
   walkRichInlineLineRanges,
 } from '../text';
 import {fontsVersion, requestFontLoad, resolveCanvasStyle} from '../utils';
@@ -39,10 +41,21 @@ import {ComponentChildren} from './types';
 type TxtChildren = string | Node | (string | Node)[];
 type AnyTxt = Txt | TxtLeaf;
 
+export type TxtWrapMode = 'greedy' | 'knuth-plass';
+
+/**
+ * Function that splits a single word into syllable-like pieces. Pieces are
+ * joined with U+00AD (soft hyphen) and passed to pretext, which uses them as
+ * optional break points.
+ */
+export type HyphenateFn = (word: string) => string[];
+
 export interface TxtProps extends ShapeProps {
   children?: TxtChildren;
   text?: SignalValue<string>;
   autoSize?: SignalValue<boolean>;
+  wrapMode?: SignalValue<TxtWrapMode>;
+  hyphenate?: SignalValue<HyphenateFn | null>;
 }
 
 type FontComponents = {
@@ -213,6 +226,46 @@ export class Txt extends Shape {
   @signal()
   declare public readonly autoSize: SimpleSignal<boolean, this>;
 
+  /**
+   * Line-breaking algorithm.
+   *
+   * @remarks
+   * - `'greedy'` (default) — pretext's first-fit pass. Fast.
+   * - `'knuth-plass'` — dynamic-programming search for an optimal break
+   *   sequence that minimizes a badness score (justification ratio, rivers,
+   *   tight lines, soft-hyphen breaks). Only takes effect when the text is a
+   *   single-style run; mixed-style `<Txt>` falls back to greedy.
+   *
+   * Named `wrapMode` rather than `wrap` to avoid clashing with the
+   * `wrap: FlexWrap` flex signal inherited from {@link Layout}.
+   *
+   * @example
+   * ```tsx
+   * <Txt width={400} wrapMode={'knuth-plass'}>{loremIpsum}</Txt>
+   * ```
+   */
+  @initial('greedy')
+  @signal()
+  declare public readonly wrapMode: SimpleSignal<TxtWrapMode, this>;
+
+  /**
+   * Word-level hyphenator. Receives a single word and returns an array of
+   * syllable-like pieces; pieces are rejoined with U+00AD (soft hyphen) and
+   * fed to pretext, which treats soft hyphens as optional break points.
+   *
+   * @remarks
+   * No bundled dictionary — wire in your own (Hyphenopoly, hypher, etc.) or
+   * leave this `null` to disable hyphenation.
+   *
+   * Signals treat raw function values as reactive getters, so set this via a
+   * thunk: `hyphenate={() => myHyphenator}` (JSX) or
+   * `txt.hyphenate(() => myHyphenator)` (imperative). Calling `txt.hyphenate()`
+   * then returns the hyphenator.
+   */
+  @initial(null)
+  @signal()
+  declare public readonly hyphenate: SimpleSignal<HyphenateFn | null, this>;
+
   protected getText(): string {
     return this.innerText();
   }
@@ -330,7 +383,11 @@ export class Txt extends Shape {
     // Yoga caches measure-func results until the node is marked dirty, so a
     // change to any measurement input has to bust the cache.
     const prepared = this.preparedLayout();
-    const key: unknown[] = [prepared, this.resolvedLineHeight()];
+    const key: unknown[] = [
+      prepared,
+      this.resolvedLineHeight(),
+      this.wrapMode(),
+    ];
     const last = this.lastMeasureKey;
     if (
       !last ||
@@ -466,25 +523,53 @@ export class Txt extends Shape {
     return this.collectItemsWithScale(scale);
   }
 
+  /**
+   * Apply the user-provided hyphenator to every word in `text`, joining the
+   * returned syllables with U+00AD so pretext can use them as soft breaks.
+   */
+  private applyHyphenation(text: string, hyphenate: HyphenateFn): string {
+    let result = '';
+    for (const seg of segment(text, 'word')) {
+      if (seg.isWordLike) {
+        const parts = hyphenate(seg.segment);
+        result += parts.length <= 1 ? seg.segment : parts.join('­');
+      } else {
+        result += seg.segment;
+      }
+    }
+    return result;
+  }
+
   @computed()
   protected preparedLayout(): PreparedLayout | null {
     if (!this.measurementContext()) return null;
     const {items, styles} = this.collectInlineItems();
     if (items.length === 0) return null;
 
+    const hyphenate = this.hyphenate();
     const wordBreak = this.wordBreak();
     const isPreWrap = this.textWrap() === 'pre';
-    const useSimplePath =
-      items.length === 1 && (isPreWrap || wordBreak === 'keep-all');
+    const useSimplePath = items.length === 1;
+
+    const prepItems = hyphenate
+      ? items.map(item => ({
+          ...item,
+          text: this.applyHyphenation(item.text, hyphenate),
+        }))
+      : items;
 
     if (useSimplePath) {
-      const prepared = prepareWithSegments(items[0].text, items[0].font, {
-        whiteSpace: isPreWrap ? 'pre-wrap' : 'normal',
-        wordBreak,
-      });
+      const prepared = prepareWithSegments(
+        prepItems[0].text,
+        prepItems[0].font,
+        {
+          whiteSpace: isPreWrap ? 'pre-wrap' : 'normal',
+          wordBreak,
+        },
+      );
       return {kind: 'simple', prepared, style: styles[0]};
     }
-    return {kind: 'rich', prepared: prepareRichInline(items), styles};
+    return {kind: 'rich', prepared: prepareRichInline(prepItems), styles};
   }
 
   /**
@@ -560,6 +645,26 @@ export class Txt extends Shape {
     return {ascent, descent};
   }
 
+  /**
+   * Measure widths for the layout-time constants (`' '`, `'-'`) used by the
+   * Knuth-Plass scorer.
+   */
+  private measureFontConstants(font: string): {
+    normalSpaceWidth: number;
+    hyphenWidth: number;
+  } {
+    const ctx = this.cacheCanvas();
+    ctx.save();
+    ctx.font = font;
+    if ('letterSpacing' in ctx) {
+      (ctx as CanvasRenderingContext2D).letterSpacing = '0px';
+    }
+    const normalSpaceWidth = ctx.measureText(' ').width;
+    const hyphenWidth = ctx.measureText('-').width;
+    ctx.restore();
+    return {normalSpaceWidth, hyphenWidth};
+  }
+
   private static readonly emptyLayout: TextLayoutResult = {
     lines: [],
     width: 0,
@@ -594,6 +699,21 @@ export class Txt extends Shape {
         lineHeight: baseLineHeight,
       };
     };
+
+    if (prepared.kind === 'simple' && this.wrapMode() === 'knuth-plass') {
+      const {normalSpaceWidth, hyphenWidth} = this.measureFontConstants(
+        prepared.style.font,
+      );
+      const kpLines = knuthPlass(prepared.prepared, maxWidth, {
+        normalSpaceWidth,
+        hyphenWidth,
+      });
+      for (const line of kpLines) {
+        fragmentLines.push([{text: line.text, x: 0, style: prepared.style}]);
+        if (line.width > totalWidth) totalWidth = line.width;
+      }
+      return finish();
+    }
 
     if (prepared.kind === 'rich') {
       walkRichInlineLineRanges(prepared.prepared, maxWidth, range => {

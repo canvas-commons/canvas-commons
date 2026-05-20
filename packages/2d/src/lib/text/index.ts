@@ -20,3 +20,5 @@ export type {
   RichInlineStats,
 } from '@chenglou/pretext/rich-inline';
 export * from './font';
+export * from './knuthPlass';
+export * from './segmenter';

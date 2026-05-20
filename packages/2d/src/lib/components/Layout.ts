@@ -16,6 +16,7 @@ import {
   TimingFunction,
   Vector2,
   Vector2Signal,
+  all,
   boolLerp,
   deepLerp,
   easeInOutCubic,
@@ -1272,6 +1273,111 @@ export class Layout extends Node {
     this.textWrap();
     this.textAlign();
     this.wordBreak();
+  }
+
+  /**
+   * Animate a batch of layout-property changes. Children tween from their
+   * pre-mutation positions to wherever the post-mutation layout puts them.
+   *
+   * @example
+   * ```tsx
+   * yield* rect().editLayout(0.3, n => {
+   *   n.direction('column');
+   *   n.alignItems('end');
+   * });
+   * ```
+   */
+  @threadable()
+  public *editLayout<TLayout extends Layout>(
+    this: TLayout,
+    duration: number,
+    mutator: (node: TLayout) => void,
+    timing: TimingFunction = easeInOutCubic,
+    interpolation: InterpolationFunction<Vector2> = Vector2.lerp,
+  ): ThreadGenerator {
+    const flexChildren = this.applyLayout();
+    const preWorld = new Map<Layout, Vector2>();
+    for (const child of flexChildren) {
+      preWorld.set(child, child.position.abs());
+    }
+    const oldSize = new Vector2(this.size());
+
+    mutator(this);
+    this.requestLayoutUpdate();
+    const postWorld = new Map<Layout, Vector2>();
+    for (const child of flexChildren) {
+      postWorld.set(child, child.position.abs());
+    }
+    const newSize = new Vector2(this.size());
+
+    yield* this.runFreezeThawTween(
+      flexChildren,
+      preWorld,
+      postWorld,
+      oldSize,
+      newSize,
+      duration,
+      timing,
+      interpolation,
+    );
+  }
+
+  @threadable()
+  protected *runFreezeThawTween(
+    flexChildren: Layout[],
+    preWorld: Map<Layout, Vector2>,
+    postWorld: Map<Layout, Vector2>,
+    oldSize: Vector2,
+    newSize: Vector2,
+    duration: number,
+    timing: TimingFunction,
+    interpolation: InterpolationFunction<Vector2>,
+    additionalTasks: ThreadGenerator[] = [],
+  ): ThreadGenerator {
+    for (const child of flexChildren) {
+      const pre = preWorld.get(child);
+      if (pre) child.position.abs(pre);
+    }
+    const savedLayoutChildren = this.layoutChildren.context.raw();
+    const savedWidth = this.width.context.raw();
+    const savedHeight = this.height.context.raw();
+    this.layoutChildren(false);
+    this.lockLayout();
+    this.size(oldSize);
+
+    try {
+      yield* all(
+        tween(duration, t => {
+          const progress = timing(t);
+          this.size(interpolation(oldSize, newSize, progress));
+          for (const child of flexChildren) {
+            const pre = preWorld.get(child);
+            const post = postWorld.get(child);
+            if (pre && post) {
+              child.position.abs(interpolation(pre, post, progress));
+            }
+          }
+        }),
+        ...additionalTasks,
+      );
+    } finally {
+      this.releaseLayout();
+      if (savedWidth === undefined) {
+        this.width.context.reset();
+      } else {
+        this.width.context.setter(savedWidth);
+      }
+      if (savedHeight === undefined) {
+        this.height.context.reset();
+      } else {
+        this.height.context.setter(savedHeight);
+      }
+      if (savedLayoutChildren === undefined) {
+        this.layoutChildren.context.reset();
+      } else {
+        this.layoutChildren.context.setter(savedLayoutChildren);
+      }
+    }
   }
 
   /**

@@ -81,6 +81,17 @@ import {
   type YogaNode,
 } from '../utils/yoga';
 import {Node, NodeProps} from './Node';
+import {ComponentChildren} from './types';
+
+/**
+ * Override the per-node entrance or exit animation used by
+ * {@link Layout.add}, {@link Layout.insert}, and {@link Layout.remove}.
+ */
+export type LayoutAnimateCallback = (
+  node: Layout,
+  duration: number,
+  timing: TimingFunction,
+) => ThreadGenerator;
 
 export interface LayoutProps extends NodeProps {
   layout?: LayoutMode;
@@ -1086,7 +1097,11 @@ export class Layout extends Node {
       this.yogaNode.removeChild(this.yogaNode.getChild(i));
     }
     for (let i = 0; i < result.length; i++) {
-      this.yogaNode.insertChild(result[i].yogaNode, i);
+      const childNode = result[i].yogaNode;
+      // A reparented child still belongs to its previous owner's yoga node;
+      // yoga aborts on insert unless it is detached first.
+      childNode.getParent()?.removeChild(childNode);
+      this.yogaNode.insertChild(childNode, i);
     }
 
     return result;
@@ -1273,6 +1288,231 @@ export class Layout extends Node {
     this.textWrap();
     this.textAlign();
     this.wordBreak();
+  }
+
+  /**
+   * Append a child. With a `duration`, the call returns a
+   * `ThreadGenerator` that scales the child into its slot while the
+   * surrounding flex layout reflows; without one, it behaves like
+   * {@link Node.add} and returns `this`.
+   */
+  public override add(node: ComponentChildren): this;
+  public override add(
+    node: ComponentChildren,
+    duration: number,
+    timing?: TimingFunction,
+    animate?: LayoutAnimateCallback,
+  ): ThreadGenerator;
+  public override add(
+    node: ComponentChildren,
+    duration?: number,
+    timing: TimingFunction = easeInOutCubic,
+    animate?: LayoutAnimateCallback,
+  ): this | ThreadGenerator {
+    if (duration === undefined) {
+      return super.add(node);
+    }
+    return this.animateInsert(node, Infinity, duration, timing, animate);
+  }
+
+  /**
+   * Insert a child at a specific index. With a `duration`, the call
+   * returns a `ThreadGenerator` that scales the child into its slot
+   * while the surrounding flex layout reflows; without one, it behaves
+   * like {@link Node.insert} and returns `this`.
+   */
+  public override insert(node: ComponentChildren, index?: number): this;
+  public override insert(
+    node: ComponentChildren,
+    index: number,
+    duration: number,
+    timing?: TimingFunction,
+    animate?: LayoutAnimateCallback,
+  ): ThreadGenerator;
+  public override insert(
+    node: ComponentChildren,
+    index = 0,
+    duration?: number,
+    timing: TimingFunction = easeInOutCubic,
+    animate?: LayoutAnimateCallback,
+  ): this | ThreadGenerator {
+    if (duration === undefined) {
+      return super.insert(node, index);
+    }
+    return this.animateInsert(node, index, duration, timing, animate);
+  }
+
+  /**
+   * Remove this node from its parent. With a `duration` and a `Layout`
+   * parent, the call returns a `ThreadGenerator` that scales the node
+   * out as its slot collapses; without one (or with a non-Layout
+   * parent), it behaves like {@link Node.remove} and returns `this`.
+   */
+  public override remove(): this;
+  public override remove(
+    duration: number,
+    timing?: TimingFunction,
+    animate?: LayoutAnimateCallback,
+  ): ThreadGenerator;
+  public override remove(
+    duration?: number,
+    timing: TimingFunction = easeInOutCubic,
+    animate?: LayoutAnimateCallback,
+  ): this | ThreadGenerator {
+    if (duration === undefined) {
+      return super.remove();
+    }
+    const parent = this.parent();
+    if (parent instanceof Layout) {
+      return parent.animateRemove(this, duration, timing, animate);
+    }
+    super.remove();
+    return (function* (): ThreadGenerator {})();
+  }
+
+  @threadable()
+  protected *animateInsert(
+    node: ComponentChildren,
+    index: number,
+    duration: number,
+    timing: TimingFunction = easeInOutCubic,
+    animate?: LayoutAnimateCallback,
+  ): ThreadGenerator {
+    const nodes = Array.isArray(node) ? node : [node];
+    const layoutNodes: Layout[] = [];
+    for (const n of nodes) {
+      if (n instanceof Layout) layoutNodes.push(n);
+    }
+
+    if (layoutNodes.length !== nodes.length) {
+      super.insert(node, index);
+      return;
+    }
+
+    const slots = layoutNodes.map(userNode => {
+      const natural = userNode.size();
+      const wrapper = new Layout({
+        layout: true,
+        width: natural.x,
+        height: natural.y,
+        scale: animate ? 1 : 0,
+      });
+      wrapper.add(userNode);
+      return {userNode, wrapper};
+    });
+
+    const oldSize = new Vector2(this.size());
+    const flexChildren = this.applyLayout();
+    const preWorld = new Map<Layout, Vector2>();
+    for (const child of flexChildren) {
+      preWorld.set(child, child.position.abs());
+    }
+
+    slots.forEach((slot, i) => {
+      const insertIndex = Number.isFinite(index) ? index + i : Infinity;
+      this.insert(slot.wrapper, insertIndex);
+    });
+    this.requestLayoutUpdate();
+
+    const newSize = new Vector2(this.size());
+    const postWorld = new Map<Layout, Vector2>();
+    for (const child of flexChildren) {
+      postWorld.set(child, child.position.abs());
+    }
+
+    // Pin each wrapper at its flex-resolved position before freeze. Once
+    // `layoutChildren` is off, the wrappers become layout roots and `position`
+    // would otherwise fall back to the raw signal default.
+    for (const slot of slots) {
+      slot.wrapper.position.abs(slot.wrapper.position.abs());
+    }
+
+    const animationTasks = slots.map(slot =>
+      animate
+        ? animate(slot.userNode, duration, timing)
+        : slot.wrapper.scale(1, duration, timing),
+    );
+
+    try {
+      yield* this.runFreezeThawTween(
+        flexChildren,
+        preWorld,
+        postWorld,
+        oldSize,
+        newSize,
+        duration,
+        timing,
+        Vector2.lerp,
+        animationTasks,
+      );
+    } finally {
+      for (const slot of slots) {
+        const wrapperIndex = this.children().indexOf(slot.wrapper);
+        if (wrapperIndex >= 0) {
+          this.insert(slot.userNode, wrapperIndex);
+          slot.wrapper.remove();
+        }
+      }
+    }
+  }
+
+  @threadable()
+  protected *animateRemove(
+    node: Layout,
+    duration: number,
+    timing: TimingFunction = easeInOutCubic,
+    animate?: LayoutAnimateCallback,
+  ): ThreadGenerator {
+    const oldSize = new Vector2(this.size());
+    const flexChildren = this.applyLayout().filter(c => c !== node);
+    const preWorld = new Map<Layout, Vector2>();
+    for (const child of flexChildren) {
+      preWorld.set(child, child.position.abs());
+    }
+
+    const natural = node.size();
+    const removalIndex = this.children().indexOf(node);
+    const wrapper = new Layout({
+      layout: true,
+      width: natural.x,
+      height: natural.y,
+    });
+    node.remove();
+    this.insert(wrapper, removalIndex);
+    wrapper.add(node);
+
+    // Pin at the flex-resolved position before pulling out of flex; otherwise
+    // `position` falls back to the raw signal default once `layoutSelf` is off.
+    wrapper.position.abs(wrapper.position.abs());
+    wrapper.layoutSelf(false);
+    this.requestLayoutUpdate();
+
+    const newSize = new Vector2(this.size());
+    const postWorld = new Map<Layout, Vector2>();
+    for (const child of flexChildren) {
+      postWorld.set(child, child.position.abs());
+    }
+
+    const animationTask = animate
+      ? animate(node, duration, timing)
+      : wrapper.scale(0, duration, timing);
+
+    try {
+      yield* this.runFreezeThawTween(
+        flexChildren,
+        preWorld,
+        postWorld,
+        oldSize,
+        newSize,
+        duration,
+        timing,
+        Vector2.lerp,
+        [animationTask],
+      );
+    } finally {
+      node.remove();
+      wrapper.remove();
+    }
   }
 
   /**

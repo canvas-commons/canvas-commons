@@ -570,4 +570,51 @@ describe('Layout', () => {
       }),
     );
   });
+
+  describe('animated insert', () => {
+    it(
+      "doesn't mutate the user node's scale signal during the tween",
+      generatorTest(function* () {
+        const stack = createRef<Layout>();
+        const view = useScene2D().getView();
+        view.add(
+          <Layout ref={stack} layout direction="row" gap={20}>
+            <Rect width={100} height={100} />
+            <Rect width={100} height={100} />
+          </Layout>,
+        );
+
+        const newItem = (<Rect width={100} height={100} />) as Rect;
+        const task = yield stack().insert(newItem, 1, 1);
+
+        // The animation tweens a wrapper's scale, not the user node's.
+        yield* waitFor(0.5);
+        expect(newItem.scale.x()).toBe(1);
+        expect(newItem.scale.y()).toBe(1);
+
+        yield* task;
+        expect(newItem.scale.x()).toBe(1);
+        expect(newItem.scale.y()).toBe(1);
+      }),
+    );
+
+    it(
+      'inserts the node at the requested index after the tween',
+      generatorTest(function* () {
+        const stack = createRef<Layout>();
+        const view = useScene2D().getView();
+        view.add(
+          <Layout ref={stack} layout direction="row" gap={20}>
+            <Rect width={100} height={100} />
+            <Rect width={100} height={100} />
+          </Layout>,
+        );
+
+        const newItem = (<Rect width={120} height={80} />) as Rect;
+        yield* stack().insert(newItem, 1, 0.5);
+
+        expect(stack().children()[1]).toBe(newItem);
+      }),
+    );
+  });
 });

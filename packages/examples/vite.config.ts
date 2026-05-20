@@ -18,6 +18,7 @@ export default defineConfig({
         './src/random.ts',
         './src/layout.ts',
         './src/layout-group.ts',
+        './src/layout-animations.ts',
         './src/positioning.ts',
         './src/media-image.ts',
         './src/media-video.ts',

@@ -10,6 +10,7 @@ import {
   Signal,
   SignalValue,
   SimpleSignal,
+  Spacing,
   SpacingSignal,
   ThreadGenerator,
   TimingFunction,
@@ -21,6 +22,7 @@ import {
   originToOffset,
   threadable,
   tween,
+  unwrap,
 } from '@canvas-commons/core';
 import {
   Vector2LengthSignal,
@@ -426,12 +428,12 @@ export class Layout extends Node {
     }
 
     this.size.x(from);
-    lock && this.lockSize();
+    lock && this.lockLayout();
     yield* tween(time, value =>
       this.size.x(interpolationFunction(from, to, timingFunction(value))),
     );
     this.size.x(value);
-    lock && this.releaseSize();
+    lock && this.releaseLayout();
   }
 
   protected getHeight(): number {
@@ -467,12 +469,12 @@ export class Layout extends Node {
     }
 
     this.size.y(from);
-    lock && this.lockSize();
+    lock && this.lockLayout();
     yield* tween(time, value =>
       this.size.y(interpolationFunction(from, to, timingFunction(value))),
     );
     this.size.y(value);
-    lock && this.releaseSize();
+    lock && this.releaseLayout();
   }
 
   /**
@@ -518,12 +520,62 @@ export class Layout extends Node {
     }
 
     this.size(from);
-    this.lockSize();
+    this.lockLayout();
     yield* tween(time, value =>
       this.size(interpolationFunction(from, to, timingFunction(value))),
     );
-    this.releaseSize();
+    this.releaseLayout();
     this.size(value);
+  }
+
+  @threadable()
+  protected *tweenPadding(
+    value: SignalValue<PossibleSpacing>,
+    time: number,
+    timingFunction: TimingFunction,
+    interpolationFunction: InterpolationFunction<Spacing>,
+  ): ThreadGenerator {
+    const from = this.padding();
+    this.lockLayout();
+    yield* tween(time, t => {
+      const target = this.padding.context.parse(unwrap(value));
+      this.padding(interpolationFunction(from, target, timingFunction(t)));
+    });
+    this.releaseLayout();
+  }
+
+  @threadable()
+  protected *tweenMargin(
+    value: SignalValue<PossibleSpacing>,
+    time: number,
+    timingFunction: TimingFunction,
+    interpolationFunction: InterpolationFunction<Spacing>,
+  ): ThreadGenerator {
+    const from = this.margin();
+    this.lockLayout();
+    yield* tween(time, t => {
+      const target = this.margin.context.parse(unwrap(value));
+      this.margin(interpolationFunction(from, target, timingFunction(t)));
+    });
+    this.releaseLayout();
+  }
+
+  @threadable()
+  protected *tweenGap(
+    value: SignalValue<PossibleVector2<Length>>,
+    time: number,
+    timingFunction: TimingFunction,
+    interpolationFunction: InterpolationFunction<Vector2>,
+  ): ThreadGenerator {
+    const from = this.gap();
+    this.lockLayout();
+    yield* tween(time, t => {
+      const target = this.gap.context.parse(unwrap(value));
+      this.gap(
+        interpolationFunction(from, target as Vector2, timingFunction(t)),
+      );
+    });
+    this.releaseLayout();
   }
 
   /**
@@ -697,18 +749,26 @@ export class Layout extends Node {
 
   @initial(0)
   @signal()
-  declare protected readonly sizeLockCounter: SimpleSignal<number, this>;
+  declare protected readonly layoutLockCounter: SimpleSignal<number, this>;
 
   public constructor(props: LayoutProps) {
     super(props);
   }
 
-  public lockSize() {
-    this.sizeLockCounter(this.sizeLockCounter() + 1);
+  /**
+   * Increment the layout lock counter. While positive, this node's
+   * `flexGrow` / `flexShrink` are forced to `0`, holding its slot in the
+   * parent's flex layout. Pair every call with {@link releaseLayout}.
+   */
+  public lockLayout() {
+    this.layoutLockCounter(this.layoutLockCounter() + 1);
   }
 
-  public releaseSize() {
-    this.sizeLockCounter(this.sizeLockCounter() - 1);
+  /**
+   * Decrement the layout lock counter.
+   */
+  public releaseLayout() {
+    this.layoutLockCounter(this.layoutLockCounter() - 1);
   }
 
   @computed()
@@ -1121,7 +1181,7 @@ export class Layout extends Node {
 
     setYogaGap(node, this.gap.x(), this.gap.y());
 
-    if (this.sizeLockCounter() > 0) {
+    if (this.layoutLockCounter() > 0) {
       node.setFlexGrow(0);
       node.setFlexShrink(0);
     } else {
@@ -1150,7 +1210,7 @@ export class Layout extends Node {
       return;
     }
     super.dispose();
-    this.sizeLockCounter?.context.dispose();
+    this.layoutLockCounter?.context.dispose();
     if (this.yogaNode) {
       this.yogaNode.free();
     }

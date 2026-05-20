@@ -10,6 +10,7 @@ import {
   all,
   clamp,
   threadable,
+  tween,
 } from '@canvas-commons/core';
 import {
   PreparedTextWithSegments,
@@ -634,26 +635,40 @@ export class Txt extends Shape {
     this.textWrap(false);
 
     const oldText = leaf.text.context.raw();
-    const oldSize = this.size.context.raw();
+    const oldSizeRaw = this.size.context.raw();
+    const oldSize = new Vector2(this.size());
     leaf.text(value);
-    const newSize = this.size();
+    const newSize = new Vector2(this.size());
     leaf.text(oldText ?? DEFAULT);
 
-    const oldHeight = this.height();
-    if (oldHeight === 0) {
-      this.height(newSize.height);
-    } else if (newSize.height === 0) {
-      newSize.height = oldHeight;
+    if (oldSize.y === 0) {
+      this.height(newSize.y);
+      oldSize.y = newSize.y;
+    } else if (newSize.y === 0) {
+      newSize.y = oldSize.y;
     }
 
+    const startingFontSize = this.fontSize();
+    const sizeAt = (base: Vector2): Vector2 => {
+      if (startingFontSize === 0) return base;
+      const scale = this.fontSize() / startingFontSize;
+      return new Vector2(base.x * scale, base.y * scale);
+    };
+
+    this.lockLayout();
+
     yield* all(
-      this.size(newSize, time, timingFunction),
+      tween(time, t => {
+        const progress = timingFunction(t);
+        this.size(Vector2.lerp(sizeAt(oldSize), sizeAt(newSize), progress));
+      }),
       leaf.text(value, time, timingFunction, interpolationFunction),
     );
 
     this.children.context.setter(value);
-    this.size(oldSize);
+    this.releaseLayout();
     this.textWrap(oldWrap ?? DEFAULT);
+    this.size(oldSizeRaw);
   }
 
   protected getLayout(): boolean {

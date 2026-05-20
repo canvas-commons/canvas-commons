@@ -1,0 +1,17 @@
+node_modules
+**/node_modules
+.pnpm-store
+packages/*/dist
+packages/*/lib
+packages/*/.cache
+packages/*/.turbo
+packages/2d/editor
+packages/e2e/output
+packages/e2e/src/__image_snapshots__/__diff_output__
+.git
+.github
+.claude
+.husky
+.idea
+.vscode
+*.log

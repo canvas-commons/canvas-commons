@@ -38,6 +38,24 @@ pnpm --filter @canvas-commons/e2e test -t "quickstart > frame peak"
 Always rerun the full suite before committing snapshot changes — filtered runs
 won't catch knock-on regressions in other scenes.
 
+### Regenerating snapshots for CI
+
+Canvas rendering is not pixel-identical across operating systems — fonts, GPU
+drivers, and color profiles all leak through. Snapshots committed from a Windows
+or macOS dev machine will diff against the CI Linux+Firefox run.
+
+To keep CI green, regenerate baselines inside the same container CI uses:
+
+```bash
+pnpm --filter @canvas-commons/e2e run test:docker
+```
+
+This builds a local image from `packages/e2e/Dockerfile.test` (Playwright's
+Jammy image with Node 22 layered on, matching `.github/workflows/verify.yml`)
+and runs `pnpm run e2e:test` inside it.
+
+Requires Docker. First build pulls the Playwright image (~1.5 GB).
+
 ## Traps
 
 **Image snapshots are checked into git.** If your change alters rendered output,

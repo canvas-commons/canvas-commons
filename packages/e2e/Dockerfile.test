@@ -1,0 +1,39 @@
+# Mirrors the CI E2E container: Playwright's official image (jammy) with
+# Node 22 layered on top via NodeSource — same pattern verify.yml uses.
+# Build context is the repo root. Build with:
+#
+#   docker build --build-arg PLAYWRIGHT_VERSION=<resolved> \
+#     -f packages/e2e/Dockerfile.test -t <tag> .
+ARG PLAYWRIGHT_VERSION
+FROM mcr.microsoft.com/playwright:v${PLAYWRIGHT_VERSION}-jammy
+
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get install -y --no-install-recommends nodejs && \
+    rm -rf /var/lib/apt/lists/* && \
+    corepack enable
+
+WORKDIR /work
+
+# Manifests only — invalidating any of these reruns `pnpm install`.
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+COPY packages/2d/package.json ./packages/2d/
+COPY packages/core/package.json ./packages/core/
+COPY packages/create/package.json ./packages/create/
+COPY packages/docs/package.json ./packages/docs/
+COPY packages/e2e/package.json ./packages/e2e/
+COPY packages/editor/package.json ./packages/editor/
+COPY packages/examples/package.json ./packages/examples/
+COPY packages/ffmpeg/package.json ./packages/ffmpeg/
+COPY packages/player/package.json ./packages/player/
+COPY packages/template/package.json ./packages/template/
+COPY packages/vite-plugin/package.json ./packages/vite-plugin/
+
+RUN pnpm install --frozen-lockfile
+
+# Source. Code changes land here and invalidate only the build + test layers
+# that follow.
+COPY . .
+
+RUN pnpm run build
+
+CMD ["pnpm", "run", "e2e:test"]

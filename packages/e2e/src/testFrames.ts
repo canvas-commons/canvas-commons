@@ -91,6 +91,16 @@ export const testFrames: Record<string, TestFrame[]> = {
     {frame: 30, label: 'mid'},
     {frame: -1, label: 'final'},
   ],
+  'layout-animations': [
+    {frame: 0, label: 'initial'},
+    {frame: 18, label: 'insert'},
+    {frame: 132, label: 'after-remove'},
+    {frame: 252, label: 'wrap-row'},
+    {frame: 372, label: 'rotated-grow'},
+    {frame: 420, label: 'transition-out'},
+    {frame: 480, label: 'edit-layout-col'},
+    {frame: -1, label: 'final'},
+  ],
   positioning: [
     {frame: 0, label: 'initial'},
     {frame: 30, label: 'mid'},

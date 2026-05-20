@@ -62,6 +62,7 @@ import {
 import {buildCanvasFontString, resolveLineHeight} from '../text';
 import {drawLine, drawPivot, is} from '../utils';
 import {
+  affectedLayouts,
   invertPositions,
   playInverted,
   snapshotPositions,
@@ -80,6 +81,7 @@ import {
   toYogaJustifyContent,
   type YogaNode,
 } from '../utils/yoga';
+import {transitionTo as runTransitionTo} from './layout/transitionTo';
 import {Node, NodeProps} from './Node';
 import {ComponentChildren} from './types';
 
@@ -1649,6 +1651,67 @@ export class Layout extends Node {
     const post = snapshotPositions(children);
     const inverted = invertPositions(pre, post);
     yield* playInverted(inverted, duration, timing, interpolation);
+  }
+
+  /**
+   * Move this Layout into a new parent, smoothly shrinking the slot in
+   * the old parent and growing the slot in the new parent.
+   */
+  @threadable()
+  public override *transitionTo(
+    newParent: Node,
+    indexOrDuration: number,
+    durationOrTiming?: number | TimingFunction,
+    timing: TimingFunction = easeInOutCubic,
+    interpolation: InterpolationFunction<Vector2> = Vector2.lerp,
+  ): ThreadGenerator {
+    yield* runTransitionTo(
+      this,
+      newParent,
+      indexOrDuration,
+      durationOrTiming,
+      timing,
+      interpolation,
+    );
+  }
+
+  /**
+   * Cross-fade this Layout into another node. Detaches from the parent's
+   * flex layout for the duration of the tween so the slot collapses
+   * immediately and siblings glide via FLIP.
+   */
+  @threadable()
+  public override *morphTo(
+    other: Node,
+    duration: number,
+    timing: TimingFunction = easeInOutCubic,
+    interpolation: InterpolationFunction<Vector2> = Vector2.lerp,
+  ): ThreadGenerator {
+    const startWorld = this.position.abs();
+    const siblings = affectedLayouts(this).filter(n => n !== this);
+    const pre = snapshotPositions(siblings);
+
+    const savedLayoutSelf = this.layoutSelf.context.raw();
+    this.layoutSelf(false);
+    if (this.parent()) {
+      this.position.abs(startWorld);
+    }
+
+    const post = snapshotPositions(siblings);
+    const inverted = invertPositions(pre, post);
+
+    try {
+      yield* all(
+        super.morphTo(other, duration, timing, interpolation),
+        playInverted(inverted, duration, timing, interpolation),
+      );
+    } finally {
+      if (savedLayoutSelf === undefined) {
+        this.layoutSelf.context.reset();
+      } else {
+        this.layoutSelf.context.setter(savedLayoutSelf);
+      }
+    }
   }
 
   public override dispose() {

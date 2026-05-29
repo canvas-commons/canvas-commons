@@ -1,6 +1,6 @@
 {
   "name": "@canvas-commons/editor",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "A visual editor for Canvas Commons",
   "type": "module",
   "main": "./dist/main.js",

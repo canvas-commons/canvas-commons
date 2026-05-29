@@ -1,5 +1,15 @@
 # Change Log
 
+## 0.3.0
+
+### Patch Changes
+
+- [#111](https://github.com/canvas-commons/canvas-commons/pull/111)
+  [`a1bb3ad`](https://github.com/canvas-commons/canvas-commons/commit/a1bb3ad63bbc741d8a7d81639b523c7f43f4cc19)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - dedupe preact and
+  pre-bundle mathjax-full so consumer dev servers don't crash on duplicate
+  preact copies or unresolved CommonJS exports.
+
 ## 0.2.2
 
 ## 0.2.1

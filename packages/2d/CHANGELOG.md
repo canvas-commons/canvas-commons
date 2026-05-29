@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.3.0
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @canvas-commons/core@0.3.0
+
 ## 0.2.2
 
 ### Patch Changes

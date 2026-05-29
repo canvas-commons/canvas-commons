@@ -1,6 +1,6 @@
 {
   "name": "@canvas-commons/2d",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "A 2D renderer for Canvas Commons",
   "type": "module",
   "main": "./lib/index.js",

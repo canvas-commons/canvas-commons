@@ -99,8 +99,26 @@ import {MetaFile} from '@canvas-commons/core';
             importSource: '@canvas-commons/2d',
           },
         },
+        resolve: {
+          // The editor and the 2d editor plugin treat preact as external, so a
+          // consumer can otherwise resolve duplicate copies and break hooks.
+          dedupe: ['preact', '@preact/signals', '@preact/signals-core'],
+        },
         optimizeDeps: {
           entries: projects.map(project => project.filePath),
+          // CommonJS deep imports from Latex; @canvas-commons/2d is excluded so
+          // Vite won't discover them on its own. The `2d >` prefix resolves
+          // mathjax relative to 2d, which isn't a direct consumer dependency.
+          // Mirror the imports in packages/2d/src/lib/components/Latex.ts.
+          include: [
+            '@canvas-commons/2d > mathjax-full/js/adaptors/liteAdaptor.js',
+            '@canvas-commons/2d > mathjax-full/js/handlers/html.js',
+            '@canvas-commons/2d > mathjax-full/js/input/tex.js',
+            '@canvas-commons/2d > mathjax-full/js/input/tex/AllPackages.js',
+            '@canvas-commons/2d > mathjax-full/js/mathjax.js',
+            '@canvas-commons/2d > mathjax-full/js/output/svg.js',
+            '@canvas-commons/2d > mathjax-full/js/util/Options.js',
+          ],
           exclude: [
             '@canvas-commons/2d',
             '@canvas-commons/2d/*',

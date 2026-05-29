@@ -106,10 +106,11 @@ import {MetaFile} from '@canvas-commons/core';
         },
         optimizeDeps: {
           entries: projects.map(project => project.filePath),
-          // CommonJS deep imports from Latex; @canvas-commons/2d is excluded so
-          // Vite won't discover them on its own. The `2d >` prefix resolves
-          // mathjax relative to 2d, which isn't a direct consumer dependency.
-          // Mirror the imports in packages/2d/src/lib/components/Latex.ts.
+          // Pure-CommonJS deps of the excluded @canvas-commons/2d that have no
+          // ESM entry: served raw they break import interop. The `2d >` prefix
+          // resolves them relative to 2d, which isn't a direct consumer
+          // dependency. The mathjax entries mirror the imports in
+          // packages/2d/src/lib/components/Latex.ts.
           include: [
             '@canvas-commons/2d > mathjax-full/js/adaptors/liteAdaptor.js',
             '@canvas-commons/2d > mathjax-full/js/handlers/html.js',
@@ -118,6 +119,7 @@ import {MetaFile} from '@canvas-commons/core';
             '@canvas-commons/2d > mathjax-full/js/mathjax.js',
             '@canvas-commons/2d > mathjax-full/js/output/svg.js',
             '@canvas-commons/2d > mathjax-full/js/util/Options.js',
+            '@canvas-commons/2d > parse-svg-path',
           ],
           exclude: [
             '@canvas-commons/2d',

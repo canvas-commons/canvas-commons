@@ -1,5 +1,20 @@
 # Change Log
 
+## 0.3.0
+
+### Minor Changes
+
+- [#105](https://github.com/canvas-commons/canvas-commons/pull/105)
+  [`a5bd71e`](https://github.com/canvas-commons/canvas-commons/commit/a5bd71e5e0e5a287d76c5510a86880b3a61395f8)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - add `Shift + C` /
+  `Shift + D` viewport shortcuts to copy the current frame to the clipboard or
+  download it as a PNG.
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @canvas-commons/core@0.3.0
+
 ## 0.2.2
 
 ### Patch Changes

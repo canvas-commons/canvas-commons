@@ -1,5 +1,14 @@
 # Change Log
 
+## 0.3.0
+
+### Patch Changes
+
+- Updated dependencies
+  [[`a1bb3ad`](https://github.com/canvas-commons/canvas-commons/commit/a1bb3ad63bbc741d8a7d81639b523c7f43f4cc19)]:
+  - @canvas-commons/vite-plugin@0.3.0
+  - @canvas-commons/core@0.3.0
+
 ## 0.2.2
 
 ### Patch Changes

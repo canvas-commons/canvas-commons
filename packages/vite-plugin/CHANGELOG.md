@@ -1,5 +1,15 @@
 # Change Log
 
+## 0.3.1
+
+### Patch Changes
+
+- [#113](https://github.com/canvas-commons/canvas-commons/pull/113)
+  [`de4e3d1`](https://github.com/canvas-commons/canvas-commons/commit/de4e3d1753f5b8cd09bf5fbfc229f3d98fd09792)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - pre-bundle
+  parse-svg-path so consumer dev servers don't crash on its missing default
+  export.
+
 ## 0.3.0
 
 ### Patch Changes

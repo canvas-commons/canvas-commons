@@ -174,6 +174,9 @@ importers:
 
   packages/create:
     dependencies:
+      kleur:
+        specifier: ^3.0.3
+        version: 3.0.3
       minimist:
         specifier: ^1.2.8
         version: 1.2.8

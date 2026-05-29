@@ -28,6 +28,7 @@
     "@canvas-commons/vite-plugin": "workspace:^"
   },
   "dependencies": {
+    "kleur": "^3.0.3",
     "minimist": "^1.2.8",
     "prompts": "^2.4.2"
   }

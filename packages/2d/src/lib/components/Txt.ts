@@ -1410,66 +1410,107 @@ export class Txt extends Shape {
   }
 
   /**
-   * Walk every line of the current layout, segmenting each line's text at
-   * the requested granularity.
+   * Walk every line of the current layout, segmenting each line's text at the
+   * requested granularity and pairing each unit with its run's style.
    *
    * @remarks
-   * Used by {@link textWords}, {@link textGlyphs}, and {@link textSentences}.
-   * Positions are in Txt-local center-origin coordinates.
-   *
-   * When no real 2D canvas context is available (e.g. jsdom), widths fall
-   * back to zero so callers can still inspect text and order.
+   * Backs {@link textWords}, {@link textGlyphs}, {@link textSentences}, and
+   * {@link split}. Positions are in Txt-local center-origin coordinates.
+   * `keepPunctuation` keeps non-word, non-whitespace segments (e.g. `'.'`) as
+   * their own units under `'word'` granularity; the public accessors drop
+   * them, but {@link split} keeps them so no ink is lost.
    */
-  private splitLayout(granularity: SegmentGranularity): TextUnit[] {
+  private walkUnits(
+    granularity: SegmentGranularity,
+    keepPunctuation: boolean,
+  ): {unit: TextUnit; style: FragmentStyle}[] {
     const lines = this.positionedLines();
-    if (lines.length === 0) {
-      return this.fallbackSplit(granularity);
-    }
     const {x: blockWidth, y: blockHeight} = this.size();
-    const result: TextUnit[] = [];
+    const result: {unit: TextUnit; style: FragmentStyle}[] = [];
 
     for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
       const line = lines[lineIdx];
-      const topY = line.top - blockHeight / 2;
-
+      const y = line.top - blockHeight / 2 + line.height / 2;
       let indexInLine = 0;
-      for (const fragment of line.fragments) {
-        if (fragment.inline) continue;
-        let cursorLeft = fragment.x + line.alignOffset - blockWidth / 2;
-        // Cumulative `measureText` preserves kerning against the prefix —
-        // measuring graphemes in isolation drifts.
+
+      // Measure cumulatively so kerning against the prefix is preserved.
+      // `slack` is added per whitespace run (so sentences get it per gap).
+      const emit = (
+        text: string,
+        style: FragmentStyle,
+        startX: number,
+        slack: number,
+      ) => {
+        let cursor = startX;
         let cumulativeText = '';
         let prevCum = 0;
-        for (const seg of segment(fragment.text, granularity)) {
+        for (const seg of segment(text, granularity)) {
           cumulativeText += seg.segment;
-          const cumWidth = this.measureStyledText(
-            cumulativeText,
-            fragment.style,
-          );
-          const isWhitespace = /^\s+$/.test(seg.segment);
-          const advance =
-            cumWidth - prevCum + (isWhitespace ? line.extraPerSpace : 0);
+          const cumWidth = this.measureStyledText(cumulativeText, style);
+          const runs = slack > 0 ? (seg.segment.match(/\s+/g)?.length ?? 0) : 0;
+          const advance = cumWidth - prevCum + slack * runs;
           prevCum = cumWidth;
-          if (granularity === 'word' && seg.isWordLike === false) {
-            cursorLeft += advance;
-            continue;
+          if (granularity === 'word' && !seg.isWordLike) {
+            const whitespace = /^\s+$/.test(seg.segment);
+            if (whitespace || !keepPunctuation) {
+              cursor += advance;
+              continue;
+            }
           }
           if (seg.segment.length === 0) continue;
           result.push({
-            text: seg.segment,
-            x: cursorLeft + advance / 2,
-            y: topY + line.height / 2,
-            width: advance,
-            height: line.height,
-            lineIndex: lineIdx,
-            indexInLine: indexInLine++,
+            unit: {
+              text: seg.segment,
+              x: cursor + advance / 2,
+              y,
+              width: advance,
+              height: line.height,
+              lineIndex: lineIdx,
+              indexInLine: indexInLine++,
+            },
+            style,
           });
-          cursorLeft += advance;
+          cursor += advance;
+        }
+      };
+
+      for (let f = 0; f < line.fragments.length; f++) {
+        const fragment = line.fragments[f];
+        if (fragment.inline) continue;
+        const fragLeft = fragment.x + line.alignOffset - blockWidth / 2;
+        const justified = line.justified?.[f];
+        if (justified && line.extraPerSpace > 0 && granularity !== 'sentence') {
+          // Justified lines paint word-by-word, so accumulate standalone word
+          // advances + slack — a whole-fragment measure would re-add inter-word
+          // kerning the paint omits and drift every later word.
+          let cursor = fragLeft;
+          for (const seg of justified) {
+            if (seg.whitespace) {
+              cursor += seg.advance + line.extraPerSpace;
+            } else {
+              emit(seg.text, fragment.style, cursor, 0);
+              cursor += seg.advance;
+            }
+          }
+        } else {
+          // Sentences span multiple painted words, so they take the cumulative
+          // path: slack is distributed, but justified sentence units stay off
+          // by sub-pixel inter-word kerning the word-by-word paint omits.
+          emit(fragment.text, fragment.style, fragLeft, line.extraPerSpace);
         }
       }
     }
 
     return result;
+  }
+
+  private splitLayout(granularity: SegmentGranularity): TextUnit[] {
+    if (this.positionedLines().length === 0) {
+      // No real 2D canvas context (e.g. jsdom): widths fall back to zero so
+      // callers can still inspect text and order.
+      return this.fallbackSplit(granularity);
+    }
+    return this.walkUnits(granularity, false).map(entry => entry.unit);
   }
 
   /**
@@ -1537,6 +1578,78 @@ export class Txt extends Shape {
    */
   public textSentences(): TextUnit[] {
     return this.sentenceUnits();
+  }
+
+  /**
+   * Explode this text into one standalone {@link Txt} per unit, each
+   * positioned to reproduce the source render exactly so the pieces can be
+   * animated independently.
+   *
+   * @remarks
+   * Each piece is a center-anchored `Txt` in this node's local space carrying
+   * its run's font and paint. Mount them under a node that shares this node's
+   * transform, then hide the source:
+   *
+   * ```tsx
+   * const pieces = label().split('word');
+   * view.add(
+   *   <Node
+   *     position={label().position()}
+   *     rotation={label().rotation()}
+   *     scale={label().scale()}
+   *   >
+   *     {pieces}
+   *   </Node>,
+   * );
+   * label().opacity(0);
+   * ```
+   *
+   * Returns an empty array in headless environments without a 2D canvas (e.g.
+   * jsdom). Caveats: grapheme splitting breaks ligature shaping; `'sentence'`
+   * on justified lines is sub-pixel-approximate; per-node `filters`, `shadow*`,
+   * and `cache` on the source are not transferred.
+   *
+   * @param granularity - `'grapheme'` (default), `'word'`, or `'sentence'`.
+   */
+  public split(granularity: SegmentGranularity = 'grapheme'): Txt[] {
+    if (this.positionedLines().length === 0) {
+      return [];
+    }
+    return this.walkUnits(granularity, true).map(({unit, style}) =>
+      this.createPiece(unit, style),
+    );
+  }
+
+  private createPiece(unit: TextUnit, style: FragmentStyle): Txt {
+    // Pen = the kern-invariant right edge minus the isolated advance, landing
+    // where the source drew the unit. Centering via the piece's own box keeps
+    // the center anchor (for rotate/scale) while pinning the pen exactly.
+    const penLeft =
+      unit.x + unit.width / 2 - this.measureStyledText(unit.text, style);
+    const top = unit.y - unit.height / 2;
+    const piece = new Txt({
+      text: unit.text,
+      fontFamily: style.fontComponents.family,
+      fontSize: style.fontComponents.size,
+      fontStyle: style.fontComponents.style,
+      fontWeight: style.fontComponents.weight,
+      letterSpacing: style.letterSpacing,
+      fill: style.fill,
+      stroke: style.stroke,
+      lineWidth: style.lineWidth,
+      strokeFirst: style.strokeFirst,
+      lineCap: this.lineCap(),
+      lineJoin: this.lineJoin(),
+      lineDash: this.lineDash(),
+      lineDashOffset: this.lineDashOffset(),
+      textDirection: this.textDirection(),
+      textWrap: false,
+      textAlign: 'left',
+      lineHeight: unit.height,
+    });
+    const size = piece.size();
+    piece.position([penLeft + size.x / 2, top + size.y / 2]);
+    return piece;
   }
 
   @computed()

@@ -32,6 +32,7 @@ export default defineConfig({
         './src/filters-order.ts',
         './src/primitives.ts',
         './src/text.ts',
+        './src/text-split.ts',
       ],
     }),
   ],

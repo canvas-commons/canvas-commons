@@ -192,6 +192,7 @@ short usage examples. Read the one for the package you're touching:
 - [`packages/vite-plugin/AGENTS.md`](packages/vite-plugin/AGENTS.md)
 - [`packages/player/AGENTS.md`](packages/player/AGENTS.md)
 - [`packages/ffmpeg/AGENTS.md`](packages/ffmpeg/AGENTS.md)
+- [`packages/webcodecs/AGENTS.md`](packages/webcodecs/AGENTS.md)
 - [`packages/create/AGENTS.md`](packages/create/AGENTS.md)
 - [`packages/template/AGENTS.md`](packages/template/AGENTS.md)
 - [`packages/examples/AGENTS.md`](packages/examples/AGENTS.md)

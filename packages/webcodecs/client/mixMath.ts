@@ -1,9 +1,3 @@
-/**
- * Pure timing/gain helpers for the in-browser audio mix. No browser APIs — these
- * are unit-tested so the mix stays stable. See the package `AGENTS.md` for how
- * each operation maps onto the Web Audio API.
- */
-
 /** Decibels to a linear amplitude factor. */
 export function dbToGain(db: number): number {
   return Math.pow(10, db / 20);

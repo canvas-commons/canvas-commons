@@ -84,8 +84,6 @@ export class WebCodecsExporterClient implements Exporter {
   private videoSource: CanvasSource | null = null;
   private audioSource: AudioBufferSource | null = null;
   private mixedAudio: AudioBuffer | null = null;
-  /** Set when the render canvas has odd dimensions and must be blitted even. */
-  private blit: ((source: HTMLCanvasElement) => void) | null = null;
   private started = false;
   private frame = 0;
   private duration = Infinity;
@@ -112,6 +110,21 @@ export class WebCodecsExporterClient implements Exporter {
       throw new Error(
         'WebCodecs (VideoEncoder) is not available in this browser. ' +
           'Render in a recent Chromium or Firefox browser.',
+      );
+    }
+
+    // H.264 requires even dimensions; reject odd renders up front rather than
+    // silently cropping a row/column during encode.
+    const width = Math.floor(
+      this.settings.size.x * this.settings.resolutionScale,
+    );
+    const height = Math.floor(
+      this.settings.size.y * this.settings.resolutionScale,
+    );
+    if (width % 2 !== 0 || height % 2 !== 0) {
+      throw new Error(
+        `WebCodecs export needs even dimensions, but the render is ${width}×${height}. ` +
+          'Adjust the resolution or scale so both width and height are even.',
       );
     }
 
@@ -156,8 +169,6 @@ export class WebCodecsExporterClient implements Exporter {
     }
 
     const video = this.videoSource ?? (await this.begin(canvas));
-    // Copy odd-sized frames into the even encode canvas (no-op otherwise).
-    this.blit?.(canvas);
     // Awaiting respects Mediabunny's encoder/writer backpressure.
     await video.add(this.frame / this.fps, 1 / this.fps);
     this.frame++;
@@ -169,21 +180,7 @@ export class WebCodecsExporterClient implements Exporter {
    * with the frame.
    */
   private async begin(canvas: HTMLCanvasElement): Promise<CanvasSource> {
-    // H.264 requires even dimensions; if the render canvas is odd, encode
-    // through an even-sized canvas (dropping the last row/column).
-    let encodeCanvas: HTMLCanvasElement | OffscreenCanvas = canvas;
-    const evenWidth = canvas.width & ~1;
-    const evenHeight = canvas.height & ~1;
-    if (evenWidth !== canvas.width || evenHeight !== canvas.height) {
-      const offscreen = new OffscreenCanvas(evenWidth, evenHeight);
-      const context = offscreen.getContext('2d');
-      if (context) {
-        this.blit = source => context.drawImage(source, 0, 0);
-        encodeCanvas = offscreen;
-      }
-    }
-
-    const videoSource = new CanvasSource(encodeCanvas, {
+    const videoSource = new CanvasSource(canvas, {
       codec: 'avc', // H.264
       bitrate: Math.round(this.options.bitrate * 1_000_000),
       keyFrameInterval: this.options.keyframeInterval,

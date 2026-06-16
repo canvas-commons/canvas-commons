@@ -59,9 +59,9 @@ can encode it, otherwise Opus (both mux into mp4). Notably Linux Chrome and
 Firefox have no AAC WebCodecs encoder, so they produce Opus; if neither encodes,
 the file is written without audio (with a warning).
 
-**Odd dimensions are handled.** H.264 requires even width/height, so an odd
-render canvas (`size * resolutionScale`) is encoded through an even-sized
-canvas, dropping the last row/column.
+**Odd dimensions are rejected.** H.264 requires even width/height, so a render
+whose `size * resolutionScale` is odd in either axis is refused up front (in
+`start`) with a clear error rather than silently cropped.
 
 ## Used in the wild
 

@@ -120,7 +120,8 @@ export class WebCodecsExporterClient implements Exporter {
     if (typeof VideoEncoder === 'undefined') {
       throw new Error(
         'WebCodecs (VideoEncoder) is not available in this browser. ' +
-          'Render in a recent Chromium or Firefox browser.',
+          'Render in a recent Chromium or Firefox browser ' +
+          '(see https://caniuse.com/webcodecs).',
       );
     }
 

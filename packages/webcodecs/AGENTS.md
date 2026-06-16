@@ -47,12 +47,13 @@ mechanism that implements it:
 
 **Needs a WebCodecs encoder, secure context.** `VideoEncoder` must be present
 (the exporter throws a clear message otherwise) — true for Chromium and recent
-Firefox (verified on **Firefox 151**: real H.264 + Opus encode at 1080p and 4K).
-Firefox shipped the WebCodecs encoder later than Chromium, so only older Firefox
-hits the throw. WebCodecs is exposed only over `https`/`localhost`, both of
-which the editor dev server satisfies. Hardware H.264 encode is unavailable in
-headless Chrome on Linux/NVIDIA, so the `realtime` latency mode is the practical
-speed lever.
+Firefox (verified on **Firefox 151**: real H.264 + Opus encode at 1080p and 4K);
+see [caniuse](https://caniuse.com/webcodecs) for current support. Firefox
+shipped the WebCodecs encoder later than Chromium, so only older Firefox hits
+the throw. WebCodecs is exposed only over `https`/`localhost`, both of which the
+editor dev server satisfies. Hardware H.264 encode is unavailable in headless
+Chrome on Linux/NVIDIA, so the `realtime` latency mode is the practical speed
+lever.
 
 **Audio codec depends on the browser.** Output audio is AAC where the browser
 can encode it, otherwise Opus (both mux into mp4). Notably Linux Chrome and

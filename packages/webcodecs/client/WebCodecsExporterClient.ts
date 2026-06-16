@@ -16,6 +16,7 @@ import {
   AudioBufferSource,
   BufferTarget,
   CanvasSource,
+  getFirstEncodableAudioCodec,
   Mp4OutputFormat,
   Output,
 } from 'mediabunny';
@@ -41,11 +42,6 @@ interface WebCodecsExporterOptions {
 
 const AUDIO_BITRATE = 192_000;
 const AUDIO_CHANNELS = 2;
-/** Preferred first (broadest player support); both are valid in mp4. */
-const AUDIO_CODECS: {codec: 'aac' | 'opus'; web: string}[] = [
-  {codec: 'aac', web: 'mp4a.40.2'},
-  {codec: 'opus', web: 'opus'},
-];
 /** Endpoint the server plugin exposes to receive the finished mp4. */
 const ROUTE = '/__canvas-commons-webcodecs';
 
@@ -210,7 +206,13 @@ export class WebCodecsExporterClient implements Exporter {
     this.output.addVideoTrack(videoSource, {frameRate: this.fps});
 
     if (this.mixedAudio) {
-      const codec = await this.pickAudioCodec();
+      // AAC first (broadest player support); Opus is the fallback where the
+      // browser can't encode AAC (e.g. Linux Chrome/Firefox). Both mux into mp4.
+      const codec = await getFirstEncodableAudioCodec(['aac', 'opus'], {
+        numberOfChannels: AUDIO_CHANNELS,
+        sampleRate: this.options.audioSampleRate,
+        bitrate: AUDIO_BITRATE,
+      });
       if (codec) {
         this.audioSource = new AudioBufferSource({
           codec,
@@ -218,8 +220,8 @@ export class WebCodecsExporterClient implements Exporter {
         });
         this.output.addAudioTrack(this.audioSource);
       } else {
-        // No browser AAC/Opus encoder (AAC is unavailable on Linux Chrome and
-        // Firefox); emit a video-only file rather than aborting the whole render.
+        // No encodable audio codec; emit a video-only file rather than aborting
+        // the whole render.
         this.logger.warn(
           'WebCodecs: no supported audio encoder (aac/opus); ' +
             'writing video without audio.',
@@ -232,31 +234,6 @@ export class WebCodecsExporterClient implements Exporter {
     this.videoSource = videoSource;
     this.started = true;
     return videoSource;
-  }
-
-  /**
-   * Pick the first audio codec the browser can actually encode. AAC has the
-   * broadest player support but its WebCodecs encoder is missing on some
-   * platforms (notably Linux Chrome and Firefox), so Opus is the fallback; both
-   * mux into mp4.
-   */
-  private async pickAudioCodec(): Promise<'aac' | 'opus' | null> {
-    for (const {codec, web} of AUDIO_CODECS) {
-      try {
-        const support = await AudioEncoder.isConfigSupported({
-          codec: web,
-          sampleRate: this.options.audioSampleRate,
-          numberOfChannels: AUDIO_CHANNELS,
-          bitrate: AUDIO_BITRATE,
-        });
-        if (support.supported) {
-          return codec;
-        }
-      } catch {
-        // Unknown/unconstructable codec string — try the next candidate.
-      }
-    }
-    return null;
   }
 
   public async stop(result: RendererResult): Promise<void> {

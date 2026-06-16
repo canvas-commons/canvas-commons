@@ -62,10 +62,10 @@ describe('Color', () => {
     test('interpolates between colors', () => {
       expect(
         Color.lerp('rgb(0, 0, 0)', 'rgb(255, 255, 255)', 1 / 2).css(),
-      ).toMatchInlineSnapshot(`"rgb(119 119 119)"`);
+      ).toMatchInlineSnapshot(`"rgb(99 99 99)"`);
       expect(
         Color.lerp('hsl(0, 0%, 0%)', 'hsl(0, 0%, 100%)', 1 / 2).css(),
-      ).toMatchInlineSnapshot(`"rgb(119 119 119)"`);
+      ).toMatchInlineSnapshot(`"rgb(99 99 99)"`);
     });
 
     test('returns starting value at 0', () => {

@@ -215,6 +215,12 @@ export class WebCodecsExporterClient implements Exporter {
         bitrate: AUDIO_BITRATE,
       });
       if (codec) {
+        if (codec !== 'aac') {
+          this.logger.warn(
+            `WebCodecs: AAC unavailable in this browser; encoding audio as ` +
+              `${codec} (narrower player support).`,
+          );
+        }
         this.audioSource = new AudioBufferSource({
           codec,
           bitrate: AUDIO_BITRATE,

@@ -57,8 +57,9 @@ lever.
 
 **Audio codec depends on the browser.** Output audio is AAC where the browser
 can encode it, otherwise Opus (both mux into mp4). Notably Linux Chrome and
-Firefox have no AAC WebCodecs encoder, so they produce Opus; if neither encodes,
-the file is written without audio (with a warning).
+Firefox have no AAC WebCodecs encoder, so they produce Opus (with a warning, as
+its player support is narrower); if neither encodes, the file is written without
+audio (also with a warning).
 
 **Odd dimensions are rejected.** H.264 requires even width/height, so a render
 whose `size * resolutionScale` is odd in either axis is refused up front (in

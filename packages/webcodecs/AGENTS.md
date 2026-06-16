@@ -1,19 +1,16 @@
 # @canvas-commons/webcodecs
 
-A self-contained in-browser video exporter. Encodes video **and** mixes +
-encodes audio entirely in the browser via [Mediabunny](https://mediabunny.dev)
-(a WebCodecs muxer + encoders) and the Web Audio API, then uploads the finished
-mp4 to the dev server, which only writes it to disk. **No ffmpeg.** Skips the
-ffmpeg exporter's per-frame PNG encode and frame transfer — the throughput
-bottleneck at high resolutions.
+A self-contained in-browser video exporter. Encodes video and audio via
+[Mediabunny](https://mediabunny.dev) (a WebCodecs muxer + encoders) and the Web
+Audio API, then uploads the finished mp4 to the dev server, which only writes it
+to disk.
 
 See the [root `AGENTS.md`](../../AGENTS.md) for repo-wide standards.
 
 ## License
 
-MIT, like the rest of the repo. The `mediabunny` dependency is MPL-2.0 —
-file-level copyleft, fine to depend on from MIT code as long as its sources
-aren't modified.
+MIT. The `mediabunny` dependency is MPL-2.0 (file-level copyleft) — fine to
+depend on as long as its sources aren't modified.
 
 ## Commands
 
@@ -28,38 +25,23 @@ The unit tests cover only the pure audio-mix math. The full pipeline runs in the
 browser (Chromium or recent Firefox) and is exercised through a downstream
 project that wires the plugin (`pnpm template:dev`).
 
-## Where things live
+## Audio mix
 
-Source lives at the package root under `client/` and `server/`; `tsdown` outputs
-to `lib/`. Exports mirror ffmpeg: `.`/`./server` is the Vite plugin, `./client`
-is the browser exporter.
+`mixAudio.ts` renders the project's audio to a single `AudioBuffer` in an
+`OfflineAudioContext`; `mixMath.ts` holds the pure timing/gain math, unit-tested
+in `client/__tests__`. The table pins each audio operation to the Web Audio
+mechanism that implements it:
 
-- `client/WebCodecsExporterClient.ts` — the `Exporter`. Drives a Mediabunny
-  `Output` (`CanvasSource` for video, `AudioBufferSource` for audio), POSTs the
-  mp4.
-- `client/mixAudio.ts` — renders the project's audio to one `AudioBuffer` in an
-  `OfflineAudioContext`, mirroring the ffmpeg filtergraph (table below).
-- `client/mixMath.ts` — the pure mix math (unit-tested in `client/__tests__`).
-- `server/index.ts` — the Vite plugin: receives the mp4 and writes it out.
-
-Runtime deps: `@canvas-commons/core`, `@canvas-commons/vite-plugin`,
-`mediabunny`.
-
-## Audio parity with the ffmpeg exporter
-
-The in-browser mix reproduces `@canvas-commons/ffmpeg`'s `applyAudioGraph`
-filtergraph filter-for-filter, so both exporters yield the same audio:
-
-| ffmpeg filter            | Web Audio equivalent                                    |
-| ------------------------ | ------------------------------------------------------- |
-| `-ss` (input seek)       | source offset arg of `start(when, srcOffset, …)`        |
-| `atrim` (end)            | duration arg of `start(…, duration)` (source seconds)   |
-| `volume=${gain}dB`       | `GainNode.gain = 10^(gain/20)`                          |
-| `asetrate` + `aresample` | `AudioBufferSourceNode.playbackRate = realPlaybackRate` |
-| `adelay` (offset > 0)    | `start(when = offset, …)`                               |
-| `aresample` (rate)       | `OfflineAudioContext` sample rate                       |
-| `amix` (`normalize=0`)   | summing sources at `destination`                        |
-| `-t` (duration cap)      | `OfflineAudioContext` length = video duration           |
+| operation              | Web Audio mechanism                                   |
+| ---------------------- | ----------------------------------------------------- |
+| input seek             | source-offset arg of `start(when, srcOffset, …)`      |
+| trim end               | duration arg of `start(…, duration)` (source seconds) |
+| gain (dB)              | `GainNode.gain = 10^(gain/20)`                        |
+| speed + pitch          | `AudioBufferSourceNode.playbackRate`                  |
+| delay (offset > 0)     | `start(when = offset, …)`                             |
+| output sample rate     | `OfflineAudioContext` sample rate                     |
+| mix (no normalization) | summing sources at `destination`                      |
+| duration cap           | `OfflineAudioContext` length = video duration         |
 
 ## Traps
 

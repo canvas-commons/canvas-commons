@@ -49,15 +49,12 @@ const AUDIO_CODECS: {codec: 'aac' | 'opus'; web: string}[] = [
 const ROUTE = '/__canvas-commons-webcodecs';
 
 /**
- * Self-contained in-browser video exporter.
+ * Webcodecs video exporter.
  *
  * @remarks
- * Encodes the render canvas and mixes + encodes the project's audio entirely in
- * the browser via {@link https://mediabunny.dev | Mediabunny} (WebCodecs) and the
- * Web Audio API, producing a finished mp4 that is uploaded to the dev server in
- * one request (the server only writes it out). This skips the ffmpeg exporter's
- * per-frame PNG encode and frame transfer — the throughput bottleneck of a
- * render — and needs no ffmpeg.
+ * Uses {@link https://mediabunny.dev | Mediabunny} (WebCodecs) and the Web Audio
+ * API to produce an mp4, then uploads that to the server to be written to the
+ * filesystem.
  */
 export class WebCodecsExporterClient implements Exporter {
   public static readonly id = '@canvas-commons/webcodecs';
@@ -119,8 +116,6 @@ export class WebCodecsExporterClient implements Exporter {
     }
 
     this.frame = 0;
-    // The renderer emits an inclusive trailing frame; the ffmpeg exporter trims
-    // it. Match that so both exporters yield the same frame count.
     this.duration = duration;
     this.started = false;
 
@@ -131,9 +126,9 @@ export class WebCodecsExporterClient implements Exporter {
       target: new BufferTarget(),
     });
 
-    // Mix audio up front (mirrors the ffmpeg filtergraph). Done before the first
-    // frame so we know whether to add an audio track; a failure degrades to a
-    // video-only file rather than aborting the render.
+    // Mix audio up front, before the first frame, so we know whether to add an
+    // audio track; a failure degrades to a video-only file rather than aborting
+    // the render.
     const master =
       this.options.includeAudio && this.project.audio
         ? this.project.audio
@@ -154,7 +149,7 @@ export class WebCodecsExporterClient implements Exporter {
   }
 
   public async handleFrame(canvas: HTMLCanvasElement): Promise<void> {
-    // Drop the renderer's inclusive trailing frame to match the ffmpeg exporter.
+    // Drop the renderer's inclusive trailing frame.
     if (this.frame >= this.duration) {
       this.frame++;
       return;

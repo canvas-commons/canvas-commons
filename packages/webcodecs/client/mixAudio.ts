@@ -32,8 +32,8 @@ interface MixEntry {
 
 /**
  * Render the project's audio to a single {@link AudioBuffer} entirely in the
- * browser, mirroring the ffmpeg exporter's filtergraph so the mix is identical.
- * See the package `AGENTS.md` for the filter-by-filter parity table.
+ * browser. See the package `AGENTS.md` for how each operation maps onto the Web
+ * Audio API.
  *
  * @returns the mixed buffer, or `null` if there is nothing to mix.
  */
@@ -48,7 +48,7 @@ export async function mixProjectAudio(
     end: sound.end,
     gain: sound.gain,
   }));
-  // ffmpeg appends the master track last, at playback rate 1.
+  // The master track mixes in last, at playback rate 1.
   if (options.master) {
     entries.push({
       audio: options.master,
@@ -71,13 +71,12 @@ export async function mixProjectAudio(
     options.sampleRate,
   );
 
-  // Decode each distinct file once.
-  const cache = new Map<string, Promise<AudioBuffer | null>>();
+  const decodeOncePerUrl = new Map<string, Promise<AudioBuffer | null>>();
   const load = (url: string) => {
-    let pending = cache.get(url);
+    let pending = decodeOncePerUrl.get(url);
     if (!pending) {
       pending = decode(ctx, url);
-      cache.set(url, pending);
+      decodeOncePerUrl.set(url, pending);
     }
     return pending;
   };
@@ -106,7 +105,7 @@ export async function mixProjectAudio(
 
     const source = ctx.createBufferSource();
     source.buffer = buffer;
-    // asetrate + aresample: change speed and pitch together.
+    // Change speed and pitch together.
     source.playbackRate.value = entry.realPlaybackRate;
 
     if (entry.gain) {
@@ -124,7 +123,7 @@ export async function mixProjectAudio(
   if (scheduled === 0) {
     return null;
   }
-  // Summing at the destination is the `amix` (normalize=0) equivalent.
+  // Summing every source at the destination mixes them without normalization.
   return ctx.startRendering();
 }
 

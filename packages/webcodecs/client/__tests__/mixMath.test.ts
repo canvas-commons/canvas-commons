@@ -15,7 +15,7 @@ describe('dbToGain', () => {
   test('-20 dB is 0.1x', () => expect(dbToGain(-20)).toBeCloseTo(0.1, 6));
 });
 
-describe('sourceOffset (ffmpeg -ss)', () => {
+describe('sourceOffset', () => {
   test('defaults to 0', () => expect(sourceOffset(undefined, 0, 1)).toBe(0));
   test('uses the trim start', () => expect(sourceOffset(2, 0, 1)).toBe(2));
   test('negative offset seeks |offset|*rate into the source', () =>
@@ -26,13 +26,13 @@ describe('sourceOffset (ffmpeg -ss)', () => {
     expect(sourceOffset(1, 5, 2)).toBe(1));
 });
 
-describe('startWhen (ffmpeg adelay)', () => {
+describe('startWhen', () => {
   test('positive offset delays', () => expect(startWhen(2.5)).toBe(2.5));
   test('negative offset starts at 0', () => expect(startWhen(-2)).toBe(0));
   test('zero offset starts at 0', () => expect(startWhen(0)).toBe(0));
 });
 
-describe('playDuration (ffmpeg atrim)', () => {
+describe('playDuration', () => {
   test('plays to the buffer end without a trim end', () =>
     expect(playDuration(undefined, 1, 10)).toBe(9));
   test('respects the trim end (source seconds from srcOffset)', () =>
@@ -40,7 +40,7 @@ describe('playDuration (ffmpeg atrim)', () => {
   test('never negative', () => expect(playDuration(1, 5, 10)).toBe(0));
 });
 
-describe('totalLengthSamples (ffmpeg -t)', () => {
+describe('totalLengthSamples', () => {
   test('caps to the video duration in samples', () =>
     expect(totalLengthSamples(120, 60, 48000)).toBe(96000));
   test('rounds partial samples up', () =>

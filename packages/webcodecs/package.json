@@ -1,7 +1,7 @@
 {
   "name": "@canvas-commons/webcodecs",
   "version": "0.0.0",
-  "description": "A self-contained in-browser WebCodecs video exporter for Canvas Commons",
+  "description": "A WebCodecs exporter for Canvas Commons",
   "type": "module",
   "main": "./lib/server/index.js",
   "types": "./lib/server/index.d.ts",

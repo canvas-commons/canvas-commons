@@ -21,9 +21,7 @@ async function readBody(req: IncomingMessage): Promise<Buffer> {
  * Vite plugin that registers the in-browser WebCodecs exporter.
  *
  * @remarks
- * The browser encodes video and mixes + encodes audio itself (via Mediabunny and
- * the Web Audio API), so the finished mp4 is uploaded in one request and this
- * plugin only writes it to the output directory — no ffmpeg.
+ * The client encodes an mp4 then uploads it to the server to write to the output directory.
  *
  * - `POST /write?name=` — receive the finished mp4 and write it out.
  */

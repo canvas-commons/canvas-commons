@@ -1,5 +1,6 @@
 import type {
   Exporter,
+  Logger,
   MetaField,
   Project,
   RendererSettings,
@@ -62,14 +63,26 @@ export class WebCodecsExporterClient implements Exporter {
 
   public static meta(project: Project): MetaField<any> {
     return new ObjectMetaField(this.displayName, {
-      bitrate: new NumberMetaField('bitrate (Mbps)', 12),
-      keyframeInterval: new NumberMetaField('keyframe interval (s)', 2),
-      realtime: new BoolMetaField('realtime encode (faster)', true),
-      fastStart: new BoolMetaField('fast start', true),
-      includeAudio: new BoolMetaField('include audio', true).disable(
-        !project.audio,
+      bitrate: new NumberMetaField('bitrate (Mbps)', 12).describe(
+        'Target video bitrate in megabits per second.',
       ),
-      audioSampleRate: new NumberMetaField('audio sample rate', 48000),
+      keyframeInterval: new NumberMetaField(
+        'keyframe interval (s)',
+        2,
+      ).describe('Distance between forced keyframes, in seconds.'),
+      realtime: new BoolMetaField('realtime encode (faster)', true).describe(
+        'Faster encode at a small compression cost (realtime latency mode: no ' +
+          'B-frames/lookahead). Off uses quality mode for a final master.',
+      ),
+      fastStart: new BoolMetaField('fast start', true).describe(
+        'Place the moov atom at the start of the file.',
+      ),
+      includeAudio: new BoolMetaField('include audio', true)
+        .disable(!project.audio)
+        .describe("Mix the project's master audio track into the output."),
+      audioSampleRate: new NumberMetaField('audio sample rate', 48000).describe(
+        'Sample rate for the mixed audio.',
+      ),
     });
   }
 
@@ -79,6 +92,7 @@ export class WebCodecsExporterClient implements Exporter {
 
   private readonly options: WebCodecsExporterOptions;
   private readonly fps: number;
+  private readonly logger: Logger;
 
   private output!: Output<Mp4OutputFormat, BufferTarget>;
   private videoSource: CanvasSource | null = null;
@@ -103,6 +117,7 @@ export class WebCodecsExporterClient implements Exporter {
       realtime: opts.realtime ?? true,
     };
     this.fps = settings.fps;
+    this.logger = project.logger;
   }
 
   public async start(sounds: Sound[], duration: number): Promise<void> {
@@ -155,8 +170,12 @@ export class WebCodecsExporterClient implements Exporter {
       fps: this.fps,
       sampleRate: this.options.audioSampleRate,
       channels: AUDIO_CHANNELS,
+      logger: this.logger,
     }).catch(error => {
-      console.warn('[canvas-commons/webcodecs] audio mix failed:', error);
+      this.logger.warn({
+        message: 'WebCodecs: audio mix failed; writing video without audio.',
+        remarks: String(error),
+      });
       return null;
     });
   }
@@ -201,8 +220,8 @@ export class WebCodecsExporterClient implements Exporter {
       } else {
         // No browser AAC/Opus encoder (AAC is unavailable on Linux Chrome and
         // Firefox); emit a video-only file rather than aborting the whole render.
-        console.warn(
-          '[canvas-commons/webcodecs] no supported audio encoder (aac/opus); ' +
+        this.logger.warn(
+          'WebCodecs: no supported audio encoder (aac/opus); ' +
             'writing video without audio.',
         );
         this.mixedAudio = null;
@@ -247,6 +266,8 @@ export class WebCodecsExporterClient implements Exporter {
       return;
     }
     if (result !== RendererResult.Success) {
+      // The render already failed/aborted; a cancel error has nothing to add and
+      // would only mask the real failure, so swallow it.
       await this.output.cancel().catch(() => {});
       return;
     }

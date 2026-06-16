@@ -1,4 +1,4 @@
-import type {Sound} from '@canvas-commons/core';
+import type {Logger, Sound} from '@canvas-commons/core';
 import {
   dbToGain,
   playDuration,
@@ -19,6 +19,8 @@ export interface MixOptions {
   fps: number;
   sampleRate: number;
   channels: number;
+  /** Surfaces decode failures in the editor log. */
+  logger: Logger;
 }
 
 interface MixEntry {
@@ -75,7 +77,7 @@ export async function mixProjectAudio(
   const load = (url: string) => {
     let pending = decodeOncePerUrl.get(url);
     if (!pending) {
-      pending = decode(ctx, url);
+      pending = decode(ctx, url, options.logger);
       decodeOncePerUrl.set(url, pending);
     }
     return pending;
@@ -130,21 +132,22 @@ export async function mixProjectAudio(
 async function decode(
   ctx: BaseAudioContext,
   url: string,
+  logger: Logger,
 ): Promise<AudioBuffer | null> {
   try {
     const response = await fetch(url);
     if (!response.ok) {
-      console.warn(
-        `[canvas-commons/webcodecs] could not fetch audio "${url}" (${response.status})`,
+      logger.warn(
+        `WebCodecs: could not fetch audio "${url}" (${response.status}).`,
       );
       return null;
     }
     return await ctx.decodeAudioData(await response.arrayBuffer());
   } catch (error) {
-    console.warn(
-      `[canvas-commons/webcodecs] could not decode audio "${url}":`,
-      error,
-    );
+    logger.warn({
+      message: `WebCodecs: could not decode audio "${url}".`,
+      remarks: String(error),
+    });
     return null;
   }
 }

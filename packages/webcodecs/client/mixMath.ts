@@ -22,6 +22,20 @@ export function sourceOffset(
   return trimmed;
 }
 
+/**
+ * Shift a project-global offset (seconds) into the render's output timeline,
+ * which starts at `rangeStart`.
+ *
+ * @remarks
+ * Sound and master offsets are measured from the start of the project, but a
+ * partial render starts at `rangeStart`. A sound that began before the range
+ * gets a negative offset, which {@link startWhen} and {@link sourceOffset} then
+ * resolve to a seek into the source.
+ */
+export function outputOffset(offset: number, rangeStart: number): number {
+  return offset - rangeStart;
+}
+
 /** Output start time in seconds; negative offsets start at 0. */
 export function startWhen(offset: number): number {
   return offset > 0 ? offset : 0;

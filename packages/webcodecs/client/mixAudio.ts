@@ -1,6 +1,7 @@
 import type {Logger, Sound} from '@canvas-commons/core';
 import {
   dbToGain,
+  outputOffset,
   playDuration,
   sourceOffset,
   startWhen,
@@ -10,8 +11,10 @@ import {
 export interface MixOptions {
   /** The project's master audio track URL, or `null`. */
   master: string | null;
-  /** Offset (seconds) of the master track relative to the render range start. */
+  /** Project-global offset (seconds) of the master track. */
   masterOffset: number;
+  /** Start of the render range in seconds; sound and master offsets are global. */
+  rangeStart: number;
   /** Per-scene sounds collected by the renderer. */
   sounds: Sound[];
   /** Render length in frames. */
@@ -43,7 +46,7 @@ export async function mixProjectAudio(
 ): Promise<AudioBuffer | null> {
   const entries: MixEntry[] = options.sounds.map(sound => ({
     audio: sound.audio,
-    offset: sound.offset,
+    offset: outputOffset(sound.offset, options.rangeStart),
     realPlaybackRate: sound.realPlaybackRate,
     start: sound.start,
     end: sound.end,
@@ -53,7 +56,7 @@ export async function mixProjectAudio(
   if (options.master) {
     entries.push({
       audio: options.master,
-      offset: options.masterOffset,
+      offset: outputOffset(options.masterOffset, options.rangeStart),
       realPlaybackRate: 1,
     });
   }

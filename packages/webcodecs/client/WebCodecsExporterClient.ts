@@ -152,8 +152,8 @@ export class WebCodecsExporterClient implements Exporter {
         : null;
     this.mixedAudio = await mixProjectAudio({
       master,
-      masterOffset:
-        this.project.meta.shared.audioOffset.get() - this.settings.range[0],
+      masterOffset: this.project.meta.shared.audioOffset.get(),
+      rangeStart: this.settings.range[0],
       sounds,
       durationFrames: duration,
       fps: this.fps,

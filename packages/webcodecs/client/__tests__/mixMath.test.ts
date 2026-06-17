@@ -1,6 +1,7 @@
 import {describe, expect, test} from 'vitest';
 import {
   dbToGain,
+  outputOffset,
   playDuration,
   sourceOffset,
   startWhen,
@@ -24,6 +25,33 @@ describe('sourceOffset', () => {
     expect(sourceOffset(1, -2, 1)).toBe(3));
   test('positive offset does not seek', () =>
     expect(sourceOffset(1, 5, 2)).toBe(1));
+});
+
+describe('outputOffset', () => {
+  test('full render (rangeStart 0) keeps the offset', () =>
+    expect(outputOffset(5, 0)).toBe(5));
+  test('partial render shifts the offset back by rangeStart', () =>
+    expect(outputOffset(5, 3)).toBe(2));
+  test('a sound that began before the range goes negative', () =>
+    expect(outputOffset(1, 3)).toBe(-2));
+});
+
+describe('partial-range sound placement', () => {
+  // Render starting at 3s. A sound played at project time 5s should land 2s
+  // into the output, from the top of its source.
+  test('a sound inside the range plays at offset - rangeStart', () => {
+    const offset = outputOffset(5, 3);
+    expect(startWhen(offset)).toBe(2);
+    expect(sourceOffset(undefined, offset, 1)).toBe(0);
+  });
+
+  // A sound played at project time 1s is already 2s in when the range starts at
+  // 3s: it plays from output time 0, seeking 2s into the source.
+  test('a sound that started before the range seeks into the source', () => {
+    const offset = outputOffset(1, 3);
+    expect(startWhen(offset)).toBe(0);
+    expect(sourceOffset(undefined, offset, 1)).toBe(2);
+  });
 });
 
 describe('startWhen', () => {

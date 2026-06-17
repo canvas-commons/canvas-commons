@@ -43,15 +43,21 @@ editor dev server satisfies. Hardware H.264 encode is unavailable in headless
 Chrome on Linux/NVIDIA, so the `realtime` latency mode is the practical speed
 lever.
 
-**Audio codec depends on the browser.** Output audio is AAC where the browser
-can encode it, otherwise Opus (both mux into mp4). Notably Linux Chrome and
-Firefox have no AAC WebCodecs encoder, so they produce Opus (with a warning, as
-its player support is narrower); if neither encodes, the file is written without
+**Codec and quality are configurable.** The exporter exposes video/audio codec
+dropdowns (the mp4-muxable subset of mediabunny's `VIDEO_CODECS`/`AUDIO_CODECS`)
+and a resolution-aware `Quality` preset; defaults are H.264 + AAC at `high`.
+
+**Audio codec falls back per browser.** The chosen audio codec is used where the
+browser can encode it, otherwise the first encodable of `aac`/`opus` (both mux
+into mp4). Notably Linux Chrome and Firefox have no AAC encoder, so they fall
+back to Opus (with a warning); if none encodes, the file is written without
 audio (also with a warning).
 
-**Odd dimensions are rejected.** H.264 requires even width/height, so a render
-whose `size * resolutionScale` is odd in either axis is refused up front (in
-`start`) with a clear error rather than silently cropped.
+**Odd dimensions are rejected for H.264/H.265.** Those codecs require even
+width/height, so a render whose `size * resolutionScale` is odd in either axis
+is refused up front (in `start`) rather than silently cropped. VP8/VP9/AV1 allow
+odd dimensions and skip the check. A chosen video codec the browser can't encode
+is also rejected up front (in `begin`, via `canEncodeVideo`).
 
 ## Used in the wild
 

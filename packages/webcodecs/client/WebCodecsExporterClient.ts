@@ -35,6 +35,15 @@ const AUDIO_BITRATE = 192_000;
 const AUDIO_CHANNELS = 2;
 const ROUTE = '/__canvas-commons-webcodecs';
 
+const DEFAULTS: WebCodecsExporterOptions = {
+  bitrate: 12,
+  keyframeInterval: 2,
+  fastStart: true,
+  includeAudio: true,
+  audioSampleRate: 48000,
+  realtime: true,
+};
+
 /**
  * Webcodecs video exporter.
  *
@@ -49,26 +58,30 @@ export class WebCodecsExporterClient implements Exporter {
 
   public static meta(project: Project): MetaField<any> {
     return new ObjectMetaField(this.displayName, {
-      bitrate: new NumberMetaField('bitrate (Mbps)', 12).describe(
+      bitrate: new NumberMetaField('bitrate (Mbps)', DEFAULTS.bitrate).describe(
         'Target video bitrate in megabits per second.',
       ),
       keyframeInterval: new NumberMetaField(
         'keyframe interval (s)',
-        2,
+        DEFAULTS.keyframeInterval,
       ).describe('Distance between forced keyframes, in seconds.'),
-      realtime: new BoolMetaField('realtime encode (faster)', true).describe(
+      realtime: new BoolMetaField(
+        'realtime encode (faster)',
+        DEFAULTS.realtime,
+      ).describe(
         'Roughly doubles encode speed for a small compression cost (no ' +
           'B-frames/lookahead). Turn off for a more compressed final master.',
       ),
-      fastStart: new BoolMetaField('fast start', true).describe(
+      fastStart: new BoolMetaField('fast start', DEFAULTS.fastStart).describe(
         'Place the moov atom at the start of the file.',
       ),
-      includeAudio: new BoolMetaField('include audio', true)
+      includeAudio: new BoolMetaField('include audio', DEFAULTS.includeAudio)
         .disable(!project.audio)
         .describe("Mix the project's master audio track into the output."),
-      audioSampleRate: new NumberMetaField('audio sample rate', 48000).describe(
-        'Sample rate for the mixed audio.',
-      ),
+      audioSampleRate: new NumberMetaField(
+        'audio sample rate',
+        DEFAULTS.audioSampleRate,
+      ).describe('Sample rate for the mixed audio.'),
     });
   }
 
@@ -80,11 +93,10 @@ export class WebCodecsExporterClient implements Exporter {
   private readonly fps: number;
   private readonly logger: Logger;
 
-  private output!: Output<Mp4OutputFormat, BufferTarget>;
+  private output: Output<Mp4OutputFormat, BufferTarget> | null = null;
   private videoSource: CanvasSource | null = null;
   private audioSource: AudioBufferSource | null = null;
   private mixedAudio: AudioBuffer | null = null;
-  private started = false;
   private frame = 0;
   private duration = Infinity;
 
@@ -95,12 +107,12 @@ export class WebCodecsExporterClient implements Exporter {
     const opts = (this.settings.exporter.options ??
       {}) as Partial<WebCodecsExporterOptions>;
     this.options = {
-      bitrate: opts.bitrate ?? 12,
-      keyframeInterval: opts.keyframeInterval ?? 2,
-      fastStart: opts.fastStart ?? true,
-      includeAudio: opts.includeAudio ?? true,
-      audioSampleRate: opts.audioSampleRate ?? 48000,
-      realtime: opts.realtime ?? true,
+      bitrate: opts.bitrate ?? DEFAULTS.bitrate,
+      keyframeInterval: opts.keyframeInterval ?? DEFAULTS.keyframeInterval,
+      fastStart: opts.fastStart ?? DEFAULTS.fastStart,
+      includeAudio: opts.includeAudio ?? DEFAULTS.includeAudio,
+      audioSampleRate: opts.audioSampleRate ?? DEFAULTS.audioSampleRate,
+      realtime: opts.realtime ?? DEFAULTS.realtime,
     };
     this.fps = settings.fps;
     this.logger = project.logger;
@@ -131,14 +143,6 @@ export class WebCodecsExporterClient implements Exporter {
 
     this.frame = 0;
     this.duration = duration;
-    this.started = false;
-
-    this.output = new Output({
-      format: new Mp4OutputFormat({
-        fastStart: this.options.fastStart ? 'in-memory' : false,
-      }),
-      target: new BufferTarget(),
-    });
 
     // Mixed up front so the audio track exists before the first frame; a failure
     // degrades to a video-only file.
@@ -183,13 +187,20 @@ export class WebCodecsExporterClient implements Exporter {
    * {@link CanvasSource} needs the render canvas, which only arrives with it.
    */
   private async begin(canvas: HTMLCanvasElement): Promise<CanvasSource> {
+    const output = new Output({
+      format: new Mp4OutputFormat({
+        fastStart: this.options.fastStart ? 'in-memory' : false,
+      }),
+      target: new BufferTarget(),
+    });
+
     const videoSource = new CanvasSource(canvas, {
       codec: 'avc', // H.264
       bitrate: Math.round(this.options.bitrate * 1_000_000),
       keyFrameInterval: this.options.keyframeInterval,
       latencyMode: this.options.realtime ? 'realtime' : 'quality',
     });
-    this.output.addVideoTrack(videoSource, {frameRate: this.fps});
+    output.addVideoTrack(videoSource, {frameRate: this.fps});
 
     if (this.mixedAudio) {
       // AAC where the browser can encode it, else Opus; both mux into mp4.
@@ -209,7 +220,7 @@ export class WebCodecsExporterClient implements Exporter {
           codec,
           bitrate: AUDIO_BITRATE,
         });
-        this.output.addAudioTrack(this.audioSource);
+        output.addAudioTrack(this.audioSource);
       } else {
         this.logger.warn(
           'WebCodecs: no supported audio encoder (aac/opus); ' +
@@ -219,30 +230,31 @@ export class WebCodecsExporterClient implements Exporter {
       }
     }
 
-    await this.output.start();
+    await output.start();
+    this.output = output;
     this.videoSource = videoSource;
-    this.started = true;
     return videoSource;
   }
 
   public async stop(result: RendererResult): Promise<void> {
-    // Set only after output.start() succeeded, so this also covers a failed
-    // start with nothing to finalize.
-    if (!this.started) {
+    // Only set once output.start() succeeded, so a null output means the encode
+    // never began and there is nothing to finalize.
+    const output = this.output;
+    if (!output) {
       return;
     }
     if (result !== RendererResult.Success) {
       // A cancel error would only mask the real failure that aborted the render.
-      await this.output.cancel().catch(() => {});
+      await output.cancel().catch(() => {});
       return;
     }
 
     if (this.audioSource && this.mixedAudio) {
       await this.audioSource.add(this.mixedAudio);
     }
-    await this.output.finalize();
+    await output.finalize();
 
-    const buffer = this.output.target.buffer;
+    const buffer = output.target.buffer;
     if (!buffer) {
       throw new Error('WebCodecs export produced no output.');
     }

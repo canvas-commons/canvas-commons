@@ -72,21 +72,18 @@ export async function mixProjectAudio(
     options.sampleRate,
   );
 
-  const decodeOncePerUrl = new Map<string, Promise<AudioBuffer | null>>();
-  const load = (url: string) => {
-    let pending = decodeOncePerUrl.get(url);
-    if (!pending) {
-      pending = decode(ctx, url, options.logger);
-      decodeOncePerUrl.set(url, pending);
-    }
-    return pending;
-  };
-  const buffers = await Promise.all(entries.map(entry => load(entry.audio)));
+  const urls = new Set(entries.map(entry => entry.audio));
+  const buffers = new Map(
+    await Promise.all(
+      [...urls].map(
+        async url => [url, await decode(ctx, url, options.logger)] as const,
+      ),
+    ),
+  );
 
   let scheduled = 0;
-  for (let i = 0; i < entries.length; i++) {
-    const entry = entries[i];
-    const buffer = buffers[i];
+  for (const entry of entries) {
+    const buffer = buffers.get(entry.audio);
     if (!buffer) {
       continue;
     }

@@ -29,19 +29,7 @@ project that wires the plugin (`pnpm template:dev`).
 
 `mixAudio.ts` renders the project's audio to a single `AudioBuffer` in an
 `OfflineAudioContext`; `mixMath.ts` holds the pure timing/gain math, unit-tested
-in `client/__tests__`. The table pins each audio operation to the Web Audio
-mechanism that implements it:
-
-| operation              | Web Audio mechanism                                   |
-| ---------------------- | ----------------------------------------------------- |
-| input seek             | source-offset arg of `start(when, srcOffset, …)`      |
-| trim end               | duration arg of `start(…, duration)` (source seconds) |
-| gain (dB)              | `GainNode.gain = 10^(gain/20)`                        |
-| speed + pitch          | `AudioBufferSourceNode.playbackRate`                  |
-| delay (offset > 0)     | `start(when = offset, …)`                             |
-| output sample rate     | `OfflineAudioContext` sample rate                     |
-| mix (no normalization) | summing sources at `destination`                      |
-| duration cap           | `OfflineAudioContext` length = video duration         |
+in `client/__tests__`.
 
 ## Traps
 

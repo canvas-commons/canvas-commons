@@ -23,26 +23,16 @@ import {
 import {mixProjectAudio} from './mixAudio';
 
 interface WebCodecsExporterOptions {
-  /** Target video bitrate in megabits per second. */
   bitrate: number;
-  /** Distance between forced keyframes, in seconds. */
   keyframeInterval: number;
-  /** Place the moov atom at the start of the file. */
   fastStart: boolean;
-  /** Mix the project's master audio track into the output. */
   includeAudio: boolean;
-  /** Sample rate for the mixed audio. */
   audioSampleRate: number;
-  /**
-   * Faster encode at a small compression cost (`realtime` latency mode: no
-   * B-frames/lookahead). Off = `quality` mode for a final master.
-   */
   realtime: boolean;
 }
 
 const AUDIO_BITRATE = 192_000;
 const AUDIO_CHANNELS = 2;
-/** Endpoint the server plugin exposes to receive the finished mp4. */
 const ROUTE = '/__canvas-commons-webcodecs';
 
 /**
@@ -67,8 +57,8 @@ export class WebCodecsExporterClient implements Exporter {
         2,
       ).describe('Distance between forced keyframes, in seconds.'),
       realtime: new BoolMetaField('realtime encode (faster)', true).describe(
-        'Faster encode at a small compression cost (realtime latency mode: no ' +
-          'B-frames/lookahead). Off uses quality mode for a final master.',
+        'Roughly doubles encode speed for a small compression cost (no ' +
+          'B-frames/lookahead). Turn off for a more compressed final master.',
       ),
       fastStart: new BoolMetaField('fast start', true).describe(
         'Place the moov atom at the start of the file.',
@@ -125,8 +115,7 @@ export class WebCodecsExporterClient implements Exporter {
       );
     }
 
-    // H.264 requires even dimensions; reject odd renders up front rather than
-    // silently cropping a row/column during encode.
+    // H.264 requires even dimensions; reject odd renders rather than cropping.
     const width = Math.floor(
       this.settings.size.x * this.settings.resolutionScale,
     );
@@ -151,9 +140,8 @@ export class WebCodecsExporterClient implements Exporter {
       target: new BufferTarget(),
     });
 
-    // Mix audio up front, before the first frame, so we know whether to add an
-    // audio track; a failure degrades to a video-only file rather than aborting
-    // the render.
+    // Mixed up front so the audio track exists before the first frame; a failure
+    // degrades to a video-only file.
     const master =
       this.options.includeAudio && this.project.audio
         ? this.project.audio
@@ -192,23 +180,19 @@ export class WebCodecsExporterClient implements Exporter {
 
   /**
    * Wire up the tracks and start the output. Deferred to the first frame because
-   * {@link CanvasSource} needs the (stable) render canvas, which only arrives
-   * with the frame.
+   * {@link CanvasSource} needs the render canvas, which only arrives with it.
    */
   private async begin(canvas: HTMLCanvasElement): Promise<CanvasSource> {
     const videoSource = new CanvasSource(canvas, {
       codec: 'avc', // H.264
       bitrate: Math.round(this.options.bitrate * 1_000_000),
       keyFrameInterval: this.options.keyframeInterval,
-      // `realtime` ~doubles encode throughput at high resolution (no B-frames /
-      // lookahead) for a small compression cost.
       latencyMode: this.options.realtime ? 'realtime' : 'quality',
     });
     this.output.addVideoTrack(videoSource, {frameRate: this.fps});
 
     if (this.mixedAudio) {
-      // AAC first (broadest player support); Opus is the fallback where the
-      // browser can't encode AAC (e.g. Linux Chrome/Firefox). Both mux into mp4.
+      // AAC where the browser can encode it, else Opus; both mux into mp4.
       const codec = await getFirstEncodableAudioCodec(['aac', 'opus'], {
         numberOfChannels: AUDIO_CHANNELS,
         sampleRate: this.options.audioSampleRate,
@@ -227,8 +211,6 @@ export class WebCodecsExporterClient implements Exporter {
         });
         this.output.addAudioTrack(this.audioSource);
       } else {
-        // No encodable audio codec; emit a video-only file rather than aborting
-        // the whole render.
         this.logger.warn(
           'WebCodecs: no supported audio encoder (aac/opus); ' +
             'writing video without audio.',
@@ -244,14 +226,13 @@ export class WebCodecsExporterClient implements Exporter {
   }
 
   public async stop(result: RendererResult): Promise<void> {
-    // `started` is only set once output.start() succeeded, so this also covers
-    // an aborted/failed start (no output to finalize or cancel).
+    // Set only after output.start() succeeded, so this also covers a failed
+    // start with nothing to finalize.
     if (!this.started) {
       return;
     }
     if (result !== RendererResult.Success) {
-      // The render already failed/aborted; a cancel error has nothing to add and
-      // would only mask the real failure, so swallow it.
+      // A cancel error would only mask the real failure that aborted the render.
       await this.output.cancel().catch(() => {});
       return;
     }
@@ -268,10 +249,6 @@ export class WebCodecsExporterClient implements Exporter {
     await this.write(buffer);
   }
 
-  /**
-   * Send the finished mp4 to the dev server, which writes it to the project's
-   * output directory.
-   */
   private async write(buffer: ArrayBuffer): Promise<void> {
     const response = await fetch(
       `${ROUTE}/write?name=${encodeURIComponent(this.project.name)}`,

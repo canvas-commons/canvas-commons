@@ -34,8 +34,7 @@ interface MixEntry {
 
 /**
  * Render the project's audio to a single {@link AudioBuffer} entirely in the
- * browser. See the package `AGENTS.md` for how each operation maps onto the Web
- * Audio API.
+ * browser.
  *
  * @returns the mixed buffer, or `null` if there is nothing to mix.
  */
@@ -107,7 +106,6 @@ export async function mixProjectAudio(
 
     const source = ctx.createBufferSource();
     source.buffer = buffer;
-    // Change speed and pitch together.
     source.playbackRate.value = entry.realPlaybackRate;
 
     if (entry.gain) {

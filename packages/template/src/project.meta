@@ -3,8 +3,8 @@
   "shared": {
     "background": "rgb(20,20,20)",
     "range": [
-      0.4666656666666667,
-      0.499999
+      0,
+      null
     ],
     "size": {
       "x": 1920,
@@ -13,7 +13,7 @@
     "audioOffset": 0
   },
   "preview": {
-    "fps": 30,
+    "fps": 60,
     "resolutionScale": 1
   },
   "rendering": {

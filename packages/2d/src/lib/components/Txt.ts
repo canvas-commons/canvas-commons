@@ -182,9 +182,8 @@ function prepareTextForWrapMode(
 }
 
 type RichGroup = {
-  // `null` represents a blank line — no items to feed to pretext.
+  // `null` is a blank line — no items to feed to pretext.
   prepared: PreparedRichInline | null;
-  // Maps the group's local item index back to the shared styles/inlines arrays.
   itemMap: number[];
 };
 
@@ -881,7 +880,7 @@ export class Txt extends Shape {
     ctx.save();
     ctx.font = font;
     if ('letterSpacing' in ctx) {
-      (ctx as CanvasRenderingContext2D).letterSpacing = '0px';
+      ctx.letterSpacing = '0px';
     }
     const normalSpaceWidth = ctx.measureText(' ').width;
     const hyphenWidth = ctx.measureText('-').width;
@@ -1142,7 +1141,6 @@ export class Txt extends Shape {
       widthMode === MeasureMode.Undefined ? Number.POSITIVE_INFINITY : width;
     const wrap = this.textWrap();
     const effectiveMax = wrap === false ? Number.POSITIVE_INFINITY : maxWidth;
-    // Reuse the memoized layout when the constraint matches the declared width.
     const desiredWidth = this.width.context.getter();
     const reusable =
       wrap === false ||
@@ -1316,8 +1314,7 @@ export class Txt extends Shape {
 
         context.font = style.font;
         if ('letterSpacing' in context) {
-          (context as CanvasRenderingContext2D).letterSpacing =
-            `${style.letterSpacing}px`;
+          context.letterSpacing = `${style.letterSpacing}px`;
         }
 
         context.fillStyle = resolveCanvasStyle(style.fill, context);
@@ -1326,7 +1323,6 @@ export class Txt extends Shape {
 
         const justified = line.justified?.[fragIndex];
         if (justified && line.extraPerSpace > 0) {
-          // Whitespace runs absorb the per-space slack; words paint at cursor.
           let cursorX = x;
           for (const seg of justified) {
             if (!seg.whitespace) {
@@ -1480,9 +1476,8 @@ export class Txt extends Shape {
         const fragLeft = fragment.x + line.alignOffset - blockWidth / 2;
         const justified = line.justified?.[f];
         if (justified && line.extraPerSpace > 0 && granularity !== 'sentence') {
-          // Justified lines paint word-by-word, so accumulate standalone word
-          // advances + slack — a whole-fragment measure would re-add inter-word
-          // kerning the paint omits and drift every later word.
+          // Match the word-by-word paint; a whole-fragment measure re-adds the
+          // inter-word kerning the paint omits.
           let cursor = fragLeft;
           for (const seg of justified) {
             if (seg.whitespace) {
@@ -1493,9 +1488,8 @@ export class Txt extends Shape {
             }
           }
         } else {
-          // Sentences span multiple painted words, so they take the cumulative
-          // path: slack is distributed, but justified sentence units stay off
-          // by sub-pixel inter-word kerning the word-by-word paint omits.
+          // Sentences span painted words, so measure cumulatively; justified
+          // sentence units stay sub-pixel off from the word-by-word paint.
           emit(fragment.text, fragment.style, fragLeft, line.extraPerSpace);
         }
       }

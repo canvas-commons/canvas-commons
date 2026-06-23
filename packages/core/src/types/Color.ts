@@ -63,7 +63,7 @@ export class Color implements Type, WebGLConvertible {
     from: Color | string | null,
     to: Color | string | null,
     value: number,
-    colorSpace: ColorSpace = 'lch',
+    colorSpace: ColorSpace = 'oklab',
   ): Color {
     const fromColor =
       from === null ? null : typeof from === 'string' ? new Color(from) : from;

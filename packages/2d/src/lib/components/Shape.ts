@@ -250,20 +250,20 @@ export abstract class Shape extends Layout {
       this.drawShapeRough(context);
       return;
     }
-
-    const path = this.getPath();
     const hasStroke = this.lineWidth() > 0 && this.stroke() !== null;
     const hasFill = this.fill() !== null;
     context.save();
     this.applyStyle(context);
     this.drawRipple(context);
+
     if (this.strokeFirst()) {
-      hasStroke && this.drawStroke(context, path);
-      hasFill && this.drawFill(context, path);
+      hasStroke && this.drawStroke(context);
+      hasFill && this.drawFill(context);
     } else {
-      hasFill && this.drawFill(context, path);
-      hasStroke && this.drawStroke(context, path);
+      hasFill && this.drawFill(context);
+      hasStroke && this.drawStroke(context);
     }
+
     context.restore();
   }
 
@@ -310,26 +310,17 @@ export abstract class Shape extends Layout {
     context.restore();
   }
 
-  private drawFill(context: CanvasRenderingContext2D, path: Path2D) {
+  private drawFill(context: CanvasRenderingContext2D) {
     const shaders = this.fillShaders();
-    if (shaders.length > 0) {
-      const fillCanvas = this.renderFillToCanvas();
-
-      if (fillCanvas) {
-        const result = this.shapeShaderCanvas(
-          context.canvas,
-          fillCanvas,
-          shaders,
-        );
-        if (result) {
-          context.save();
-          this.renderFromSource(context, result, 0, 0);
-          context.restore();
-        }
-      }
-    } else {
-      context.fill(path);
+    if (shaders.length === 0) {
+      context.fill(this.getPath());
+      return;
     }
+
+    const texture = this.renderFillToCanvas();
+    if (!texture) return;
+
+    this.renderTextureWithShaders(context, texture, this.fillShaders());
   }
 
   private renderFillToCanvas(): HTMLCanvasElement | null {
@@ -354,26 +345,17 @@ export abstract class Shape extends Layout {
     return canvas;
   }
 
-  private drawStroke(context: CanvasRenderingContext2D, path: Path2D) {
+  private drawStroke(context: CanvasRenderingContext2D) {
     const shaders = this.strokeShaders();
-    if (shaders.length > 0) {
-      const strokeCanvas = this.renderStrokeToCanvas();
-
-      if (strokeCanvas) {
-        const result = this.shapeShaderCanvas(
-          context.canvas,
-          strokeCanvas,
-          shaders,
-        );
-        if (result) {
-          context.save();
-          this.renderFromSource(context, result, 0, 0);
-          context.restore();
-        }
-      }
-    } else {
-      context.stroke(path);
+    if (shaders.length === 0) {
+      context.stroke(this.getPath());
+      return;
     }
+
+    const texture = this.renderStrokeToCanvas();
+    if (!texture) return;
+
+    this.renderTextureWithShaders(context, texture, this.strokeShaders());
   }
 
   private renderStrokeToCanvas(): HTMLCanvasElement | null {
@@ -396,6 +378,20 @@ export abstract class Shape extends Layout {
     context?.stroke(path);
 
     return canvas;
+  }
+
+  private renderTextureWithShaders(
+    context: CanvasRenderingContext2D,
+    texture: HTMLCanvasElement,
+    shaders: ShaderConfig[],
+  ) {
+    const result = this.shapeShaderCanvas(context.canvas, texture, shaders);
+
+    if (!result) return;
+
+    context.save();
+    this.renderFromSource(context, result, 0, 0);
+    context.restore();
   }
 
   private shapeShaderCanvas(

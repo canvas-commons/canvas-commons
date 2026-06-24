@@ -1,9 +1,39 @@
+import {clamp} from '@canvas-commons/core';
+import {CurvePoint} from './CurvePoint';
 import {Segment} from './Segment';
 
 export interface CurveProfile {
   arcLength: number;
   segments: Segment[];
   minSin: number;
+}
+
+/**
+ * Create a forward-only arc-length sampler over a profile. Successive calls must
+ * pass non-decreasing distances, giving amortized O(1) lookups instead of
+ * rescanning every segment per call.
+ *
+ * @param profile - The profile to sample.
+ */
+export function createCurveSampler(
+  profile: CurveProfile,
+): (distance: number) => CurvePoint {
+  const segments = profile.segments;
+  let index = 0;
+  let base = 0;
+  return distance => {
+    while (
+      index < segments.length - 1 &&
+      distance > base + segments[index].arcLength
+    ) {
+      base += segments[index].arcLength;
+      index++;
+    }
+    const segment = segments[index];
+    const relative =
+      segment.arcLength > 0 ? (distance - base) / segment.arcLength : 0;
+    return segment.getPoint(clamp(0, 1, relative));
+  };
 }
 
 /**

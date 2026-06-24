@@ -8,6 +8,7 @@ import {
   TimingFunction,
   Vector2,
   all,
+  clamp,
   threadable,
 } from '@canvas-commons/core';
 import {
@@ -19,6 +20,9 @@ import {
   prepareWithSegments,
   walkLineRanges,
 } from '@chenglou/pretext';
+import {CurveProfile, createCurveSampler} from '../curves/CurveProfile';
+import {Segment} from '../curves/Segment';
+import {getPathProfile} from '../curves/getPathProfile';
 import {computed, initial, nodeName, signal} from '../decorators';
 import {CanvasStyle} from '../partials';
 import type {TextExclusion} from '../partials/types';
@@ -41,6 +45,7 @@ import {
 } from '../text';
 import {fontsVersion, requestFontLoad, resolveCanvasStyle} from '../utils';
 import {MeasureMode} from '../utils/yoga';
+import {Curve} from './Curve';
 import {Layout} from './Layout';
 import {Node} from './Node';
 import {Shape, ShapeProps} from './Shape';
@@ -58,6 +63,58 @@ export type TxtWrapMode = 'greedy' | 'knuth-plass';
  */
 export type HyphenateFn = (word: string) => string[];
 
+/**
+ * A path for {@link Txt.textPath}: SVG path data, a pre-built
+ * {@link CurveProfile}, or a live {@link Curve} node. Strings and profiles are
+ * read in the `Txt`'s own local space; a `Curve` node is sampled in its space
+ * and mapped into the `Txt`'s automatically.
+ */
+export type TxtPath = CurveProfile | string | Curve;
+
+/**
+ * Where each glyph sits across {@link Txt.textPath}: the alphabetic `baseline`
+ * (default), an edge keyword (`top` / `middle` / `bottom`), `'smooth'` to push
+ * glyphs to the outside of every turn automatically, or a number in `[-1, 1]`
+ * (`-1` top, `0` middle, `1` bottom). The number is the tweenable form — animate
+ * it directly instead of switching states.
+ */
+export type PathAlign =
+  | 'baseline'
+  | 'top'
+  | 'middle'
+  | 'bottom'
+  | 'smooth'
+  | number;
+
+/**
+ * Unit the text breaks into when laid on {@link Txt.textPath}: `grapheme`
+ * (default) places each glyph for the tightest curve following, `word` paints
+ * each word as one run so contextual shaping and ligatures survive (at the cost
+ * of words staying rigid through a bend).
+ */
+export type PathSplit = 'grapheme' | 'word';
+
+/**
+ * Resolve a non-`smooth` {@link PathAlign} to a normalized cross-path offset
+ * (`-1` top, `0` middle, `1` bottom), or `null` for the alphabetic baseline.
+ * `smooth` also returns `null` here — it is computed per glyph instead.
+ */
+function resolvePathAnchor(align: PathAlign): number | null {
+  switch (align) {
+    case 'baseline':
+    case 'smooth':
+      return null;
+    case 'top':
+      return -1;
+    case 'middle':
+      return 0;
+    case 'bottom':
+      return 1;
+    default:
+      return clamp(-1, 1, align);
+  }
+}
+
 export interface TxtProps extends ShapeProps {
   children?: TxtChildren;
   text?: SignalValue<string>;
@@ -65,6 +122,11 @@ export interface TxtProps extends ShapeProps {
   wrapMode?: SignalValue<TxtWrapMode>;
   hyphenate?: SignalValue<HyphenateFn | null>;
   exclusions?: SignalValue<TextExclusion[]>;
+  textPath?: SignalValue<TxtPath | null>;
+  pathOffset?: SignalValue<number>;
+  pathAlign?: SignalValue<PathAlign>;
+  pathSmoothness?: SignalValue<number>;
+  pathSplit?: SignalValue<PathSplit>;
 }
 
 type FontComponents = {
@@ -416,6 +478,105 @@ export class Txt extends Shape {
   @signal()
   declare public readonly exclusions: SimpleSignal<TextExclusion[], this>;
 
+  /**
+   * Lay the text out along a curve instead of a straight baseline.
+   *
+   * @remarks
+   * Accepts SVG path data, a {@link CurveProfile}, or a live {@link Curve} node.
+   * Strings and profiles are read in this node's local (center-origin) space; a
+   * `Curve` node is sampled in its own space and mapped into this node's
+   * automatically, so the two may sit at different transforms. Only translation,
+   * rotation, and uniform scale map correctly — non-uniform scale or shear
+   * between the two distorts spacing.
+   *
+   * Setting a path forces a single line (wrapping, `autoSize`, and embedded
+   * newlines are ignored) and disables {@link split} / {@link textWords} and
+   * friends. Glyphs whose advance falls outside the path are clipped, not piled
+   * at the ends. {@link pathOffset} slides the run along the arc; `textAlign`
+   * anchors it. Reverse the path to flip the text onto the other side (the
+   * tangent reverses, so glyphs read upside down along it). Per-glyph rendering
+   * drops cross-glyph shaping — set {@link pathSplit} to `word` for scripts that
+   * need it.
+   *
+   * Prefer smooth curves. Like SVG `<textPath>`, a sharp corner crowds glyphs on
+   * the inside of the turn — each glyph orients to the chord across its advance,
+   * which softens the bend but cannot space glyphs evenly past a hard vertex.
+   * {@link pathAlign} `'smooth'` leans glyphs to the outside of each turn.
+   *
+   * Pass a live {@link Curve} node to animate the curve itself — the text
+   * re-samples it every frame:
+   *
+   * @example
+   * ```tsx
+   * const circle = createRef<Circle>();
+   * view.add(<Circle ref={circle} size={400} />);
+   * view.add(<Txt textPath={circle} fill={'white'}>orbit</Txt>);
+   * ```
+   */
+  @initial(null)
+  @signal()
+  declare public readonly textPath: SimpleSignal<TxtPath | null, this>;
+
+  /**
+   * Distance in pixels to slide the text along {@link textPath} from its
+   * anchored start. Animate this for a marquee-style crawl along the curve.
+   *
+   * @example
+   * ```tsx
+   * yield * label().pathOffset(300, 2);
+   * ```
+   */
+  @initial(0)
+  @signal()
+  declare public readonly pathOffset: SimpleSignal<number, this>;
+
+  /**
+   * Where each glyph rides {@link textPath} across the curve — `baseline`
+   * (default), `top` / `middle` / `bottom`, `smooth`, or a number in `[-1, 1]`.
+   *
+   * @remarks
+   * Anchoring to the outside of a turn keeps glyphs from crowding on the inside
+   * of a corner. `smooth` does this automatically, biasing each glyph toward the
+   * outside in proportion to how hard the path turns under it. The numeric form
+   * (`-1` top, `0` middle, `1` bottom) is continuous, so it tweens cleanly —
+   * prefer it over switching keyword states mid-animation.
+   *
+   * @example
+   * ```tsx
+   * <Txt textPath={wave} pathAlign={'smooth'}>over and under</Txt>
+   * ```
+   */
+  @initial('baseline')
+  @signal()
+  declare public readonly pathAlign: SimpleSignal<PathAlign, this>;
+
+  /**
+   * How hard {@link pathAlign} `'smooth'` leans into a turn — the gain mapping a
+   * vertex's signed turn (radians) to the `[-1, 1]` anchor.
+   *
+   * @remarks
+   * At the default `1.4` a ~64° corner saturates to a full top/bottom anchor;
+   * raise it to reach the edge on gentler turns, lower it for a subtler lean.
+   * No effect unless `pathAlign` is `'smooth'`.
+   */
+  @initial(1.4)
+  @signal()
+  declare public readonly pathSmoothness: SimpleSignal<number, this>;
+
+  /**
+   * Unit the text breaks into along {@link textPath} — `grapheme` (default) for
+   * the tightest curve following, or `word` to keep contextual shaping and
+   * ligatures (e.g. Arabic) by painting each word as one run.
+   *
+   * @remarks
+   * Per-glyph rendering paints each grapheme in isolation, which drops
+   * cross-glyph shaping; `word` trades some curve fidelity (words stay rigid
+   * through a bend) for correct shaping.
+   */
+  @initial('grapheme')
+  @signal()
+  declare public readonly pathSplit: SimpleSignal<PathSplit, this>;
+
   protected getText(): string {
     return this.innerText();
   }
@@ -600,7 +761,7 @@ export class Txt extends Shape {
    */
   @computed()
   public effectiveFontSize(): number {
-    if (!this.autoSize()) return this.fontSize();
+    if (this.pathProfile() || !this.autoSize()) return this.fontSize();
     const w = this.width.context.getter();
     const h = this.height.context.getter();
     if (typeof w !== 'number' || typeof h !== 'number') {
@@ -637,8 +798,13 @@ export class Txt extends Shape {
         );
         requestFontLoad(font);
         const letterSpacing = txt.letterSpacing() * scale;
+        // A path forces a single line, so newlines collapse to spaces.
+        const text =
+          this.textPath() === null
+            ? node.text()
+            : node.text().replace(/\n/g, ' ');
         items.push({
-          text: node.text(),
+          text,
           font,
           letterSpacing: letterSpacing || undefined,
         });
@@ -1110,12 +1276,97 @@ export class Txt extends Shape {
   }
 
   /**
+   * Resolve {@link textPath} to a curve profile, or `null` when unset. For
+   * a {@link Curve} node the profile is in the curve's own space; pair it with
+   * {@link pathTransform} to map into this node's local space.
+   */
+  @computed()
+  protected pathProfile(): CurveProfile | null {
+    const path = this.textPath();
+    if (path === null) {
+      return null;
+    }
+    if (typeof path === 'string') {
+      return getPathProfile(path);
+    }
+    if (path instanceof Curve) {
+      return path.profile();
+    }
+    return path;
+  }
+
+  /**
+   * Matrix mapping {@link pathProfile} coordinates into this node's local space.
+   * Identity for string and profile paths (already local); the curve→Txt
+   * transform for a live {@link Curve} node.
+   */
+  @computed()
+  protected pathTransform(): DOMMatrix {
+    const path = this.textPath();
+    if (path instanceof Curve) {
+      return this.worldToLocal().multiply(path.localToWorld());
+    }
+    return new DOMMatrix();
+  }
+
+  /**
+   * Linear scale of {@link pathTransform} — local pixels per unit of path arc
+   * length. Keeps glyph advances (px) in step with path distance when the curve
+   * sits at a different scale. Non-uniform scale and shear are unsupported.
+   */
+  @computed()
+  protected pathScale(): number {
+    const m = this.pathTransform();
+    return (Math.hypot(m.a, m.b) + Math.hypot(m.c, m.d)) / 2 || 1;
+  }
+
+  /**
+   * Arc length of the resolved {@link textPath} in this node's local pixels, or
+   * `0` when no path is set.
+   */
+  @computed()
+  public pathArcLength(): number {
+    const profile = this.pathProfile();
+    return profile ? profile.arcLength * this.pathScale() : 0;
+  }
+
+  /**
+   * Bounding box of the resolved {@link textPath} in this node's local space, or
+   * `null` when no path is set. Sampled along the arc so curved segments are
+   * bounded by the curve itself, not its control hull.
+   */
+  @computed()
+  protected pathBBox(): BBox | null {
+    const profile = this.pathProfile();
+    if (!profile || profile.segments.length === 0) {
+      return null;
+    }
+    const matrix = this.pathTransform();
+    const sample = createCurveSampler(profile);
+    const steps = clamp(16, 256, Math.ceil(profile.arcLength / 8));
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (let i = 0; i <= steps; i++) {
+      const point = sample(
+        (profile.arcLength * i) / steps,
+      ).position.transformAsPoint(matrix);
+      minX = Math.min(minX, point.x);
+      minY = Math.min(minY, point.y);
+      maxX = Math.max(maxX, point.x);
+      maxY = Math.max(maxY, point.y);
+    }
+    return new BBox(minX, minY, maxX - minX, maxY - minY);
+  }
+
+  /**
    * Effective wrap constraint when no explicit yoga measurement is in play
    * (e.g. for `draw()` and `textLines()`).
    */
   @computed()
   protected effectiveMaxWidth(): number {
-    if (this.textWrap() === false) {
+    if (this.pathProfile() || this.textWrap() === false) {
       return Number.POSITIVE_INFINITY;
     }
     const desiredWidth = this.width.context.getter();
@@ -1137,6 +1388,10 @@ export class Txt extends Shape {
     width: number,
     widthMode: number,
   ): {width: number; height: number} {
+    const pathBBox = this.pathBBox();
+    if (pathBBox) {
+      return {width: pathBBox.width, height: pathBBox.height};
+    }
     const maxWidth =
       widthMode === MeasureMode.Undefined ? Number.POSITIVE_INFINITY : width;
     const wrap = this.textWrap();
@@ -1293,6 +1548,13 @@ export class Txt extends Shape {
     }
 
     this.requestFontUpdate();
+    const profile = this.pathProfile();
+    if (profile) {
+      this.drawAlongPath(context, profile);
+      this.drawChildren(context);
+      return;
+    }
+
     const lines = this.positionedLines();
     const {width, height} = this.size();
 
@@ -1356,14 +1618,211 @@ export class Txt extends Shape {
     this.drawChildren(context);
   }
 
+  /**
+   * Distance along the path where the run begins, derived from `textAlign` and
+   * `textDirection` (mirroring {@link computeAlignOffset}). Justify is
+   * unsupported on a path and falls back to the start edge.
+   */
+  private pathAlignBase(arcLength: number, textWidth: number): number {
+    const rtl = this.textDirection() === 'rtl';
+    const toEnd = arcLength - textWidth;
+    switch (this.textAlign()) {
+      case 'center':
+        return toEnd / 2;
+      case 'right':
+        return toEnd;
+      case 'left':
+        return 0;
+      case 'end':
+        return rtl ? 0 : toEnd;
+      case 'start':
+        return rtl ? toEnd : 0;
+      default:
+        return rtl ? toEnd : 0;
+    }
+  }
+
+  /**
+   * Build the `pathAlign: 'smooth'` offset as a function of arc distance (in
+   * local pixels): `0` at the path ends and the signed turn at each interior
+   * vertex, interpolated linearly along every segment. The lerp keeps the lean
+   * continuous, so glyphs ramp between sides instead of jumping at a corner.
+   */
+  private buildSmoothAnchor(
+    profile: CurveProfile,
+    matrix: DOMMatrix,
+    scale: number,
+  ): (distance: number) => number {
+    const segments = profile.segments;
+    const gain = this.pathSmoothness();
+    const tangent = (segment: Segment, t: number) =>
+      segment.getPoint(t).normal.flipped.perpendicular.transform(matrix);
+
+    const distances = [0];
+    const anchors = [0];
+    let accumulated = 0;
+    for (let i = 0; i < segments.length; i++) {
+      if (i > 0) {
+        const incoming = tangent(segments[i - 1], 1);
+        const outgoing = tangent(segments[i], 0);
+        const turn = Math.atan2(
+          incoming.x * outgoing.y - incoming.y * outgoing.x,
+          incoming.x * outgoing.x + incoming.y * outgoing.y,
+        );
+        distances.push(accumulated * scale);
+        anchors.push(clamp(-1, 1, gain * turn));
+      }
+      accumulated += segments[i].arcLength;
+    }
+    distances.push(accumulated * scale);
+    anchors.push(0);
+
+    return distance => {
+      for (let i = 1; i < distances.length; i++) {
+        if (distance <= distances[i]) {
+          const span = distances[i] - distances[i - 1] || 1;
+          const t = clamp(0, 1, (distance - distances[i - 1]) / span);
+          return anchors[i - 1] + (anchors[i] - anchors[i - 1]) * t;
+        }
+      }
+      return anchors[anchors.length - 1];
+    };
+  }
+
+  private drawAlongPath(
+    context: CanvasRenderingContext2D,
+    profile: CurveProfile,
+  ) {
+    const scale = this.pathScale();
+    const arcLength = profile.arcLength * scale;
+    if (arcLength <= 0 || profile.segments.length === 0) {
+      return;
+    }
+
+    const matrix = this.pathTransform();
+    const textWidth = this.textLayout().width;
+    const alignBase = this.pathAlignBase(arcLength, textWidth);
+    const offset = this.pathOffset();
+    const sample = createCurveSampler(profile);
+
+    // Cross-path anchor: -1 top, 0 middle, 1 bottom; null = alphabetic baseline.
+    const align = this.pathAlign();
+    const smoothAnchorAt =
+      align === 'smooth'
+        ? this.buildSmoothAnchor(profile, matrix, scale)
+        : null;
+    const staticAnchor = resolvePathAnchor(align);
+    const metricsCache = new Map<string, {ascent: number; descent: number}>();
+    const glyphBaseline = (style: FragmentStyle, anchor: number | null) => {
+      if (anchor === null) return 0;
+      let metrics = metricsCache.get(style.font);
+      if (!metrics) {
+        metrics = this.measureFontMetrics(style);
+        metricsCache.set(style.font, metrics);
+      }
+      const {ascent, descent} = metrics;
+      return (ascent - descent) / 2 - (anchor * (ascent + descent)) / 2;
+    };
+
+    context.save();
+    this.applyStyle(context);
+    this.applyText(context);
+    context.textAlign = 'left';
+    context.textBaseline = 'alphabetic';
+
+    // `walkUnits` is cumulative, so `unit.x`/`unit.width` are kerned — arc
+    // spacing follows the real layout, not a sum of isolated advances.
+    for (const {unit, style} of this.walkUnits(this.pathSplit(), true)) {
+      const center = unit.x + textWidth / 2 + alignBase + offset;
+      // Clip overflow rather than letting the sampler clamp glyphs onto the ends.
+      if (center < 0 || center > arcLength) {
+        continue;
+      }
+      const half = unit.width / 2;
+      const dStart = clamp(0, arcLength, center - half);
+      const dEnd = clamp(0, arcLength, center + half);
+
+      // Sample in increasing order so the forward-only cursor stays monotonic.
+      const startSample = sample(dStart / scale);
+      const midPoint = sample(center / scale);
+      const endSample = sample(dEnd / scale);
+      const startRaw = startSample.position.transformAsPoint(matrix);
+      const midRaw = midPoint.position.transformAsPoint(matrix);
+      const endRaw = endSample.position.transformAsPoint(matrix);
+
+      // Displace along the raw chord's perpendicular: the chord stays
+      // continuous across a sharp vertex (the tangent doesn't), so a glyph
+      // sliding through a corner doesn't pop.
+      const rawChord = endRaw.sub(startRaw);
+      const rawLength = rawChord.magnitude;
+      const up =
+        rawLength > 0
+          ? new Vector2(-rawChord.y / rawLength, rawChord.x / rawLength)
+          : Vector2.zero;
+
+      // Orient by the chord between the displaced points, so a ramping `smooth`
+      // offset tilts glyphs to follow it (a constant offset stays parallel). The
+      // offset rides the position, so the glyph paints at y = 0.
+      const offsetFor = (distance: number) =>
+        glyphBaseline(
+          style,
+          smoothAnchorAt ? smoothAnchorAt(distance) : staticAnchor,
+        );
+      const startP = startRaw.add(up.scale(offsetFor(dStart)));
+      const position = midRaw.add(up.scale(offsetFor(center)));
+      const endP = endRaw.add(up.scale(offsetFor(dEnd)));
+
+      const chord = endP.sub(startP);
+      const angle =
+        chord.magnitude > 0.001
+          ? chord.radians
+          : midPoint.normal.flipped.perpendicular.transform(matrix).radians;
+
+      context.save();
+      context.translate(position.x, position.y);
+      context.rotate(angle);
+      context.font = style.font;
+      if ('letterSpacing' in context) {
+        context.letterSpacing = '0px';
+      }
+      context.fillStyle = resolveCanvasStyle(style.fill, context);
+      context.strokeStyle = resolveCanvasStyle(style.stroke, context);
+      context.lineWidth = style.lineWidth;
+
+      // Kern-invariant pen (shared with split()) so spacing matches a plain Txt.
+      const glyphX = this.glyphPenOffset(unit, style);
+      if (style.lineWidth <= 0) {
+        context.fillText(unit.text, glyphX, 0);
+      } else if (style.strokeFirst) {
+        context.strokeText(unit.text, glyphX, 0);
+        context.fillText(unit.text, glyphX, 0);
+      } else {
+        context.fillText(unit.text, glyphX, 0);
+        context.strokeText(unit.text, glyphX, 0);
+      }
+      context.restore();
+    }
+
+    context.restore();
+  }
+
   protected override getCacheBBox(): BBox {
     const lineWidth = this.lineWidth();
     // We take the default value of the miterLimit as 10.
     const miterLimitCoefficient = this.lineJoin() === 'miter' ? 0.5 * 10 : 0.5;
+    const stroke = lineWidth * miterLimitCoefficient;
+
+    const pathBBox = this.pathBBox();
+    if (pathBBox) {
+      // Glyphs rotate with the path, so they overshoot the arc in any
+      // direction; pad uniformly by a glyph's height plus the stroke.
+      return pathBBox.expand(this.fontSize() + stroke);
+    }
+
     // Pad vertically for glyphs that overshoot the line box.
     return BBox.fromSizeCentered(this.computedSize())
       .expand([0, this.fontSize() * 0.5])
-      .expand(lineWidth * miterLimitCoefficient);
+      .expand(stroke);
   }
 
   private computeAlignOffset(
@@ -1551,7 +2010,7 @@ export class Txt extends Shape {
    * ```
    */
   public textWords(): TextUnit[] {
-    return this.wordUnits();
+    return this.pathProfile() ? [] : this.wordUnits();
   }
 
   /**
@@ -1564,14 +2023,14 @@ export class Txt extends Shape {
    * still produce two entries.
    */
   public textGlyphs(): TextUnit[] {
-    return this.graphemeUnits();
+    return this.pathProfile() ? [] : this.graphemeUnits();
   }
 
   /**
    * Sentence-level layout info. One entry per sentence span, in reading order.
    */
   public textSentences(): TextUnit[] {
-    return this.sentenceUnits();
+    return this.pathProfile() ? [] : this.sentenceUnits();
   }
 
   /**
@@ -1606,7 +2065,7 @@ export class Txt extends Shape {
    * @param granularity - `'grapheme'` (default), `'word'`, or `'sentence'`.
    */
   public split(granularity: SegmentGranularity = 'grapheme'): Txt[] {
-    if (this.positionedLines().length === 0) {
+    if (this.pathProfile() || this.positionedLines().length === 0) {
       return [];
     }
     return this.walkUnits(granularity, true).map(({unit, style}) =>
@@ -1614,12 +2073,20 @@ export class Txt extends Shape {
     );
   }
 
+  /**
+   * Offset from a unit's kerned center to where its glyph must be drawn so the
+   * isolated render lands on the kern-invariant right edge (its kerned advance
+   * minus its isolated advance, halved onto the center). Shared by {@link split}
+   * and {@link drawAlongPath} so both place glyphs with the source's kerning.
+   */
+  private glyphPenOffset(unit: TextUnit, style: FragmentStyle): number {
+    return unit.width / 2 - this.measureStyledText(unit.text, style);
+  }
+
   private createPiece(unit: TextUnit, style: FragmentStyle): Txt {
-    // Pen = the kern-invariant right edge minus the isolated advance, landing
-    // where the source drew the unit. Centering via the piece's own box keeps
-    // the center anchor (for rotate/scale) while pinning the pen exactly.
-    const penLeft =
-      unit.x + unit.width / 2 - this.measureStyledText(unit.text, style);
+    // Centering via the piece's own box keeps the center anchor (for
+    // rotate/scale) while the pen pins the unit where the source drew it.
+    const penLeft = unit.x + this.glyphPenOffset(unit, style);
     const top = unit.y - unit.height / 2;
     const piece = new Txt({
       text: unit.text,

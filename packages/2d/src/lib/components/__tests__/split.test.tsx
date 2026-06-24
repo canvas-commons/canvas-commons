@@ -1,7 +1,8 @@
 import {Color} from '@canvas-commons/core';
-import {afterAll, beforeAll, describe, expect, it} from 'vitest';
+import {describe, expect, it} from 'vitest';
 import {Txt} from '../Txt';
 import {mockScene2D} from './mockScene2D';
+import {mockTextContext} from './mockTextContext';
 
 describe('Txt.split (headless)', () => {
   mockScene2D();
@@ -18,38 +19,7 @@ describe('Txt.split (geometry)', () => {
   mockScene2D();
 
   const charWidth = 10;
-  let originalGetContext: typeof HTMLCanvasElement.prototype.getContext;
-
-  beforeAll(() => {
-    originalGetContext = HTMLCanvasElement.prototype.getContext;
-    const fakeContext = {
-      font: '',
-      letterSpacing: '0px',
-      direction: 'inherit' as CanvasDirection,
-      textBaseline: 'alphabetic' as CanvasTextBaseline,
-      fillStyle: '',
-      strokeStyle: '',
-      lineWidth: 1,
-      lineCap: 'butt' as CanvasLineCap,
-      lineJoin: 'miter' as CanvasLineJoin,
-      lineDashOffset: 0,
-      save() {},
-      restore() {},
-      setLineDash() {},
-      measureText(text: string) {
-        return {width: text.length * charWidth} as TextMetrics;
-      },
-      fillText() {},
-      strokeText() {},
-    } as unknown as CanvasRenderingContext2D;
-    HTMLCanvasElement.prototype.getContext = function (kind: string) {
-      return kind === '2d' ? fakeContext : null;
-    } as typeof HTMLCanvasElement.prototype.getContext;
-  });
-
-  afterAll(() => {
-    HTMLCanvasElement.prototype.getContext = originalGetContext;
-  });
+  mockTextContext(charWidth);
 
   it('emits one unparented Txt per grapheme at the source position', () => {
     const txt = (<Txt fontSize={10}>abc</Txt>) as Txt;

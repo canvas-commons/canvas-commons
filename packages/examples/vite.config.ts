@@ -33,6 +33,7 @@ export default defineConfig({
         './src/primitives.ts',
         './src/text.ts',
         './src/text-split.ts',
+        './src/text-path.ts',
       ],
     }),
   ],

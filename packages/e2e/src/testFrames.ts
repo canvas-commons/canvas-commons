@@ -20,6 +20,8 @@ export const testFrames: Record<string, TestFrame[]> = {
   tex: [
     {frame: 0, label: 'initial'},
     {frame: 60, label: 'morph-add'},
+    {frame: 89, label: 'morph-resolve'},
+    {frame: 90, label: 'morph-resolved'},
     {frame: 240, label: 'morph-rearrange'},
     {frame: 420, label: 'morph-return'},
     {frame: -1, label: 'final'},

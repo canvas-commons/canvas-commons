@@ -114,6 +114,7 @@ import {MetaFile} from '@canvas-commons/core';
           // and parse-svg-path are additionally pure-CommonJS with no ESM
           // entry, so served raw they break import interop.
           include: [
+            '@canvas-commons/core > chroma-js',
             '@canvas-commons/2d > @chenglou/pretext',
             '@canvas-commons/2d > @chenglou/pretext/rich-inline',
             '@canvas-commons/2d > mathjax-full/js/adaptors/liteAdaptor.js',
@@ -125,6 +126,11 @@ import {MetaFile} from '@canvas-commons/core';
             '@canvas-commons/2d > mathjax-full/js/util/Options.js',
             '@canvas-commons/2d > parse-svg-path',
             '@canvas-commons/2d > yoga-layout',
+            '@canvas-commons/2d > @codemirror/language',
+            '@canvas-commons/2d > @lezer/common',
+            '@canvas-commons/2d > @lezer/highlight',
+            '@canvas-commons/2d > escape-string-regexp',
+            '@canvas-commons/2d > roughjs',
           ],
           exclude: [
             '@canvas-commons/2d',

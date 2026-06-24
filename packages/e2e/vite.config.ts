@@ -1,5 +1,6 @@
 /// <reference types="vitest" />
 
+import svg from '@canvas-commons/svg';
 import canvasCommons from '@canvas-commons/vite-plugin';
 import {fileURLToPath} from 'url';
 import {defineConfig} from 'vite';
@@ -9,6 +10,7 @@ export default defineConfig({
     canvasCommons({
       project: ['./tests/projects/*.ts'],
     }),
+    svg(),
   ],
   server: {
     fs: {

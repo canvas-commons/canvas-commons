@@ -139,6 +139,11 @@ export const testFrames: Record<string, TestFrame[]> = {
     {frame: -1, label: 'final'},
   ],
   primitives: [{frame: 0, label: 'initial'}],
+  paths: [{frame: 0, label: 'initial'}],
+  img: [{frame: -1, label: 'final'}],
+  svg: [{frame: -1, label: 'final'}],
+  shadow: [{frame: -1, label: 'final'}],
+  clip: [{frame: -1, label: 'final'}],
   'composite-operations': [
     {frame: 0, label: 'initial'},
     {frame: 45, label: 'sliding'},
@@ -161,3 +166,46 @@ export const testFrames: Record<string, TestFrame[]> = {
     {frame: -1, label: 'final'},
   ],
 };
+
+/**
+ * Scenes the SVG-fidelity suite cannot pixel-compare against the canvas baseline,
+ * each mapped to why. The SVG of these renders through a different mechanism than
+ * the canvas, so a pixel diff would be meaningless; the PNG×SVG gallery judges
+ * their fidelity visually instead. Every other scene in {@link testFrames} is
+ * checked.
+ */
+const svgFidelityIgnore: Record<string, string> = {
+  // Web fonts: the sandboxed `<img>` rasterizer can't load them, so glyphs fall
+  // back and diverge from the canvas (which has Roboto/JetBrains Mono).
+  'node-signal': 'web font',
+  'tweening-visualiser': 'web font',
+  code: 'web font',
+  text: 'web font',
+  'text-path': 'web font',
+  'text-rendering': 'Segoe Print, a Windows-only font',
+  tex: 'MathJax glyph edges differ between render paths',
+  'transitions-first': 'web font',
+  'transitions-second': 'web font',
+  // SVG `<filter>` primitives vs the canvas filter/shadow pipeline.
+  'filters-order': 'SVG filter primitives',
+  shadow: 'SVG filter primitives',
+  // Compositing the canvas does but SVG has no element-level equivalent for.
+  'composite-operations': 'Porter-Duff compositing',
+  presentation: 'destination-out compositing',
+  // Bitmap/video sources the vector path can't reproduce pixel-for-pixel.
+  'media-image': 'bitmap upscaling',
+  'media-video': 'video frames are not serialized',
+  'layout-animations': 'web font',
+};
+
+/**
+ * Scenes (and frames) checked by the SVG-fidelity suite: every scene in
+ * {@link testFrames} except those in {@link svgFidelityIgnore}, rendered to SVG,
+ * rasterized, and compared against the canvas PNG baseline.
+ */
+export const svgFidelityFrames: Record<string, TestFrame[]> =
+  Object.fromEntries(
+    Object.entries(testFrames).filter(
+      ([scene]) => !(scene in svgFidelityIgnore),
+    ),
+  );

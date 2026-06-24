@@ -75,11 +75,13 @@ export function Provider({children}: {children?: ComponentChildren}) {
   state.scene.value = currentScene as Scene2D;
 
   useSignalEffect(() =>
-    state.scene.value?.onRenderLifecycle.subscribe(([event]) => {
-      if (event === SceneRenderEvent.AfterRender) {
-        state.afterRender.value++;
-      }
-    }),
+    state.scene.value?.onRenderLifecycle.subscribe(
+      ([event]: [SceneRenderEvent, CanvasRenderingContext2D]) => {
+        if (event === SceneRenderEvent.AfterRender) {
+          state.afterRender.value++;
+        }
+      },
+    ),
   );
 
   // Expand all nodes necessary to reveal the selected one:

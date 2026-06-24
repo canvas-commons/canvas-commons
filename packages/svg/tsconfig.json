@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "noImplicitAny": true,
+    "esModuleInterop": true,
+    "moduleResolution": "bundler",
+    "skipLibCheck": true,
+    "strict": true,
+    "module": "esnext",
+    "target": "es2022",
+    "declaration": true,
+    "declarationMap": true
+  },
+  "include": ["client", "server"]
+}

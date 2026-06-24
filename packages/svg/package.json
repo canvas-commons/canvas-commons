@@ -1,0 +1,48 @@
+{
+  "name": "@canvas-commons/svg",
+  "version": "0.3.1",
+  "description": "An SVG (vector) exporter for Canvas Commons",
+  "type": "module",
+  "main": "./lib/server/index.js",
+  "types": "./lib/server/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/server/index.d.ts",
+      "default": "./lib/server/index.js"
+    },
+    "./server": {
+      "types": "./lib/server/index.d.ts",
+      "default": "./lib/server/index.js"
+    },
+    "./client": {
+      "types": "./lib/client/index.d.ts",
+      "default": "./lib/client/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "author": "canvas-commons",
+  "homepage": "https://canvascommons.io/",
+  "bugs": "https://github.com/canvas-commons/canvas-commons/issues",
+  "license": "MIT",
+  "scripts": {
+    "dev": "tsdown --watch",
+    "build": "tsdown",
+    "lint:pkg": "publint --strict && attw --pack . --profile esm-only --ignore-rules internal-resolution-error"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/canvas-commons/canvas-commons.git",
+    "directory": "packages/svg"
+  },
+  "files": [
+    "lib"
+  ],
+  "dependencies": {
+    "@canvas-commons/2d": "workspace:^",
+    "@canvas-commons/core": "workspace:^",
+    "@canvas-commons/vite-plugin": "workspace:^"
+  }
+}

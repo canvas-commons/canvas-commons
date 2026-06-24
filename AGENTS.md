@@ -193,6 +193,7 @@ short usage examples. Read the one for the package you're touching:
 - [`packages/player/AGENTS.md`](packages/player/AGENTS.md)
 - [`packages/ffmpeg/AGENTS.md`](packages/ffmpeg/AGENTS.md)
 - [`packages/webcodecs/AGENTS.md`](packages/webcodecs/AGENTS.md)
+- [`packages/svg/AGENTS.md`](packages/svg/AGENTS.md)
 - [`packages/create/AGENTS.md`](packages/create/AGENTS.md)
 - [`packages/template/AGENTS.md`](packages/template/AGENTS.md)
 - [`packages/examples/AGENTS.md`](packages/examples/AGENTS.md)

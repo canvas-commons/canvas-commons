@@ -18,6 +18,7 @@ module.exports = {
         'ffmpeg',
         'legacy',
         'player',
+        'svg',
         'vite-plugin',
         'webcodecs',
       ],

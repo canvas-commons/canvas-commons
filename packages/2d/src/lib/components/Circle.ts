@@ -8,7 +8,7 @@ import {
 import {CurveProfile, getCircleProfile} from '../curves';
 import {computed, initial, nodeName, signal} from '../decorators';
 import {DesiredLength} from '../partials';
-import {PathDataBuilder} from '../utils';
+import {createSVGElement, PathDataBuilder, SVGContext} from '../utils';
 import {Curve, CurveProps} from './Curve';
 
 export interface CircleProps extends CurveProps {
@@ -221,6 +221,23 @@ export class Circle extends Curve {
     };
   }
 
+  public override toSVG(ctx: SVGContext): SVGElement[] {
+    // A partial arc has no clean primitive form; the Curve profile handles it.
+    if (Math.abs(this.endAngle() - this.startAngle()) < 360) {
+      return super.toSVG(ctx);
+    }
+
+    const size = this.size();
+    const rx = size.x / 2;
+    const ry = size.y / 2;
+    const element =
+      rx === ry
+        ? createSVGElement('circle', {cx: 0, cy: 0, r: rx})
+        : createSVGElement('ellipse', {cx: 0, cy: 0, rx, ry});
+    this.applySVGShapeStyle(element, ctx);
+    return [element];
+  }
+
   protected override offsetComputedLayout(box: BBox): BBox {
     return box;
   }
@@ -230,7 +247,7 @@ export class Circle extends Curve {
   }
 
   @computed()
-  protected override getPathData(): string {
+  public override getPathData(): string {
     const builder = new PathDataBuilder();
     const start = this.startAngle() * DEG2RAD;
     let end = this.endAngle() * DEG2RAD;

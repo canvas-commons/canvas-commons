@@ -60,7 +60,7 @@ import {
   WordBreak,
 } from '../partials';
 import {buildCanvasFontString, resolveLineHeight} from '../text';
-import {drawLine, drawPivot, is} from '../utils';
+import {drawLine, drawPivot, is, svgNumber} from '../utils';
 import {
   affectedLayouts,
   invertPositions,
@@ -960,6 +960,22 @@ export class Layout extends Node {
   protected computedSize(): Vector2 {
     this.requestLayoutUpdate();
     return this.getComputedLayout().size;
+  }
+
+  /**
+   * This node's outline as SVG path data. A plain layout returns its rectangular
+   * content box — the same region `draw` clips children to; shapes override this
+   * with their actual path. Used by the SVG exporter for geometry and clipping.
+   *
+   * @returns An SVG path data string (e.g. `M -50 -50 L 50 -50 L 50 50 Z`).
+   */
+  public getPathData(): string {
+    const size = this.computedSize();
+    const x = size.x / 2;
+    const y = size.y / 2;
+    return `M${svgNumber(-x)} ${svgNumber(-y)} L${svgNumber(x)} ${svgNumber(
+      -y,
+    )} L${svgNumber(x)} ${svgNumber(y)} L${svgNumber(-x)} ${svgNumber(y)} Z`;
   }
 
   /**

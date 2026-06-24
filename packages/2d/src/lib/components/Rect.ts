@@ -10,7 +10,14 @@ import {getRectProfile} from '../curves/getRectProfile';
 import {computed, initial, nodeName, signal} from '../decorators';
 import {spacingSignal} from '../decorators/spacingSignal';
 import {DesiredLength} from '../partials';
-import {PathDataBuilder, drawRoundRect, roundedRectToSVGPath} from '../utils';
+import {
+  createSVGElement,
+  drawRoundRect,
+  PathDataBuilder,
+  roundedRectToSVGPath,
+  SVGContext,
+  svgNumber,
+} from '../utils';
 import {Curve, CurveProps} from './Curve';
 
 export interface RectProps extends CurveProps {
@@ -145,6 +152,39 @@ export class Rect extends Curve {
     };
   }
 
+  public override toSVG(ctx: SVGContext): SVGElement[] {
+    const radius = this.radius();
+    const uniform =
+      radius.top === radius.right &&
+      radius.right === radius.bottom &&
+      radius.bottom === radius.left;
+    // Per-corner radii and smooth corners have no `<rect>` analog; the Curve
+    // profile captures both exactly.
+    if (!uniform || this.smoothCorners()) {
+      return super.toSVG(ctx);
+    }
+
+    const size = this.size();
+    const w = size.x;
+    const h = size.y;
+    const rect = createSVGElement('rect', {
+      x: -w / 2,
+      y: -h / 2,
+      width: w,
+      height: h,
+    });
+    // Canvas clamps the corner to a circle that fits the box. `<rect>` would
+    // otherwise clamp rx and ry to w/2 and h/2 independently, collapsing a
+    // stadium (radius >= the shorter half-extent) into an ellipse — so emit the
+    // already-clamped circular radius and let native rounding match.
+    const r = Math.min(radius.top, w / 2, h / 2);
+    if (r > 0) {
+      rect.setAttribute('rx', svgNumber(r));
+    }
+    this.applySVGShapeStyle(rect, ctx);
+    return [rect];
+  }
+
   protected override offsetComputedLayout(box: BBox): BBox {
     return box;
   }
@@ -154,7 +194,7 @@ export class Rect extends Curve {
   }
 
   @computed()
-  protected override getPathData(): string {
+  public override getPathData(): string {
     const box = BBox.fromSizeCentered(this.size());
     const radius = this.radius();
     const hasRoundedCorners =

@@ -44,7 +44,15 @@ import {
   segment,
   walkRichInlineLineRanges,
 } from '../text';
-import {fontsVersion, requestFontLoad, resolveCanvasStyle} from '../utils';
+import {
+  SVGContext,
+  applySVGPaint,
+  createSVGElement,
+  fontsVersion,
+  requestFontLoad,
+  resolveCanvasStyle,
+  svgNumber,
+} from '../utils';
 import {MeasureMode} from '../utils/yoga';
 import {Curve} from './Curve';
 import {Layout} from './Layout';
@@ -1631,6 +1639,80 @@ export class Txt extends Shape {
 
     context.restore();
     this.drawChildren(context);
+  }
+
+  public override toSVG(ctx: SVGContext): SVGElement[] {
+    // The root Txt paints every fragment; a nested Txt only contributes its
+    // inline children (serialized separately). Text-on-path has no plain
+    // `<text>` analog, so it is left to the canvas-only path.
+    if (this.parentTxt() || this.pathProfile()) {
+      return [];
+    }
+
+    this.requestFontUpdate();
+    const lines = this.positionedLines();
+    const {x: width, y: height} = this.size();
+
+    const elements: SVGElement[] = [];
+    for (const line of lines) {
+      for (let i = 0; i < line.fragments.length; i++) {
+        const fragment = line.fragments[i];
+        if (fragment.inline || fragment.text.length === 0) continue;
+
+        const {style} = fragment;
+        const y = -height / 2 + line.top + line.baselineOffsets[i];
+        const baseX = -width / 2 + fragment.x + line.alignOffset;
+
+        const justified = line.justified?.[i];
+        if (justified && line.extraPerSpace > 0) {
+          let cursorX = baseX;
+          for (const seg of justified) {
+            if (!seg.whitespace) {
+              elements.push(this.svgText(seg.text, cursorX, y, style, ctx));
+              cursorX += seg.advance;
+            } else {
+              cursorX += seg.advance + line.extraPerSpace;
+            }
+          }
+        } else {
+          elements.push(this.svgText(fragment.text, baseX, y, style, ctx));
+        }
+      }
+    }
+
+    return elements;
+  }
+
+  private svgText(
+    text: string,
+    x: number,
+    y: number,
+    style: FragmentStyle,
+    ctx: SVGContext,
+  ): SVGElement {
+    const {family, size, weight, style: fontStyle} = style.fontComponents;
+    const element = createSVGElement('text', {x, y});
+    element.setAttribute('font-family', family);
+    element.setAttribute('font-size', svgNumber(size));
+    if (weight !== 400) {
+      element.setAttribute('font-weight', `${weight}`);
+    }
+    if (fontStyle && fontStyle !== 'normal') {
+      element.setAttribute('font-style', fontStyle);
+    }
+    if (style.letterSpacing !== 0) {
+      element.setAttribute('letter-spacing', svgNumber(style.letterSpacing));
+    }
+    applySVGPaint(element, style.fill, 'fill', ctx);
+    if (style.lineWidth > 0) {
+      applySVGPaint(element, style.stroke, 'stroke', ctx);
+      element.setAttribute('stroke-width', svgNumber(style.lineWidth));
+      if (style.strokeFirst) {
+        element.setAttribute('paint-order', 'stroke');
+      }
+    }
+    element.textContent = text;
+    return element;
   }
 
   /**

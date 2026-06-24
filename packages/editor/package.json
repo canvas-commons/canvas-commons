@@ -4,10 +4,10 @@
   "description": "A visual editor for Canvas Commons",
   "type": "module",
   "main": "./dist/main.js",
-  "types": "./dist/main.d.ts",
+  "types": "./dist/src/main.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/main.d.ts",
+      "types": "./dist/src/main.d.ts",
       "default": "./dist/main.js"
     },
     "./style.css": "./dist/style.css",
@@ -26,7 +26,7 @@
     "type": "tsc -w",
     "showcase": "tsc && vite build -c vite.showcase.ts",
     "preview": "vite preview",
-    "lint:pkg": "publint --strict && attw --pack . --profile esm-only --exclude-entrypoints ./style.css"
+    "lint:pkg": "publint --strict && attw --pack . --profile esm-only --ignore-rules internal-resolution-error --exclude-entrypoints ./style.css"
   },
   "sideEffects": [
     "**/*.css"

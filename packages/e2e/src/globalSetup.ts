@@ -30,7 +30,9 @@ export async function setup(project: TestProject) {
   const warm = await firefox.connect(wsEndpoint);
   const warmPage = await warm.newPage();
   await warmPage.goto(`http://localhost:${port}/`);
-  await warmPage.waitForSelector('main');
+  // This first navigation also pays the one-time cold optimization of the
+  // pre-bundled deps (mathjax and yoga are large)
+  await warmPage.waitForSelector('main', {timeout: 45000});
   await warmPage.close();
   await warm.close();
 

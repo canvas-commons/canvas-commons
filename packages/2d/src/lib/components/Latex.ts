@@ -396,10 +396,13 @@ export class Latex extends SVGNode {
     );
 
     const oldSize = new Vector2(this.size());
-    this.svg.context.setter(newSVG);
-    const newSize = new Vector2(this.size());
+    const newSize = targetDoc.size.mul(
+      this.calculateWrapperScale(targetDoc.size, this.getCurrentSize()),
+    );
+    const lockedScale = new Vector2(this.wrapper.scale());
 
     this.lockLayout();
+    this.wrapper.scale(lockedScale);
 
     yield* all(
       ...this.createFragmentMorphAnimations(
@@ -420,8 +423,10 @@ export class Latex extends SVGNode {
       }),
     );
 
+    this.svg.context.setter(newSVG);
     this.tex.context.setter(parsedValue);
     this.wrapper.children(this.documentNodes);
+    this.wrapper.scale(this.wrapperScale);
     this.releaseLayout();
     this.width.reset();
     this.height.reset();

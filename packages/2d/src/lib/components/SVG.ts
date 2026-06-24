@@ -371,7 +371,7 @@ export class SVG extends Shape {
   }
 
   @computed()
-  private wrapperScale(): Vector2 {
+  protected wrapperScale(): Vector2 {
     return this.calculateWrapperScale(
       this.document().size,
       this.getCurrentSize(),

@@ -64,7 +64,7 @@ export function NodeElement({node, depth = 0}: NodeElementProps) {
     >
       {open.value &&
         children.value.length > 0 &&
-        children.value.map(child => (
+        children.value.map((child: Node) => (
           <NodeElement node={child} depth={depth + 1} />
         ))}
     </TreeElement>

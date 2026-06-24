@@ -1,7 +1,6 @@
 import {Toggle} from '@canvas-commons/editor';
 import {clsx} from 'clsx';
-import {ComponentChildren, JSX} from 'preact';
-import {Ref} from 'preact/hooks';
+import {ComponentChildren, JSX, Ref} from 'preact';
 import styles from './index.module.scss';
 
 const DEPTH_VAR = '--depth';

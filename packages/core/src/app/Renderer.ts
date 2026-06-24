@@ -299,5 +299,11 @@ export class Renderer {
       signal,
       this.stage.context,
     );
+    await this.exporter!.handleSceneFrame?.(
+      this.playback.currentScene,
+      this.playback.frame,
+      sceneFrame,
+      signal,
+    );
   }
 }

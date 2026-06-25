@@ -40,6 +40,7 @@ export default defineConfig({
         './src/svg.ts',
         './src/shadow.ts',
         './src/clip.ts',
+        './src/pattern.ts',
       ],
     }),
   ],

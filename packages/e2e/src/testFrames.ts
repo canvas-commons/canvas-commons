@@ -176,27 +176,20 @@ export const testFrames: Record<string, TestFrame[]> = {
  * checked.
  */
 const svgFidelityIgnore: Record<string, string> = {
-  // Web fonts: the sandboxed `<img>` rasterizer can't load them, so glyphs fall
-  // back and diverge from the canvas (which has Roboto/JetBrains Mono).
-  'node-signal': 'web font',
-  'tweening-visualiser': 'web font',
-  text: 'web font',
-  'text-rendering': 'Segoe Print, a Windows-only font',
-  tex: 'MathJax glyph edges differ between render paths',
-  'transitions-first': 'web font',
-  'transitions-second': 'web font',
   // Code has no toSVG yet, so its text exports nothing.
   code: 'Code node is not serialized',
-  // SVG `<filter>` primitives vs the canvas filter/shadow pipeline.
-  'filters-order': 'SVG filter primitives',
-  shadow: 'SVG filter primitives',
+  // Glyphs the rasterizer can't reproduce even with font embedding.
+  'text-rendering': 'Segoe Print, a Windows-only font',
+  // Scene transitions composite multiple scenes at the stage level; the exporter
+  // only serializes one scene's view.
+  'transitions-first': 'scene transition is not serialized',
+  'transitions-second': 'scene transition is not serialized',
   // Compositing the canvas does but SVG has no element-level equivalent for.
   'composite-operations': 'Porter-Duff compositing',
   presentation: 'destination-out compositing',
   // Bitmap/video sources the vector path can't reproduce pixel-for-pixel.
   'media-image': 'bitmap upscaling',
   'media-video': 'video frames are not serialized',
-  'layout-animations': 'web font',
 };
 
 /**

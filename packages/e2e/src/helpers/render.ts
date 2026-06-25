@@ -26,11 +26,11 @@ const IMAGE_SPEC: ExporterSpec = {
 
 const SVG_SPEC: ExporterSpec = {
   id: '@canvas-commons/svg',
-  // The fidelity suite rasterizes the SVG through an `<img>`, which is font
-  // sandboxed and mishandles large embedded-font documents — so it keeps fonts
-  // unembedded and relies on the system font. Embedding is shown off by the
-  // gallery instead, which renders through librsvg.
-  options: {groupByScene: true, embedFonts: false},
+  // Embed fonts so the rasterizer renders web-font text instead of falling back
+  // to a system font: Firefox applies inlined `@font-face` faces even for SVGs
+  // loaded through an `<img>`, so embedding lets font-dependent scenes match the
+  // canvas baseline.
+  options: {groupByScene: true, embedFonts: true},
   extension: 'svg',
 };
 

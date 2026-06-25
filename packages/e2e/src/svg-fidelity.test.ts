@@ -15,9 +15,11 @@ expect.extend({toMatchImageSnapshot});
  * snapshots rather than committing its own. Because of that, never run this file
  * with `-u`: it would overwrite the canvas baselines with the SVG raster.
  */
-// Allowed whole-frame divergence (0.05%) and per-pixel colour tolerance, the
-// latter absorbing anti-aliasing between the canvas and SVG render paths.
-const FAILURE_THRESHOLD = 0.0005;
+// Allowed whole-frame divergence (0.15%) and per-pixel colour tolerance, the
+// latter absorbing anti-aliasing between the canvas and SVG render paths. The
+// frame budget is set by the worst faithful case: glyph-dense scenes like `tex`,
+// where edge anti-aliasing adds up over hundreds of MathJax contours.
+const FAILURE_THRESHOLD = 0.0015;
 const DIFF_PIXEL_THRESHOLD = 0.1;
 
 for (const [sceneName, frames] of Object.entries(svgFidelityFrames)) {

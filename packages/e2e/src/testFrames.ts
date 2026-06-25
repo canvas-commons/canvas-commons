@@ -144,6 +144,7 @@ export const testFrames: Record<string, TestFrame[]> = {
   svg: [{frame: -1, label: 'final'}],
   shadow: [{frame: -1, label: 'final'}],
   clip: [{frame: -1, label: 'final'}],
+  pattern: [{frame: 0, label: 'initial'}],
   'composite-operations': [
     {frame: 0, label: 'initial'},
     {frame: 45, label: 'sliding'},
@@ -179,13 +180,13 @@ const svgFidelityIgnore: Record<string, string> = {
   // back and diverge from the canvas (which has Roboto/JetBrains Mono).
   'node-signal': 'web font',
   'tweening-visualiser': 'web font',
-  code: 'web font',
   text: 'web font',
-  'text-path': 'web font',
   'text-rendering': 'Segoe Print, a Windows-only font',
   tex: 'MathJax glyph edges differ between render paths',
   'transitions-first': 'web font',
   'transitions-second': 'web font',
+  // Code has no toSVG yet, so its text exports nothing.
+  code: 'Code node is not serialized',
   // SVG `<filter>` primitives vs the canvas filter/shadow pipeline.
   'filters-order': 'SVG filter primitives',
   shadow: 'SVG filter primitives',

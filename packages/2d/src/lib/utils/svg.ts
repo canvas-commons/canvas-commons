@@ -1,5 +1,6 @@
 import {Color, PossibleColor} from '@canvas-commons/core';
 import {Gradient} from '../partials/Gradient';
+import {Pattern} from '../partials/Pattern';
 
 export const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 
@@ -46,6 +47,11 @@ export interface SVGContext {
    * entry and returns its id, for a node that filters its own content.
    */
   defineFilter(content: SVGElement[]): string;
+  /**
+   * Registers a `<pattern>` for a tiled image paint as a `<defs>` entry and
+   * returns its element id.
+   */
+  definePattern(pattern: Pattern): string;
 }
 
 /**
@@ -176,8 +182,12 @@ export function applySVGPaint(
     element.setAttribute(kind, `url(#${ctx.defineGradient(value)})`);
     return;
   }
-  // Only plain colours map to an SVG paint; a Pattern (or anything else) has no
-  // element-level equivalent, so leave it unpainted rather than guessing.
+  if (value instanceof Pattern) {
+    element.setAttribute(kind, `url(#${ctx.definePattern(value)})`);
+    return;
+  }
+  // Only plain colours map to an SVG paint; anything else has no element-level
+  // equivalent, so leave it unpainted rather than guessing.
   if (typeof value !== 'string' && !(value instanceof Color)) {
     element.setAttribute(kind, 'none');
     return;

@@ -1643,13 +1643,17 @@ export class Txt extends Shape {
 
   public override toSVG(ctx: SVGContext): SVGElement[] {
     // The root Txt paints every fragment; a nested Txt only contributes its
-    // inline children (serialized separately). Text-on-path has no plain
-    // `<text>` analog, so it is left to the canvas-only path.
-    if (this.parentTxt() || this.pathProfile()) {
+    // inline children (serialized separately).
+    if (this.parentTxt()) {
       return [];
     }
 
     this.requestFontUpdate();
+    const profile = this.pathProfile();
+    if (profile) {
+      return this.toSVGAlongPath(profile, ctx);
+    }
+
     const lines = this.positionedLines();
     const {x: width, y: height} = this.size();
 
@@ -1690,8 +1694,19 @@ export class Txt extends Shape {
     style: FragmentStyle,
     ctx: SVGContext,
   ): SVGElement {
-    const {family, size, weight, style: fontStyle} = style.fontComponents;
     const element = createSVGElement('text', {x, y});
+    this.applySVGTextStyle(element, style, ctx);
+    element.textContent = text;
+    return element;
+  }
+
+  /** Sets the font and paint attributes of a `<text>`/`<textPath>` element. */
+  private applySVGTextStyle(
+    element: SVGElement,
+    style: FragmentStyle,
+    ctx: SVGContext,
+  ): void {
+    const {family, size, weight, style: fontStyle} = style.fontComponents;
     element.setAttribute('font-family', family);
     element.setAttribute('font-size', svgNumber(size));
     if (weight !== 400) {
@@ -1711,8 +1726,98 @@ export class Txt extends Shape {
         element.setAttribute('paint-order', 'stroke');
       }
     }
-    element.textContent = text;
-    return element;
+  }
+
+  /**
+   * Serializes text laid along {@link textPath} as one `<text>` per unit, each
+   * translated and rotated onto the curve. Mirrors {@link drawAlongPath} so the
+   * vector output matches the rasterized placement glyph for glyph — a native
+   * `<textPath>` can't, because a path forces a glyph's rotation to be the
+   * curve's tangent, whereas the renderer rotates and offsets each unit
+   * independently.
+   */
+  private toSVGAlongPath(profile: CurveProfile, ctx: SVGContext): SVGElement[] {
+    const scale = this.pathScale();
+    const arcLength = profile.arcLength * scale;
+    if (arcLength <= 0 || profile.segments.length === 0) {
+      return [];
+    }
+
+    const matrix = this.pathTransform();
+    const textWidth = this.textLayout().width;
+    const alignBase = this.pathAlignBase(arcLength, textWidth);
+    const offset = this.pathOffset();
+    const sample = createCurveSampler(profile);
+
+    const align = this.pathAlign();
+    const smoothAnchorAt =
+      align === 'smooth'
+        ? this.buildSmoothAnchor(profile, matrix, scale)
+        : null;
+    const staticAnchor = resolvePathAnchor(align);
+    const metricsCache = new Map<string, {ascent: number; descent: number}>();
+    const glyphBaseline = (style: FragmentStyle, anchor: number | null) => {
+      if (anchor === null) return 0;
+      let metrics = metricsCache.get(style.font);
+      if (!metrics) {
+        metrics = this.measureFontMetrics(style);
+        metricsCache.set(style.font, metrics);
+      }
+      const {ascent, descent} = metrics;
+      return (ascent - descent) / 2 - (anchor * (ascent + descent)) / 2;
+    };
+
+    const elements: SVGElement[] = [];
+    for (const {unit, style} of this.walkUnits(this.pathSplit(), true)) {
+      const center = unit.x + textWidth / 2 + alignBase + offset;
+      if (center < 0 || center > arcLength) {
+        continue;
+      }
+      const half = unit.width / 2;
+      const dStart = clamp(0, arcLength, center - half);
+      const dEnd = clamp(0, arcLength, center + half);
+
+      const startSample = sample(dStart / scale);
+      const midPoint = sample(center / scale);
+      const endSample = sample(dEnd / scale);
+      const startRaw = startSample.position.transformAsPoint(matrix);
+      const midRaw = midPoint.position.transformAsPoint(matrix);
+      const endRaw = endSample.position.transformAsPoint(matrix);
+
+      const rawChord = endRaw.sub(startRaw);
+      const rawLength = rawChord.magnitude;
+      const up =
+        rawLength > 0
+          ? new Vector2(-rawChord.y / rawLength, rawChord.x / rawLength)
+          : Vector2.zero;
+
+      const offsetFor = (distance: number) =>
+        glyphBaseline(
+          style,
+          smoothAnchorAt ? smoothAnchorAt(distance) : staticAnchor,
+        );
+      const startP = startRaw.add(up.scale(offsetFor(dStart)));
+      const position = midRaw.add(up.scale(offsetFor(center)));
+      const endP = endRaw.add(up.scale(offsetFor(dEnd)));
+
+      const chord = endP.sub(startP);
+      const angle =
+        chord.magnitude > 0.001
+          ? chord.radians
+          : midPoint.normal.flipped.perpendicular.transform(matrix).radians;
+
+      const glyphX = this.glyphPenOffset(unit, style);
+      const element = this.svgText(unit.text, glyphX, 0, style, ctx);
+      element.setAttribute(
+        'transform',
+        `translate(${svgNumber(position.x)} ${svgNumber(
+          position.y,
+        )}) rotate(${svgNumber((angle * 180) / Math.PI)})`,
+      );
+      elements.push(element);
+    }
+
+    return elements;
   }
 
   /**

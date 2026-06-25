@@ -237,13 +237,20 @@ about working with images.`,
     }
 
     let href: string;
-    try {
-      href = this.filledImageCanvas().canvas.toDataURL();
-    } catch (e) {
-      useLogger().warn(
-        'SVG export: image could not be embedded (the source canvas is tainted).',
-      );
-      return base;
+    const src = this.src();
+    if (src.startsWith('data:')) {
+      // Inline the original encoded source; re-rasterizing would bake a vector
+      // source down to its natural pixel size.
+      href = src;
+    } else {
+      try {
+        href = this.filledImageCanvas().canvas.toDataURL();
+      } catch (e) {
+        useLogger().warn(
+          'SVG export: image could not be embedded (the source canvas is tainted).',
+        );
+        return base;
+      }
     }
 
     const size = this.computedSize();

@@ -185,8 +185,6 @@ const svgFidelityIgnore: Record<string, string> = {
   // Compositing the canvas does but SVG has no element-level equivalent for.
   'composite-operations': 'Porter-Duff compositing',
   presentation: 'destination-out compositing',
-  // Bitmap/video sources the vector path can't reproduce pixel-for-pixel.
-  'media-image': 'bitmap upscaling',
   'media-video': 'video frames are not serialized',
 };
 

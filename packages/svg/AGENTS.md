@@ -42,6 +42,13 @@ operator falls back to `source-over` with a warning. Filters force sRGB working
 space and an enlarged region to match the canvas — output drifts if you touch
 those defaults.
 
+**Pattern fills approximate, text-on-a-path is faithful but not live.** A
+pattern fill becomes a `<pattern>` (only `repeat` maps exactly; other
+repetitions warn and tile). Text along a path is emitted as one positioned
+`<text>` per glyph to match the renderer's placement exactly — a native
+`<textPath>` can't, since a path forces each glyph's rotation to follow the
+tangent — so the run is faithful but no longer a single selectable string.
+
 ## Used in the wild
 
 In a downstream `vite.config.ts`:

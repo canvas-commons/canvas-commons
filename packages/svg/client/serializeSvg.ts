@@ -5,6 +5,7 @@ import {
   Layout,
   matrixToTransform,
   Node,
+  Pattern,
   SVGContext,
   svgNumber,
   toHexAlpha,
@@ -187,6 +188,85 @@ class DocumentContext implements SVGContext {
     content.forEach(node => filter.appendChild(node));
     this.defs.push(filter);
     return id;
+  }
+
+  /**
+   * Registers a `<pattern>` tiling the pattern's image and returns its element
+   * id. `userSpaceOnUse` anchors the tile at the node's local origin, matching
+   * the canvas, where the pattern is anchored at the same origin. Repetition
+   * other than `repeat` has no `<pattern>` equivalent (patterns always tile) and
+   * is approximated as `repeat` with a warning.
+   */
+  public definePattern(pattern: Pattern): string {
+    const id = `pattern-${this.counter++}`;
+    const element = createSVGElement('pattern', {
+      id,
+      patternUnits: 'userSpaceOnUse',
+    });
+
+    const repetition = pattern.repetition();
+    if (repetition && repetition !== 'repeat') {
+      useLogger().warn(
+        `SVG export approximates pattern repetition "${repetition}" as "repeat".`,
+      );
+    }
+
+    const image = patternImage(pattern.image());
+    if (image) {
+      element.setAttribute('width', svgNumber(image.width));
+      element.setAttribute('height', svgNumber(image.height));
+      const node = createSVGElement('image', {
+        width: image.width,
+        height: image.height,
+      });
+      node.setAttribute('href', image.href);
+      element.appendChild(node);
+    }
+
+    this.defs.push(element);
+    return id;
+  }
+}
+
+/** Intrinsic size and data URL of a pattern's image source, or `null`. */
+function patternImage(
+  source: CanvasImageSource,
+): {href: string; width: number; height: number} | null {
+  const width =
+    'naturalWidth' in source
+      ? source.naturalWidth
+      : 'videoWidth' in source
+        ? source.videoWidth
+        : typeof source.width === 'number'
+          ? source.width
+          : source.width.baseVal.value;
+  const height =
+    'naturalHeight' in source
+      ? source.naturalHeight
+      : 'videoHeight' in source
+        ? source.videoHeight
+        : typeof source.height === 'number'
+          ? source.height
+          : source.height.baseVal.value;
+  if (!width || !height) {
+    return null;
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext('2d');
+  if (!context) {
+    return null;
+  }
+  try {
+    context.drawImage(source, 0, 0);
+    return {href: canvas.toDataURL(), width, height};
+  } catch {
+    useLogger().warn(
+      'SVG export: pattern image could not be embedded (the source is tainted).',
+    );
+    return null;
   }
 }
 

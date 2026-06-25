@@ -176,8 +176,6 @@ export const testFrames: Record<string, TestFrame[]> = {
  * checked.
  */
 const svgFidelityIgnore: Record<string, string> = {
-  // Code has no toSVG yet, so its text exports nothing.
-  code: 'Code node is not serialized',
   // Glyphs the rasterizer can't reproduce even with font embedding.
   'text-rendering': 'Segoe Print, a Windows-only font',
   // Scene transitions composite multiple scenes at the stage level; the exporter

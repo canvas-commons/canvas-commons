@@ -1,5 +1,15 @@
 # Change Log
 
+## 0.4.0
+
+### Patch Changes
+
+- [#108](https://github.com/canvas-commons/canvas-commons/pull/108)
+  [`2a6f57c`](https://github.com/canvas-commons/canvas-commons/commit/2a6f57cf64ad2deb66091dc7ceed20c8685c4377)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Pre-bundle
+  `yoga-layout` and `@chenglou/pretext` so the dev-time dep optimizer doesn't
+  discover them mid-session and force a page reload.
+
 ## 0.3.1
 
 ### Patch Changes

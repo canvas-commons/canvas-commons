@@ -1,5 +1,13 @@
 # Change Log
 
+## 0.4.0
+
+### Patch Changes
+
+- Updated dependencies
+  [[`c7c1e79`](https://github.com/canvas-commons/canvas-commons/commit/c7c1e79fa15bd540cb0236e720f1a2392c91f7c5)]:
+  - @canvas-commons/core@0.4.0
+
 ## 0.3.1
 
 ### Patch Changes

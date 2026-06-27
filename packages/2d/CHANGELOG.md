@@ -1,5 +1,160 @@
 # Change Log
 
+## 0.4.0
+
+### Minor Changes
+
+- [#123](https://github.com/canvas-commons/canvas-commons/pull/123)
+  [`0555a05`](https://github.com/canvas-commons/canvas-commons/commit/0555a053e37166f2321f1f59ba9e777fb476bda9)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add `autoSize` to
+  `<Txt>` — when enabled with a fixed `width` and `height`, the font shrinks to
+  fit the box, capped at the configured `fontSize`.
+
+- [#123](https://github.com/canvas-commons/canvas-commons/pull/123)
+  [`6c539a4`](https://github.com/canvas-commons/canvas-commons/commit/6c539a455e2f9f7487b66261f2138dbd27df6b1c)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add `exclusions` to
+  `<Txt>` — rect and polygon regions that text flows around, CSS
+  `shape-outside`-style.
+
+- [#108](https://github.com/canvas-commons/canvas-commons/pull/108)
+  [`2a6f57c`](https://github.com/canvas-commons/canvas-commons/commit/2a6f57cf64ad2deb66091dc7ceed20c8685c4377)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Replace DOM-based
+  layout and text with Yoga and Pretext.
+
+  **Breaking:** `View2D.shadowRoot` and `Layout.element` / `Layout.styles` are
+  removed; use `Layout.yogaNode` and `getDomContainer()` (for SVG / arc
+  measurement) instead. `TxtLeaf` now extends `Node`, not `Shape` — direct
+  `<TxtLeaf>` styling no longer applies; styles cascade from the enclosing
+  `<Txt>`. `FlexBasis` / `LengthLimit` drop the unsupported content-keyword
+  variants, `FlexContent` adds `'normal'`, `FlexItems` adds `'auto'`, and
+  `textWrap` now defaults to `true` so width-bounded `<Txt>` wraps without
+  opt-in.
+
+- [#123](https://github.com/canvas-commons/canvas-commons/pull/123)
+  [`2ae5c9d`](https://github.com/canvas-commons/canvas-commons/commit/2ae5c9d666c0c5f95a5d49cf0f9a7cbee9642bbb)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add support for
+  inline non-text children inside `<Txt>` — direct `Layout` children are placed
+  in the text flow as atomic slots sized by their own `width` / `height`.
+
+- [#123](https://github.com/canvas-commons/canvas-commons/pull/123)
+  [`108537f`](https://github.com/canvas-commons/canvas-commons/commit/108537f266037fc65a62da8c3bd3f2f5e2398aa8)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add
+  `textAlign={'justify'}` and a `verticalAlign` signal to `<Txt>` — justify
+  distributes line slack across word gaps; `verticalAlign` lines text up to the
+  top, middle, or bottom of its box.
+
+- [#123](https://github.com/canvas-commons/canvas-commons/pull/123)
+  [`218c20b`](https://github.com/canvas-commons/canvas-commons/commit/218c20bb35fd4084a63bea3479ea94a0c233faaf)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add text-on-a-path to
+  `<Txt>`: `textPath` lays a single line along SVG path data, a `CurveProfile`,
+  or a live `Curve` node, with `pathOffset`, `pathAlign`, `pathSmoothness`, and
+  `pathSplit` controlling placement, cross-path alignment, and shaping.
+
+- [#123](https://github.com/canvas-commons/canvas-commons/pull/123)
+  [`8a38ad8`](https://github.com/canvas-commons/canvas-commons/commit/8a38ad8b0336bbd852a73a3b231a7081683cecb9)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add `textWords` /
+  `textGlyphs` / `textSentences` query accessors to `<Txt>` that return per-unit
+  text and positions in Txt-local coordinates.
+
+- [#123](https://github.com/canvas-commons/canvas-commons/pull/123)
+  [`91b80f5`](https://github.com/canvas-commons/canvas-commons/commit/91b80f5b4da4399a52528431338b65fe1049eec8)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add
+  `Txt.split(granularity)` — explode a text node into one standalone,
+  style-matched `Txt` per grapheme, word, or sentence, each positioned to
+  reproduce the source render exactly (kerning included) so the pieces can be
+  animated independently.
+
+- [#123](https://github.com/canvas-commons/canvas-commons/pull/123)
+  [`57faadb`](https://github.com/canvas-commons/canvas-commons/commit/57faadb7297d6628fa1be5b53ccc5bb6d4d47279)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add `wrapMode` and
+  `hyphenate` to `<Txt>` — opt into Knuth-Plass line breaking and bring-your-own
+  soft-hyphen insertion.
+
+### Patch Changes
+
+- [#110](https://github.com/canvas-commons/canvas-commons/pull/110)
+  [`476f3bb`](https://github.com/canvas-commons/canvas-commons/commit/476f3bb8de19637c52a68e91bcb72b4965dd8c22)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - `Layout.add` /
+  `insert` / `remove` accept an optional `duration`. Without it they behave as
+  before; with it they return a `ThreadGenerator` that scales the child into or
+  out of its slot while the surrounding flex layout reflows.
+
+  ```tsx
+  yield * row().insert(<Rect width={100} height={100} fill="red" />, 1, 0.6);
+  yield * row().children()[0].remove(0.6);
+  ```
+
+- [#110](https://github.com/canvas-commons/canvas-commons/pull/110)
+  [`7e8384c`](https://github.com/canvas-commons/canvas-commons/commit/7e8384cc710ecb196f06d6d0738dcb75ebdd527d)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add
+  `Layout.editLayout(duration, mutator)` to animate a batch of layout properties
+  (`direction`, `wrap`, `alignItems`, `padding`, `gap`, …) as one tween.
+  Children glide from their pre-mutation positions to wherever the post-mutation
+  layout places them.
+
+  ```tsx
+  yield *
+    row().editLayout(0.3, n => {
+      n.direction('column');
+      n.alignItems('end');
+    });
+  ```
+
+- [#110](https://github.com/canvas-commons/canvas-commons/pull/110)
+  [`77a532c`](https://github.com/canvas-commons/canvas-commons/commit/77a532cf99bbdf879542d31cd519e4f6b51283fa)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add
+  `Layout.freezeLayout` / `thawLayout`. `freezeLayout` snaps children to their
+  current visual positions and turns `layoutChildren` off so they can be
+  animated by hand; `thawLayout` turns it back on and tweens children to their
+  flex slots.
+
+  ```tsx
+  row().freezeLayout();
+  yield * row().children()[0].position.x(-200, 1).back(1);
+  yield * row().thawLayout(0.3);
+  ```
+
+- [#110](https://github.com/canvas-commons/canvas-commons/pull/110)
+  [`f46dd7e`](https://github.com/canvas-commons/canvas-commons/commit/f46dd7ec3800649600d85b9e48f3e4ff914e2d13)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Concurrent-tween
+  fixes for `<Latex>`, `<Txt>`, and `<Layout>`. `padding`, `margin`, and `gap`
+  tweens now compose with `size` tweens on the same node; `Latex.tweenTex`
+  tweens the container size alongside the fragment morph; `Txt` text tweens stay
+  smooth when `fontSize` animates at the same time.
+
+  `Layout.lockLayout` / `releaseLayout` replace `lockSize` / `releaseSize`.
+
+- [#110](https://github.com/canvas-commons/canvas-commons/pull/110)
+  [`89ab100`](https://github.com/canvas-commons/canvas-commons/commit/89ab100d806fe36f49faa0f16a176179cf5ea49c)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Split `layout` on
+  `<Layout>` into `layoutSelf` (does this node participate in its parent's flex)
+  and `layoutChildren` (does this node lay out its own children). Both default
+  to `null` and fall back to `layout`, so existing code is unaffected.
+  `Layout.applyLayout` and `Layout.requestLayoutUpdate` are now public.
+
+- [#110](https://github.com/canvas-commons/canvas-commons/pull/110)
+  [`0d54f09`](https://github.com/canvas-commons/canvas-commons/commit/0d54f09aa26457cd17ec3f7c3b4e32dfdf860ac1)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add
+  `Node.transitionTo(newParent, [index,] duration)` and
+  `Node.morphTo(other, duration)`. `transitionTo` reparents a node while
+  tweening its world position, rotation, and opacity from the old slot to the
+  new one. `morphTo` cross-fades into a separate destination node.
+
+  ```tsx
+  yield * card.transitionTo(grid, 0, 0.6);
+  yield * button.morphTo(modal, 0.4);
+  ```
+
+- [#110](https://github.com/canvas-commons/canvas-commons/pull/110)
+  [`049e1d8`](https://github.com/canvas-commons/canvas-commons/commit/049e1d8f7048f4d72ff26d3a30d10e29e547c75a)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add `translate` to
+  `<Layout>` — a `Vector2Signal` (with `translateX` / `translateY` props) that
+  visually offsets the node without disturbing siblings, analogous to CSS
+  `transform: translate()`.
+- Updated dependencies
+  [[`c7c1e79`](https://github.com/canvas-commons/canvas-commons/commit/c7c1e79fa15bd540cb0236e720f1a2392c91f7c5)]:
+  - @canvas-commons/core@0.4.0
+
 ## 0.3.1
 
 ### Patch Changes

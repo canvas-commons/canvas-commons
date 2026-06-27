@@ -218,7 +218,7 @@ export class Polygon extends Curve {
   }
 
   @computed()
-  protected override getPathData(): string {
+  public override getPathData(): string {
     const builder = new PathDataBuilder();
     const sides = this.sides();
     const size = this.computedSize().scale(0.5);

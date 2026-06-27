@@ -62,7 +62,7 @@ import {
   parseShader,
 } from '../partials/ShaderConfig';
 import {useScene2D} from '../scenes/useScene2D';
-import {drawLine} from '../utils';
+import {SVGContext, drawLine} from '../utils';
 import {
   affectedLayouts,
   invertPositions,
@@ -1787,6 +1787,23 @@ export class Node implements Promisable<Node> {
     for (const child of this.sortedChildren()) {
       child.render(context);
     }
+  }
+
+  /**
+   * Build this node's own geometry as SVG elements.
+   *
+   * @remarks
+   * The SVG exporter walks the scene graph and wraps each node in a `<g>` that
+   * carries its transform and opacity; this method returns only the elements for
+   * the node's own shape — its children are serialized separately. Container
+   * nodes draw nothing and return an empty array. This is the SVG counterpart of
+   * {@link draw}.
+   *
+   * @param ctx - Collects shared document state, such as gradient definitions.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  public toSVG(_ctx: SVGContext): SVGElement[] {
+    return [];
   }
 
   /**

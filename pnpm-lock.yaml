@@ -323,6 +323,9 @@ importers:
       '@canvas-commons/core':
         specifier: workspace:^
         version: link:../core
+      '@canvas-commons/svg':
+        specifier: workspace:^
+        version: link:../svg
       jest-image-snapshot:
         specifier: ^6.2.0
         version: 6.5.2
@@ -456,6 +459,18 @@ importers:
       vite:
         specifier: 'catalog:'
         version: 8.0.13(@types/node@20.19.39)(jiti@2.6.1)(sass@1.99.0)(terser@5.46.2)(yaml@2.8.4)
+
+  packages/svg:
+    dependencies:
+      '@canvas-commons/2d':
+        specifier: workspace:^
+        version: link:../2d
+      '@canvas-commons/core':
+        specifier: workspace:^
+        version: link:../core
+      '@canvas-commons/vite-plugin':
+        specifier: workspace:^
+        version: link:../vite-plugin
 
   packages/template:
     dependencies:

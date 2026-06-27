@@ -34,6 +34,7 @@ import {
 } from '../code';
 import {computed, initial, nodeName, parser, signal} from '../decorators';
 import {DesiredLength} from '../partials';
+import {applySVGPaint, createSVGElement, SVGContext, svgNumber} from '../utils';
 import {Shape, ShapeProps} from './Shape';
 
 /**
@@ -474,6 +475,25 @@ export class Code extends Shape {
     return info;
   }
 
+  @computed()
+  protected emHeightAscent(): number {
+    this.requestFontUpdate();
+    const context = this.cacheCanvas();
+    context.save();
+    this.applyText(context);
+    // Metrics are relative to the baseline, which `applyText` sets to `'top'`;
+    // measure against the alphabetic baseline a `<text>` uses instead.
+    context.textBaseline = 'alphabetic';
+    const metrics = context.measureText('X');
+    context.restore();
+    if (Number.isFinite(metrics.emHeightAscent)) {
+      return metrics.emHeightAscent;
+    }
+    return Number.isFinite(metrics.fontBoundingBoxAscent)
+      ? metrics.fontBoundingBoxAscent
+      : this.fontSize();
+  }
+
   protected override desiredSize(): SerializedVector2<DesiredLength> {
     this.requestFontUpdate();
     const context = this.cacheCanvas();
@@ -523,6 +543,85 @@ export class Code extends Shape {
     if ('letterSpacing' in context) {
       context.letterSpacing = `${this.letterSpacing()}px`;
     }
+  }
+
+  public override toSVG(ctx: SVGContext): SVGElement[] {
+    this.requestFontUpdate();
+    const size = this.computedSize();
+    const drawingInfo = this.drawingInfo();
+
+    if (this.drawHooks() !== this.drawHooks.context.getInitial()) {
+      useLogger().warn({
+        message:
+          'SVG export does not support custom Code draw hooks; using the ' +
+          'default token rendering instead.',
+        inspect: this.key,
+      });
+    }
+
+    // Same frame as the translate in `draw`.
+    const offsetX = -size.width / 2;
+    const offsetY = -size.height / 2 + drawingInfo.verticalOffset;
+    // `draw` paints at `textBaseline = 'top'`; a `<text>` anchors at the
+    // alphabetic baseline, one em ascent lower.
+    const baseline = this.emHeightAscent();
+
+    const elements: SVGElement[] = [];
+    for (const fragment of drawingInfo.fragments) {
+      if (fragment.text.trim().length === 0) {
+        continue;
+      }
+      // Selection dim (`time`) and diff fade (`alpha`), as in the default hook.
+      const opacity = fragment.alpha * map(0.2, 1, fragment.time);
+      if (opacity <= 0) {
+        continue;
+      }
+      elements.push(
+        this.svgToken(
+          fragment.text,
+          offsetX + fragment.position.x,
+          offsetY + fragment.position.y + baseline,
+          fragment.fill,
+          opacity,
+          ctx,
+        ),
+      );
+    }
+
+    return elements;
+  }
+
+  private svgToken(
+    text: string,
+    x: number,
+    y: number,
+    fill: string,
+    opacity: number,
+    ctx: SVGContext,
+  ): SVGElement {
+    const element = createSVGElement('text', {x, y});
+    element.setAttribute('font-family', this.fontFamily());
+    element.setAttribute('font-size', svgNumber(this.fontSize()));
+    const weight = this.fontWeight();
+    if (weight !== 400) {
+      element.setAttribute('font-weight', `${weight}`);
+    }
+    const fontStyle = this.fontStyle();
+    if (fontStyle !== 'normal') {
+      element.setAttribute('font-style', fontStyle);
+    }
+    const spacing = this.letterSpacing();
+    if (spacing !== 0) {
+      element.setAttribute('letter-spacing', svgNumber(spacing));
+    }
+
+    applySVGPaint(element, fill, 'fill', ctx);
+    // The colour's own alpha rides on `fill-opacity`; `opacity` adds the dim.
+    if (opacity < 1) {
+      element.setAttribute('opacity', svgNumber(opacity));
+    }
+    element.textContent = text;
+    return element;
   }
 
   protected override collectAsyncResources(): void {

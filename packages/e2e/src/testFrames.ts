@@ -141,6 +141,12 @@ export const testFrames: Record<string, TestFrame[]> = {
     {frame: -1, label: 'final'},
   ],
   primitives: [{frame: 0, label: 'initial'}],
+  paths: [{frame: 0, label: 'initial'}],
+  img: [{frame: -1, label: 'final'}],
+  svg: [{frame: -1, label: 'final'}],
+  shadow: [{frame: -1, label: 'final'}],
+  clip: [{frame: -1, label: 'final'}],
+  pattern: [{frame: 0, label: 'initial'}],
   'composite-operations': [
     {frame: 0, label: 'initial'},
     {frame: 45, label: 'sliding'},
@@ -163,3 +169,35 @@ export const testFrames: Record<string, TestFrame[]> = {
     {frame: -1, label: 'final'},
   ],
 };
+
+/**
+ * Scenes the SVG-fidelity suite cannot pixel-compare against the canvas baseline,
+ * each mapped to why. The SVG of these renders through a different mechanism than
+ * the canvas, so a pixel diff would be meaningless; the PNG×SVG gallery judges
+ * their fidelity visually instead. Every other scene in {@link testFrames} is
+ * checked.
+ */
+const svgFidelityIgnore: Record<string, string> = {
+  // Glyphs the rasterizer can't reproduce even with font embedding.
+  'text-rendering': 'Segoe Print, a Windows-only font',
+  // Scene transitions composite multiple scenes at the stage level; the exporter
+  // only serializes one scene's view.
+  'transitions-first': 'scene transition is not serialized',
+  'transitions-second': 'scene transition is not serialized',
+  // Compositing the canvas does but SVG has no element-level equivalent for.
+  'composite-operations': 'Porter-Duff compositing',
+  presentation: 'destination-out compositing',
+  'media-video': 'video frames are not serialized',
+};
+
+/**
+ * Scenes (and frames) checked by the SVG-fidelity suite: every scene in
+ * {@link testFrames} except those in {@link svgFidelityIgnore}, rendered to SVG,
+ * rasterized, and compared against the canvas PNG baseline.
+ */
+export const svgFidelityFrames: Record<string, TestFrame[]> =
+  Object.fromEntries(
+    Object.entries(testFrames).filter(
+      ([scene]) => !(scene in svgFidelityIgnore),
+    ),
+  );

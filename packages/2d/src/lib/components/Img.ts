@@ -3,22 +3,22 @@ import {
   Color,
   DependencyContext,
   DetailedError,
+  easeInOutCubic,
+  isReactive,
   PossibleVector2,
   SerializedVector2,
   SignalValue,
   SimpleSignal,
-  TimingFunction,
-  Vector2,
-  easeInOutCubic,
-  isReactive,
   threadable,
+  TimingFunction,
   tween,
   useLogger,
+  Vector2,
   viaProxy,
 } from '@canvas-commons/core';
 import {computed, initial, nodeName, signal} from '../decorators';
 import {DesiredLength} from '../partials';
-import {drawImage} from '../utils';
+import {createSVGElement, drawImage, SVGContext, svgNumber} from '../utils';
 import {Rect, RectProps} from './Rect';
 import imageWithoutSource from './__logs__/image-without-source';
 
@@ -224,6 +224,67 @@ about working with images.`,
     context.drawImage(image, 0, 0);
 
     return context;
+  }
+
+  public override toSVG(ctx: SVGContext): SVGElement[] {
+    // The Rect base contributes any fill/stroke (e.g. a border); the bitmap is
+    // embedded as a data URL and stretched into the centered box, matching the
+    // canvas `drawImage` (which does not preserve aspect ratio).
+    const base = super.toSVG(ctx);
+    const alpha = this.alpha();
+    if (alpha <= 0) {
+      return base;
+    }
+
+    let href: string;
+    const src = this.src();
+    if (src.startsWith('data:')) {
+      // Inline the original encoded source; re-rasterizing would bake a vector
+      // source down to its natural pixel size.
+      href = src;
+    } else {
+      try {
+        href = this.filledImageCanvas().canvas.toDataURL();
+      } catch (e) {
+        useLogger().warn(
+          'SVG export: image could not be embedded (the source canvas is tainted).',
+        );
+        return base;
+      }
+    }
+
+    const size = this.computedSize();
+    const image = createSVGElement('image', {
+      x: -size.x / 2,
+      y: -size.y / 2,
+      width: size.x,
+      height: size.y,
+      preserveAspectRatio: 'none',
+      href,
+    });
+    if (alpha < 1) {
+      image.setAttribute('opacity', svgNumber(alpha));
+    }
+
+    // `draw` clips the bitmap to the (possibly rounded) rect path; a plain
+    // `<image>` would leave rounded/smoothed corners square, so clip to match.
+    const radius = this.radius();
+    const rounded =
+      radius.top > 0 ||
+      radius.right > 0 ||
+      radius.bottom > 0 ||
+      radius.left > 0 ||
+      this.smoothCorners();
+    if (!rounded) {
+      return [...base, image];
+    }
+
+    const clipPath = createSVGElement('path', {d: this.getPathData()});
+    const clipId = ctx.defineClipPath([clipPath]);
+    const group = createSVGElement('g');
+    group.setAttribute('clip-path', `url(#${clipId})`);
+    group.appendChild(image);
+    return [...base, group];
   }
 
   protected override draw(context: CanvasRenderingContext2D) {

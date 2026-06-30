@@ -42,8 +42,9 @@ on any issue you're working on, to let others know.
 ## Semantic Versioning
 
 Canvas Commons follows [semantic versioning][semver]. The packages (`core`,
-`2d`, `editor`, `vite-plugin`, `ffmpeg`, `player`, `create`) release at a shared
-version, managed by [Changesets](https://github.com/changesets/changesets).
+`2d`, `editor`, `vite-plugin`, `webcodecs`, `player`, `create`) release at a
+shared version, managed by
+[Changesets](https://github.com/changesets/changesets).
 
 If your change is user-visible, add a changeset:
 

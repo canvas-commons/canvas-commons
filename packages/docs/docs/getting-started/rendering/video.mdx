@@ -2,10 +2,13 @@
 slug: /rendering/video
 ---
 
-# Video (FFmpeg)
+# Video (WebCodecs)
 
-An exporter that uses [FFmpeg](https://ffmpeg.org/) to turn your animation into
-a finished video.
+An exporter that uses the browser's
+[WebCodecs](https://developer.mozilla.org/en-US/docs/Web/API/WebCodecs_API) API
+to turn your animation into a finished video. Encoding happens entirely in the
+browser, so there's no native dependency to install and no need to ship frames
+to an external tool.
 
 The exporter is still relatively new and may not have all the features you need.
 If you have an idea for how to improve it, feel free to [open a feature
@@ -15,15 +18,16 @@ request][issues] on GitHub.
 
 :::info
 
-You do **not** need to install FFmpeg yourself. It will be installed
-automatically together with the exporter.
+The exporter runs in the browser and requires no external software. Make sure
+your browser supports the [WebCodecs API](https://caniuse.com/webcodecs) and the
+codec you want to export.
 
 :::
 
 ### New project
 
 When [scaffolding a new project](/docs/quickstart#creating-a-new-project), you
-can select _Video (FFmpeg)_ in the list of available exporters. This will
+can select _Video (WebCodecs)_ in the list of available exporters. This will
 automatically install the required dependencies and add the necessary
 configuration.
 
@@ -33,7 +37,7 @@ If you want to install the exporter in an existing project, run the following
 command:
 
 ```bash
-npm install --save @canvas-commons/ffmpeg
+npm install --save @canvas-commons/webcodecs
 ```
 
 And then configure it in your `vite.config.ts` file:
@@ -41,26 +45,42 @@ And then configure it in your `vite.config.ts` file:
 ```diff
   import {defineConfig} from 'vite';
   import canvasCommons from '@canvas-commons/vite-plugin';
-+ import ffmpeg from '@canvas-commons/ffmpeg';
++ import webcodecs from '@canvas-commons/webcodecs';
 
   export default defineConfig({
     plugins: [
       canvasCommons(),
-+     ffmpeg(),
++     webcodecs(),
     ],
   });
 ```
 
 ## Configuration
 
-After selecting the Video (FFmpeg) exporter in the Video Settings tab, the
+After selecting the Video (WebCodecs) exporter in the Video Settings tab, the
 following configuration options will become available:
+
+### Video codec
+
+The codec used to encode the video. H.264/H.265 require even dimensions, while
+VP8/VP9/AV1 also allow odd ones. The browser must support the chosen codec for
+the export to succeed.
+
+### Video quality
+
+A quality preset (from _very low_ to _very high_) that controls the target
+bitrate. Higher presets produce larger files with better visual fidelity.
 
 ### Include audio
 
 When enabled, the audio track will be included in the rendered video. This
 option is only available if you've [set up audio](/docs/media#audio) for the
 current project.
+
+### Audio codec
+
+The codec used to encode the audio track. If the browser cannot encode the
+chosen codec, the exporter falls back to another supported one.
 
 ### Fast start
 
@@ -69,4 +89,4 @@ optimization for videos that will be served over the web. It rearranges the
 video data in the file, allowing the video to begin playing before it has
 finished downloading.
 
-[issues]: https://github.com/canvas-commons/exporters/issues/new/choose
+[issues]: https://github.com/canvas-commons/canvas-commons/issues/new/choose

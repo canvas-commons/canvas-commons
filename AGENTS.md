@@ -22,10 +22,10 @@ This is a `pnpm` monorepo containing the following packages:
 - `e2e` - End-to-end tests
 - `editor` - User interface used for editing
 - `examples` - Animation examples used in documentation
-- `ffmpeg` - FFmpeg renderer
 - `player` - Custom element for displaying animations in a browser
 - `template` - Template project included for developer's convenience
 - `vite-plugin` - Vite plugin for developing and bundling animations
+- `webcodecs` - In-browser WebCodecs video exporter
 
 ## Key Commands
 
@@ -135,10 +135,10 @@ Available scopes are:
 - `e2e`
 - `editor`
 - `examples`
-- `ffmpeg`
 - `legacy`
 - `player`
 - `vite-plugin`
+- `webcodecs`
 
 Commit subjects should be in the imperative mood, and should be no more than 50
 characters; short and to the point.
@@ -151,9 +151,10 @@ how changes work at a project management level (like being temporary).
 Commit footers can be used to reference issue numbers or pull request numbers.
 
 User-facing changes should include a changeset file, including changes to the
-runtime (`vite-plugin`, `editor`, `player`, `ffmpeg`, `core`, `2d`, `create`).
-Docs changes, changes to workflows, and other internal package changes (`docs`,
-`e2e`, `examples`, `template`) are not expected to include a changeset file.
+runtime (`vite-plugin`, `editor`, `player`, `webcodecs`, `core`, `2d`,
+`create`). Docs changes, changes to workflows, and other internal package
+changes (`docs`, `e2e`, `examples`, `template`) are not expected to include a
+changeset file.
 
 ## Runtimes and signal systems
 
@@ -191,7 +192,6 @@ short usage examples. Read the one for the package you're touching:
 - [`packages/editor/AGENTS.md`](packages/editor/AGENTS.md)
 - [`packages/vite-plugin/AGENTS.md`](packages/vite-plugin/AGENTS.md)
 - [`packages/player/AGENTS.md`](packages/player/AGENTS.md)
-- [`packages/ffmpeg/AGENTS.md`](packages/ffmpeg/AGENTS.md)
 - [`packages/webcodecs/AGENTS.md`](packages/webcodecs/AGENTS.md)
 - [`packages/create/AGENTS.md`](packages/create/AGENTS.md)
 - [`packages/template/AGENTS.md`](packages/template/AGENTS.md)

@@ -5,7 +5,7 @@
   "scripts": {
     "preinstall": "npx only-allow pnpm",
     "prepare": "husky",
-    "build": "pnpm --filter @canvas-commons/2d --filter @canvas-commons/core --filter @canvas-commons/ffmpeg --filter @canvas-commons/player --filter @canvas-commons/editor --filter @canvas-commons/vite-plugin --filter @canvas-commons/webcodecs run build",
+    "build": "pnpm --filter @canvas-commons/2d --filter @canvas-commons/core --filter @canvas-commons/player --filter @canvas-commons/editor --filter @canvas-commons/vite-plugin --filter @canvas-commons/webcodecs run build",
     "test": "pnpm --filter @canvas-commons/2d --filter @canvas-commons/core --filter @canvas-commons/webcodecs run test",
     "core:dev": "pnpm --filter @canvas-commons/core run dev",
     "core:build": "pnpm --filter @canvas-commons/core run build",

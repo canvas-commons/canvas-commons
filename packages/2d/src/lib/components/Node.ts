@@ -526,7 +526,7 @@ export class Node implements Promisable<Node> {
   public readonly key: string;
   public readonly creationStack?: string;
 
-  public constructor({children, spawner, key, ...rest}: NodeProps) {
+  public constructor({children, spawner, key, ref: _ref, ...rest}: NodeProps) {
     const scene = useScene2D();
     [this.key, this.unregister] = scene.registerNode(this, key);
     this.view2D = scene.getView();

@@ -10,6 +10,7 @@ import {
   clamp,
   map,
 } from '../tweening/interpolationFunctions';
+import {interpolators} from '../tweening/interpolators';
 import {DEG2RAD, RAD2DEG} from '../utils';
 import {Matrix2D, PossibleMatrix2D} from './Matrix2D';
 import {Direction, Origin} from './Origin';
@@ -554,3 +555,9 @@ export class Vector2 implements Type, WebGLConvertible {
     yield this.y;
   }
 }
+
+Vector2.createPolarLerp = interpolators.registerFactory(
+  'core/polarLerp',
+  Vector2.createPolarLerp,
+  {params: {counterclockwise: 'boolean', center: 'Vector2'}},
+);

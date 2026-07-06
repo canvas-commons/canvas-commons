@@ -3,7 +3,9 @@ import {ThreadGenerator} from '../threading';
 import {
   InterpolationFunction,
   TimingFunction,
+  deepLerp,
   easeInOutCubic,
+  interpolators,
   tween,
 } from '../tweening';
 import {errorToLog, useLogger} from '../utils';
@@ -101,6 +103,27 @@ export class SignalContext<
 
   public toSignal(): Signal<TSetterValue, TValue, TOwner> {
     return this.invokable;
+  }
+
+  /**
+   * Swap out the getter, setter, or tweener of this signal.
+   *
+   * @example
+   * ```ts
+   * const signal = createSignal(1);
+   * signal.context.extend({
+   *   getter: () => signal.context.getter() * 2,
+   * });
+   * // signal() == 2
+   * ```
+   *
+   * @param partial - The extensions to apply on top of the current ones.
+   */
+  public extend(
+    partial: Partial<SignalExtensions<TSetterValue, TValue>>,
+  ): this {
+    this.extensions = {...this.extensions, ...partial};
+    return this;
   }
 
   public parse(value: TSetterValue): TValue {
@@ -269,6 +292,11 @@ export class SignalContext<
     interpolationFunction: InterpolationFunction<TValue>,
   ): ThreadGenerator {
     const from = this.get();
+    if (interpolationFunction === deepLerp) {
+      interpolationFunction =
+        interpolators.find<TValue>(from, this.parse(unwrap(value))) ??
+        interpolationFunction;
+    }
     yield* tween(duration, v => {
       this.set(
         interpolationFunction(

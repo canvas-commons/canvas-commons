@@ -8,7 +8,7 @@ import {
   useLogger,
 } from '@canvas-commons/core';
 import {makeSignalExtensions} from '../utils/makeSignalExtensions';
-import {addInitializer, initialize} from './initializers';
+import {addInitializer, Constructor, initialize} from './initializers';
 
 export interface PropertyMetadata<T> {
   default?: T;
@@ -31,49 +31,77 @@ export interface PropertyMetadata<T> {
 
 const PROPERTIES = Symbol.for('@canvas-commons/2d/decorators/properties');
 
+let PropertyMetaEpoch = 0;
+
+export function invalidatePropertyMetaCache() {
+  PropertyMetaEpoch++;
+}
+
+const PropertyChainCache = new WeakMap<
+  Constructor,
+  {epoch: number; properties: Record<string, PropertyMetadata<any>>}
+>();
+
 export function getPropertyMeta<T>(
-  object: any,
+  target: any,
   key: string | symbol,
 ): PropertyMetadata<T> | null {
-  return object[PROPERTIES]?.[key] ?? null;
+  if (!Object.prototype.hasOwnProperty.call(target, PROPERTIES)) {
+    return null;
+  }
+  return target[PROPERTIES][key] ?? null;
 }
 
 export function getPropertyMetaOrCreate<T>(
-  object: any,
+  target: any,
   key: string | symbol,
 ): PropertyMetadata<T> {
-  let lookup: Record<string | symbol, PropertyMetadata<T>>;
-  if (!object[PROPERTIES]) {
-    object[PROPERTIES] = lookup = {};
-  } else if (
-    object[PROPERTIES] &&
-    !Object.prototype.hasOwnProperty.call(object, PROPERTIES)
-  ) {
-    object[PROPERTIES] = lookup = Object.fromEntries<PropertyMetadata<T>>(
-      Object.entries(
-        <Record<string | symbol, PropertyMetadata<T>>>object[PROPERTIES],
-      ).map(([key, meta]) => [key, {...meta}]),
-    );
-  } else {
-    lookup = object[PROPERTIES];
+  if (!Object.prototype.hasOwnProperty.call(target, PROPERTIES)) {
+    target[PROPERTIES] = {};
   }
+  const lookup: Record<string | symbol, PropertyMetadata<T>> = target[
+    PROPERTIES
+  ];
 
   lookup[key] ??= {
     cloneable: true,
     inspectable: true,
     compoundEntries: [],
   };
+  invalidatePropertyMetaCache();
   return lookup[key];
 }
 
 export function getPropertiesOf(
   value: any,
 ): Record<string, PropertyMetadata<any>> {
-  if (value && typeof value === 'object') {
-    return value[PROPERTIES] ?? {};
+  const ctor = typeof value === 'function' ? value : value?.constructor;
+  if (typeof ctor !== 'function') {
+    return {};
   }
 
-  return {};
+  const cached = PropertyChainCache.get(ctor);
+  if (cached && cached.epoch === PropertyMetaEpoch) {
+    return cached.properties;
+  }
+
+  const chain: any[] = [];
+  let prototype = ctor.prototype;
+  while (prototype && prototype !== Object.prototype) {
+    chain.push(prototype);
+    prototype = Object.getPrototypeOf(prototype);
+  }
+
+  const properties: Record<string, PropertyMetadata<any>> = {};
+  for (let i = chain.length - 1; i >= 0; i--) {
+    const prototype = chain[i];
+    if (Object.prototype.hasOwnProperty.call(prototype, PROPERTIES)) {
+      Object.assign(properties, prototype[PROPERTIES]);
+    }
+  }
+
+  PropertyChainCache.set(ctor, {epoch: PropertyMetaEpoch, properties});
+  return properties;
 }
 
 export function initializeSignals(instance: any, props: Record<string, any>) {
@@ -115,9 +143,6 @@ export function initializeSignals(instance: any, props: Record<string, any>) {
  */
 export function signal<T>(): PropertyDecorator {
   return (target: any, key) => {
-    // FIXME property metadata is not inherited
-    // Consider retrieving it inside the initializer using the instance and not
-    // the class.
     const meta = getPropertyMetaOrCreate<T>(target, key);
     addInitializer(target, (instance: any) => {
       let initial: SignalValue<T> = meta.default!;

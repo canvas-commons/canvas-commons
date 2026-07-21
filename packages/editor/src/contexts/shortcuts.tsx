@@ -98,6 +98,12 @@ export const VIEWPORT_SHORTCUTS = makeShortcuts('viewport', {
     key: 'p',
     modifiers: {},
   },
+  copyNodeCoordinates: {
+    display: 'Shift + P',
+    description: 'Copy node coordinates',
+    key: 'P',
+    modifiers: {shift: true},
+  },
   copyFrame: {
     display: 'Shift + C',
     description: 'Copy frame to clipboard',

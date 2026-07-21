@@ -23,6 +23,9 @@ export function createSettingsMetadata() {
       coordinates: new BoolMetaField('coordinates', true).describe(
         'Display mouse coordinates within the preview window.',
       ),
+      nodeCoordinates: new BoolMetaField('node coordinates', true).describe(
+        'Display mouse coordinates local to the selected node within the preview window.',
+      ),
     }),
     defaults: new ObjectMetaField('Defaults', {
       background: new ColorMetaField('background', null).describe(

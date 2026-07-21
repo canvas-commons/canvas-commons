@@ -16,6 +16,57 @@ import {drawImage} from '../utils';
 import {Rect, RectProps} from './Rect';
 import reactivePlaybackRate from './__logs__/reactive-playback-rate';
 
+/**
+ * Forces a video element to stay permanently silent.
+ *
+ * @remarks
+ * Media playback is always muted by design - there is no API to control or
+ * toggle a `Video`'s audio. Besides setting `muted`/`volume`, this also
+ * defends against the element being unmuted later (e.g. by the browser or
+ * pooled reuse) by making `muted` non-writable once locked.
+ */
+const MUTE_LOCKED = Symbol('canvasCommonsMuteLocked');
+
+function silenceVideo(video: HTMLVideoElement): void {
+  const lockable = video as HTMLVideoElement & {[MUTE_LOCKED]?: boolean};
+  if (!lockable[MUTE_LOCKED]) {
+    lockable[MUTE_LOCKED] = true;
+    lockProperty(video, 'muted', true);
+    lockProperty(video, 'volume', 0);
+  }
+
+  video.muted = true;
+  video.volume = 0;
+  video.defaultMuted = true;
+}
+
+/**
+ * Overrides an `HTMLMediaElement` property so it can be read normally but any
+ * attempt to write it is forced back to `forced` - used to make a `Video`'s
+ * audio impossible to turn on.
+ */
+function lockProperty(
+  video: HTMLVideoElement,
+  property: 'muted' | 'volume',
+  forced: boolean | number,
+): void {
+  const descriptor = Object.getOwnPropertyDescriptor(
+    HTMLMediaElement.prototype,
+    property,
+  );
+  if (!descriptor?.get || !descriptor.set) {
+    return;
+  }
+
+  const get = descriptor.get.bind(video);
+  const set = descriptor.set.bind(video);
+  Object.defineProperty(video, property, {
+    configurable: true,
+    get,
+    set: () => set(forced),
+  });
+}
+
 export interface VideoProps extends RectProps {
   /**
    * {@inheritDoc Video.src}
@@ -178,6 +229,11 @@ export class Video extends Rect {
       Video.pool[key] = video;
     }
 
+    // Media is always silent - there is intentionally no way to control or
+    // toggle a Video's audio, so enforce muted/volume every time the element
+    // is accessed (playback or a stray unmute could otherwise reset it).
+    silenceVideo(video);
+
     if (video.readyState < 2) {
       DependencyContext.collectPromise(
         new Promise<void>(resolve => {
@@ -228,6 +284,7 @@ export class Video extends Rect {
       this.playing() && time < video.duration && video.playbackRate > 0;
     if (playing) {
       if (video.paused) {
+        silenceVideo(video);
         DependencyContext.collectPromise(video.play());
       }
     } else {

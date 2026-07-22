@@ -19,7 +19,7 @@ import {Grid as GridIcon, Recenter} from '../icons';
 import {ColorPicker} from './ColorPicker';
 import {Coordinates} from './Coordinates';
 import {Inspector} from './Inspector';
-import {NodeCoordinates} from './NodeCoordinates';
+import {NodeSpaceCoordinates} from './NodeSpaceCoordinates';
 import {OverlayCanvas} from './OverlayCanvas';
 import {PreviewStage} from './PreviewStage';
 import styles from './Viewport.module.scss';
@@ -224,7 +224,7 @@ export function EditorPreview() {
           </ButtonCheckbox>
           <ColorPicker />
           {coordinateSetting && <Coordinates />}
-          {nodeCoordinateSetting && <NodeCoordinates />}
+          {nodeCoordinateSetting && <NodeSpaceCoordinates />}
         </div>
         {inspector}
       </div>

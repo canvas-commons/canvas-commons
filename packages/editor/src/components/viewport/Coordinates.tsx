@@ -7,6 +7,7 @@ import {
 } from '../../contexts';
 import {useCurrentScene, useViewportMatrix} from '../../hooks';
 import {ReadOnlyInput} from '../controls';
+import {Earth} from '../icons';
 import styles from './Viewport.module.scss';
 
 export function Coordinates() {
@@ -46,7 +47,7 @@ export function Coordinates() {
 
   return (
     <ReadOnlyInput className={styles.coordinates} title={'Coordinates'}>
-      ({mousePos.x}, {mousePos.y})
+      <Earth /> ({mousePos.x}, {mousePos.y})
     </ReadOnlyInput>
   );
 }

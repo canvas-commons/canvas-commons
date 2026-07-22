@@ -8,18 +8,13 @@ import {
 } from '../../contexts';
 import {useCurrentScene, useViewportMatrix} from '../../hooks';
 import {ReadOnlyInput} from '../controls';
+import {MapMarkerRadius} from '../icons';
 import styles from './Viewport.module.scss';
 
-/**
- * Shows the mouse position expressed in the selected node's local coordinate
- * system, so a location stays pinned to the node as it moves, scales, or
- * rotates. Only rendered while a node is selected and the scene can report the
- * node's local-to-scene matrix.
- */
-export function NodeCoordinates() {
+export function NodeSpaceCoordinates() {
   const [nodePos, setNodePos] = useState<{x: number; y: number} | null>(null);
   const {inspection} = useApplication();
-  const state = useViewportContext();
+  const viewport = useViewportContext();
   const scene = useCurrentScene();
   const matrix = useViewportMatrix();
 
@@ -42,17 +37,21 @@ export function NodeCoordinates() {
         return;
       }
 
-      let point = new Vector2(
-        event.x - state.rect.x,
-        event.y - state.rect.y,
+      const viewportPoint = new Vector2(
+        event.x - viewport.rect.x,
+        event.y - viewport.rect.y,
       ).transformAsPoint(matrix.inverse());
-      point = scene.transformMousePosition(point.x, point.y);
-      if (!point) {
+
+      const scenePoint = scene.transformMousePosition(
+        viewportPoint.x,
+        viewportPoint.y,
+      );
+      if (!scenePoint) {
         setNodePos(null);
         return;
       }
 
-      const local = point.transformAsPoint(localToScene.inverse());
+      const local = scenePoint.transformAsPoint(localToScene.inverse());
       setNodePos({
         x: Math.round(local.x),
         y: Math.round(local.y),
@@ -64,7 +63,7 @@ export function NodeCoordinates() {
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
     };
-  }, [state, matrix, scene, inspection.value.payload]);
+  }, [viewport, matrix, scene, inspection.value.payload]);
 
   useShortcut(VIEWPORT_SHORTCUTS, 'copyNodeCoordinates', async () => {
     if (!nodePos) return;
@@ -78,7 +77,7 @@ export function NodeCoordinates() {
 
   return (
     <ReadOnlyInput className={styles.coordinates} title={'Node coordinates'}>
-      ({nodePos.x}, {nodePos.y})
+      <MapMarkerRadius /> ({nodePos.x}, {nodePos.y})
     </ReadOnlyInput>
   );
 }

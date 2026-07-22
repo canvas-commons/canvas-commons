@@ -82,8 +82,16 @@
 
 .coordinates {
   display: none;
+  align-items: center;
+  gap: 4px;
   .viewport:hover & {
-    display: block;
+    display: flex;
+  }
+
+  svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
   }
 }
 

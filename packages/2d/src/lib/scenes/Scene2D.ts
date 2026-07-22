@@ -125,9 +125,6 @@ export class Scene2D extends GeneratorScene<View2D> implements Inspectable {
   public inspectElementMatrix(element: InspectedElement): DOMMatrix | null {
     const node = this.getNode(element);
     if (!node) return null;
-    // `transformMousePosition` reports points in the view's local (scene)
-    // space, so compose the node's local-to-world with the view's
-    // world-to-local to land in that same space.
     return this.execute(() =>
       this.getView().worldToLocal().multiply(node.localToWorld()),
     );

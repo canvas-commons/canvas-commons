@@ -81,16 +81,6 @@ export interface Inspectable {
   /**
    * Get the matrix mapping an inspected element's local space to scene space.
    *
-   * @remarks
-   * Inverting this matrix converts a point already in scene space (e.g. the
-   * result of {@link transformMousePosition}) into the element's own local
-   * coordinate system, so a location stays pinned to the element as it moves,
-   * scales, or rotates. Returns `null` when the element has no meaningful local
-   * space or is no longer valid.
-   *
-   * Optional: scenes that don't expose per-element local spaces can leave it
-   * unimplemented.
-   *
    * @param element - The inspected element.
    */
   inspectElementMatrix?(element: InspectedElement): DOMMatrix | null;

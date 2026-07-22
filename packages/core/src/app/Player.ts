@@ -339,6 +339,7 @@ export class Player {
    */
   public activate() {
     this.active = true;
+    this.renderTime = 0;
     this.request();
   }
 
@@ -520,8 +521,23 @@ export class Player {
 
     this.requestId ??= requestAnimationFrame(async time => {
       this.requestId = null;
-      if (time - this.renderTime >= 1000 / (this.status.fps + 5)) {
-        this.renderTime = time;
+
+      const framePeriod =
+        1000 / (this.status.fps * Math.max(this.status.speed, 1));
+      if (this.renderTime === 0) this.renderTime = time;
+
+      // Absorbs vsync boundary jitter without skipping a frame
+      const tolerance = framePeriod / 4;
+
+      if (time - this.renderTime >= framePeriod - tolerance) {
+        // Advance by ideal period to avoid drift
+        this.renderTime += framePeriod;
+
+        // Resync after a stall instead of bursting catch-up frames
+        if (time - this.renderTime > framePeriod) {
+          this.renderTime = time;
+        }
+
         await this.lock.acquire();
         try {
           await this.run();

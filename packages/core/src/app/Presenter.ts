@@ -110,6 +110,7 @@ export class Presenter {
     this.state.current = PresenterState.Working;
     try {
       this.abortController = new AbortController();
+      this.renderTime = 0;
       await this.run(settings, this.abortController.signal);
     } catch (e: any) {
       this.project.logger.error(e);
@@ -251,8 +252,23 @@ export class Presenter {
 
     this.requestId ??= requestAnimationFrame(async time => {
       this.requestId = null;
-      if (time - this.renderTime >= 1000 / (this.status.fps + 5)) {
-        this.renderTime = time;
+
+      const framePeriod =
+        1000 / (this.status.fps * Math.max(this.status.speed, 1));
+      if (this.renderTime === 0) this.renderTime = time;
+
+      // Absorbs vsync boundary jitter without skipping a frame
+      const tolerance = framePeriod / 4;
+
+      if (time - this.renderTime >= framePeriod - tolerance) {
+        // Advance by ideal period to avoid drift
+        this.renderTime += framePeriod;
+
+        // Resync after a stall instead of bursting catch-up frames
+        if (time - this.renderTime > framePeriod) {
+          this.renderTime = time;
+        }
+
         try {
           await this.loop();
         } catch (e: any) {

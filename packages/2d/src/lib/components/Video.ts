@@ -9,6 +9,7 @@ import {
   isReactive,
   useLogger,
   useThread,
+  viaProxy,
 } from '@canvas-commons/core';
 import {computed, initial, nodeName, signal} from '../decorators';
 import {DesiredLength} from '../partials';
@@ -169,13 +170,26 @@ export class Video extends Rect {
 
   @computed()
   protected video(): HTMLVideoElement {
-    const src = this.src();
-    const key = `${this.key}/${src}`;
-    let video = Video.pool[key];
+    const rawSrc = this.src();
+    let src = '';
+    let key = '';
+    if (rawSrc) {
+      key = viaProxy(rawSrc);
+      const url = new URL(key, window.location.origin);
+      if (url.origin === window.location.origin) {
+        const hash = this.view().assetHash();
+        url.searchParams.set('asset-hash', hash);
+      }
+      src = url.toString();
+    }
+
+    const poolKey = `${this.key}/${key}`;
+    let video = Video.pool[poolKey];
     if (!video) {
       video = document.createElement('video');
+      video.crossOrigin = 'anonymous';
       video.src = src;
-      Video.pool[key] = video;
+      Video.pool[poolKey] = video;
     }
 
     if (video.readyState < 2) {

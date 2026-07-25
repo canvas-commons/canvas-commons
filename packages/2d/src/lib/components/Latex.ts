@@ -684,6 +684,79 @@ export class Latex extends SVGNode {
     };
   }
 
+  /**
+   * Animate a change to part of the current formula, leaving the rest alone.
+   *
+   * @remarks
+   * Each replacement's `before` is matched against the current formula and
+   * swapped for its `after`, so only the parts that change have to be written
+   * out. Matches are claimed left to right, one per replacement, so repeat a
+   * replacement to change more than one occurrence of the same sub-tex.
+   *
+   * A match may not span two sub-tex parts. Splitting a part is fine - matching
+   * `x` inside `x^2` turns it into the parts `x` and `^2` - but a match that
+   * begins in one part and ends in another is ignored, with a warning. The
+   * animation uses {@link easeInOutCubic}; reach for {@link edit} to choose the
+   * timing function.
+   *
+   * @example
+   * ```tsx
+   * yield* tex().replace(1, fade('x', '(-54.934)'), morph('^2', ''));
+   * ```
+   *
+   * @param time - The duration of the animation.
+   * @param replacements - The changes to make.
+   */
+  @threadable()
+  public *replace(time: number, ...replacements: LatexEditFragment[]) {
+    yield* this.tweenEdit(
+      this.applyReplacements(this.tex(), replacements),
+      time,
+      easeInOutCubic,
+    );
+  }
+
+  private applyReplacements(
+    parts: string[],
+    replacements: LatexEditFragment[],
+  ): LatexEditFragment[] {
+    const pending = [...replacements];
+    const slots: LatexEditFragment[] = [];
+
+    for (const part of parts) {
+      let rest = part;
+      let matched = true;
+      while (matched && rest.length > 0) {
+        matched = false;
+        for (const [index, replacement] of pending.entries()) {
+          const at = rest.indexOf(replacement.before);
+          if (replacement.before.length === 0 || at === -1) continue;
+
+          pending.splice(index, 1);
+          if (at > 0) {
+            slots.push(morph(rest.slice(0, at), rest.slice(0, at)));
+          }
+          slots.push(replacement);
+          rest = rest.slice(at + replacement.before.length);
+          matched = true;
+          break;
+        }
+      }
+      if (rest.length > 0) {
+        slots.push(morph(rest, rest));
+      }
+    }
+
+    for (const {before} of pending) {
+      useLogger().warn({
+        message: `Latex: "${before}" does not occur in the current formula, or spans two of its parts.`,
+        object: {formula: parts},
+      });
+    }
+
+    return slots;
+  }
+
   @threadable()
   protected *tweenEdit(
     slots: LatexEditFragment[],

@@ -19,6 +19,7 @@ import {Grid as GridIcon, Recenter} from '../icons';
 import {ColorPicker} from './ColorPicker';
 import {Coordinates} from './Coordinates';
 import {Inspector} from './Inspector';
+import {NodeSpaceCoordinates} from './NodeSpaceCoordinates';
 import {OverlayCanvas} from './OverlayCanvas';
 import {PreviewStage} from './PreviewStage';
 import styles from './Viewport.module.scss';
@@ -29,6 +30,9 @@ export function EditorPreview() {
   const {plugins, player, settings: appSettings} = useApplication();
   const coordinateSetting = useSubscribableValue(
     appSettings.appearance.coordinates.onChanged,
+  );
+  const nodeCoordinateSetting = useSubscribableValue(
+    appSettings.appearance.nodeCoordinates.onChanged,
   );
   const containerRef = useRef<HTMLDivElement>();
   const overlayRef = useRef<HTMLDivElement>();
@@ -220,6 +224,7 @@ export function EditorPreview() {
           </ButtonCheckbox>
           <ColorPicker />
           {coordinateSetting && <Coordinates />}
+          {nodeCoordinateSetting && <NodeSpaceCoordinates />}
         </div>
         {inspector}
       </div>

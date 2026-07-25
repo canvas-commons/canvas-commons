@@ -77,6 +77,13 @@ export interface Inspectable {
    * @param y - The y coordinate.
    */
   transformMousePosition(x: number, y: number): Vector2 | null;
+
+  /**
+   * Get the matrix mapping an inspected element's local space to scene space.
+   *
+   * @param element - The inspected element.
+   */
+  inspectElementMatrix?(element: InspectedElement): DOMMatrix | null;
 }
 
 export function isInspectable(value: any): value is Inspectable {

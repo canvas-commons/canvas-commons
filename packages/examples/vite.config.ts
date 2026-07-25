@@ -8,6 +8,7 @@ export default defineConfig({
       project: [
         './src/quickstart.ts',
         './src/tex.ts',
+        './src/tex-fragments.ts',
         './src/tweening-linear.ts',
         './src/tweening-cubic.ts',
         './src/tweening-color.ts',

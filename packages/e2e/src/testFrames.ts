@@ -26,6 +26,14 @@ export const testFrames: Record<string, TestFrame[]> = {
     {frame: 420, label: 'morph-return'},
     {frame: -1, label: 'final'},
   ],
+  'tex-fragments': [
+    {frame: 0, label: 'initial'},
+    {frame: 48, label: 'morph-glyphs'},
+    {frame: 126, label: 'fade-fragment'},
+    {frame: 204, label: 'edit'},
+    {frame: 282, label: 'replace'},
+    {frame: -1, label: 'debug-fragments'},
+  ],
   'tweening-linear': [
     {frame: 0, label: 'initial'},
     {frame: 60, label: 'mid'},

@@ -374,7 +374,7 @@ export class SVG extends Shape {
    * Get the current `SVGDocument`.
    */
   @computed()
-  private document(): SVGDocument {
+  protected document(): SVGDocument {
     try {
       const src = this.svg();
       if (this.lastTweenTargetDocument && src === this.lastTweenTargetSrc) {

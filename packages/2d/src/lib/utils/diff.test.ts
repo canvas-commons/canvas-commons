@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {applyTransformDiff, getTransformDiff} from './diff';
+import {alignSequences, applyTransformDiff, getTransformDiff} from './diff';
 
 describe('diff', () => {
   it('Insert single item', () => {
@@ -449,5 +449,32 @@ describe('diff', () => {
     const diff = getTransformDiff(from, to);
     applyTransformDiff(from, diff, ({id}) => ({id}));
     expect(from).toEqual(to);
+  });
+});
+
+describe('alignSequences', () => {
+  const align = (from: string, to: string) =>
+    alignSequences([...from], [...to], (a, b) => a === b)
+      .map(({from, to}) => `${from ?? '_'}${to ?? '_'}`)
+      .join(' ');
+
+  it('Pair equal items', () => {
+    expect(align('ab', 'ab')).toBe('aa bb');
+  });
+
+  it('Pair changed items in order', () => {
+    expect(align('abc', 'xy')).toBe('ax by c_');
+  });
+
+  it('Pair items as early as possible', () => {
+    expect(align('a', 'xyz')).toBe('ax _y _z');
+  });
+
+  it('Keep equal items paired when a run shrinks', () => {
+    expect(align('2+', '+')).toBe('2_ ++');
+  });
+
+  it('Pair changed items between equal ones', () => {
+    expect(align('a2+b', 'ax+b')).toBe('aa 2x ++ bb');
   });
 });

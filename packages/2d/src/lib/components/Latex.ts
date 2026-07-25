@@ -1,4 +1,5 @@
 import {
+  BBox,
   SerializedVector2,
   Signal,
   SignalValue,
@@ -21,6 +22,7 @@ import {mathjax} from 'mathjax-full/js/mathjax.js';
 import {SVG} from 'mathjax-full/js/output/svg.js';
 import {OptionList} from 'mathjax-full/js/util/Options.js';
 import {computed, initial, parser, signal} from '../decorators';
+import {AlignedPair, alignSequences} from '../utils/diff';
 import {Curve} from './Curve';
 import {Node} from './Node';
 import {Path} from './Path';
@@ -30,8 +32,10 @@ import {
   SVGDocumentData,
   SVG as SVGNode,
   SVGProps,
+  SVGShape,
   SVGShapeData,
 } from './SVG';
+import {Txt} from './Txt';
 
 const Adaptor = liteAdaptor();
 RegisterHTMLHandler(Adaptor);
@@ -43,9 +47,42 @@ const JaxDocument = mathjax.document('', {
   OutputJax: new SVG({fontCache: 'local'}),
 });
 
+/**
+ * How a fragment animates into the fragment that replaced it.
+ *
+ * @remarks
+ * `morph` and `partialFade` pair up the two fragments' glyphs, so a glyph that
+ * survives the change moves to its new place and one that was replaced either
+ * morphs into its replacement or crosses over with it. `fade` pairs nothing and
+ * crosses the whole fragment over.
+ */
+export type LatexTransition = 'morph' | 'partialFade' | 'fade';
+
 export interface LatexProps extends Omit<SVGProps, 'svg'> {
   tex?: SignalValue<string[] | string>;
   renderProps?: SignalValue<OptionList>;
+  fragmentTransition?: SignalValue<LatexTransition>;
+  debugFragments?: SignalValue<boolean>;
+}
+
+interface LatexFragment {
+  id: string;
+  shapes: Curve[];
+}
+
+interface LatexFragmentPair extends AlignedPair<LatexFragment, LatexFragment> {
+  transition: LatexTransition;
+}
+
+const LABEL_SIZE = 16;
+
+// Everything that leaves a formula does so at the start of a tween and
+// everything that arrives does so at the end, leaving the middle to the glyphs
+// that are moving.
+const FADE_PORTION = 0.3;
+
+function isMorphable(node: Node): node is Curve {
+  return node instanceof Path || node instanceof Rect;
 }
 
 const MAX_TEX_REPAIRS = 4;
@@ -93,10 +130,32 @@ export class Latex extends SVGNode {
   private static svgContentsPool: Record<string, string> = {};
   private static texNodesPool: Record<string, SVGDocumentData> = {};
   private svgSubTexMap: Record<string, string[]> = {};
+  private readonly glyphIds = new WeakMap<Node, string>();
 
   @initial({})
   @signal()
   declare public readonly options: SimpleSignal<OptionList, this>;
+
+  /**
+   * How a fragment animates into the fragment that replaced it.
+   *
+   * @remarks
+   * Can be changed between tweens to animate one step differently from the
+   * next.
+   */
+  @initial('morph')
+  @signal()
+  declare public readonly fragmentTransition: SimpleSignal<
+    LatexTransition,
+    this
+  >;
+
+  /**
+   * Outline and label each fragment with the index it has in {@link map}.
+   */
+  @initial(false)
+  @signal()
+  declare public readonly debugFragments: SimpleSignal<boolean, this>;
 
   @initial('')
   @parser(function (this: Latex, value: string[] | string): string[] {
@@ -118,6 +177,11 @@ export class Latex extends SVGNode {
       svg: '',
     });
     this.svg(this.latexSVG);
+
+    const overlay = new Node({});
+    overlay.children(this.fragmentOverlay);
+    overlay.scale(this.wrapperScale);
+    this.add(overlay);
   }
 
   protected override calculateWrapperScale(
@@ -135,9 +199,92 @@ export class Latex extends SVGNode {
     return this.texToSvg(this.tex());
   }
 
+  @computed()
+  private fragmentOverlay(): Node[] {
+    if (!this.debugFragments()) {
+      return [];
+    }
+
+    const scale = this.wrapperScale();
+    const labelSize = LABEL_SIZE / scale.y;
+    const nodes = this.document().nodes;
+
+    return nodes.flatMap(({shape}, index) => {
+      const box = BBox.fromPoints(
+        ...shape.cacheBBox().transformCorners(shape.localToParent()),
+      );
+      if (box.width === 0 && box.height === 0) {
+        return [];
+      }
+
+      const color = `hsl(${Math.round((index * 360) / nodes.length)}, 100%, 50%)`;
+      // Alternate sides and heights so neighboring labels miss each other.
+      const offset = labelSize * (1 + (index % 3));
+      return [
+        new Rect({
+          position: box.center,
+          size: box.size,
+          stroke: color,
+          lineWidth: 1 / scale.x,
+          fill: null,
+        }),
+        new Txt({
+          text: `${index}`,
+          fill: color,
+          fontSize: labelSize,
+          position: [
+            box.center.x,
+            index % 2 === 0 ? box.top - offset : box.bottom + offset,
+          ],
+        }),
+      ];
+    });
+  }
+
   private getNodeCharacterId({id}: SVGShapeData) {
     if (!id.includes('-')) return id;
     return id.substring(id.lastIndexOf('-') + 1);
+  }
+
+  protected override buildShape(data: SVGShapeData): SVGShape {
+    const shape = super.buildShape(data);
+    this.glyphIds.set(shape.shape, this.getNodeCharacterId(data));
+    return shape;
+  }
+
+  private isSameGlyph(from: Node, to: Node): boolean {
+    const id = this.glyphIds.get(from);
+    return id !== undefined && id === this.glyphIds.get(to);
+  }
+
+  private getFragments(nodes: SVGShape[]): LatexFragment[] {
+    return nodes.map(({id, shape}) => {
+      const children = shape.children();
+      return {
+        id,
+        shapes: (children.length > 0 ? children : [shape]).filter(isMorphable),
+      };
+    });
+  }
+
+  private alignFragments(
+    from: LatexFragment[],
+    to: LatexFragment[],
+  ): AlignedPair<LatexFragment, LatexFragment>[] {
+    const pairs = alignSequences(from, to, (a, b) => a.id === b.id);
+    const insertions = pairs.filter(pair => !pair.from && pair.to);
+
+    for (const deletion of pairs) {
+      if (deletion.to || !deletion.from) continue;
+      const insertion = insertions.find(
+        candidate => candidate.to?.id === deletion.from?.id,
+      );
+      if (!insertion) continue;
+      deletion.to = insertion.to;
+      insertion.to = null;
+    }
+
+    return pairs.filter(({from, to}) => from !== null || to !== null);
   }
 
   protected override parseSVG(svg: string): SVGDocument {
@@ -268,34 +415,42 @@ export class Latex extends SVGNode {
     return svg;
   }
 
-  private getShapes(): Curve[] {
-    return this.wrapper
-      .children()
-      .flatMap(child =>
-        child.children().length > 0 ? child.children() : [child],
-      )
-      .filter((c): c is Curve => c instanceof Path || c instanceof Rect);
+  private fadeOutShapes(
+    shapes: Curve[],
+    time: number,
+    timingFunction: TimingFunction,
+  ): ThreadGenerator[] {
+    return shapes.map(shape =>
+      shape.opacity(0, time * FADE_PORTION, timingFunction),
+    );
   }
 
-  private getFragmentShapes(): Curve[][] {
-    return this.wrapper.children().map(child => {
-      const children = child.children().length > 0 ? child.children() : [child];
-      return children.filter(
-        (c): c is Curve => c instanceof Path || c instanceof Rect,
+  private fadeInShapes(
+    shapes: Curve[],
+    time: number,
+    timingFunction: TimingFunction,
+  ): ThreadGenerator[] {
+    return shapes.map(shape => {
+      const clone = shape.clone();
+      clone.opacity(0);
+      this.wrapper.add(clone);
+      return delay(
+        time * (1 - FADE_PORTION),
+        clone.opacity(1, time * FADE_PORTION, timingFunction),
       );
     });
   }
 
-  private getTargetFragmentShapes(doc: SVGDocument): Curve[][] {
-    return doc.nodes.map(node => {
-      const shape = node.shape;
-      if (shape.children().length > 0) {
-        return shape
-          .children()
-          .filter((c): c is Curve => c instanceof Path || c instanceof Rect);
-      }
-      return shape instanceof Path || shape instanceof Rect ? [shape] : [];
-    });
+  private crossfadeShapes(
+    from: Curve[],
+    to: Curve[],
+    time: number,
+    timingFunction: TimingFunction,
+  ): ThreadGenerator[] {
+    return [
+      ...this.fadeOutShapes(from, time, timingFunction),
+      ...this.fadeInShapes(to, time, timingFunction),
+    ];
   }
 
   private createFragmentMorphAnimations(
@@ -303,16 +458,22 @@ export class Latex extends SVGNode {
     targetShapes: Curve[],
     time: number,
     timingFunction: TimingFunction,
+    transition: LatexTransition,
   ): ThreadGenerator[] {
     const animations: ThreadGenerator[] = [];
-    const maxLen = Math.max(sourceShapes.length, targetShapes.length);
+    const crossfade = transition === 'partialFade';
 
-    for (let i = 0; i < maxLen; i++) {
-      const from = sourceShapes[i];
-      const to = targetShapes[i];
-
+    for (const {from, to} of alignSequences(
+      sourceShapes,
+      targetShapes,
+      (a, b) => this.isSameGlyph(a, b),
+    )) {
       if (from && to) {
-        if (from instanceof Path && to instanceof Path) {
+        if (crossfade && !this.isSameGlyph(from, to)) {
+          animations.push(
+            ...this.crossfadeShapes([from], [to], time, timingFunction),
+          );
+        } else if (from instanceof Path && to instanceof Path) {
           const fromData = from.data();
           const toData = to.data();
           if (fromData && toData && fromData !== toData) {
@@ -337,21 +498,14 @@ export class Latex extends SVGNode {
             from.size(to.size(), time, timingFunction),
           );
         } else {
-          animations.push(from.opacity(0, time * 0.3, timingFunction));
-          const clone = to.clone();
-          clone.opacity(0);
-          this.wrapper.add(clone);
           animations.push(
-            delay(time * 0.7, clone.opacity(1, time * 0.3, timingFunction)),
+            ...this.crossfadeShapes([from], [to], time, timingFunction),
           );
         }
-      } else if (from && !to) {
-        animations.push(from.opacity(0, time * 0.3, timingFunction));
-      } else if (!from && to) {
-        const clone = to.clone();
-        clone.opacity(0);
-        this.wrapper.add(clone);
-        animations.push(clone.opacity(1, time, timingFunction));
+      } else if (from) {
+        animations.push(...this.fadeOutShapes([from], time, timingFunction));
+      } else if (to) {
+        animations.push(...this.fadeInShapes([to], time, timingFunction));
       }
     }
 
@@ -366,58 +520,67 @@ export class Latex extends SVGNode {
   ) {
     const parsedValue = this.tex.context.parse(value);
     const newSVG = this.texToSvg(parsedValue);
-    const currentShapes = this.getShapes();
-
     const targetDoc = this.parseSVG(newSVG);
-    const targetShapes = targetDoc.nodes.flatMap(node => {
-      const shape = node.shape;
-      if (shape.children().length > 0) {
-        return shape
-          .children()
-          .filter((c): c is Curve => c instanceof Path || c instanceof Rect);
-      }
-      return shape instanceof Path || shape instanceof Rect ? [shape] : [];
-    });
+    const transition = this.fragmentTransition();
 
-    const currentPaths = currentShapes.filter(
-      (s): s is Path => s instanceof Path,
-    );
-    const currentRects = currentShapes.filter(
-      (s): s is Rect => s instanceof Rect,
-    );
-    const targetPaths = targetShapes.filter(
-      (s): s is Path => s instanceof Path,
-    );
-    const targetRects = targetShapes.filter(
-      (s): s is Rect => s instanceof Rect,
-    );
+    const pairs = this.alignFragments(
+      this.getFragments(this.document().nodes),
+      this.getFragments(targetDoc.nodes),
+    ).map(pair => ({...pair, transition}));
 
-    const newSize = targetDoc.size.mul(
-      this.calculateWrapperScale(targetDoc.size, this.getCurrentSize()),
+    yield* this.tweenFragments(
+      pairs,
+      {svg: newSVG, tex: parsedValue, document: targetDoc},
+      time,
+      timingFunction,
+    );
+  }
+
+  @threadable()
+  private *tweenFragments(
+    pairs: LatexFragmentPair[],
+    target: {svg: string; tex: string[]; document: SVGDocument},
+    time: number,
+    timingFunction: TimingFunction,
+  ) {
+    const newSize = target.document.size.mul(
+      this.calculateWrapperScale(target.document.size, this.getCurrentSize()),
     );
     const lockedScale = new Vector2(this.wrapper.scale());
 
     this.lockLayout();
     this.wrapper.scale(lockedScale);
 
-    yield* all(
-      ...this.createFragmentMorphAnimations(
-        currentPaths,
-        targetPaths,
-        time,
-        timingFunction,
-      ),
-      ...this.createFragmentMorphAnimations(
-        currentRects,
-        targetRects,
-        time,
-        timingFunction,
-      ),
-      this.size(newSize, time, timingFunction),
-    );
+    const animations: ThreadGenerator[] = [];
+    for (const {from, to, transition} of pairs) {
+      // An unchanged fragment has nothing to cross over with.
+      if (from && to && (transition !== 'fade' || from.id === to.id)) {
+        animations.push(
+          ...this.createFragmentMorphAnimations(
+            from.shapes,
+            to.shapes,
+            time,
+            timingFunction,
+            transition,
+          ),
+        );
+        continue;
+      }
 
-    this.svg.context.setter(newSVG);
-    this.tex.context.setter(parsedValue);
+      animations.push(
+        ...this.crossfadeShapes(
+          from?.shapes ?? [],
+          to?.shapes ?? [],
+          time,
+          timingFunction,
+        ),
+      );
+    }
+
+    yield* all(...animations, this.size(newSize, time, timingFunction));
+
+    this.svg.context.setter(target.svg);
+    this.tex.context.setter(target.tex);
     this.wrapper.children(this.documentNodes);
     this.wrapper.scale(this.wrapperScale);
     this.releaseLayout();
@@ -449,9 +612,14 @@ export class Latex extends SVGNode {
     const targetDoc = this.parseSVG(newSVG);
 
     const timing: TimingFunction = timingFunction ?? easeInOutCubic;
+    const transition = this.fragmentTransition();
 
-    const sourceFragments = this.getFragmentShapes();
-    const targetFragments = this.getTargetFragmentShapes(targetDoc);
+    const sourceFragments = this.getFragments(this.document().nodes).map(
+      ({shapes}) => shapes,
+    );
+    const targetFragments = this.getFragments(targetDoc.nodes).map(
+      ({shapes}) => shapes,
+    );
 
     const mappedTargetIndices = new Set<number>();
     const animations: ThreadGenerator[] = [];
@@ -465,9 +633,7 @@ export class Latex extends SVGNode {
       }
 
       if (!targetIndices || targetIndices.length === 0) {
-        for (const shape of srcShapes) {
-          animations.push(shape.opacity(0, time * 0.3, timing));
-        }
+        animations.push(...this.fadeOutShapes(srcShapes, time, timing));
         continue;
       }
 
@@ -491,6 +657,7 @@ export class Latex extends SVGNode {
               tgtShapes,
               time,
               timing,
+              transition,
             ),
           );
         } else {
@@ -505,6 +672,7 @@ export class Latex extends SVGNode {
               tgtShapes,
               time,
               timing,
+              transition,
             ),
           );
         }
@@ -518,9 +686,7 @@ export class Latex extends SVGNode {
     ) {
       const srcShapes = sourceFragments[srcIdx];
       if (srcShapes) {
-        for (const shape of srcShapes) {
-          animations.push(shape.opacity(0, time * 0.3, timing));
-        }
+        animations.push(...this.fadeOutShapes(srcShapes, time, timing));
       }
     }
 
@@ -529,13 +695,9 @@ export class Latex extends SVGNode {
         continue;
       }
 
-      const tgtShapes = targetFragments[tgtIdx];
-      for (const shape of tgtShapes) {
-        const clone = shape.clone();
-        clone.opacity(0);
-        this.wrapper.add(clone);
-        animations.push(clone.opacity(1, time, timing));
-      }
+      animations.push(
+        ...this.fadeInShapes(targetFragments[tgtIdx], time, timing),
+      );
     }
 
     yield* all(...animations);

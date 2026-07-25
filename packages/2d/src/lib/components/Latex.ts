@@ -11,7 +11,6 @@ import {
   easeInOutCubic,
   lazy,
   threadable,
-  tween,
   useLogger,
 } from '@canvas-commons/core';
 import {liteAdaptor} from 'mathjax-full/js/adaptors/liteAdaptor.js';
@@ -323,10 +322,9 @@ export class Latex extends SVGNode {
               toData,
             );
             animations.push(
-              tween(time, t => {
-                const progress = timingFunction(t);
-                from.data.context.setter(interpolator(progress));
-              }),
+              from.data(toData, time, timingFunction, (_from, _to, value) =>
+                interpolator(value),
+              ),
             );
           }
           animations.push(
@@ -395,7 +393,6 @@ export class Latex extends SVGNode {
       (s): s is Rect => s instanceof Rect,
     );
 
-    const oldSize = new Vector2(this.size());
     const newSize = targetDoc.size.mul(
       this.calculateWrapperScale(targetDoc.size, this.getCurrentSize()),
     );
@@ -417,10 +414,7 @@ export class Latex extends SVGNode {
         time,
         timingFunction,
       ),
-      tween(time, t => {
-        const progress = timingFunction(t);
-        this.size(Vector2.lerp(oldSize, newSize, progress));
-      }),
+      this.size(newSize, time, timingFunction),
     );
 
     this.svg.context.setter(newSVG);

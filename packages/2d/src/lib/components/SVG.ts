@@ -216,19 +216,11 @@ export class SVG extends Shape {
       to instanceof Path &&
       from.data() !== to.data()
     ) {
-      const fromData = from.data();
       const toData = to.data();
-      const interpolator = this.morpher.createInterpolator(fromData, toData);
+      const interpolator = this.morpher.createInterpolator(from.data(), toData);
 
-      yield tween(
-        duration,
-        value => {
-          const progress = timing(value);
-          from.data.context.setter(interpolator(progress));
-        },
-        () => {
-          from.data(toData);
-        },
+      yield from.data(toData, duration, timing, (_from, _to, value) =>
+        interpolator(value),
       );
     }
     if (from instanceof Layout && to instanceof Layout) {

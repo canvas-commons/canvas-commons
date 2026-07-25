@@ -1,6 +1,8 @@
 import {
   BBox,
   createSignal,
+  deepLerp,
+  InterpolationFunction,
   isReactive,
   SignalValue,
   SimpleSignal,
@@ -70,11 +72,28 @@ export class Path extends Curve {
     newPath: SignalValue<string>,
     time: number,
     timingFunction: TimingFunction,
+    interpolationFunction: InterpolationFunction<string>,
   ) {
-    const fromProfile = this.profile();
-    const toProfile = getPathProfile(isReactive(newPath) ? newPath() : newPath);
+    const to = isReactive(newPath) ? newPath() : newPath;
 
-    const interpolator = createCurveProfileLerp(fromProfile, toProfile);
+    // A caller that supplied an interpolation function knows how to blend the
+    // two paths, so it drives the tween instead of the profile lerp.
+    if (interpolationFunction !== deepLerp) {
+      const from = this.data();
+      yield* tween(
+        time,
+        value =>
+          this.data(interpolationFunction(from, to, timingFunction(value))),
+        () => this.data(to),
+      );
+      return;
+    }
+
+    const fromProfile = this.profile();
+    const interpolator = createCurveProfileLerp(
+      fromProfile,
+      getPathProfile(to),
+    );
 
     this.currentProfile(fromProfile);
     yield* tween(

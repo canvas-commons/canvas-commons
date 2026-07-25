@@ -65,6 +65,66 @@ export interface LatexProps extends Omit<SVGProps, 'svg'> {
   debugFragments?: SignalValue<boolean>;
 }
 
+/**
+ * Both states of the sub-tex occupying one slot of an {@link Latex.edit}
+ * template.
+ */
+export interface LatexEditFragment {
+  before: string;
+  after: string;
+  transition: LatexTransition;
+}
+
+export interface LatexEditGenerator {
+  (
+    strings: TemplateStringsArray,
+    ...fragments: LatexEditFragment[]
+  ): ThreadGenerator;
+}
+
+/**
+ * Create an edit fragment whose glyphs morph into their replacements.
+ *
+ * @remarks
+ * An empty `before` inserts the fragment and an empty `after` removes it.
+ *
+ * @param before - The sub-tex to change from.
+ * @param after - The sub-tex to change to.
+ */
+export function morph(before: string, after: string): LatexEditFragment {
+  return {before, after, transition: 'morph'};
+}
+
+/**
+ * Create an edit fragment that crosses over with its replacement.
+ *
+ * @remarks
+ * Glyphs the two states share fade with the rest; use {@link partialFade} to
+ * keep them. An empty `before` inserts the fragment and an empty `after` removes
+ * it.
+ *
+ * @param before - The sub-tex to change from.
+ * @param after - The sub-tex to change to.
+ */
+export function fade(before: string, after: string): LatexEditFragment {
+  return {before, after, transition: 'fade'};
+}
+
+/**
+ * Create an edit fragment whose replaced glyphs cross over while the rest move.
+ *
+ * @remarks
+ * Glyphs the two states share travel to their new place instead of fading, so
+ * `x^2` becoming `y^2` keeps its exponent. An empty `before` inserts the
+ * fragment and an empty `after` removes it.
+ *
+ * @param before - The sub-tex to change from.
+ * @param after - The sub-tex to change to.
+ */
+export function partialFade(before: string, after: string): LatexEditFragment {
+  return {before, after, transition: 'partialFade'};
+}
+
 interface LatexFragment {
   id: string;
   shapes: Curve[];
@@ -141,7 +201,7 @@ export class Latex extends SVGNode {
    *
    * @remarks
    * Can be changed between tweens to animate one step differently from the
-   * next.
+   * next. {@link edit} overrides it per fragment.
    */
   @initial('morph')
   @signal()
@@ -589,8 +649,146 @@ export class Latex extends SVGNode {
   }
 
   /**
+   * Animate between two formulas written as one template.
+   *
+   * @remarks
+   * Each hole of the template is a fragment that knows both of its states, so
+   * the correspondence comes from where you wrote it rather than from a list of
+   * indices. Everything outside a hole is a fragment that stays as it is.
+   *
+   * The template is read raw, so LaTeX commands need no extra escaping. The
+   * `{{}}` syntax is not recognised here; the holes take its place.
+   *
+   * @example
+   * ```tsx
+   * yield* tex().edit(1)`d=\sqrt{${fade('x', '(-54.934)')}^2}`;
+   * ```
+   *
+   * @param time - The duration of the animation.
+   * @param timingFunction - The timing function.
+   */
+  public edit(
+    time = 0.6,
+    timingFunction: TimingFunction = easeInOutCubic,
+  ): LatexEditGenerator {
+    return (strings, ...fragments) => {
+      const slots: LatexEditFragment[] = [];
+      for (let i = 0; i < strings.raw.length; i++) {
+        slots.push(morph(strings.raw[i], strings.raw[i]));
+        const fragment = fragments[i];
+        if (fragment) {
+          slots.push(fragment);
+        }
+      }
+      return this.tweenEdit(slots, time, timingFunction);
+    };
+  }
+
+  @threadable()
+  protected *tweenEdit(
+    slots: LatexEditFragment[],
+    time: number,
+    timingFunction: TimingFunction,
+  ) {
+    const source = Latex.resolveSlots(slots, 'before');
+    const target = Latex.resolveSlots(slots, 'after');
+    const sourceTex = source.map(({tex}) => tex);
+    const targetTex = target.map(({tex}) => tex);
+
+    if (this.tex().join('') !== sourceTex.join('')) {
+      useLogger().warn({
+        message: 'Latex: the current tex differs from the one being edited.',
+        object: {current: this.tex().join(''), before: sourceTex.join('')},
+      });
+    }
+
+    const sourceSVG = this.texToSvg(sourceTex);
+    const targetSVG = this.texToSvg(targetTex);
+
+    // The template decides where the fragments are, so the formula is reparsed
+    // against its slots even when it is already on screen.
+    this.svg.context.setter(sourceSVG);
+    this.tex.context.setter(sourceTex);
+    const sourceDoc = this.parseSVG(sourceSVG);
+    this.wrapper.children(sourceDoc.nodes.map(({shape}) => shape));
+    this.wrapper.scale(this.wrapperScale);
+
+    const targetDoc = this.parseSVG(targetSVG);
+    const sourceSlots = this.matchFragmentsToSlots(
+      this.getFragments(sourceDoc.nodes),
+      source,
+    );
+    const targetSlots = this.matchFragmentsToSlots(
+      this.getFragments(targetDoc.nodes),
+      target,
+    );
+
+    const pairs: LatexFragmentPair[] = [];
+    slots.forEach(({transition}, slot) => {
+      const from = sourceSlots.matched.get(slot) ?? null;
+      const to = targetSlots.matched.get(slot) ?? null;
+      if (from || to) {
+        pairs.push({from, to, transition});
+      }
+    });
+
+    const transition = this.fragmentTransition();
+    pairs.push(
+      ...this.alignFragments(sourceSlots.extra, targetSlots.extra).map(
+        pair => ({
+          ...pair,
+          transition,
+        }),
+      ),
+    );
+
+    yield* this.tweenFragments(
+      pairs,
+      {svg: targetSVG, tex: targetTex, document: targetDoc},
+      time,
+      timingFunction,
+    );
+  }
+
+  private static resolveSlots(
+    slots: LatexEditFragment[],
+    state: 'before' | 'after',
+  ): {slot: number; tex: string}[] {
+    return slots
+      .map((fragment, slot) => ({slot, tex: fragment[state]}))
+      .filter(({tex}) => tex.trim().length > 0);
+  }
+
+  private matchFragmentsToSlots(
+    fragments: LatexFragment[],
+    slots: {slot: number; tex: string}[],
+  ): {matched: Map<number, LatexFragment>; extra: LatexFragment[]} {
+    const matched = new Map<number, LatexFragment>();
+    const extra: LatexFragment[] = [];
+    let next = 0;
+
+    for (const fragment of fragments) {
+      const found = slots.findIndex(
+        ({tex}, index) => index >= next && tex.trim() === fragment.id,
+      );
+      if (found === -1) {
+        extra.push(fragment);
+        continue;
+      }
+      next = found + 1;
+      matched.set(slots[found].slot, fragment);
+    }
+
+    return {matched, extra};
+  }
+
+  /**
    * Animate from the current tex to a new value using a fragment-to-fragment
    * mapping.
+   *
+   * @remarks
+   * Prefer {@link edit} unless you need one fragment to feed several others;
+   * it describes the same correspondence without the indices.
    *
    * @param value - The new tex value.
    * @param mapping - A mapping from source fragment indices to target fragment

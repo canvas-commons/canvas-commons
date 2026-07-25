@@ -48,6 +48,17 @@ export interface LatexProps extends Omit<SVGProps, 'svg'> {
   renderProps?: SignalValue<OptionList>;
 }
 
+const MAX_TEX_REPAIRS = 4;
+
+function repairTex(tex: string, error: string): string | null {
+  if (/^Missing (argument for|superscript or subscript)/.test(error)) {
+    return `${tex}{\\quad}`;
+  }
+
+  const unclosed = error.match(/^Missing \\end\{(.*?)\}/);
+  return unclosed ? `${tex}\\end{${unclosed[1]}}` : null;
+}
+
 /**
  * A node for animating equations with LaTeX.
  *
@@ -143,7 +154,6 @@ export class Latex extends SVGNode {
     const oldNodes = [...oldSVG.nodes];
 
     const newNodes: SVGShapeData[] = [];
-    const pendingFragments: {sub: string; nodeCount: number}[] = [];
     for (const sub of subTexs) {
       const subSvg = this.subTexToSVG(sub);
       const subNodes = SVGNode.parseSVGData(subSvg).nodes;
@@ -152,44 +162,32 @@ export class Latex extends SVGNode {
         continue;
       }
 
-      const firstId = this.getNodeCharacterId(subNodes[0]);
-      const spliceIndex = oldNodes.findIndex(
-        node => this.getNodeCharacterId(node) === firstId,
-      );
-      if (spliceIndex === -1) {
-        pendingFragments.push({sub, nodeCount: subNodes.length});
-        continue;
-      }
-      const children = oldNodes.splice(spliceIndex, subNodes.length);
-
-      if (children.length === 1) {
-        newNodes.push({
-          ...children[0],
-          id: sub,
-        });
-        continue;
+      // MathJax does not always emit a fragment's glyphs together: the radical
+      // of a `\sqrt` trails its radicand.
+      const children: SVGShapeData[] = [];
+      let cursor = 0;
+      for (const subNode of subNodes) {
+        const id = this.getNodeCharacterId(subNode);
+        const index = oldNodes.findIndex(
+          (node, at) => at >= cursor && this.getNodeCharacterId(node) === id,
+        );
+        if (index === -1) continue;
+        children.push(...oldNodes.splice(index, 1));
+        cursor = index;
       }
 
+      if (children.length === 0) {
+        continue;
+      }
+
+      // Wrapping keeps the sub-tex naming the fragment from replacing the id
+      // that identifies the glyph a shape renders.
       newNodes.push({
         id: sub,
         type: Node,
         props: {},
         children,
       });
-    }
-    for (const pending of pendingFragments) {
-      const children = oldNodes.splice(0, pending.nodeCount);
-      if (children.length === 0) continue;
-      if (children.length === 1) {
-        newNodes.push({...children[0], id: pending.sub});
-      } else {
-        newNodes.push({
-          id: pending.sub,
-          type: Node,
-          props: {},
-          children,
-        });
-      }
     }
     if (oldNodes.length > 0) {
       newNodes.push({
@@ -219,15 +217,6 @@ export class Latex extends SVGNode {
 
   private subTexToSVG(subTex: string) {
     let tex = subTex.trim();
-    if (
-      ['\\overline', '\\sqrt', '\\sqrt{'].includes(tex) ||
-      tex.endsWith('_') ||
-      tex.endsWith('^') ||
-      tex.endsWith('dot')
-    ) {
-      tex += '{\\quad}';
-    }
-
     if (tex === '\\substack') tex = '\\quad';
 
     const numLeft = tex.match(/\\left[()[\]|.\\]/g)?.length ?? 0;
@@ -245,27 +234,37 @@ export class Latex extends SVGNode {
       tex += '}'.repeat(bracesLeft - bracesRight);
     }
 
-    const hasArrayBegin = tex.includes('\\begin{array}');
-    const hasArrayEnd = tex.includes('\\end{array}');
-    if (hasArrayBegin !== hasArrayEnd) tex = '';
+    // A fragment is a piece of a formula, so it can be missing the arguments or
+    // the `\end` that its commands need. MathJax names what it wants, which
+    // repairs any command rather than a list of the ones seen so far. A fragment
+    // that cannot be repaired, such as an `\end` without its `\begin`, renders
+    // nothing and leaves its glyphs to the fragments around it.
+    let attempt = this.renderTex(tex);
+    for (let repair = 0; attempt.error && repair < MAX_TEX_REPAIRS; repair++) {
+      const repaired = repairTex(tex, attempt.error);
+      if (!repaired) break;
+      tex = repaired;
+      attempt = this.renderTex(tex);
+    }
 
-    return this.singleTexToSVG(tex);
+    return attempt.error ? this.renderTex('').svg : attempt.svg;
+  }
+
+  private renderTex(tex: string): {svg: string; error: string | null} {
+    const src = `${tex}::${JSON.stringify(this.options())}`;
+    const svg =
+      Latex.svgContentsPool[src] ??
+      Adaptor.innerHTML(JaxDocument.convert(tex, this.options()));
+    Latex.svgContentsPool[src] = svg;
+
+    return {svg, error: svg.match(/data-mjx-error="(.*?)"/)?.[1] ?? null};
   }
 
   private singleTexToSVG(tex: string): string {
-    const src = `${tex}::${JSON.stringify(this.options())}`;
-    if (Latex.svgContentsPool[src]) {
-      return Latex.svgContentsPool[src];
+    const {svg, error} = this.renderTex(tex);
+    if (error) {
+      useLogger().error({message: `Invalid MathJax: ${error}`, object: {tex}});
     }
-
-    const svg = Adaptor.innerHTML(JaxDocument.convert(tex, this.options()));
-    if (svg.includes('data-mjx-error')) {
-      const errors = svg.match(/data-mjx-error="(.*?)"/);
-      if (errors && errors.length > 0) {
-        useLogger().error(`Invalid MathJax: ${errors[1]}`);
-      }
-    }
-    Latex.svgContentsPool[src] = svg;
     return svg;
   }
 

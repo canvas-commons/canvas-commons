@@ -1,4 +1,5 @@
 import {EventDispatcher, ValueDispatcher} from '../events';
+import {waitForPendingAudioAdjustments} from '../media';
 import type {Scene, Sound} from '../scenes';
 import {ReadOnlyTimeEvents} from '../scenes/timeEvents';
 import {clampRemap} from '../tweening';
@@ -208,6 +209,7 @@ export class Renderer {
     await this.playback.recalculate();
     if (signal.aborted) return RendererResult.Aborted;
 
+    await waitForPendingAudioAdjustments();
     const sounds = this.collectSounds();
     await this.playback.reset();
     if (signal.aborted) return RendererResult.Aborted;

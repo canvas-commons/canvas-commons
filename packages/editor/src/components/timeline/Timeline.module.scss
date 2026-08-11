@@ -15,35 +15,197 @@
 }
 
 .sidebar {
-  width: 320px;
+  width: 200px;
   flex-shrink: 0;
   flex-grow: 0;
+  overflow: hidden;
+  position: relative;
+  background-color: var(--surface-color);
+  border-right: 1px solid var(--border-color);
+  z-index: 2;
+
+  &.collapsed {
+    width: 28px;
+  }
+}
+
+// Mirrors the lane area's vertical scroll so rows stay next to their lanes.
+.sidebarRows {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+
+.sidebarToggle {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  cursor: pointer;
+  background-color: var(--surface-color-hover);
+  color: rgba(255, 255, 255, 0.54);
+
+  &:hover {
+    background-color: var(--surface-color-light);
+    color: #fff;
+  }
+
+  > svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .sidebar.collapsed & {
+    right: 4px;
+  }
+}
+
+// Rows are lifted off the sidebar background so the last one still reads as
+// a distinct item rather than blending into the empty space below it.
+.trackHeader {
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  border-top: 1px solid var(--border-color);
+  background-color: var(--surface-color-hover);
+}
+
+.trackAccent {
+  width: 3px;
+  flex-shrink: 0;
+}
+
+.trackHeaderBody {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 8px;
+  min-width: 0;
+  flex-grow: 1;
+}
+
+.trackHeaderTop {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.trackName {
+  flex-grow: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-small);
+  line-height: 20px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.trackButtons {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.trackButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-family: var(--font-family);
+  font-size: var(--font-size-small);
+  font-weight: bold;
+  line-height: 1;
+  background-color: var(--surface-color-hover);
+  color: rgba(255, 255, 255, 0.54);
+
+  &:hover {
+    background-color: var(--surface-color-light);
+    color: #fff;
+  }
+
+  &.trackButtonActive {
+    background-color: var(--theme);
+    color: #000;
+  }
+}
+
+.trackIconButton > svg {
+  width: 14px;
+  height: 14px;
+}
+
+.trackResize {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 6px;
+  cursor: ns-resize;
+  touch-action: none;
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    top: 2px;
+    height: 2px;
+    border-radius: 1px;
+    background-color: transparent;
+  }
+
+  &:hover::after,
+  &:active::after {
+    background-color: var(--theme);
+  }
 }
 
 .timelineWrapper {
   overflow-x: scroll;
-  overflow-y: hidden;
+  // Lanes can outgrow the panel (media audio + project audio + scenes), so
+  // the extra ones have to be reachable instead of clipped below the fold.
+  overflow-y: auto;
   flex-grow: 1;
   position: relative;
   background-color: var(--background-color);
   width: 100%;
 }
 
+// Sized by its lanes rather than pinned to the panel, so lanes that don't
+// fit extend the scrollable area instead of being clipped.
 .timeline {
   position: relative;
   overflow: hidden;
-  height: 100%;
+  min-height: 100%;
 }
 
 .timelineContent {
   position: relative;
   overflow: visible;
-  height: 100%;
+  min-height: 100%;
 }
 
 .trackContainer {
   width: 100%;
-  height: 100%;
+  min-height: 100%;
   background-color: var(--surface-color);
 }
 
@@ -330,14 +492,13 @@
   flex-shrink: 1;
 }
 
+// Height is set inline from the lane's resize handle.
 .audioTrack {
   position: relative;
-  height: calc(96px + 32px * 2);
-  padding: 32px 0;
 }
-
 .audioClip {
   position: absolute;
+  top: 0;
 
   &.hoverable {
     border-radius: var(--radius);
@@ -351,10 +512,6 @@
 
       .audioCanvas {
         filter: brightness(0.54);
-      }
-
-      .audioLabel {
-        background-color: var(--surface-color-light);
       }
     }
   }
@@ -378,14 +535,4 @@
   top: 0;
   bottom: 0;
   filter: brightness(0.27);
-}
-
-.audioLabel {
-  position: absolute;
-  bottom: 100%;
-  cursor: default;
-  border-radius: 12px 12px 12px 0;
-  translate: 0 2px;
-  padding: 0 8px;
-  background-color: var(--surface-color-hover);
 }

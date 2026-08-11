@@ -6,16 +6,26 @@ import {useApplication, useModifiers, useTimelineContext} from '../../contexts';
 import {useScenes, useSharedSettings, useSubscribableValue} from '../../hooks';
 import {MouseButton} from '../../utils';
 import styles from './Timeline.module.scss';
-
-const HEIGHT = 48;
+import {
+  DEFAULT_WAVE_HEIGHT,
+  useTrackLayout,
+  useWaveHeight,
+} from './trackLayout';
 
 export function AudioTrack() {
   const scenes = useScenes();
+  const layoutRef = useTrackLayout<HTMLDivElement>('audio');
+  const {height} = useWaveHeight('audio');
+
   return (
-    <div className={styles.audioTrack}>
-      <MainAudioClip />
+    <div
+      ref={layoutRef}
+      className={styles.audioTrack}
+      style={{height: `${height}px`}}
+    >
+      <MainAudioClip height={height} />
       {scenes.map(scene => (
-        <AudioGroup scene={scene} />
+        <AudioGroup scene={scene} height={height} />
       ))}
     </div>
   );
@@ -23,20 +33,25 @@ export function AudioTrack() {
 
 interface AudioGroupProps {
   scene: Scene;
+  height: number;
 }
 
-export function AudioGroup({scene}: AudioGroupProps) {
+export function AudioGroup({scene, height}: AudioGroupProps) {
   const sounds = useSubscribableValue(scene.sounds.onChanged);
   return (
     <>
-      {sounds.map(sound => (
-        <AudioClip hoverable {...sound} />
-      ))}
+      {/* Media-derived clips (e.g. a Video's own audio) render in their own
+          MediaAudioTrack lane instead, so they aren't duplicated here. */}
+      {sounds
+        ?.filter(sound => !sound.sourceKey)
+        .map(sound => (
+          <AudioClip hoverable height={height} {...sound} />
+        ))}
     </>
   );
 }
 
-function MainAudioClip() {
+function MainAudioClip({height}: {height: number}) {
   const {player, meta} = useApplication();
   const source = player.audio.getSource();
   const {audioOffset} = useSharedSettings();
@@ -58,6 +73,7 @@ function MainAudioClip() {
         editable={active || isEditing}
         audio={source}
         offset={fullOffset}
+        height={height}
         disabled
         onPointerDown={e => {
           if (active && e.button === MouseButton.Left) {
@@ -85,7 +101,7 @@ function MainAudioClip() {
   );
 }
 
-interface AudioClipProps extends JSX.HTMLAttributes<HTMLDivElement> {
+export interface AudioClipProps extends JSX.HTMLAttributes<HTMLDivElement> {
   audio: string;
   offset: number;
   start?: number;
@@ -94,6 +110,12 @@ interface AudioClipProps extends JSX.HTMLAttributes<HTMLDivElement> {
   hoverable?: boolean;
   editable?: boolean;
   disabled?: boolean;
+  /** Overrides the waveform color (defaults to white). */
+  color?: string;
+  /** Dims the clip, used to de-emphasize non-hovered overlapping clips. */
+  faded?: boolean;
+  /** Height of the waveform area, set by the lane's resize handle. */
+  height?: number;
 }
 
 export function AudioClip({
@@ -104,9 +126,16 @@ export function AudioClip({
   realPlaybackRate = 1,
   hoverable,
   editable,
+  color = '#fff',
+  faded,
+  height = DEFAULT_WAVE_HEIGHT,
+  style,
   className,
   ...props
 }: AudioClipProps) {
+  // The waveform is drawn symmetrically around a center line, so the canvas
+  // works in half-height units.
+  const halfHeight = height / 2;
   const {player} = useApplication();
   const audioData = useSubscribableValue(
     player.audioResources.get(audio).onData,
@@ -173,9 +202,9 @@ export function AudioClip({
 
     const context = contextRef.current;
     if (!context) return;
-    context.clearRect(0, 0, viewLength, HEIGHT * 2);
+    context.clearRect(0, 0, viewLength, height);
     context.beginPath();
-    context.moveTo(0, HEIGHT);
+    context.moveTo(0, halfHeight);
 
     const relativeStartTime =
       (waveformStart - offset) * realPlaybackRate + start;
@@ -196,17 +225,19 @@ export function AudioClip({
 
       context.lineTo(
         ((padding + offset) / length) * waveformWidth,
-        (audioData.peaks[sample] / audioData.absoluteMax) * HEIGHT + HEIGHT,
+        (audioData.peaks[sample] / audioData.absoluteMax) * halfHeight +
+          halfHeight,
       );
       context.lineTo(
         ((padding + offset + step) / length) * waveformWidth,
-        (audioData.peaks[sample + 1] / audioData.absoluteMax) * HEIGHT + HEIGHT,
+        (audioData.peaks[sample + 1] / audioData.absoluteMax) * halfHeight +
+          halfHeight,
       );
     }
 
     context.lineWidth = 1;
     context.lineJoin = 'round';
-    context.strokeStyle = '#fff';
+    context.strokeStyle = color;
     context.stroke();
   }, [
     waveformStart,
@@ -219,6 +250,8 @@ export function AudioClip({
     start,
     audioData,
     realPlaybackRate,
+    color,
+    halfHeight,
   ]);
 
   const [wrapperStyle, canvasStyle] = useMemo(
@@ -226,13 +259,24 @@ export function AudioClip({
       {
         left: `${secondsToPercents(clipStart)}%`,
         width: `${secondsToPercents(clipDuration)}%`,
-        height: `${HEIGHT * 2}px`,
+        height: `${height}px`,
+        opacity: faded ? 0.35 : 1,
+        transition: 'opacity 0.15s ease',
+        ...(typeof style === 'object' ? style : {}),
       },
       {
         left: `${((waveformStart - clipStart) / clipDuration) * 100}%`,
       },
     ],
-    [waveformStart, clipDuration, clipStart, secondsToPercents],
+    [
+      waveformStart,
+      clipDuration,
+      clipStart,
+      secondsToPercents,
+      faded,
+      style,
+      height,
+    ],
   );
 
   return (
@@ -246,16 +290,13 @@ export function AudioClip({
       style={wrapperStyle}
       {...props}
     >
-      {hoverable && waveformWidth > 8 && (
-        <div className={styles.audioLabel}>{audio}</div>
-      )}
       {waveformVisible && waveformWidth > 8 && (
         <canvas
           ref={ref}
           style={canvasStyle}
           className={styles.audioCanvas}
           width={Math.round(waveformWidth)}
-          height={HEIGHT * 2}
+          height={height}
         />
       )}
     </div>

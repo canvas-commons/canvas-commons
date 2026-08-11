@@ -3,7 +3,18 @@ import {
   EventDispatcher,
   ValueDispatcher,
 } from '../events';
-import {AudioManager, AudioManagerPool, AudioResourceManager} from '../media';
+import {
+  AudioManager,
+  AudioManagerPool,
+  AudioResourceManager,
+  AudioTrackId,
+  AudioTrackMix,
+  AudioTrackMixMap,
+  DEFAULT_AUDIO_TRACK_MIX,
+  PROJECT_AUDIO_TRACK_ID,
+  normalizeTrackMix,
+  resolveAudioMix,
+} from '../media';
 import {Scene, Sound} from '../scenes';
 import {EditableTimeEvents} from '../scenes/timeEvents';
 import {clamp} from '../tweening';
@@ -21,6 +32,14 @@ export interface PlayerState extends Record<string, unknown> {
   muted: boolean;
   volume: number;
   speed: number;
+  /**
+   * Per-track preview mix, keyed by timeline track id.
+   *
+   * @remarks
+   * Preview-only, like {@link PlayerState.muted} and
+   * {@link PlayerState.volume} - exported output is unaffected.
+   */
+  trackMix: AudioTrackMixMap;
 }
 
 export interface PlayerSettings {
@@ -95,6 +114,7 @@ export class Player {
   private readonly sharedWebGLContext: SharedWebGLContext;
 
   private readonly lock = new Semaphore();
+  private readonly trackVolumeBeforeMute = new Map<AudioTrackId, number>();
   private startTime = 0;
   private endTime = Infinity;
   private requestId: number | null = null;
@@ -136,6 +156,7 @@ export class Player {
       volume: 1,
       speed: 1,
       ...initialState,
+      trackMix: normalizeTrackMix(initialState?.trackMix),
       paused: true,
     });
 
@@ -312,6 +333,65 @@ export class Player {
     this.setAudioVolume(this.playerState.current.volume + value);
   }
 
+  public getTrackMix(trackId: AudioTrackId): AudioTrackMix {
+    return (
+      this.playerState.current.trackMix[trackId] ?? DEFAULT_AUDIO_TRACK_MIX
+    );
+  }
+
+  /**
+   * Update the preview mix of a single timeline audio track.
+   */
+  public setTrackMix(
+    trackId: AudioTrackId,
+    settings: Partial<AudioTrackMix>,
+  ): void {
+    const current = this.getTrackMix(trackId);
+    const next: AudioTrackMix = {
+      volume: clamp(0, 1, settings.volume ?? current.volume),
+      solo: settings.solo ?? current.solo,
+    };
+
+    if (next.volume === current.volume && next.solo === current.solo) {
+      return;
+    }
+
+    if (next.volume > 0) {
+      this.trackVolumeBeforeMute.delete(trackId);
+    }
+
+    this.playerState.current = {
+      ...this.playerState.current,
+      trackMix: {
+        ...this.playerState.current.trackMix,
+        [trackId]: next,
+      },
+    };
+  }
+
+  /**
+   * Silence a track, or restore the volume it had before being silenced.
+   *
+   * @remarks
+   * Muting is just `volume: 0`, so the previous volume is remembered here to
+   * make the toggle round-trip instead of snapping back to full.
+   */
+  public toggleTrackMuted(trackId: AudioTrackId): void {
+    const {volume} = this.getTrackMix(trackId);
+    if (volume > 0) {
+      this.trackVolumeBeforeMute.set(trackId, volume);
+      this.setTrackMix(trackId, {volume: 0});
+    } else {
+      this.setTrackMix(trackId, {
+        volume: this.trackVolumeBeforeMute.get(trackId) ?? 1,
+      });
+    }
+  }
+
+  public toggleTrackSolo(trackId: AudioTrackId): void {
+    this.setTrackMix(trackId, {solo: !this.getTrackMix(trackId).solo});
+  }
+
   public setSpeed(value: number) {
     if (value !== this.playerState.current.speed) {
       this.playback.speed = value;
@@ -425,6 +505,7 @@ export class Player {
     // Pause / play sounds.
     this.audioPool.prepare(this.status.time);
     await this.audioPool.setPaused(state.paused || this.finished);
+    this.audioPool.setTrackMix(state.trackMix);
     this.audioPool.setMuted(state.muted);
     this.audioPool.setVolume(state.volume);
 
@@ -434,8 +515,14 @@ export class Player {
     if (await this.audio.setPaused(audioPaused)) {
       this.syncAudio(-3);
     }
-    this.audio.setMuted(state.muted);
-    this.audio.setVolume(state.volume);
+    const projectMix = resolveAudioMix(
+      PROJECT_AUDIO_TRACK_ID,
+      state.trackMix,
+      state.muted,
+      state.volume,
+    );
+    this.audio.setMuted(projectMix.muted);
+    this.audio.setVolume(projectMix.volume);
 
     return state;
   }

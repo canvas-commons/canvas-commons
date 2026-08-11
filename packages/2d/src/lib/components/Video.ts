@@ -5,9 +5,14 @@ import {
   SerializedVector2,
   SignalValue,
   SimpleSignal,
+  Sound,
   clamp,
+  gainToDb,
   isReactive,
+  trackPendingAudioAdjustment,
   useLogger,
+  useMediaAudioAnalyzer,
+  useScene,
   useThread,
 } from '@canvas-commons/core';
 import {computed, initial, nodeName, signal} from '../decorators';
@@ -42,6 +47,18 @@ export interface VideoProps extends RectProps {
    */
   time?: SignalValue<number>;
   play?: boolean;
+  /**
+   * {@inheritDoc Video.volume}
+   */
+  volume?: SignalValue<number>;
+  /**
+   * {@inheritDoc Video.normalize}
+   */
+  normalize?: SignalValue<number | false>;
+  /**
+   * {@inheritDoc Video.levelTo}
+   */
+  levelTo?: SignalValue<number | false>;
 }
 
 @nodeName('Video')
@@ -106,6 +123,49 @@ export class Video extends Rect {
   @signal()
   declare public readonly playbackRate: SimpleSignal<number, this>;
 
+  /**
+   * The volume of this video's own embedded audio.
+   *
+   * @remarks
+   * `1` plays the source audio unmodified. Applies during both live preview
+   * and export.
+   *
+   * @defaultValue 1
+   */
+  @initial(1)
+  @signal()
+  declare public readonly volume: SimpleSignal<number, this>;
+
+  /**
+   * Normalize this video's audio to a target LUFS, flattening the whole
+   * clip's average loudness to that target.
+   *
+   * @remarks
+   * Overrides {@link volume}. Set to `false` to disable. Measured once per
+   * source and cached; see {@link levelTo} to preserve loud/quiet dynamics
+   * instead of flattening them.
+   *
+   * @defaultValue false
+   */
+  @initial(false)
+  @signal()
+  declare public readonly normalize: SimpleSignal<number | false, this>;
+
+  /**
+   * Level this video's audio to a target LUFS using a "loud part" reference
+   * instead of the whole clip's average, preserving relative dynamics
+   * between quiet and loud sections.
+   *
+   * @remarks
+   * Overrides {@link volume} and {@link normalize}. Set to `false` to
+   * disable. Measured once per source and cached.
+   *
+   * @defaultValue false
+   */
+  @initial(false)
+  @signal()
+  declare public readonly levelTo: SimpleSignal<number | false, this>;
+
   @initial(0)
   @signal()
   declare protected readonly time: SimpleSignal<number, this>;
@@ -115,6 +175,8 @@ export class Video extends Rect {
   declare protected readonly playing: SimpleSignal<boolean, this>;
 
   private lastTime = -1;
+  private audioClip: Sound | null = null;
+  private audioMeasurementToken = 0;
 
   public constructor({play, ...props}: VideoProps) {
     super(props);
@@ -175,6 +237,7 @@ export class Video extends Rect {
     if (!video) {
       video = document.createElement('video');
       video.src = src;
+      video.volume = 0;
       Video.pool[key] = video;
     }
 
@@ -334,16 +397,19 @@ export class Video extends Rect {
     const playbackRate = this.playbackRate();
     this.playing(true);
     this.time(() => this.clampTime(offset + (time() - start) * playbackRate));
+    this.registerAudioClip(offset);
   }
 
   public pause() {
     this.playing(false);
     this.time.save();
     this.video().pause();
+    this.finalizeAudioClip();
   }
 
   public seek(time: number) {
     const playing = this.playing();
+    this.finalizeAudioClip();
     this.time(this.clampTime(time));
     if (playing) {
       this.play();
@@ -360,8 +426,76 @@ export class Video extends Rect {
     return clamp(0, duration, time);
   }
 
+  private registerAudioClip(startTime: number) {
+    this.finalizeAudioClip();
+
+    const src = this.src();
+    const playbackRate = this.playbackRate();
+    const clip = useScene().sounds.add(
+      {
+        audio: src,
+        start: startTime,
+        gain: gainToDb(this.volume()),
+        playbackRate,
+        sourceKey: this.key,
+      },
+      0,
+    );
+    this.audioClip = clip;
+
+    const normalize = this.normalize();
+    const levelTo = this.levelTo();
+    const target = levelTo !== false ? levelTo : normalize;
+    if (target === false) {
+      return;
+    }
+
+    const mode = levelTo !== false ? 'loudPart' : 'integrated';
+    const token = ++this.audioMeasurementToken;
+    const measurement = useMediaAudioAnalyzer()
+      .computeNormalizeGain(src, target, mode)
+      .then(gainDb => {
+        if (this.audioClip === clip && this.audioMeasurementToken === token) {
+          clip.gain = gainDb;
+        }
+      })
+      .catch(e => {
+        useLogger().warn({
+          message: `Could not measure loudness for "${src}".`,
+          remarks: String(e),
+          inspect: this.key,
+        });
+      });
+    trackPendingAudioAdjustment(measurement);
+  }
+
+  /**
+   * Close off the in-progress audio clip (if any) at the video's current
+   * time, or discard it if it ended up covering no duration.
+   */
+  private finalizeAudioClip() {
+    this.audioMeasurementToken++;
+    const clip = this.audioClip;
+    if (!clip) {
+      return;
+    }
+    this.audioClip = null;
+
+    const endTime = this.clampTime(this.time());
+    if (endTime <= (clip.start ?? 0)) {
+      useScene().sounds.remove(clip);
+      return;
+    }
+    clip.end = endTime;
+  }
+
   protected override collectAsyncResources() {
     super.collectAsyncResources();
     this.seekedVideo();
+  }
+
+  public override dispose() {
+    this.finalizeAudioClip();
+    super.dispose();
   }
 }

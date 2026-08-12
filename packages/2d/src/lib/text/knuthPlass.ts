@@ -10,7 +10,10 @@ import type {PreparedTextWithSegments} from '@chenglou/pretext';
  * the break-point graph.
  */
 
-const SOFT_HYPHEN = '­';
+/**
+ * The soft-hyphen character (U+00AD). Invisible in most editors.
+ */
+export const SOFT_HYPHEN = '­';
 const HUGE_BADNESS = 1e8;
 const RIVER_THRESHOLD = 1.5;
 const INFEASIBLE_SPACE_RATIO = 0.4;
@@ -32,6 +35,11 @@ export type KnuthPlassLine = {
   text: string;
   width: number;
   isLast: boolean;
+  /**
+   * Exclusive end segment index of this line in the prepared segments,
+   * including a terminating hard-break segment.
+   */
+  endSegmentIndex: number;
 };
 
 export type KnuthPlassOptions = {
@@ -176,26 +184,57 @@ export function knuthPlass(
   opts: KnuthPlassOptions,
 ): KnuthPlassLine[] {
   const segments = prepared.segments;
-  const widths = prepared.widths;
   const segmentCount = segments.length;
   if (segmentCount === 0) return [];
 
-  const candidates: BreakCandidate[] = [{segIndex: 0, kind: 'start'}];
-  for (let i = 0; i < segmentCount; i++) {
+  // Hard breaks split chunks, so solve each on its own.
+  const prefix = buildSegmentPrefix(segments, prepared.widths);
+  const lines: KnuthPlassLine[] = [];
+  let chunkStart = 0;
+  for (let i = 0; i <= segmentCount; i++) {
+    const atEnd = i === segmentCount;
+    if (!atEnd && segments[i] !== '\n') continue;
+    if (i > chunkStart) {
+      lines.push(
+        ...solveChunk(segments, prefix, chunkStart, i, maxWidth, opts),
+      );
+      if (!atEnd) {
+        lines[lines.length - 1].endSegmentIndex = i + 1;
+      }
+    } else if (!atEnd) {
+      lines.push({text: '', width: 0, isLast: false, endSegmentIndex: i + 1});
+    }
+    chunkStart = i + 1;
+  }
+  if (lines.length > 0) {
+    lines[lines.length - 1].isLast = true;
+  }
+  return lines;
+}
+
+function solveChunk(
+  segments: readonly string[],
+  prefix: SegmentPrefix,
+  chunkStart: number,
+  chunkEnd: number,
+  maxWidth: number,
+  opts: KnuthPlassOptions,
+): KnuthPlassLine[] {
+  const candidates: BreakCandidate[] = [{segIndex: chunkStart, kind: 'start'}];
+  for (let i = chunkStart; i < chunkEnd; i++) {
     const text = segments[i];
     if (text === SOFT_HYPHEN) {
-      if (i + 1 < segmentCount) {
+      if (i + 1 < chunkEnd) {
         candidates.push({segIndex: i + 1, kind: 'soft-hyphen'});
       }
       continue;
     }
-    if (isSpaceText(text) && i + 1 < segmentCount) {
+    if (isSpaceText(text) && i + 1 < chunkEnd) {
       candidates.push({segIndex: i + 1, kind: 'space'});
     }
   }
-  candidates.push({segIndex: segmentCount, kind: 'end'});
+  candidates.push({segIndex: chunkEnd, kind: 'end'});
 
-  const prefix = buildSegmentPrefix(segments, widths);
   const count = candidates.length;
   const dp: number[] = new Array(count).fill(Infinity);
   const previous: number[] = new Array(count).fill(-1);
@@ -247,7 +286,7 @@ export function knuthPlass(
   let from = 0;
   for (let i = 0; i < breakIndices.length; i++) {
     const to = breakIndices[i];
-    const isLast = candidates[to].kind === 'end';
+    const isChunkEnd = candidates[to].kind === 'end';
     const stats = getLineStats(
       segments,
       prefix,
@@ -259,11 +298,12 @@ export function knuthPlass(
     );
     const built = buildLineText(segments, candidates, from, to);
     const trailing =
-      built.trailingMarker === 'soft-hyphen' && !isLast ? '-' : '';
+      built.trailingMarker === 'soft-hyphen' && !isChunkEnd ? '-' : '';
     lines.push({
       text: built.text + trailing,
       width: stats.naturalWidth,
-      isLast,
+      isLast: false,
+      endSegmentIndex: candidates[to].segIndex,
     });
     from = to;
   }

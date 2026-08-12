@@ -2,12 +2,19 @@ import {afterAll, beforeAll} from 'vitest';
 
 /**
  * Install a deterministic fake 2D context for the suite so text geometry is
- * reproducible without a real canvas: every glyph measures `charWidth` pixels,
+ * reproducible without a real canvas: glyph widths come from `charWidth`,
  * and the paint calls are no-ops. Restores the original `getContext` afterwards.
  *
- * @param charWidth - Width reported per character by `measureText`.
+ * @param charWidth - Width reported per character by `measureText`, or a
+ *   function measuring a whole string for per-character widths.
  */
-export function mockTextContext(charWidth = 10): void {
+export function mockTextContext(
+  charWidth: number | ((text: string) => number) = 10,
+): void {
+  const measure =
+    typeof charWidth === 'number'
+      ? (text: string) => text.length * charWidth
+      : charWidth;
   let original: typeof HTMLCanvasElement.prototype.getContext;
   beforeAll(() => {
     original = HTMLCanvasElement.prototype.getContext;
@@ -26,7 +33,7 @@ export function mockTextContext(charWidth = 10): void {
       restore() {},
       setLineDash() {},
       measureText(text: string) {
-        return {width: text.length * charWidth} as TextMetrics;
+        return {width: measure(text)} as TextMetrics;
       },
       fillText() {},
       strokeText() {},

@@ -36,6 +36,7 @@ export default defineConfig({
         './src/text.ts',
         './src/text-split.ts',
         './src/text-path.ts',
+        './src/text-wrap-tween.ts',
       ],
     }),
   ],

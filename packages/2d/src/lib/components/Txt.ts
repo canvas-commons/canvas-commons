@@ -9,10 +9,12 @@ import {
   Vector2,
   all,
   clamp,
+  createSignal,
   threadable,
   tween,
 } from '@canvas-commons/core';
 import {
+  LayoutCursor,
   PreparedTextWithSegments,
   layoutNextLine,
   materializeLineRange,
@@ -31,6 +33,7 @@ import {
   Interval,
   PreparedRichInline,
   RichInlineItem,
+  SOFT_HYPHEN,
   SegmentGranularity,
   buildCanvasFontString,
   carveTextLineSlots,
@@ -349,6 +352,16 @@ type PositionedLine = {
   baselineOffsets: number[];
 };
 
+type LineBreakOffset = {
+  /**
+   * Cut position in the text; content before it (including a terminating
+   * hard break) belongs to the line the cut ends.
+   */
+  offset: number;
+  /** True when the cut breaks a word at a soft hyphen and needs a visible '-'. */
+  hyphen: boolean;
+};
+
 type PreparedLayout =
   | {
       kind: 'rich';
@@ -630,16 +643,72 @@ export class Txt extends Shape {
     const leaf = this.childAs<TxtLeaf>(0);
     if (!leaf) return;
 
-    // Suppress wrapping while the box tweens between text sizes.
     const oldWrap = this.textWrap.context.raw();
-    this.textWrap(false);
+    const desiredWidth = this.width.context.getter();
+    const explicitWidth = typeof desiredWidth === 'number';
+    let wrapWidth: number | null = explicitWidth ? desiredWidth : null;
+    if (
+      wrapWidth === null &&
+      desiredWidth !== null &&
+      this.textWrap() !== false
+    ) {
+      const computedWidth = this.computedSize().x;
+      if (computedWidth > 0) {
+        // The +0.5 absorbs yoga's pixel rounding, mirroring effectiveMaxWidth.
+        wrapWidth = computedWidth + 0.5;
+      }
+    }
+    const keepWrap = this.textWrap() !== false && wrapWidth !== null;
+    if (!keepWrap) {
+      this.textWrap(false);
+    }
 
     const oldText = leaf.text.context.raw();
+    const fromText = leaf.text();
     const oldSizeRaw = this.size.context.raw();
     const oldSize = new Vector2(this.size());
+
+    // Pre-measure both endpoint layouts so the in-flight string can reuse
+    // their line breaks instead of re-wrapping every frame. A path never
+    // wraps, surrogate pairs would desync the code-unit offsets from
+    // textLerp's code-point composition, and lineBreakOffsets bails on
+    // layouts whose offsets cannot be mapped back to the raw text.
+    const surrogates = /[\uD800-\uDFFF]/;
+    let fromBreaks: LineBreakOffset[] | null = null;
+    if (
+      keepWrap &&
+      wrapWidth !== null &&
+      !this.textPath() &&
+      !surrogates.test(fromText)
+    ) {
+      fromBreaks = this.lineBreakOffsets(fromText, wrapWidth);
+    }
+
     leaf.text(value);
+    const toText = leaf.text();
+    let toBreaks: LineBreakOffset[] | null = null;
+    if (fromBreaks !== null && wrapWidth !== null && !surrogates.test(toText)) {
+      toBreaks = this.lineBreakOffsets(toText, wrapWidth);
+    }
     const newSize = new Vector2(this.size());
     leaf.text(oldText ?? DEFAULT);
+
+    let interpolate: InterpolationFunction<string> = interpolationFunction;
+    let lastRaw: string | null = null;
+    if (fromBreaks !== null && toBreaks !== null) {
+      const stableFrom = fromBreaks;
+      const stableTo = toBreaks;
+      interpolate = (from, to, t) => {
+        const raw = interpolationFunction(from, to, t);
+        lastRaw = raw;
+        // A reactive tween target is re-resolved every frame; the measured
+        // offsets only describe the endpoints captured above.
+        if (from !== fromText || to !== toText) {
+          return raw;
+        }
+        return Txt.stabilizeBreaks(raw, from, to, stableFrom, stableTo);
+      };
+    }
 
     if (oldSize.y === 0) {
       this.height(newSize.y);
@@ -656,23 +725,163 @@ export class Txt extends Shape {
     };
 
     this.lockLayout();
+    if (fromBreaks !== null && toBreaks !== null) {
+      this.forcedBreaksOnly(true);
+      this.tweenTargetLines(
+        Txt.stabilizeBreaks(
+          toText,
+          fromText,
+          toText,
+          fromBreaks,
+          toBreaks,
+        ).split('\n'),
+      );
+    }
 
-    yield* all(
-      tween(time, t => {
-        const progress = timingFunction(t);
-        this.size(Vector2.lerp(sizeAt(oldSize), sizeAt(newSize), progress));
-      }),
-      leaf.text(value, time, timingFunction, interpolationFunction),
-    );
+    let completed = false;
+    try {
+      yield* all(
+        tween(time, t => {
+          const progress = timingFunction(t);
+          const size = Vector2.lerp(sizeAt(oldSize), sizeAt(newSize), progress);
+          // A wrapped percent width stays container-driven, so only the
+          // height animates; otherwise the box lerps between text sizes.
+          if (keepWrap && !explicitWidth) {
+            this.height(size.y);
+          } else {
+            this.size(size);
+          }
+        }),
+        leaf.text(value, time, timingFunction, interpolate),
+      );
 
-    this.children.context.setter(value);
-    this.releaseLayout();
-    this.textWrap(oldWrap ?? DEFAULT);
-    this.size(oldSizeRaw);
+      this.children.context.setter(value);
+      completed = true;
+    } finally {
+      // Don't leave tweens in a broken state
+      if (!completed && lastRaw !== null) {
+        leaf.text(lastRaw);
+      }
+      this.forcedBreaksOnly(false);
+      this.tweenTargetLines(null);
+      this.releaseLayout();
+      this.textWrap(oldWrap ?? DEFAULT);
+      this.size(oldSizeRaw);
+    }
   }
 
   protected getLayout(): boolean {
     return true;
+  }
+
+  private static cursorOffset(
+    segments: readonly string[],
+    cursor: LayoutCursor,
+  ): number {
+    let offset = 0;
+    for (let i = 0; i < cursor.segmentIndex; i++) {
+      offset += segments[i].length;
+    }
+    if (cursor.graphemeIndex > 0) {
+      let remaining = cursor.graphemeIndex;
+      for (const g of segment(segments[cursor.segmentIndex], 'grapheme')) {
+        if (remaining === 0) break;
+        offset += g.segment.length;
+        remaining--;
+      }
+    }
+    return offset;
+  }
+
+  private lineBreakOffsets(
+    source: string,
+    maxWidth: number,
+  ): LineBreakOffset[] | null {
+    const prepared = this.preparedLayout();
+    if (!prepared || prepared.kind !== 'simple') return null;
+    const segments = prepared.prepared.segments;
+    const preparedSource = segments.join('');
+
+    const hyphenated = this.hyphenate() !== null;
+    if (hyphenated) {
+      if (preparedSource.replaceAll(SOFT_HYPHEN, '') !== source) return null;
+    } else if (preparedSource !== source) {
+      return null;
+    }
+
+    const {ends} = this.layoutSimple(
+      prepared.prepared,
+      prepared.style,
+      maxWidth,
+    );
+
+    const breaks: LineBreakOffset[] = [];
+    for (let i = 0; i < ends.length - 1; i++) {
+      const cursor = ends[i];
+      let offset = Txt.cursorOffset(segments, cursor);
+      const hyphen =
+        cursor.graphemeIndex === 0 &&
+        cursor.segmentIndex > 0 &&
+        segments[cursor.segmentIndex - 1] === SOFT_HYPHEN;
+      if (hyphenated) {
+        let shyCount = 0;
+        for (let j = 0; j < offset; j++) {
+          if (preparedSource[j] === SOFT_HYPHEN) shyCount++;
+        }
+        offset -= shyCount;
+      }
+      breaks.push({offset, hyphen});
+    }
+    return breaks;
+  }
+
+  private static commonPrefixLength(a: string, b: string): number {
+    let length = 0;
+    const max = Math.min(a.length, b.length);
+    while (length < max && a[length] === b[length]) {
+      length++;
+    }
+    return length;
+  }
+
+  private static stabilizeBreaks(
+    text: string,
+    source: string,
+    target: string,
+    fromBreaks: LineBreakOffset[],
+    toBreaks: LineBreakOffset[],
+  ): string {
+    const typedTo = Txt.commonPrefixLength(text, target);
+    const typedFrom = Txt.commonPrefixLength(text, source);
+    const merged =
+      typedTo >= typedFrom
+        ? [
+            ...toBreaks.filter(b => b.offset <= typedTo),
+            ...fromBreaks.filter(b => b.offset > typedTo),
+          ]
+        : [
+            ...fromBreaks.filter(b => b.offset <= typedFrom),
+            ...toBreaks.filter(b => b.offset > typedFrom),
+            ...fromBreaks.filter(
+              b => b.offset > Math.max(typedFrom, target.length),
+            ),
+          ];
+
+    let result = '';
+    let prev = 0;
+    for (const brk of merged) {
+      if (brk.offset <= prev || brk.offset >= text.length) {
+        continue;
+      }
+      const slice = text.slice(prev, brk.offset);
+      result += brk.hyphen
+        ? slice + '-\n'
+        : slice.endsWith('\n')
+          ? slice
+          : slice + '\n';
+      prev = brk.offset;
+    }
+    return result + text.slice(prev);
   }
 
   public constructor({children, text, ...props}: TxtProps) {
@@ -973,13 +1182,20 @@ export class Txt extends Shape {
     prepared: PreparedTextWithSegments,
     maxWidth: number,
     exclusions: TextExclusion[],
-  ): {text: string; x: number; width: number; lineTop: number}[] {
+  ): {
+    text: string;
+    x: number;
+    width: number;
+    lineTop: number;
+    end: LayoutCursor;
+  }[] {
     const lh = this.resolvedLineHeight();
     const lines: {
       text: string;
       x: number;
       width: number;
       lineTop: number;
+      end: LayoutCursor;
     }[] = [];
     let cursor = {segmentIndex: 0, graphemeIndex: 0};
     let lineTop = 0;
@@ -1041,6 +1257,7 @@ export class Txt extends Shape {
         x: slot.left,
         width: line.width,
         lineTop,
+        end: line.end,
       });
       cursor = line.end;
       lineTop += lh;
@@ -1164,6 +1381,73 @@ export class Txt extends Shape {
   };
 
   /**
+   * Lay out a simple (single-style) prepared text, dispatching between the
+   * three wrapping strategies: exclusion bands, Knuth-Plass, and pretext's
+   * greedy walker. Single source of truth for that dispatch — the per-line
+   * `ends` cursors feed {@link lineBreakOffsets}, so tween break
+   * stabilization always matches what {@link layoutFor} renders.
+   */
+  private layoutSimple(
+    prepared: PreparedTextWithSegments,
+    style: FragmentStyle,
+    maxWidth: number,
+  ): {lines: TextLine[]; ends: LayoutCursor[]; width: number} {
+    const lineHeight = this.resolvedLineHeight();
+    const lines: TextLine[] = [];
+    const ends: LayoutCursor[] = [];
+    let width = 0;
+
+    const exclusions = this.exclusions();
+    if (exclusions.length > 0 && Number.isFinite(maxWidth)) {
+      const bandLines = this.layoutWithExclusions(
+        prepared,
+        maxWidth,
+        exclusions,
+      );
+      for (const line of bandLines) {
+        lines.push({
+          fragments: [{text: line.text, x: line.x, style}],
+          top: line.lineTop,
+          height: lineHeight,
+        });
+        ends.push(line.end);
+        const fullRight = line.x + line.width;
+        if (fullRight > width) width = fullRight;
+      }
+    } else if (this.wrapMode() === 'knuth-plass') {
+      const {normalSpaceWidth, hyphenWidth} = this.measureFontConstants(
+        style.font,
+      );
+      const kpLines = knuthPlass(prepared, maxWidth, {
+        normalSpaceWidth,
+        hyphenWidth,
+      });
+      for (const line of kpLines) {
+        lines.push({
+          fragments: [{text: line.text, x: 0, style}],
+          top: lines.length * lineHeight,
+          height: lineHeight,
+        });
+        ends.push({segmentIndex: line.endSegmentIndex, graphemeIndex: 0});
+        if (line.width > width) width = line.width;
+      }
+    } else {
+      walkLineRanges(prepared, maxWidth, range => {
+        const line = materializeLineRange(prepared, range);
+        lines.push({
+          fragments: [{text: line.text, x: 0, style}],
+          top: lines.length * lineHeight,
+          height: lineHeight,
+        });
+        ends.push(range.end);
+        if (line.width > width) width = line.width;
+      });
+    }
+
+    return {lines, ends, width};
+  }
+
+  /**
    * Compute the text layout for an explicit max-width. Used by the yoga
    * measure function (which receives the constraint dynamically) and by
    * draw() / public introspection methods (which read the resolved size).
@@ -1173,121 +1457,77 @@ export class Txt extends Shape {
     if (!prepared) return Txt.emptyLayout;
 
     const baseLineHeight = this.resolvedLineHeight();
-    const fragmentLines: StyledFragment[][] = [];
-    let totalWidth = 0;
 
-    // A tall inline element grows only its own line's box, CSS-style.
-    const finish = (): TextLayoutResult => {
-      const lines: TextLine[] = [];
-      let top = 0;
-      for (const fragments of fragmentLines) {
-        let height = baseLineHeight;
-        for (const frag of fragments) {
-          if (frag.inline) {
-            const inlineHeight = frag.inline.size.y();
-            if (inlineHeight > height) height = inlineHeight;
-          }
-        }
-        lines.push({fragments, top, height});
-        top += height;
-      }
-      return {
-        lines,
-        width: totalWidth,
-        height: top,
-        lineHeight: baseLineHeight,
-      };
-    };
-
-    const exclusions = this.exclusions();
-    if (
-      exclusions.length > 0 &&
-      prepared.kind === 'simple' &&
-      Number.isFinite(maxWidth)
-    ) {
-      const bandLines = this.layoutWithExclusions(
+    if (prepared.kind === 'simple') {
+      const {lines, width} = this.layoutSimple(
         prepared.prepared,
+        prepared.style,
         maxWidth,
-        exclusions,
       );
-      const lines: TextLine[] = [];
-      for (const line of bandLines) {
-        lines.push({
-          fragments: [{text: line.text, x: line.x, style: prepared.style}],
-          top: line.lineTop,
-          height: baseLineHeight,
-        });
-        const fullRight = line.x + line.width;
-        if (fullRight > totalWidth) totalWidth = fullRight;
-      }
       const lastLine = lines[lines.length - 1];
       return {
         lines,
-        width: totalWidth,
+        width,
         height: lastLine ? lastLine.top + lastLine.height : 0,
         lineHeight: baseLineHeight,
       };
     }
 
-    if (prepared.kind === 'simple' && this.wrapMode() === 'knuth-plass') {
-      const {normalSpaceWidth, hyphenWidth} = this.measureFontConstants(
-        prepared.style.font,
-      );
-      const kpLines = knuthPlass(prepared.prepared, maxWidth, {
-        normalSpaceWidth,
-        hyphenWidth,
-      });
-      for (const line of kpLines) {
-        fragmentLines.push([{text: line.text, x: 0, style: prepared.style}]);
-        if (line.width > totalWidth) totalWidth = line.width;
+    const fragmentLines: StyledFragment[][] = [];
+    let totalWidth = 0;
+    for (const group of prepared.groups) {
+      if (group.prepared === null) {
+        fragmentLines.push([]);
+        continue;
       }
-      return finish();
-    }
-
-    if (prepared.kind === 'rich') {
-      for (const group of prepared.groups) {
-        if (group.prepared === null) {
-          fragmentLines.push([]);
-          continue;
+      const groupPrepared = group.prepared;
+      walkRichInlineLineRanges(groupPrepared, maxWidth, range => {
+        const line = materializeRichInlineLineRange(groupPrepared, range);
+        const styledFragments: StyledFragment[] = [];
+        let x = 0;
+        for (const fragment of line.fragments) {
+          x += fragment.gapBefore;
+          const originalIndex = group.itemMap[fragment.itemIndex];
+          const style = prepared.styles[originalIndex];
+          const inline = prepared.inlines[originalIndex] ?? undefined;
+          if (style) {
+            styledFragments.push({
+              text: fragment.text,
+              x,
+              style,
+              inline,
+              inlineWidth: inline ? fragment.occupiedWidth : undefined,
+            });
+          }
+          x += fragment.occupiedWidth;
         }
-        const groupPrepared = group.prepared;
-        walkRichInlineLineRanges(groupPrepared, maxWidth, range => {
-          const line = materializeRichInlineLineRange(groupPrepared, range);
-          const styledFragments: StyledFragment[] = [];
-          let x = 0;
-          for (const fragment of line.fragments) {
-            x += fragment.gapBefore;
-            const originalIndex = group.itemMap[fragment.itemIndex];
-            const style = prepared.styles[originalIndex];
-            const inline = prepared.inlines[originalIndex] ?? undefined;
-            if (style) {
-              styledFragments.push({
-                text: fragment.text,
-                x,
-                style,
-                inline,
-                inlineWidth: inline ? fragment.occupiedWidth : undefined,
-              });
-            }
-            x += fragment.occupiedWidth;
-          }
-          fragmentLines.push(styledFragments);
-          if (line.width > totalWidth) {
-            totalWidth = line.width;
-          }
-        });
-      }
-    } else {
-      walkLineRanges(prepared.prepared, maxWidth, range => {
-        const line = materializeLineRange(prepared.prepared, range);
-        fragmentLines.push([{text: line.text, x: 0, style: prepared.style}]);
+        fragmentLines.push(styledFragments);
         if (line.width > totalWidth) {
           totalWidth = line.width;
         }
       });
     }
 
-    return finish();
+    // A tall inline element grows only its own line's box, CSS-style.
+    const lines: TextLine[] = [];
+    let top = 0;
+    for (const fragments of fragmentLines) {
+      let height = baseLineHeight;
+      for (const frag of fragments) {
+        if (frag.inline) {
+          const inlineHeight = frag.inline.size.y();
+          if (inlineHeight > height) height = inlineHeight;
+        }
+      }
+      lines.push({fragments, top, height});
+      top += height;
+    }
+    return {
+      lines,
+      width: totalWidth,
+      height: top,
+      lineHeight: baseLineHeight,
+    };
   }
 
   /**
@@ -1376,12 +1616,33 @@ export class Txt extends Shape {
   }
 
   /**
+   * While a stabilized text tween is running, every line break is forced into
+   * the leaf text, so soft wrapping has nothing left to do. Turning it off
+   * also keeps lines that rely on pretext's hyphen overhang (a discretionary
+   * hyphen is not counted against the wrap width) from being re-broken once
+   * the hyphen is materialized as a literal '-'.
+   */
+  private readonly forcedBreaksOnly = createSignal(false);
+
+  /**
+   * Per-line target text of the stabilized tween in flight. Lets justify
+   * render the still-typing line with its final spacing instead of ragged
+   * natural width.
+   */
+  private readonly tweenTargetLines = createSignal<string[] | null>(null);
+
+  /**
    * Effective wrap constraint when no explicit yoga measurement is in play
    * (e.g. for `draw()` and `textLines()`).
    */
   @computed()
   protected effectiveMaxWidth(): number {
     if (this.pathProfile() || this.textWrap() === false) {
+      return Number.POSITIVE_INFINITY;
+    }
+    // Exclusions still need the finite width: their per-band x offsets are
+    // carved from it, so forced-break layouts keep flowing around them.
+    if (this.forcedBreaksOnly() && this.exclusions().length === 0) {
       return Number.POSITIVE_INFINITY;
     }
     const desiredWidth = this.width.context.getter();
@@ -1504,8 +1765,34 @@ export class Txt extends Shape {
         );
       }
 
+      // During a stabilized tween every line's final content is known, so
+      // the still-typing line can borrow its target's justify spacing —
+      // words land at their settled positions, and an overfull Knuth-Plass
+      // line never pokes past the block while incomplete.
+      let finalText: string | null = null;
+      if (align === 'justify' && isLastLine && line.fragments.length === 1) {
+        const targetLines = this.tweenTargetLines();
+        if (targetLines !== null && i < targetLines.length - 1) {
+          const target =
+            this.wrapMode() === 'knuth-plass'
+              ? targetLines[i].replace(/\s+$/, '')
+              : targetLines[i];
+          if (target.startsWith(line.fragments[0].text)) {
+            finalText = target;
+          }
+        }
+      }
+
+      // Knuth-Plass plans lines whose spaces compress below their natural
+      // width, so justify must also squeeze overfull lines there; greedy
+      // never plans compression (an overfull greedy line is hyphen overhang
+      // or an in-flight tween seam, both drawn at natural width).
       const justifyLine =
-        align === 'justify' && !isLastLine && lineWidth < blockWidth;
+        align === 'justify' &&
+        (!isLastLine || finalText !== null) &&
+        (finalText !== null ||
+          lineWidth < blockWidth ||
+          (lineWidth > blockWidth && this.wrapMode() === 'knuth-plass'));
       let extraPerSpace = 0;
       let justified: JustifiedSegment[][] | null = null;
       if (justifyLine) {
@@ -1525,7 +1812,22 @@ export class Txt extends Shape {
           }
           return segments;
         });
-        if (spaceCount > 0) {
+        if (finalText !== null) {
+          let finalSpaceCount = 0;
+          for (const seg of segment(finalText, 'word')) {
+            if (!seg.isWordLike && /^\s+$/.test(seg.segment)) {
+              finalSpaceCount++;
+            }
+          }
+          if (finalSpaceCount > 0) {
+            extraPerSpace =
+              (blockWidth -
+                this.measureStyledText(finalText, line.fragments[0].style)) /
+              finalSpaceCount;
+          } else {
+            justified = null;
+          }
+        } else if (spaceCount > 0) {
           extraPerSpace = (blockWidth - lineWidth) / spaceCount;
         } else {
           justified = null;
@@ -1546,7 +1848,7 @@ export class Txt extends Shape {
           ? 0
           : this.computeAlignOffset(blockWidth, lineWidth),
         extraPerSpace,
-        justified: extraPerSpace > 0 ? justified : null,
+        justified: extraPerSpace !== 0 ? justified : null,
         baselineOffsets,
       });
     }
@@ -1599,7 +1901,7 @@ export class Txt extends Shape {
         context.lineWidth = style.lineWidth;
 
         const justified = line.justified?.[fragIndex];
-        if (justified && line.extraPerSpace > 0) {
+        if (justified && line.extraPerSpace !== 0) {
           let cursorX = x;
           for (const seg of justified) {
             if (!seg.whitespace) {
@@ -1949,7 +2251,11 @@ export class Txt extends Shape {
         if (fragment.inline) continue;
         const fragLeft = fragment.x + line.alignOffset - blockWidth / 2;
         const justified = line.justified?.[f];
-        if (justified && line.extraPerSpace > 0 && granularity !== 'sentence') {
+        if (
+          justified &&
+          line.extraPerSpace !== 0 &&
+          granularity !== 'sentence'
+        ) {
           // Match the word-by-word paint; a whole-fragment measure re-adds the
           // inter-word kerning the paint omits.
           let cursor = fragLeft;

@@ -1,5 +1,6 @@
 import {describe, expect, it, vi} from 'vitest';
 import {useScene2D} from '../../scenes';
+import {Code} from '../Code';
 import {Txt} from '../Txt';
 import {mockScene2D} from './mockScene2D';
 import {mockTextContext} from './mockTextContext';
@@ -23,6 +24,37 @@ describe('Txt measurement canvas', () => {
         const txt = (<Txt text={`item ${i}`} />) as Txt;
         view.add(txt);
         txt.size();
+      }
+      const canvases = createElement.mock.calls.filter(
+        ([tag]) => tag === 'canvas',
+      ).length;
+      expect(canvases).toBe(0);
+    } finally {
+      createElement.mockRestore();
+    }
+  });
+});
+
+describe('Code measurement canvas', () => {
+  mockScene2D();
+  mockTextContext();
+
+  it('does not allocate a canvas per node', () => {
+    const view = useScene2D().getView();
+
+    // The first measurement warms up the shared canvas; nodes after that must
+    // not allocate more.
+    const warmup = (<Code code={'warmup'} />) as Code;
+    view.add(warmup);
+    warmup.size();
+
+    const createElement = vi.spyOn(document, 'createElement');
+    try {
+      for (let i = 0; i < 4; i++) {
+        const code = (<Code code={`item(${i});`} />) as Code;
+        view.add(code);
+        code.size();
+        code.getPointBBox([0, 0]);
       }
       const canvases = createElement.mock.calls.filter(
         ([tag]) => tag === 'canvas',

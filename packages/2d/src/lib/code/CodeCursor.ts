@@ -7,7 +7,11 @@ import {
   Vector2,
 } from '@canvas-commons/core';
 import {Code} from '../components';
-import {CodeFragment, parseCodeFragment} from './CodeFragment';
+import {
+  CodeFragment,
+  parseCodeFragment,
+  PossibleCodeFragment,
+} from './CodeFragment';
 import {CodeHighlighter} from './CodeHighlighter';
 import {CodeMetrics} from './CodeMetrics';
 import {CodePoint, CodeRange} from './CodeRange';
@@ -37,6 +41,9 @@ export class CodeCursor {
   public beforeIndex = 0;
   public afterIndex = 0;
   private context = {} as CanvasRenderingContext2D;
+  private font = '';
+  private letterSpacing = '0px';
+  private textDirection: CanvasDirection = 'inherit';
   private monoWidth = 0;
   private maxWidth = 0;
   private lineHeight = 0;
@@ -58,12 +65,17 @@ export class CodeCursor {
    * @param context - The context used to measure and draw the code.
    */
   public setupMeasure(context: CanvasRenderingContext2D) {
-    const metrics = context.measureText('X');
+    this.context = context;
+    this.font = context.font;
+    this.letterSpacing =
+      'letterSpacing' in context ? context.letterSpacing : '0px';
+    this.textDirection = context.direction;
+
+    const metrics = this.measureText('X');
     this.monoWidth = metrics.width;
     this.fontHeight =
       metrics.fontBoundingBoxDescent + metrics.fontBoundingBoxAscent;
     this.verticalOffset = metrics.fontBoundingBoxAscent;
-    this.context = context;
     this.lineHeight = this.node.resolvedLineHeight();
     this.cursor = new Vector2();
     this.tweenCursor = new Vector2();
@@ -72,6 +84,26 @@ export class CodeCursor {
     this.beforeIndex = 0;
     this.afterIndex = 0;
     this.maxWidth = 0;
+  }
+
+  // A fragment callback measuring a sibling node leaves its own font on the
+  // shared context, so every measurement here restores this node's state.
+  private applyTextState() {
+    this.context.font = this.font;
+    this.context.direction = this.textDirection;
+    if ('letterSpacing' in this.context) {
+      this.context.letterSpacing = this.letterSpacing;
+    }
+  }
+
+  private measureText(text: string): TextMetrics {
+    this.applyTextState();
+    return this.context.measureText(text);
+  }
+
+  private parseFragment(value: PossibleCodeFragment): CodeFragment {
+    this.applyTextState();
+    return parseCodeFragment(value, this.context, this.monoWidth);
   }
 
   public setupDraw(context: CanvasRenderingContext2D) {
@@ -111,11 +143,7 @@ export class CodeCursor {
         continue;
       }
 
-      const fragment = parseCodeFragment(
-        possibleFragment,
-        this.context,
-        this.monoWidth,
-      );
+      const fragment = this.parseFragment(possibleFragment);
 
       const beforeMaxWidth = this.calculateMaxWidth(fragment.before);
       const afterMaxWidth = this.calculateMaxWidth(fragment.after);
@@ -183,11 +211,7 @@ export class CodeCursor {
         continue;
       }
 
-      const fragment = parseCodeFragment(
-        possibleFragment,
-        this.context,
-        this.monoWidth,
-      );
+      const fragment = this.parseFragment(possibleFragment);
       const timingOffset = 0.8;
       let alpha = 1;
       let offsetY = 0;
@@ -372,7 +396,7 @@ export class CodeCursor {
         );
       }
 
-      const measure = this.context.measureText(char);
+      const measure = this.measureText(char);
       this.fragmentDrawingInfo.push({
         text: char,
         position: new Vector2(

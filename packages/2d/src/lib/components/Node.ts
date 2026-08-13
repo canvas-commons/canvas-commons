@@ -35,6 +35,7 @@ import {
   cloneable,
   colorSignal,
   computed,
+  disposeComputed,
   getPropertiesOf,
   initial,
   initializeSignals,
@@ -1284,6 +1285,7 @@ export class Node implements Promisable<Node> {
     for (const {signal} of this) {
       signal?.context.dispose();
     }
+    disposeComputed(this);
     for (const child of this.realChildren) {
       child.dispose();
     }

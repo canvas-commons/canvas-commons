@@ -46,6 +46,7 @@ import {
   vector2Signal,
   wrapper,
 } from '../decorators';
+import {disposeComputed} from '../decorators/computed';
 import {FiltersSignal, filtersSignal} from '../decorators/filtersSignal';
 import {spacingSignal} from '../decorators/spacingSignal';
 import {
@@ -1286,6 +1287,7 @@ export class Node implements Promisable<Node> {
     for (const {signal} of this) {
       signal?.context.dispose();
     }
+    disposeComputed(this);
     for (const child of this.realChildren) {
       child.dispose();
     }

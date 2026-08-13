@@ -34,6 +34,7 @@ import {
 } from '../code';
 import {computed, initial, nodeName, parser, signal} from '../decorators';
 import {DesiredLength} from '../partials';
+import {sharedMeasurementContext} from '../utils/measurement';
 import {Shape, ShapeProps} from './Shape';
 
 /**
@@ -460,7 +461,11 @@ export class Code extends Shape {
   @computed()
   protected drawingInfo() {
     this.requestFontUpdate();
-    const context = this.cacheCanvas();
+    const context = sharedMeasurementContext();
+    if (!context) {
+      const fragments: CodeFragmentDrawingInfo[] = [];
+      return {fragments, verticalOffset: 0, fontHeight: 0};
+    }
     const code = this.code();
 
     context.save();
@@ -476,7 +481,10 @@ export class Code extends Shape {
 
   protected override desiredSize(): SerializedVector2<DesiredLength> {
     this.requestFontUpdate();
-    const context = this.cacheCanvas();
+    const context = sharedMeasurementContext();
+    if (!context) {
+      return {x: 0, y: 0};
+    }
     const code = this.code();
 
     context.save();

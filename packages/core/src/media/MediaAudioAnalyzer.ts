@@ -12,11 +12,20 @@ export interface LoudnessMeasurement {
   integratedLufs: number;
   /** "Loud part" reference loudness in LUFS, used for dynamics-preserving leveling. */
   loudPartLufs: number;
+  /** Peak absolute sample amplitude across all channels, in range 0..1. */
+  peakAmplitude: number;
 }
 
 interface CacheEntry {
   promise: Promise<LoudnessMeasurement | null>;
 }
+
+/**
+ * Peak amplitude below which an audio track is treated as effectively silent
+ * (no audible signal). Chosen well above typical dither/noise floors (~-90 dB)
+ * but below any real content, so muxed-in silent audio tracks are ignored.
+ */
+const SILENCE_PEAK_THRESHOLD = 0.001;
 
 /**
  * Decodes and measures the loudness of media audio sources, caching results
@@ -55,6 +64,28 @@ export class MediaAudioAnalyzer {
       this.cache.set(source, entry);
     }
     return entry.promise;
+  }
+
+  /**
+   * Determine whether a source has an audible audio track.
+   *
+   * @remarks
+   * Reuses the same decode cache as {@link measure}, so calling this before
+   * measuring (or vice versa) does not decode the file twice.
+   *
+   * Returns `false` both when the source has no decodable audio track (e.g. a
+   * video encoded without an audio stream) and when the track carries no
+   * audible signal (e.g. a muxed-in silent audio stream), since neither
+   * should produce a waveform in the timeline.
+   *
+   * @param source - URL of the audio/video file to inspect.
+   */
+  public async hasAudio(source: string): Promise<boolean> {
+    const measurement = await this.measure(source);
+    return (
+      measurement !== null &&
+      measurement.peakAmplitude >= SILENCE_PEAK_THRESHOLD
+    );
   }
 
   /**
@@ -117,13 +148,22 @@ export class MediaAudioAnalyzer {
     }
 
     const channels: Float32Array[] = [];
+    let peakAmplitude = 0;
     for (let i = 0; i < audioBuffer.numberOfChannels; i++) {
-      channels.push(audioBuffer.getChannelData(i));
+      const channel = audioBuffer.getChannelData(i);
+      channels.push(channel);
+      for (let s = 0; s < channel.length; s++) {
+        const magnitude = Math.abs(channel[s]);
+        if (magnitude > peakAmplitude) {
+          peakAmplitude = magnitude;
+        }
+      }
     }
 
     return {
       integratedLufs: measureIntegratedLufs(channels, audioBuffer.sampleRate),
       loudPartLufs: measureLoudPartLufs(channels, audioBuffer.sampleRate),
+      peakAmplitude,
     };
   }
 }

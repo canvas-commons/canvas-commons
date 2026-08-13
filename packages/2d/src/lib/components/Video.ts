@@ -2,6 +2,7 @@ import {
   BBox,
   DependencyContext,
   PlaybackState,
+  Scene,
   SerializedVector2,
   SignalValue,
   SimpleSignal,
@@ -176,6 +177,7 @@ export class Video extends Rect {
 
   private lastTime = -1;
   private audioClip: Sound | null = null;
+  private audioScene: Scene | null = null;
   private audioMeasurementToken = 0;
 
   public constructor({play, ...props}: VideoProps) {
@@ -426,12 +428,36 @@ export class Video extends Rect {
     return clamp(0, duration, time);
   }
 
+  /**
+   * Resolve the current playback time from teardown paths without reporting
+   * unresolved async properties.
+   *
+   * @remarks
+   * After {@link play}, the `time` signal holds a reactive function that calls
+   * {@link clampTime} - and therefore {@link video} - when read. During
+   * disposal the node is no longer ready, so evaluating it would register a
+   * pending promise and log "accessed an asynchronous property before the node
+   * was ready". Suppressing promise collection lets us read the last resolved
+   * time and clamp it against the pooled element's duration instead.
+   */
+  private currentTimeSafely(): number {
+    const time = DependencyContext.collectingPromisesSuppressed(() =>
+      this.time(),
+    );
+    const duration = Video.pool[`${this.key}/${this.src()}`]?.duration;
+    if (!duration || !isFinite(duration)) {
+      return Math.max(0, time);
+    }
+    return clamp(0, duration, this.loop() ? time % duration : time);
+  }
+
   private registerAudioClip(startTime: number) {
     this.finalizeAudioClip();
 
     const src = this.src();
     const playbackRate = this.playbackRate();
-    const clip = useScene().sounds.add(
+    const scene = useScene();
+    const clip = scene.sounds.add(
       {
         audio: src,
         start: startTime,
@@ -442,31 +468,51 @@ export class Video extends Rect {
       0,
     );
     this.audioClip = clip;
+    this.audioScene = scene;
+
+    const analyzer = useMediaAudioAnalyzer();
+    const token = ++this.audioMeasurementToken;
 
     const normalize = this.normalize();
     const levelTo = this.levelTo();
     const target = levelTo !== false ? levelTo : normalize;
-    if (target === false) {
-      return;
-    }
-
     const mode = levelTo !== false ? 'loudPart' : 'integrated';
-    const token = ++this.audioMeasurementToken;
-    const measurement = useMediaAudioAnalyzer()
-      .computeNormalizeGain(src, target, mode)
-      .then(gainDb => {
+
+    const adjustment = analyzer
+      .hasAudio(src)
+      .then(async hasAudio => {
+        // A video without an audible audio track should not register a
+        // media-audio clip - doing so leaves an empty waveform in the
+        // timeline's media-audio lane. Removing by clip reference is safe
+        // even after the clip was finalized (e.g. the video paused before
+        // this resolved), and never touches a newer clip. The scene is
+        // captured synchronously since `useScene()` is unavailable here.
+        if (!hasAudio) {
+          scene.sounds.remove(clip);
+          if (this.audioClip === clip) {
+            this.audioClip = null;
+            this.audioScene = null;
+          }
+          return;
+        }
+
+        if (target === false) {
+          return;
+        }
+
+        const gainDb = await analyzer.computeNormalizeGain(src, target, mode);
         if (this.audioClip === clip && this.audioMeasurementToken === token) {
           clip.gain = gainDb;
         }
       })
       .catch(e => {
         useLogger().warn({
-          message: `Could not measure loudness for "${src}".`,
+          message: `Could not analyze audio for "${src}".`,
           remarks: String(e),
           inspect: this.key,
         });
       });
-    trackPendingAudioAdjustment(measurement);
+    trackPendingAudioAdjustment(adjustment);
   }
 
   /**
@@ -476,14 +522,16 @@ export class Video extends Rect {
   private finalizeAudioClip() {
     this.audioMeasurementToken++;
     const clip = this.audioClip;
-    if (!clip) {
+    const scene = this.audioScene;
+    if (!clip || !scene) {
       return;
     }
     this.audioClip = null;
+    this.audioScene = null;
 
-    const endTime = this.clampTime(this.time());
+    const endTime = this.currentTimeSafely();
     if (endTime <= (clip.start ?? 0)) {
-      useScene().sounds.remove(clip);
+      scene.sounds.remove(clip);
       return;
     }
     clip.end = endTime;

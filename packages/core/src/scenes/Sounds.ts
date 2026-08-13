@@ -152,6 +152,7 @@ export class Sounds {
     const index = this.registeredSounds.indexOf(sound);
     if (index !== -1) {
       this.registeredSounds.splice(index, 1);
+      this.sounds.current = [...this.registeredSounds];
     }
   }
 

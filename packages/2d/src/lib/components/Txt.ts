@@ -49,6 +49,7 @@ import {
   walkRichInlineLineRanges,
 } from '../text';
 import {fontsVersion, requestFontLoad, resolveCanvasStyle} from '../utils';
+import {sharedMeasurementContext} from '../utils/measurement';
 import {MeasureMode} from '../utils/yoga';
 import {Curve} from './Curve';
 import {Layout} from './Layout';
@@ -1371,7 +1372,10 @@ export class Txt extends Shape {
     normalSpaceWidth: number;
     hyphenWidth: number;
   } {
-    const ctx = this.cacheCanvas();
+    const ctx = this.measurementContext();
+    if (!ctx) {
+      return {normalSpaceWidth: 0, hyphenWidth: 0};
+    }
     ctx.save();
     ctx.font = font;
     if ('letterSpacing' in ctx) {
@@ -1392,13 +1396,8 @@ export class Txt extends Shape {
    * branch on it instead of swallowing errors, so real measurement bugs
    * still throw.
    */
-  @computed()
   private measurementContext(): CanvasRenderingContext2D | null {
-    try {
-      return this.cacheCanvas();
-    } catch {
-      return null;
-    }
+    return sharedMeasurementContext();
   }
 
   /**

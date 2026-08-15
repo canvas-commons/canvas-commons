@@ -152,7 +152,20 @@ export class Sounds {
     const index = this.registeredSounds.indexOf(sound);
     if (index !== -1) {
       this.registeredSounds.splice(index, 1);
-      this.sounds.current = [...this.registeredSounds];
+    }
+
+    // Drop the sound from the broadcast list too, but by reference rather than
+    // rebuilding it from `registeredSounds`. During live playback the scene
+    // re-executes frame by frame, so `registeredSounds` is only partially
+    // rebuilt at any given moment; rebuilding the broadcast from it would make
+    // the timeline lose every clip past the playhead. Removing just this
+    // sound keeps the rest of the (recalculated) list intact, which still
+    // drops the box for a silent clip whose async audio check just resolved.
+    const broadcastIndex = this.sounds.current.indexOf(sound);
+    if (broadcastIndex !== -1) {
+      const next = [...this.sounds.current];
+      next.splice(broadcastIndex, 1);
+      this.sounds.current = next;
     }
   }
 

@@ -240,6 +240,7 @@ export class Video extends Rect {
       video = document.createElement('video');
       video.src = src;
       video.volume = 0;
+      video.muted = true;
       Video.pool[key] = video;
     }
 
@@ -422,6 +423,13 @@ export class Video extends Rect {
 
   public clampTime(time: number): number {
     const duration = this.video().duration;
+    // The duration is NaN until the element reports metadata (and after the
+    // pooled element is torn down). Looping would then take the modulo against
+    // NaN, poisoning `time` - and anything derived from it, such as a media
+    // clip's `end` - with NaN. Skip clamping until a real duration is known.
+    if (!isFinite(duration)) {
+      return Math.max(0, time);
+    }
     if (this.loop()) {
       time %= duration;
     }
@@ -441,9 +449,15 @@ export class Video extends Rect {
    * time and clamp it against the pooled element's duration instead.
    */
   private currentTimeSafely(): number {
-    const time = DependencyContext.collectingPromisesSuppressed(() =>
+    const rawTime = DependencyContext.collectingPromisesSuppressed(() =>
       this.time(),
     );
+    // A looping video's `time` signal resolves through `clampTime`, which takes
+    // the modulo against the element's duration. When that duration is not yet
+    // known (e.g. the pooled element was torn down or never became ready) the
+    // modulo yields NaN, which would otherwise be stored as the clip's `end`
+    // and break its waveform. Fall back to the last resolved time in that case.
+    const time = isFinite(rawTime) ? rawTime : Math.max(0, this.lastTime);
     const duration = Video.pool[`${this.key}/${this.src()}`]?.duration;
     if (!duration || !isFinite(duration)) {
       return Math.max(0, time);

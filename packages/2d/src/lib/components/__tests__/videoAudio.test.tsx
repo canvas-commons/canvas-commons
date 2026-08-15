@@ -15,6 +15,12 @@ class TestVideo extends Video {
   }
 }
 
+async function flushMicrotasks(): Promise<void> {
+  for (let i = 0; i < 10; i++) {
+    await Promise.resolve();
+  }
+}
+
 function makeReady(video: TestVideo, duration: number): HTMLVideoElement {
   const element = video.element();
   Object.defineProperty(element, 'duration', {
@@ -125,6 +131,36 @@ describe('Video audio', () => {
   );
 
   it(
+    'finalizes a looping clip with a finite end when the duration is unknown',
+    generatorTest(function* () {
+      const video = (<TestVideo src="clip.mp4" loop />) as TestVideo;
+      // Deliberately leave the element duration as NaN (never `makeReady`),
+      // mirroring a pooled element that has been torn down. Looping used to
+      // take the modulo against NaN, storing NaN as the clip's `end`.
+      video.play();
+      yield* waitFor(1);
+      expect(useScene().sounds.getSounds()).toHaveLength(1);
+
+      video.dispose();
+      const [clip] = useScene().sounds.getSounds();
+      expect(clip.end).toBeDefined();
+      expect(Number.isFinite(clip.end)).toBe(true);
+      expect(clip.end).toBeCloseTo(1, 1);
+    }),
+  );
+
+  it(
+    'keeps the current time finite for a looping video without a duration',
+    generatorTest(function* () {
+      const video = (<TestVideo src="clip.mp4" loop />) as TestVideo;
+      video.play();
+      yield* waitFor(2);
+      expect(Number.isFinite(video.getCurrentTime())).toBe(true);
+      video.pause();
+    }),
+  );
+
+  it(
     'finalizes the previous clip and starts a new one on seek while playing',
     generatorTest(function* () {
       const video = (<TestVideo src="clip.mp4" />) as TestVideo;
@@ -145,6 +181,7 @@ describe('Video audio', () => {
 
   it('applies an async normalize gain once measured', async () => {
     const analyzer = useMediaAudioAnalyzer();
+    vi.spyOn(analyzer, 'hasAudio').mockResolvedValue(true);
     const spy = vi.spyOn(analyzer, 'computeNormalizeGain').mockResolvedValue(6);
 
     let clip: Sound;
@@ -157,8 +194,7 @@ describe('Video audio', () => {
     })();
 
     expect(clip!.gain).toBe(0);
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushMicrotasks();
 
     expect(spy).toHaveBeenCalledWith('clip.mp4', -14, 'integrated');
     expect(clip!.gain).toBe(6);
@@ -166,6 +202,7 @@ describe('Video audio', () => {
 
   it('prefers levelTo over normalize and uses the loudPart mode', async () => {
     const analyzer = useMediaAudioAnalyzer();
+    vi.spyOn(analyzer, 'hasAudio').mockResolvedValue(true);
     const spy = vi.spyOn(analyzer, 'computeNormalizeGain').mockResolvedValue(3);
 
     generatorTest(function* () {
@@ -176,14 +213,14 @@ describe('Video audio', () => {
       video.play();
     })();
 
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushMicrotasks();
 
     expect(spy).toHaveBeenCalledWith('clip.mp4', -16, 'loudPart');
   });
 
   it('discards a stale normalize measurement if the clip changed in the meantime', async () => {
     const analyzer = useMediaAudioAnalyzer();
+    vi.spyOn(analyzer, 'hasAudio').mockResolvedValue(true);
     let resolveFirst!: (value: number) => void;
     const spy = vi
       .spyOn(analyzer, 'computeNormalizeGain')
@@ -204,9 +241,9 @@ describe('Video audio', () => {
       video.play();
     })();
 
+    await flushMicrotasks();
     resolveFirst(99);
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushMicrotasks();
 
     // the stale measurement must not overwrite the now-unrelated first clip
     expect(firstClip!.gain).toBe(0);

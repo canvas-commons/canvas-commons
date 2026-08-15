@@ -160,8 +160,12 @@ export function AudioClip({
     clipDuration,
     waveformVisible,
   } = useMemo(() => {
+    // A non-finite `end` (e.g. a clip still playing, or one whose stop time
+    // could not be resolved) means "until the source ends", so fall back to
+    // the decoded duration instead of letting NaN collapse the waveform.
+    const clipEndTime = isFinite(end) ? end : audioData.duration;
     const endOffset =
-      (Math.min(audioData.duration, end) - start) / realPlaybackRate;
+      (Math.min(audioData.duration, clipEndTime) - start) / realPlaybackRate;
 
     const clipStart = offset;
     const clipEnd = offset + endOffset;

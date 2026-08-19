@@ -1,11 +1,12 @@
 import {
+  map,
   PossibleVector2,
   SignalValue,
   SimpleSignal,
   Vector2Signal,
-  map,
 } from '@canvas-commons/core';
 import {initial, nodeName, signal, vector2Signal} from '../decorators';
+import {createSVGElement, SVGContext, svgNumber} from '../utils';
 import {Shape, ShapeProps} from './Shape';
 
 export interface GridProps extends ShapeProps {
@@ -119,6 +120,31 @@ export class Grid extends Shape {
     }
 
     context.restore();
+  }
+
+  public override toSVG(ctx: SVGContext): SVGElement[] {
+    const spacing = this.spacing();
+    const size = this.computedSize().scale(0.5);
+    const steps = size.div(spacing).floored;
+
+    const segments: string[] = [];
+    for (let x = -steps.x; x <= steps.x; x++) {
+      const [from, to] = this.mapPoints(-size.height, size.height);
+      const px = svgNumber(spacing.x * x);
+      segments.push(`M${px} ${svgNumber(from)} L${px} ${svgNumber(to)}`);
+    }
+    for (let y = -steps.y; y <= steps.y; y++) {
+      const [from, to] = this.mapPoints(-size.width, size.width);
+      const py = svgNumber(spacing.y * y);
+      segments.push(`M${svgNumber(from)} ${py} L${svgNumber(to)} ${py}`);
+    }
+
+    if (segments.length === 0) {
+      return [];
+    }
+    const path = createSVGElement('path', {d: segments.join(' ')});
+    this.applySVGShapeStyle(path, ctx);
+    return [path];
   }
 
   private mapPoints(start: number, end: number): [number, number] {

@@ -1,5 +1,5 @@
 import type {MetaField} from '../meta';
-import type {Sound} from '../scenes';
+import type {Scene, Sound} from '../scenes';
 import type {Project} from './Project';
 import type {RendererResult, RendererSettings} from './Renderer';
 
@@ -90,6 +90,28 @@ export interface Exporter {
     sceneName: string,
     signal: AbortSignal,
     context: CanvasRenderingContext2D,
+  ): Promise<void>;
+
+  /**
+   * Export a frame by reading the scene tree directly.
+   *
+   * @remarks
+   * Called each time after a frame is rendered, right after {@link handleFrame}.
+   * Unlike {@link handleFrame}, which receives a rasterized canvas, this method
+   * receives the live {@link Scene}, letting exporters read the scene graph
+   * instead of pixels. This enables vector backends (such as SVG or Lottie) and
+   * serialized scene queues that do not need rasterization.
+   *
+   * @param scene - The scene associated with this frame.
+   * @param frame - The frame number.
+   * @param sceneFrame - The frame number within the scene.
+   * @param signal - An abort signal triggered if the user aborts the rendering.
+   */
+  handleSceneFrame?(
+    scene: Scene,
+    frame: number,
+    sceneFrame: number,
+    signal: AbortSignal,
   ): Promise<void>;
 
   /**

@@ -25,6 +25,7 @@ COPY packages/editor/package.json ./packages/editor/
 COPY packages/examples/package.json ./packages/examples/
 COPY packages/ffmpeg/package.json ./packages/ffmpeg/
 COPY packages/player/package.json ./packages/player/
+COPY packages/svg/package.json ./packages/svg/
 COPY packages/template/package.json ./packages/template/
 COPY packages/vite-plugin/package.json ./packages/vite-plugin/
 

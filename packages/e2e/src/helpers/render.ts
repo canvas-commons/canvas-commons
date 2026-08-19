@@ -5,15 +5,34 @@ import {baseUrl, getSharedBrowser} from '../app';
 
 const OutputRoot = path.resolve(process.cwd(), 'output');
 
-const IMAGE_SEQUENCE_EXPORTER_ID = '@canvas-commons/core/image-sequence';
+const TEST_RENDER_RESOLUTION_SCALE = 0.5;
 
-const TEST_RENDER_IMAGE_EXPORTER_OPTIONS = {
-  fileType: 'image/png' as const,
-  quality: 100,
-  groupByScene: true,
+/**
+ * Describes how to render a frame with a particular exporter and where its
+ * output lands on disk.
+ */
+interface ExporterSpec {
+  id: string;
+  options: Record<string, unknown>;
+  /** Output file extension the exporter produces (e.g. `png`, `svg`). */
+  extension: string;
+}
+
+const IMAGE_SPEC: ExporterSpec = {
+  id: '@canvas-commons/core/image-sequence',
+  options: {fileType: 'image/png', quality: 100, groupByScene: true},
+  extension: 'png',
 };
 
-const TEST_RENDER_RESOLUTION_SCALE = 0.5;
+const SVG_SPEC: ExporterSpec = {
+  id: '@canvas-commons/svg',
+  // Embed fonts so the rasterizer renders web-font text instead of falling back
+  // to a system font: Firefox applies inlined `@font-face` faces even for SVGs
+  // loaded through an `<img>`, so embedding lets font-dependent scenes match the
+  // canvas baseline.
+  options: {groupByScene: true, embedFonts: true},
+  extension: 'svg',
+};
 
 /**
  * Open the editor at the wrapper project for `sceneName` and wait for
@@ -59,8 +78,36 @@ export async function renderFrame(
   sceneName: string,
   frame: number,
 ): Promise<Buffer> {
+  return renderExportFrame(page, sceneName, frame, IMAGE_SPEC);
+}
+
+/**
+ * Render a frame with the SVG exporter and return the serialized SVG markup.
+ *
+ * @param frame - Same frame semantics as {@link renderFrame}.
+ */
+export async function renderFrameSVG(
+  page: Page,
+  sceneName: string,
+  frame: number,
+  options: {embedFonts?: boolean} = {},
+): Promise<string> {
+  const spec: ExporterSpec = {
+    ...SVG_SPEC,
+    options: {...SVG_SPEC.options, ...options},
+  };
+  const bytes = await renderExportFrame(page, sceneName, frame, spec);
+  return bytes.toString('utf8');
+}
+
+async function renderExportFrame(
+  page: Page,
+  sceneName: string,
+  frame: number,
+  spec: ExporterSpec,
+): Promise<Buffer> {
   if (frame < 0) {
-    return await renderRelativeFrame(page, sceneName, frame);
+    return renderRelativeFrame(page, sceneName, frame, spec);
   }
 
   const target = await resolveExportFrame(page, sceneName, frame);
@@ -68,7 +115,7 @@ export async function renderFrame(
   const outputDir = path.join(OutputRoot, sceneName, sceneName);
   const outputFile = path.join(
     outputDir,
-    `${String(target.sceneFrame).padStart(6, '0')}.png`,
+    `${String(target.sceneFrame).padStart(6, '0')}.${spec.extension}`,
   );
 
   await fs.promises.rm(outputFile, {force: true});
@@ -90,8 +137,8 @@ export async function renderFrame(
     },
     {
       globalFrame: target.globalFrame,
-      exporterId: IMAGE_SEQUENCE_EXPORTER_ID,
-      exporterOptions: {...TEST_RENDER_IMAGE_EXPORTER_OPTIONS},
+      exporterId: spec.id,
+      exporterOptions: {...spec.options},
       resolutionScale: TEST_RENDER_RESOLUTION_SCALE,
     },
   );
@@ -104,6 +151,7 @@ async function renderRelativeFrame(
   page: Page,
   sceneName: string,
   frame: number,
+  spec: ExporterSpec,
 ): Promise<Buffer> {
   const outputDir = path.join(OutputRoot, sceneName, sceneName);
   await fs.promises.rm(outputDir, {recursive: true, force: true});
@@ -124,16 +172,16 @@ async function renderRelativeFrame(
       });
     },
     {
-      exporterId: IMAGE_SEQUENCE_EXPORTER_ID,
-      exporterOptions: {...TEST_RENDER_IMAGE_EXPORTER_OPTIONS},
+      exporterId: spec.id,
+      exporterOptions: {...spec.options},
       resolutionScale: TEST_RENDER_RESOLUTION_SCALE,
     },
   );
 
   await waitForDirectory(outputDir);
   const files = (await fs.promises.readdir(outputDir))
-    .filter(file => file.endsWith('.png'))
-    .map(file => Number.parseInt(path.basename(file, '.png'), 10))
+    .filter(file => file.endsWith(`.${spec.extension}`))
+    .map(file => Number.parseInt(path.basename(file, `.${spec.extension}`), 10))
     .filter(frame => !Number.isNaN(frame))
     .sort((a, b) => a - b);
 
@@ -149,7 +197,10 @@ async function renderRelativeFrame(
   }
 
   return fs.promises.readFile(
-    path.join(outputDir, `${String(files[targetIndex]).padStart(6, '0')}.png`),
+    path.join(
+      outputDir,
+      `${String(files[targetIndex]).padStart(6, '0')}.${spec.extension}`,
+    ),
   );
 }
 

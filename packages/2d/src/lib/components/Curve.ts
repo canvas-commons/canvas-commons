@@ -1,10 +1,10 @@
 import {
   BBox,
+  clamp,
   SerializedVector2,
   SignalValue,
   SimpleSignal,
   Vector2,
-  clamp,
 } from '@canvas-commons/core';
 import {CurveDrawingInfo} from '../curves/CurveDrawingInfo';
 import {CurvePoint} from '../curves/CurvePoint';
@@ -12,7 +12,15 @@ import {CurveProfile, profileToSVGPathData} from '../curves/CurveProfile';
 import {getPointAtDistance} from '../curves/getPointAtDistance';
 import {computed, initial, nodeName, signal} from '../decorators';
 import {DesiredLength} from '../partials';
-import {lineTo, moveTo, resolveCanvasStyle} from '../utils';
+import {
+  applySVGPaint,
+  createSVGElement,
+  lineTo,
+  moveTo,
+  resolveCanvasStyle,
+  SVGContext,
+  svgNumber,
+} from '../utils';
 import {Shape, ShapeProps} from './Shape';
 
 export interface CurveProps extends ShapeProps {
@@ -376,8 +384,141 @@ export abstract class Curve extends Shape {
   }
 
   @computed()
-  protected override getPathData(): string {
+  public override getPathData(): string {
     return profileToSVGPathData(this.profile());
+  }
+
+  public override toSVG(ctx: SVGContext): SVGElement[] {
+    const trimmed =
+      !this.start.isInitial() ||
+      !this.end.isInitial() ||
+      !this.startOffset.isInitial() ||
+      !this.endOffset.isInitial();
+    const hasArrows = this.startArrow() || this.endArrow();
+
+    if (!trimmed && !hasArrows) {
+      let data = profileToSVGPathData(this.profile());
+      // An untrimmed closed curve closes its final subpath, mirroring the
+      // `closePath()` in `curveDrawingInfo`.
+      if (data && this.closed()) {
+        data += ' Z';
+      }
+      if (!data) {
+        return [];
+      }
+      const path = createSVGElement('path', {d: data});
+      this.applySVGShapeStyle(path, ctx);
+      return [path];
+    }
+
+    // Trace the visible portion segment-by-segment, mirroring
+    // `curveDrawingInfo` but emitting SVG commands and collecting the
+    // endpoints/tangents the arrowheads need.
+    const profile = this.profile();
+    let start = this.percentageToDistance(this.start());
+    let end = this.percentageToDistance(this.end());
+    if (start > end) {
+      [start, end] = [end, start];
+    }
+    const arrowSize = Math.min((end - start) / 2, this.arrowSize());
+    if (this.startArrow()) {
+      start += arrowSize / 2;
+    }
+    if (this.endArrow()) {
+      end -= arrowSize / 2;
+    }
+
+    const commands: string[] = [];
+    let length = 0;
+    let startPoint: Vector2 | null = null;
+    let startTangent: Vector2 | null = null;
+    let endPoint: Vector2 | null = null;
+    let endTangent: Vector2 | null = null;
+    for (const segment of profile.segments) {
+      const previousLength = length;
+      length += segment.arcLength;
+      if (length < start) {
+        continue;
+      }
+
+      const clampedStart = clamp(
+        0,
+        1,
+        (start - previousLength) / segment.arcLength,
+      );
+      const clampedEnd = clamp(
+        0,
+        1,
+        (end - previousLength) / segment.arcLength,
+      );
+      // Emit a move at the start and at any subpath discontinuity, so a
+      // multi-subpath `Path` isn't bridged by a stray line (see
+      // `profileToSVGPathData`).
+      const move =
+        startPoint === null ||
+        (endPoint !== null &&
+          !segment.getPoint(clampedStart).position.equals(endPoint));
+
+      commands.push(segment.toSVGCommands(clampedStart, clampedEnd, move));
+      const [from, to] = segment.draw(
+        new Path2D(),
+        clampedStart,
+        clampedEnd,
+        move,
+      );
+      if (startPoint === null) {
+        startPoint = from.position;
+        startTangent = from.normal.flipped.perpendicular;
+      }
+      endPoint = to.position;
+      endTangent = to.normal.flipped.perpendicular;
+      if (length > end) {
+        break;
+      }
+    }
+
+    const elements: SVGElement[] = [];
+    const data = commands.join(' ');
+    if (data) {
+      const path = createSVGElement('path', {d: data});
+      this.applySVGShapeStyle(path, ctx);
+      elements.push(path);
+    }
+
+    if (hasArrows && arrowSize >= 0.001) {
+      const arrows: string[] = [];
+      if (this.endArrow() && endPoint && endTangent) {
+        arrows.push(this.arrowSVGPath(endPoint, endTangent.flipped, arrowSize));
+      }
+      if (this.startArrow() && startPoint && startTangent) {
+        arrows.push(this.arrowSVGPath(startPoint, startTangent, arrowSize));
+      }
+      if (arrows.length > 0) {
+        // Arrowheads are filled with the stroke paint (see `drawArrows`).
+        const arrowPath = createSVGElement('path', {d: arrows.join(' ')});
+        applySVGPaint(arrowPath, this.stroke(), 'fill', ctx);
+        elements.push(arrowPath);
+      }
+    }
+
+    return elements;
+  }
+
+  /** Builds the filled-triangle path for an arrowhead (see {@link drawArrow}). */
+  private arrowSVGPath(
+    center: Vector2,
+    tangent: Vector2,
+    arrowSize: number,
+  ): string {
+    const normal = tangent.perpendicular;
+    const origin = center.add(tangent.scale(-arrowSize / 2));
+    const left = origin.add(tangent.add(normal).scale(arrowSize));
+    const right = origin.add(tangent.sub(normal).scale(arrowSize));
+    return (
+      `M${svgNumber(origin.x)} ${svgNumber(origin.y)} ` +
+      `L${svgNumber(left.x)} ${svgNumber(left.y)} ` +
+      `L${svgNumber(right.x)} ${svgNumber(right.y)} Z`
+    );
   }
 
   protected override getCacheBBox(): BBox {

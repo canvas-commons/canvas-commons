@@ -1,4 +1,4 @@
-import {clamp} from '@canvas-commons/core';
+import {Vector2, clamp} from '@canvas-commons/core';
 import {CurvePoint} from './CurvePoint';
 import {Segment} from './Segment';
 
@@ -48,10 +48,15 @@ export function profileToSVGPathData(profile: CurveProfile): string {
   }
 
   const commands: string[] = [];
-  for (let i = 0; i < profile.segments.length; i++) {
-    const segment = profile.segments[i];
-    const move = i === 0;
+  let previousEnd: Vector2 | null = null;
+  for (const segment of profile.segments) {
+    // Start a new subpath with a move whenever a segment does not begin where
+    // the previous one ended (a `Path` with multiple subpaths). Without this
+    // the renderer bridges the gap with a line the canvas never draws.
+    const move =
+      previousEnd === null || !segment.getPoint(0).position.equals(previousEnd);
     commands.push(segment.toSVGCommands(0, 1, move));
+    previousEnd = segment.getPoint(1).position;
   }
 
   return commands.join(' ');

@@ -27,7 +27,14 @@ import {
   parseShader,
 } from '../partials/ShaderConfig';
 import {useScene2D} from '../scenes/useScene2D';
-import {createRoughConfig, drawRoughPath, resolveCanvasStyle} from '../utils';
+import {
+  SVGContext,
+  applySVGPaint,
+  createRoughConfig,
+  drawRoughPath,
+  resolveCanvasStyle,
+  svgNumber,
+} from '../utils';
 import {Layout, LayoutProps} from './Layout';
 
 export interface ShapeProps extends LayoutProps {
@@ -243,6 +250,45 @@ export abstract class Shape extends Layout {
       context.clip(this.getPath());
     }
     this.drawChildren(context);
+  }
+
+  /**
+   * Applies the shared `fill`/`stroke` SVG attributes for this shape to an
+   * element, mirroring {@link drawShape}: stroke is set only when both a stroke
+   * paint and a positive line width are present, and `strokeFirst` flips the
+   * paint order. Subclasses call this from their {@link Node.toSVG}
+   * implementations.
+   */
+  protected applySVGShapeStyle(element: SVGElement, ctx: SVGContext): void {
+    const stroke = this.stroke();
+    const hasStroke =
+      this.lineWidth() > 0 && stroke !== null && stroke !== undefined;
+
+    applySVGPaint(element, this.fill(), 'fill', ctx);
+
+    if (hasStroke) {
+      applySVGPaint(element, stroke, 'stroke', ctx);
+      element.setAttribute('stroke-width', svgNumber(this.lineWidth()));
+      if (this.lineCap() !== 'butt') {
+        element.setAttribute('stroke-linecap', this.lineCap());
+      }
+      if (this.lineJoin() !== 'miter') {
+        element.setAttribute('stroke-linejoin', this.lineJoin());
+      }
+      const dash = this.lineDash();
+      if (dash.length > 0) {
+        element.setAttribute('stroke-dasharray', dash.map(svgNumber).join(','));
+        if (this.lineDashOffset() !== 0) {
+          element.setAttribute(
+            'stroke-dashoffset',
+            svgNumber(this.lineDashOffset()),
+          );
+        }
+      }
+      if (this.strokeFirst()) {
+        element.setAttribute('paint-order', 'stroke');
+      }
+    }
   }
 
   protected drawShape(context: CanvasRenderingContext2D) {
@@ -497,7 +543,7 @@ export abstract class Shape extends Layout {
    * @returns An SVG path data string (e.g., "M 0 0 L 100 100 Z")
    */
   @computed()
-  protected getPathData(): string {
+  public override getPathData(): string {
     return '';
   }
 

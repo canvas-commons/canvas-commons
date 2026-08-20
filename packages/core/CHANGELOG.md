@@ -1,5 +1,14 @@
 # Change Log
 
+## 0.4.0
+
+### Minor Changes
+
+- [#121](https://github.com/canvas-commons/canvas-commons/pull/121)
+  [`c7c1e79`](https://github.com/canvas-commons/canvas-commons/commit/c7c1e79fa15bd540cb0236e720f1a2392c91f7c5)
+  Thanks [@xiaoxiae](https://github.com/xiaoxiae)! - change the default color
+  interpolation space from `lch` to `oklab`
+
 ## 0.3.1
 
 ## 0.3.0

@@ -1,5 +1,20 @@
 # Change Log
 
+## 0.4.0
+
+### Minor Changes
+
+- [#150](https://github.com/canvas-commons/canvas-commons/pull/150)
+  [`cb2cf32`](https://github.com/canvas-commons/canvas-commons/commit/cb2cf32960d51c9c78ea5c7b1919f0ae8f6b5886)
+  Thanks [@0byte-coding](https://github.com/0byte-coding)! - feat: Display mouse
+  coordinates local to the selected node within the preview window.
+
+### Patch Changes
+
+- Updated dependencies
+  [[`c7c1e79`](https://github.com/canvas-commons/canvas-commons/commit/c7c1e79fa15bd540cb0236e720f1a2392c91f7c5)]:
+  - @canvas-commons/core@0.4.0
+
 ## 0.3.1
 
 ### Patch Changes

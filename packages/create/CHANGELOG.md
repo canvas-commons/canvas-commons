@@ -1,5 +1,15 @@
 # Change Log
 
+## 0.4.0
+
+### Patch Changes
+
+- [#115](https://github.com/canvas-commons/canvas-commons/pull/115)
+  [`c59b2c8`](https://github.com/canvas-commons/canvas-commons/commit/c59b2c834df83d4e47f7140f019365b31d7e4887)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - declare kleur as a
+  direct dependency so scaffolding works under pnpm's strict node_modules layout
+  instead of relying on npm hoisting it from prompts.
+
 ## 0.3.1
 
 ## 0.3.0

@@ -3,6 +3,7 @@ export * from './colorSignal';
 export * from './compound';
 export * from './computed';
 export * from './defaultStyle';
+export * from './extendNode';
 export * from './filtersSignal';
 export * from './initializers';
 export * from './nodeName';

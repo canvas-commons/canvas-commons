@@ -24,8 +24,8 @@
     "@canvas-commons/2d": "workspace:^",
     "@canvas-commons/core": "workspace:^",
     "@canvas-commons/editor": "workspace:^",
-    "@canvas-commons/ffmpeg": "workspace:^",
-    "@canvas-commons/vite-plugin": "workspace:^"
+    "@canvas-commons/vite-plugin": "workspace:^",
+    "@canvas-commons/webcodecs": "workspace:^"
   },
   "dependencies": {
     "kleur": "^3.0.3",

@@ -15,9 +15,9 @@
     "@canvas-commons/2d": "workspace:^"
   },
   "devDependencies": {
-    "@canvas-commons/ffmpeg": "workspace:^",
     "@canvas-commons/editor": "workspace:^",
     "@canvas-commons/vite-plugin": "workspace:^",
+    "@canvas-commons/webcodecs": "workspace:^",
     "@preact/preset-vite": "^2.10.5",
     "@types/node": "catalog:",
     "vite": "catalog:"

@@ -3,7 +3,7 @@
 A private, unpublished project used by maintainers to develop against the rest
 of the monorepo. Booting it via `pnpm template:dev` gives you the editor running
 against a real animation with hot reload as you change `core`, `2d`, `editor`,
-`vite-plugin`, or `ffmpeg`.
+`vite-plugin`, or `webcodecs`.
 
 If you're a downstream user looking for a starter project, you want
 [`@canvas-commons/create`](../create/AGENTS.md), not this.
@@ -36,9 +36,9 @@ trees, so most edits don't even need a rebuild.
 
 ## Where things live
 
-`vite.config.ts` reaches into `../vite-plugin/src/main` and `../ffmpeg/server`
-directly. That's how this package picks up source-level changes without waiting
-for builds.
+`vite.config.ts` reaches into `../vite-plugin/src/main` and
+`../webcodecs/server` directly. That's how this package picks up source-level
+changes without waiting for builds.
 
 ## Traps
 
@@ -51,7 +51,7 @@ The `private` flag in `package.json` keeps it that way.
 
 ## Don't touch without thinking
 
-- `vite.config.ts` paths (`../vite-plugin/src/main`, `../ffmpeg/server`).
+- `vite.config.ts` paths (`../vite-plugin/src/main`, `../webcodecs/server`).
   They're load-bearing for the dev workflow.
 - The `private: true` field.
 

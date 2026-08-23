@@ -1,7 +1,7 @@
 import preact from '@preact/preset-vite';
 import {defineConfig} from 'vite';
-import ffmpeg from '../ffmpeg/server';
 import canvasCommons from '../vite-plugin/src/main';
+import webcodecs from '../webcodecs/server';
 
 export default defineConfig({
   plugins: [
@@ -14,7 +14,7 @@ export default defineConfig({
     canvasCommons({
       buildForEditor: true,
     }),
-    ffmpeg(),
+    webcodecs(),
   ],
   build: {
     minify: false,

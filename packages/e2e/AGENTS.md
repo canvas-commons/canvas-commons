@@ -63,10 +63,10 @@ regenerate the affected snapshots and commit them. Don't regenerate everything
 at once; verify each diff is intentional, especially anti-aliasing or sub-pixel
 changes that can creep in across GPU/OS variations.
 
-**This package depends on a working ffmpeg binary indirectly.** The render flow
-goes through the vite plugin and may invoke `@canvas-commons/ffmpeg`. If exports
-fail with binary-not-found errors, reinstall to fetch the correct platform
-binary.
+**Video export runs entirely in the browser via `@canvas-commons/webcodecs`.**
+The render flow goes through the vite plugin, which hands frames to the
+in-browser WebCodecs encoder; there's no native binary to install. If exports
+fail, check that the test browser supports the requested codec.
 
 **The single Firefox is shared across tests.** Don't `browser.close()` in a test
 — close the page only.

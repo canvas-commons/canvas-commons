@@ -23,10 +23,10 @@ COPY packages/docs/package.json ./packages/docs/
 COPY packages/e2e/package.json ./packages/e2e/
 COPY packages/editor/package.json ./packages/editor/
 COPY packages/examples/package.json ./packages/examples/
-COPY packages/ffmpeg/package.json ./packages/ffmpeg/
 COPY packages/player/package.json ./packages/player/
 COPY packages/template/package.json ./packages/template/
 COPY packages/vite-plugin/package.json ./packages/vite-plugin/
+COPY packages/webcodecs/package.json ./packages/webcodecs/
 
 RUN pnpm install --frozen-lockfile
 

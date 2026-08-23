@@ -26,9 +26,9 @@ const PLUGINS = {
     options: response =>
       response.language === 'js' ? `{project: './src/project.js'}` : '',
   },
-  ffmpeg: {
-    package: '@canvas-commons/ffmpeg',
-    variable: 'ffmpeg',
+  webcodecs: {
+    package: '@canvas-commons/webcodecs',
+    variable: 'webcodecs',
     version: '*',
   },
 };
@@ -122,8 +122,8 @@ const PLUGINS = {
           selected: true,
         },
         {
-          title: 'Video (FFmpeg)',
-          value: 'ffmpeg',
+          title: 'Video (WebCodecs)',
+          value: 'webcodecs',
           selected: true,
         },
       ],

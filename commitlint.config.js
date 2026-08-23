@@ -15,7 +15,6 @@ module.exports = {
         'e2e',
         'editor',
         'examples',
-        'ffmpeg',
         'legacy',
         'player',
         'vite-plugin',

@@ -45,10 +45,10 @@ The project is maintained as one monorepo containing the following packages:
 | `e2e`         | End-to-end tests.                                              |
 | `editor`      | The user interface used for editing.                           |
 | `examples`    | Animation examples used in documentation.                      |
-| `ffmpeg`      | Vite plugin and exporter for FFmpeg-driven video rendering.    |
 | `player`      | A custom element for displaying animations in a browser.       |
 | `template`    | A template project included for developer's convenience.       |
 | `vite-plugin` | A plugin for Vite used for developing and bundling animations. |
+| `webcodecs`   | Vite plugin and in-browser WebCodecs video exporter.           |
 
 Node 20.19 or newer is required. After cloning the repo, run `pnpm install` in
 the root of the project to install all necessary dependencies. Then run

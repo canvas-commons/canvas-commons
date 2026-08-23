@@ -1,7 +1,4 @@
-/** Decibels to a linear amplitude factor. */
-export function dbToGain(db: number): number {
-  return Math.pow(10, db / 20);
-}
+export {dbToGain} from '@canvas-commons/core';
 
 /**
  * Seconds to seek into the source before playback.

@@ -48,6 +48,25 @@ export class DependencyContext<TOwner = void> implements Promisable<
     return this.promises.length > 0;
   }
 
+  /**
+   * Run `callback`, discarding any promises it collects instead of tracking
+   * them for the scene.
+   *
+   * @remarks
+   * Used when a value must be read from teardown paths (e.g. disposing a
+   * node) where an unresolved async property should not be reported as
+   * "accessed before the node was ready". Promises collected before the
+   * callback are preserved.
+   */
+  public static collectingPromisesSuppressed<T>(callback: () => T): T {
+    const mark = this.promises.length;
+    try {
+      return callback();
+    } finally {
+      this.promises.length = mark;
+    }
+  }
+
   public static async consumePromises() {
     const promises = [...this.promises];
     await Promise.all(promises.map(handle => handle.promise));

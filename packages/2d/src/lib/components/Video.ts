@@ -2,12 +2,18 @@ import {
   BBox,
   DependencyContext,
   PlaybackState,
+  Scene,
   SerializedVector2,
   SignalValue,
   SimpleSignal,
+  Sound,
   clamp,
+  gainToDb,
   isReactive,
+  trackPendingAudioAdjustment,
   useLogger,
+  useMediaAudioAnalyzer,
+  useScene,
   useThread,
 } from '@canvas-commons/core';
 import {computed, initial, nodeName, signal} from '../decorators';
@@ -42,6 +48,18 @@ export interface VideoProps extends RectProps {
    */
   time?: SignalValue<number>;
   play?: boolean;
+  /**
+   * {@inheritDoc Video.volume}
+   */
+  volume?: SignalValue<number>;
+  /**
+   * {@inheritDoc Video.normalize}
+   */
+  normalize?: SignalValue<number | false>;
+  /**
+   * {@inheritDoc Video.levelTo}
+   */
+  levelTo?: SignalValue<number | false>;
 }
 
 @nodeName('Video')
@@ -106,6 +124,49 @@ export class Video extends Rect {
   @signal()
   declare public readonly playbackRate: SimpleSignal<number, this>;
 
+  /**
+   * The volume of this video's own embedded audio.
+   *
+   * @remarks
+   * `1` plays the source audio unmodified. Applies during both live preview
+   * and export.
+   *
+   * @defaultValue 1
+   */
+  @initial(1)
+  @signal()
+  declare public readonly volume: SimpleSignal<number, this>;
+
+  /**
+   * Normalize this video's audio to a target LUFS, flattening the whole
+   * clip's average loudness to that target.
+   *
+   * @remarks
+   * Overrides {@link volume}. Set to `false` to disable. Measured once per
+   * source and cached; see {@link levelTo} to preserve loud/quiet dynamics
+   * instead of flattening them.
+   *
+   * @defaultValue false
+   */
+  @initial(false)
+  @signal()
+  declare public readonly normalize: SimpleSignal<number | false, this>;
+
+  /**
+   * Level this video's audio to a target LUFS using a "loud part" reference
+   * instead of the whole clip's average, preserving relative dynamics
+   * between quiet and loud sections.
+   *
+   * @remarks
+   * Overrides {@link volume} and {@link normalize}. Set to `false` to
+   * disable. Measured once per source and cached.
+   *
+   * @defaultValue false
+   */
+  @initial(false)
+  @signal()
+  declare public readonly levelTo: SimpleSignal<number | false, this>;
+
   @initial(0)
   @signal()
   declare protected readonly time: SimpleSignal<number, this>;
@@ -115,6 +176,9 @@ export class Video extends Rect {
   declare protected readonly playing: SimpleSignal<boolean, this>;
 
   private lastTime = -1;
+  private audioClip: Sound | null = null;
+  private audioScene: Scene | null = null;
+  private audioMeasurementToken = 0;
 
   public constructor({play, ...props}: VideoProps) {
     super(props);
@@ -175,6 +239,8 @@ export class Video extends Rect {
     if (!video) {
       video = document.createElement('video');
       video.src = src;
+      video.volume = 0;
+      video.muted = true;
       Video.pool[key] = video;
     }
 
@@ -334,16 +400,19 @@ export class Video extends Rect {
     const playbackRate = this.playbackRate();
     this.playing(true);
     this.time(() => this.clampTime(offset + (time() - start) * playbackRate));
+    this.registerAudioClip(offset);
   }
 
   public pause() {
     this.playing(false);
     this.time.save();
     this.video().pause();
+    this.finalizeAudioClip();
   }
 
   public seek(time: number) {
     const playing = this.playing();
+    this.finalizeAudioClip();
     this.time(this.clampTime(time));
     if (playing) {
       this.play();
@@ -354,14 +423,141 @@ export class Video extends Rect {
 
   public clampTime(time: number): number {
     const duration = this.video().duration;
+    // The duration is NaN until the element reports metadata (and after the
+    // pooled element is torn down). Looping would then take the modulo against
+    // NaN, poisoning `time` - and anything derived from it, such as a media
+    // clip's `end` - with NaN. Skip clamping until a real duration is known.
+    if (!isFinite(duration)) {
+      return Math.max(0, time);
+    }
     if (this.loop()) {
       time %= duration;
     }
     return clamp(0, duration, time);
   }
 
+  /**
+   * Resolve the current playback time from teardown paths without reporting
+   * unresolved async properties.
+   *
+   * @remarks
+   * After {@link play}, the `time` signal holds a reactive function that calls
+   * {@link clampTime} - and therefore {@link video} - when read. During
+   * disposal the node is no longer ready, so evaluating it would register a
+   * pending promise and log "accessed an asynchronous property before the node
+   * was ready". Suppressing promise collection lets us read the last resolved
+   * time and clamp it against the pooled element's duration instead.
+   */
+  private currentTimeSafely(): number {
+    const rawTime = DependencyContext.collectingPromisesSuppressed(() =>
+      this.time(),
+    );
+    // A looping video's `time` signal resolves through `clampTime`, which takes
+    // the modulo against the element's duration. When that duration is not yet
+    // known (e.g. the pooled element was torn down or never became ready) the
+    // modulo yields NaN, which would otherwise be stored as the clip's `end`
+    // and break its waveform. Fall back to the last resolved time in that case.
+    const time = isFinite(rawTime) ? rawTime : Math.max(0, this.lastTime);
+    const duration = Video.pool[`${this.key}/${this.src()}`]?.duration;
+    if (!duration || !isFinite(duration)) {
+      return Math.max(0, time);
+    }
+    return clamp(0, duration, this.loop() ? time % duration : time);
+  }
+
+  private registerAudioClip(startTime: number) {
+    this.finalizeAudioClip();
+
+    const src = this.src();
+    const playbackRate = this.playbackRate();
+    const scene = useScene();
+    const clip = scene.sounds.add(
+      {
+        audio: src,
+        start: startTime,
+        gain: gainToDb(this.volume()),
+        playbackRate,
+        sourceKey: this.key,
+      },
+      0,
+    );
+    this.audioClip = clip;
+    this.audioScene = scene;
+
+    const analyzer = useMediaAudioAnalyzer();
+    const token = ++this.audioMeasurementToken;
+
+    const normalize = this.normalize();
+    const levelTo = this.levelTo();
+    const target = levelTo !== false ? levelTo : normalize;
+    const mode = levelTo !== false ? 'loudPart' : 'integrated';
+
+    const adjustment = analyzer
+      .hasAudio(src)
+      .then(async hasAudio => {
+        // A video without an audible audio track should not register a
+        // media-audio clip - doing so leaves an empty waveform in the
+        // timeline's media-audio lane. Removing by clip reference is safe
+        // even after the clip was finalized (e.g. the video paused before
+        // this resolved), and never touches a newer clip. The scene is
+        // captured synchronously since `useScene()` is unavailable here.
+        if (!hasAudio) {
+          scene.sounds.remove(clip);
+          if (this.audioClip === clip) {
+            this.audioClip = null;
+            this.audioScene = null;
+          }
+          return;
+        }
+
+        if (target === false) {
+          return;
+        }
+
+        const gainDb = await analyzer.computeNormalizeGain(src, target, mode);
+        if (this.audioClip === clip && this.audioMeasurementToken === token) {
+          clip.gain = gainDb;
+        }
+      })
+      .catch(e => {
+        useLogger().warn({
+          message: `Could not analyze audio for "${src}".`,
+          remarks: String(e),
+          inspect: this.key,
+        });
+      });
+    trackPendingAudioAdjustment(adjustment);
+  }
+
+  /**
+   * Close off the in-progress audio clip (if any) at the video's current
+   * time, or discard it if it ended up covering no duration.
+   */
+  private finalizeAudioClip() {
+    this.audioMeasurementToken++;
+    const clip = this.audioClip;
+    const scene = this.audioScene;
+    if (!clip || !scene) {
+      return;
+    }
+    this.audioClip = null;
+    this.audioScene = null;
+
+    const endTime = this.currentTimeSafely();
+    if (endTime <= (clip.start ?? 0)) {
+      scene.sounds.remove(clip);
+      return;
+    }
+    clip.end = endTime;
+  }
+
   protected override collectAsyncResources() {
     super.collectAsyncResources();
     this.seekedVideo();
+  }
+
+  public override dispose() {
+    this.finalizeAudioClip();
+    super.dispose();
   }
 }

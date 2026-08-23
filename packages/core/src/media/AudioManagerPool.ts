@@ -2,6 +2,11 @@ import {Logger} from '../app';
 import {Sound} from '../scenes';
 import {AudioManager} from './AudioManager';
 import {AudioResourceManager} from './AudioResourceManager';
+import {
+  AudioTrackMixMap,
+  audioTrackIdForSound,
+  resolveAudioMix,
+} from './trackMix';
 
 export class AudioManagerPool {
   private readonly context = new AudioContext();
@@ -13,6 +18,7 @@ export class AudioManagerPool {
   private muted: boolean = true;
   private volume: number = 1;
   private paused: boolean = true;
+  private trackMix: AudioTrackMixMap = {};
 
   public constructor(
     private readonly logger: Logger,
@@ -33,12 +39,34 @@ export class AudioManagerPool {
 
   public setMuted(muted: boolean) {
     this.muted = muted;
-    this.managers.forEach(manager => manager.setMuted(muted));
+    this.applyMix();
   }
 
   public setVolume(volume: number) {
     this.volume = volume;
-    this.managers.forEach(manager => manager.setVolume(volume));
+    this.applyMix();
+  }
+
+  public setTrackMix(trackMix: AudioTrackMixMap) {
+    this.trackMix = trackMix;
+    this.applyMix();
+  }
+
+  private mixFor(sound: Sound) {
+    return resolveAudioMix(
+      audioTrackIdForSound(sound),
+      this.trackMix,
+      this.muted,
+      this.volume,
+    );
+  }
+
+  private applyMix() {
+    this.managers.forEach((manager, sound) => {
+      const {muted, volume} = this.mixFor(sound);
+      manager.setMuted(muted);
+      manager.setVolume(volume);
+    });
   }
 
   public setTime(time: number) {
@@ -70,10 +98,11 @@ export class AudioManagerPool {
         if (manager) continue;
 
         // sound is starting
+        const {muted, volume} = this.mixFor(sound);
         manager = this.pool.pop() ?? this.spawn();
         manager.setSound(sound);
-        manager.setMuted(this.muted);
-        manager.setVolume(this.volume);
+        manager.setMuted(muted);
+        manager.setVolume(volume);
         manager.setTime(time);
         manager.setPaused(this.paused);
         this.managers.set(sound, manager);

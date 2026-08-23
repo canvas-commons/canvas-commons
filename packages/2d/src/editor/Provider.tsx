@@ -1,5 +1,5 @@
 import {Node, Scene2D} from '@canvas-commons/2d';
-import {SceneRenderEvent} from '@canvas-commons/core';
+import {NODE_INSPECTOR_KEY, SceneRenderEvent} from '@canvas-commons/core';
 import {useApplication, useCurrentScene} from '@canvas-commons/editor';
 import {
   ReadonlySignal,
@@ -25,7 +25,8 @@ export interface PluginState {
 
 const PluginContext = createContext<PluginState | null>(null);
 
-export const NodeInspectorKey = '@canvas-commons/2d/node-inspector';
+/** @deprecated Use `NODE_INSPECTOR_KEY` from `@canvas-commons/core` instead. */
+export const NodeInspectorKey = NODE_INSPECTOR_KEY;
 
 export function usePluginState() {
   return useContext(PluginContext)!;
@@ -43,7 +44,7 @@ export function Provider({children}: {children?: ComponentChildren}) {
     const selectedNode = computed(() => {
       afterRender.value;
       const {key, payload} = inspection.value;
-      if (key === NodeInspectorKey) {
+      if (key === NODE_INSPECTOR_KEY) {
         return scene.value?.getNode(payload as string) ?? null;
       }
       return null;
@@ -53,10 +54,10 @@ export function Provider({children}: {children?: ComponentChildren}) {
     const selectNode = (nodeKey: string | null) => {
       const {key, payload} = inspection.peek();
 
-      if (key === NodeInspectorKey && !nodeKey) {
+      if (key === NODE_INSPECTOR_KEY && !nodeKey) {
         inspection.value = {key: '', payload: null};
       } else if (payload !== nodeKey) {
-        inspection.value = {key: NodeInspectorKey, payload: nodeKey};
+        inspection.value = {key: NODE_INSPECTOR_KEY, payload: nodeKey};
       }
     };
 

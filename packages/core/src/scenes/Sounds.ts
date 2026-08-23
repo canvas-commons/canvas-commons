@@ -9,6 +9,16 @@ export interface SoundSettings {
   gain?: number;
   detune?: number;
   playbackRate?: number;
+  /**
+   * The key of the scene node this sound originated from, if any.
+   *
+   * @remarks
+   * Set by e.g. `Video` when it registers its own embedded audio as a
+   * `Sound`. Lets UI (the timeline's media-audio track) group/link clips
+   * back to the node that produced them, distinguishing them from sounds
+   * registered directly via `sound()`.
+   */
+  sourceKey?: string;
 }
 
 export interface Sound extends SoundSettings {
@@ -83,8 +93,8 @@ export class SoundBuilder {
    *
    * @param offset - An offset in seconds from the current frame. Defaults to 0.
    */
-  public play(offset?: number) {
-    useScene().sounds.add(this.settings, offset);
+  public play(offset?: number): Sound {
+    return useScene().sounds.add(this.settings, offset);
   }
 }
 
@@ -108,16 +118,55 @@ export class Sounds {
     this.scene.onRecalculated.subscribe(this.handleRecalculated);
   }
 
-  public add(settings: SoundSettings, offset?: number) {
+  /**
+   * Register a sound to be played back.
+   *
+   * @remarks
+   * Returns the registered {@link Sound} by reference, which callers may
+   * mutate afterwards (e.g. to set `end` once a media clip stops playing, or
+   * to apply a loudness-normalization gain once it has been measured
+   * asynchronously).
+   */
+  public add(settings: SoundSettings, offset?: number): Sound {
     const playbackTime = this.scene.playback.time + (offset ?? 0);
 
-    this.registeredSounds.push({
+    const registered: Sound = {
       offset: playbackTime,
       realPlaybackRate:
         Math.pow(2, (settings.detune ?? 0) / 1200) *
         (settings.playbackRate ?? 1),
       ...settings,
-    });
+    };
+    this.registeredSounds.push(registered);
+    return registered;
+  }
+
+  /**
+   * Unregister a previously added sound.
+   *
+   * @remarks
+   * Used to discard a sound that turned out not to be playable (e.g. a media
+   * clip whose source has no audio track).
+   */
+  public remove(sound: Sound) {
+    const index = this.registeredSounds.indexOf(sound);
+    if (index !== -1) {
+      this.registeredSounds.splice(index, 1);
+    }
+
+    // Drop the sound from the broadcast list too, but by reference rather than
+    // rebuilding it from `registeredSounds`. During live playback the scene
+    // re-executes frame by frame, so `registeredSounds` is only partially
+    // rebuilt at any given moment; rebuilding the broadcast from it would make
+    // the timeline lose every clip past the playhead. Removing just this
+    // sound keeps the rest of the (recalculated) list intact, which still
+    // drops the box for a silent clip whose async audio check just resolved.
+    const broadcastIndex = this.sounds.current.indexOf(sound);
+    if (broadcastIndex !== -1) {
+      const next = [...this.sounds.current];
+      next.splice(broadcastIndex, 1);
+      this.sounds.current = next;
+    }
   }
 
   public getSounds(): readonly Sound[] {

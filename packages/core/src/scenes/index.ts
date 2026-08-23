@@ -7,6 +7,7 @@
 export * from './GeneratorScene';
 export * from './Inspectable';
 export * from './LifecycleEvents';
+export * from './NodeInspection';
 export * from './Random';
 export * from './Scene';
 export * from './SceneMetadata';

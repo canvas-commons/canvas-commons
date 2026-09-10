@@ -19,6 +19,7 @@ const FIXED_TRACK_LABELS: Record<string, string> = {
   range: '',
   scene: 'Scenes',
   label: 'Labels',
+  audio: 'Audio',
   media: 'Media audio',
 };
 
@@ -156,7 +157,7 @@ export function TrackSidebar({
                 id={id}
                 name={labelFor(id)}
                 height={height}
-                resizable
+                resizable={id === 'media'}
               />
             );
           })}

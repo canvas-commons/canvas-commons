@@ -6,12 +6,13 @@ import {useApplication, useModifiers, useTimelineContext} from '../../contexts';
 import {useScenes, useSharedSettings, useSubscribableValue} from '../../hooks';
 import {MouseButton} from '../../utils';
 import styles from './Timeline.module.scss';
-import {DEFAULT_WAVE_HEIGHT} from './trackLayout';
+import {DEFAULT_WAVE_HEIGHT, useTrackLayout} from './trackLayout';
 
 export function AudioTrack() {
   const scenes = useScenes();
+  const layoutRef = useTrackLayout<HTMLDivElement>('audio');
   return (
-    <div className={styles.audioTrack}>
+    <div ref={layoutRef} className={styles.projectAudioTrack}>
       <MainAudioClip />
       {scenes.map(scene => (
         <AudioGroup scene={scene} />

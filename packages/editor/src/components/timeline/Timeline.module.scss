@@ -448,6 +448,12 @@
   position: relative;
 }
 
+.projectAudioTrack {
+  position: relative;
+  height: calc(96px + 32px * 2);
+  padding: 32px 0;
+}
+
 .audioClip {
   position: absolute;
   top: 0;

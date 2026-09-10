@@ -4,19 +4,19 @@ import {useCallback, useContext, useLayoutEffect, useState} from 'preact/hooks';
 import {useStorage} from '../../hooks';
 import {clamp} from '../../utils';
 
-export type FixedTrackId = 'range' | 'scene' | 'label' | 'media';
+export type FixedTrackId = 'range' | 'scene' | 'label' | 'audio' | 'media';
 
 export type TimelineTrackId = FixedTrackId;
 
 export type TrackHeights = Partial<Record<string, number>>;
 
 export const TRACK_ORDER_HEAD: FixedTrackId[] = ['range', 'scene', 'label'];
-export const TRACK_ORDER_TAIL: FixedTrackId[] = ['media'];
+export const TRACK_ORDER_TAIL: FixedTrackId[] = ['audio', 'media'];
 
 /** Waveform fills the whole lane, so this is the lane height too. */
-export const DEFAULT_WAVE_HEIGHT = 96;
-export const MIN_WAVE_HEIGHT = 8;
-export const MAX_WAVE_HEIGHT = 480;
+export const DEFAULT_WAVE_HEIGHT = 32;
+export const MIN_WAVE_HEIGHT = 16;
+export const MAX_WAVE_HEIGHT = 256;
 
 export type WaveHeights = Partial<Record<string, number>>;
 

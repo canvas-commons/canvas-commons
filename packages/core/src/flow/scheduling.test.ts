@@ -78,4 +78,27 @@ describe('waitFor()', () => {
     expect(playback.frame).toBe(4);
     expect(time).toBeCloseTo(0.45);
   });
+
+  test('Non-finite duration does not hang or corrupt the timeline', () => {
+    let nanTime = NaN;
+    let infTime = NaN;
+    const task = threads(function* () {
+      yield* waitFor(NaN);
+      nanTime = useTime();
+      yield* waitFor(Infinity);
+      infTime = useTime();
+    });
+
+    playback.fps = 10;
+    playback.frame = 0;
+    let iterations = 0;
+    for (const _ of task) {
+      playback.frame++;
+      if (++iterations > 100) break;
+    }
+
+    expect(iterations).toBeLessThan(100);
+    expect(nanTime).toBe(0);
+    expect(infTime).toBe(0);
+  });
 });

@@ -27,7 +27,12 @@ export class ReadOnlyTimeEvents implements TimeEvents {
       const event = this.scene.meta.timeEvents
         .get()
         .find(event => event.name === name);
-      duration = event ? event.targetTime - initialTime : 0;
+      // Clamp to a non-negative wait, mirroring EditableTimeEvents. A stored
+      // `targetTime` earlier than where the event is reached (e.g. an event
+      // left at 0 that is now registered later in the timeline) would otherwise
+      // yield a negative duration, which rewinds the thread time and collapses
+      // the scene's computed length during rendering.
+      duration = event ? Math.max(0, event.targetTime - initialTime) : 0;
       this.lookup.set(name, duration);
     }
 

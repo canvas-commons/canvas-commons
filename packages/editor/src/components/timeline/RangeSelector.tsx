@@ -9,6 +9,7 @@ import {useDuration, usePreviewSettings, useSharedSettings} from '../../hooks';
 import {labelClipDraggingLeftSignal} from '../../signals';
 import {MouseButton} from '../../utils';
 import {DragIndicator} from '../icons';
+import {useTrackLayout} from './trackLayout';
 
 export interface RangeSelectorProps {
   rangeRef: RefObject<HTMLDivElement>;
@@ -26,6 +27,7 @@ export function RangeSelector({rangeRef}: RangeSelectorProps) {
   const [start, setStart] = useState(startFrame);
   const [end, setEnd] = useState(endFrame);
   const modifiers = useModifiers();
+  const layoutRef = useTrackLayout<HTMLDivElement>('range');
 
   const onDrop = useCallback(() => {
     labelClipDraggingLeftSignal.value = null;
@@ -46,6 +48,7 @@ export function RangeSelector({rangeRef}: RangeSelectorProps) {
 
   return (
     <div
+      ref={layoutRef}
       className={clsx(
         styles.rangeTrack,
         modifiers.value.shift && modifiers.value.ctrl && styles.active,

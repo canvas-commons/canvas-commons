@@ -6,8 +6,7 @@ import {useApplication, useModifiers, useTimelineContext} from '../../contexts';
 import {useScenes, useSharedSettings, useSubscribableValue} from '../../hooks';
 import {MouseButton} from '../../utils';
 import styles from './Timeline.module.scss';
-
-const HEIGHT = 48;
+import {DEFAULT_WAVE_HEIGHT} from './trackLayout';
 
 export function AudioTrack() {
   const scenes = useScenes();
@@ -84,8 +83,7 @@ function MainAudioClip() {
     )
   );
 }
-
-interface AudioClipProps extends JSX.HTMLAttributes<HTMLDivElement> {
+export interface AudioClipProps extends JSX.HTMLAttributes<HTMLDivElement> {
   audio: string;
   offset: number;
   start?: number;
@@ -94,6 +92,24 @@ interface AudioClipProps extends JSX.HTMLAttributes<HTMLDivElement> {
   hoverable?: boolean;
   editable?: boolean;
   disabled?: boolean;
+  /** Overrides the waveform color (defaults to white). */
+  color?: string;
+  /** Dims the clip, used to de-emphasize non-hovered overlapping clips. */
+  faded?: boolean;
+  /** Height of the waveform area, set by the lane's resize handle. */
+  height?: number;
+  /**
+   * Stable clip id, enabling drag-to-another-track. When set the clip becomes
+   * draggable and carries this key so the drop target can reassign it.
+   */
+  draggableKey?: string;
+  // Extra `Sound` fields callers spread in via `{...sound}`; consumed here so
+  // they don't leak onto the DOM element.
+  gain?: number;
+  detune?: number;
+  playbackRate?: number;
+  sourceKey?: string;
+  origin?: 'media' | 'audio';
 }
 
 export function AudioClip({
@@ -104,9 +120,24 @@ export function AudioClip({
   realPlaybackRate = 1,
   hoverable,
   editable,
+  color = '#fff',
+  faded,
+  height = DEFAULT_WAVE_HEIGHT,
+  draggableKey,
+  // Discard non-DOM `Sound` fields spread in via `{...sound}`.
+  gain: _gain,
+  detune: _detune,
+  playbackRate: _playbackRate,
+  sourceKey: _sourceKey,
+  origin: _origin,
+  style,
   className,
+  onPointerDown,
   ...props
 }: AudioClipProps) {
+  // The waveform is drawn symmetrically around a center line, so the canvas
+  // works in half-height units.
+  const halfHeight = height / 2;
   const {player} = useApplication();
   const audioData = useSubscribableValue(
     player.audioResources.get(audio).onData,
@@ -131,8 +162,12 @@ export function AudioClip({
     clipDuration,
     waveformVisible,
   } = useMemo(() => {
+    // A non-finite `end` (e.g. a clip still playing, or one whose stop time
+    // could not be resolved) means "until the source ends", so fall back to
+    // the decoded duration instead of letting NaN collapse the waveform.
+    const clipEndTime = isFinite(end) ? end : audioData.duration;
     const endOffset =
-      (Math.min(audioData.duration, end) - start) / realPlaybackRate;
+      (Math.min(audioData.duration, clipEndTime) - start) / realPlaybackRate;
 
     const clipStart = offset;
     const clipEnd = offset + endOffset;
@@ -173,9 +208,9 @@ export function AudioClip({
 
     const context = contextRef.current;
     if (!context) return;
-    context.clearRect(0, 0, viewLength, HEIGHT * 2);
+    context.clearRect(0, 0, viewLength, height);
     context.beginPath();
-    context.moveTo(0, HEIGHT);
+    context.moveTo(0, halfHeight);
 
     const relativeStartTime =
       (waveformStart - offset) * realPlaybackRate + start;
@@ -196,17 +231,19 @@ export function AudioClip({
 
       context.lineTo(
         ((padding + offset) / length) * waveformWidth,
-        (audioData.peaks[sample] / audioData.absoluteMax) * HEIGHT + HEIGHT,
+        (audioData.peaks[sample] / audioData.absoluteMax) * halfHeight +
+          halfHeight,
       );
       context.lineTo(
         ((padding + offset + step) / length) * waveformWidth,
-        (audioData.peaks[sample + 1] / audioData.absoluteMax) * HEIGHT + HEIGHT,
+        (audioData.peaks[sample + 1] / audioData.absoluteMax) * halfHeight +
+          halfHeight,
       );
     }
 
     context.lineWidth = 1;
     context.lineJoin = 'round';
-    context.strokeStyle = '#fff';
+    context.strokeStyle = color;
     context.stroke();
   }, [
     waveformStart,
@@ -219,6 +256,8 @@ export function AudioClip({
     start,
     audioData,
     realPlaybackRate,
+    color,
+    halfHeight,
   ]);
 
   const [wrapperStyle, canvasStyle] = useMemo(
@@ -226,13 +265,24 @@ export function AudioClip({
       {
         left: `${secondsToPercents(clipStart)}%`,
         width: `${secondsToPercents(clipDuration)}%`,
-        height: `${HEIGHT * 2}px`,
+        height: `${height}px`,
+        opacity: faded ? 0.35 : 1,
+        transition: 'opacity 0.15s ease',
+        ...(typeof style === 'object' ? style : {}),
       },
       {
         left: `${((waveformStart - clipStart) / clipDuration) * 100}%`,
       },
     ],
-    [waveformStart, clipDuration, clipStart, secondsToPercents],
+    [
+      waveformStart,
+      clipDuration,
+      clipStart,
+      secondsToPercents,
+      faded,
+      style,
+      height,
+    ],
   );
 
   return (
@@ -241,21 +291,44 @@ export function AudioClip({
         styles.audioClip,
         hoverable && styles.hoverable,
         editable && styles.editable,
+        draggableKey && styles.draggable,
         className,
       )}
       style={wrapperStyle}
+      draggable={draggableKey !== undefined}
+      onPointerDown={event => {
+        // Keep the press from reaching the timeline surface, which would
+        // otherwise capture the pointer and scrub the playhead - stealing the
+        // gesture before the native drag-and-drop can start. Mirrors how the
+        // timeline Label swallows its own pointerdown. `preventDefault` is
+        // intentionally omitted for draggable clips: it would suppress the
+        // element's `dragstart`. Editable (offset-dragging) clips still get
+        // their own handler via `onPointerDown` below.
+        if (draggableKey !== undefined) {
+          event.stopPropagation();
+        }
+        onPointerDown?.(event);
+      }}
+      onDragStart={
+        draggableKey
+          ? event => {
+              event.dataTransfer?.setData(
+                'application/x-audio-clip',
+                draggableKey,
+              );
+              event.dataTransfer!.effectAllowed = 'move';
+            }
+          : undefined
+      }
       {...props}
     >
-      {hoverable && waveformWidth > 8 && (
-        <div className={styles.audioLabel}>{audio}</div>
-      )}
       {waveformVisible && waveformWidth > 8 && (
         <canvas
           ref={ref}
           style={canvasStyle}
           className={styles.audioCanvas}
           width={Math.round(waveformWidth)}
-          height={HEIGHT * 2}
+          height={height}
         />
       )}
     </div>

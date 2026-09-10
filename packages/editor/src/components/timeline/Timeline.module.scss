@@ -330,14 +330,14 @@
   flex-shrink: 1;
 }
 
+// Height is set inline from the lane's resize handle.
 .audioTrack {
   position: relative;
-  height: calc(96px + 32px * 2);
-  padding: 32px 0;
 }
 
 .audioClip {
   position: absolute;
+  top: 0;
 
   &.hoverable {
     border-radius: var(--radius);
@@ -351,10 +351,6 @@
 
       .audioCanvas {
         filter: brightness(0.54);
-      }
-
-      .audioLabel {
-        background-color: var(--surface-color-light);
       }
     }
   }
@@ -371,6 +367,14 @@
       filter: brightness(0.36);
     }
   }
+
+  &.draggable {
+    cursor: grab;
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
 }
 
 .audioCanvas {
@@ -378,14 +382,4 @@
   top: 0;
   bottom: 0;
   filter: brightness(0.27);
-}
-
-.audioLabel {
-  position: absolute;
-  bottom: 100%;
-  cursor: default;
-  border-radius: 12px 12px 12px 0;
-  translate: 0 2px;
-  padding: 0 8px;
-  background-color: var(--surface-color-hover);
 }

@@ -26,10 +26,12 @@ import {MouseButton, MouseMask, clamp} from '../../utils';
 import {borderHighlight} from '../animations';
 import {AudioTrack} from './AudioTrack';
 import {LabelTrack} from './LabelTrack';
+import {MediaAudioTrack} from './MediaAudioTrack';
 import {Playhead} from './Playhead';
 import {RangeSelector} from './RangeSelector';
 import {SceneTrack} from './SceneTrack';
 import {Timestamps} from './Timestamps';
+import {TrackLayoutProvider, useTrackScrollTop} from './trackLayout';
 
 const ZOOM_SPEED = 0.1;
 const ZOOM_MIN = 0.5;
@@ -38,7 +40,16 @@ const VIRTUAL_SCROLL_SPACING = 256;
 const MAX_FRAME_SIZE = 128;
 
 export function Timeline() {
+  return (
+    <TrackLayoutProvider>
+      <TimelineContent />
+    </TrackLayoutProvider>
+  );
+}
+
+function TimelineContent() {
   const shortcutRef = useSurfaceShortcuts<HTMLDivElement>(TIMELINE_SHORTCUTS);
+  const trackScrollTop = useTrackScrollTop();
   const {player, meta} = useApplication();
   const {range} = useSharedSettings();
   const containerRef = useRef<HTMLDivElement>();
@@ -211,9 +222,11 @@ export function Timeline() {
         <div
           className={styles.timelineWrapper}
           ref={containerRef}
-          onScroll={event =>
-            setOffset((event.target as HTMLElement).scrollLeft)
-          }
+          onScroll={event => {
+            const target = event.target as HTMLElement;
+            setOffset(target.scrollLeft);
+            trackScrollTop.value = target.scrollTop;
+          }}
           onWheel={event => {
             const isVertical = Math.abs(event.deltaX) > Math.abs(event.deltaY);
             if (event.shiftKey || isVertical) return;
@@ -315,6 +328,7 @@ export function Timeline() {
                 <SceneTrack />
                 <LabelTrack />
                 <AudioTrack />
+                <MediaAudioTrack />
               </div>
               <Playhead seeking={seeking} />
             </div>

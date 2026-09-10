@@ -32,6 +32,7 @@ import {RangeSelector} from './RangeSelector';
 import {SceneTrack} from './SceneTrack';
 import {Timestamps} from './Timestamps';
 import {TrackLayoutProvider, useTrackScrollTop} from './trackLayout';
+import {TrackSidebar} from './TrackSidebar';
 
 const ZOOM_SPEED = 0.1;
 const ZOOM_MIN = 0.5;
@@ -213,12 +214,27 @@ function TimelineContent() {
     }
   };
 
+  // The sidebar sits outside the scrolling lane area, so wheeling over it
+  // has to be forwarded to keep the two columns moving together.
+  const scrollLanes = (event: WheelEvent) => {
+    const container = containerRef.current;
+    if (!container) return;
+    event.preventDefault();
+    container.scrollTop = clamp(
+      0,
+      container.scrollHeight - container.clientHeight,
+      container.scrollTop + event.deltaY,
+    );
+    trackScrollTop.value = container.scrollTop;
+  };
+
   return (
     <TimelineContextProvider state={state}>
       <div
         ref={shortcutRef}
         className={clsx(styles.root, isReady && styles.show)}
       >
+        <TrackSidebar onWheel={scrollLanes} />
         <div
           className={styles.timelineWrapper}
           ref={containerRef}

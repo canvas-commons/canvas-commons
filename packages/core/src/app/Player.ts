@@ -21,6 +21,10 @@ export interface PlayerState extends Record<string, unknown> {
   muted: boolean;
   volume: number;
   speed: number;
+  projectAudioMuted: boolean;
+  projectAudioSolo: boolean;
+  mediaAudioMuted: boolean;
+  mediaAudioSolo: boolean;
 }
 
 export interface PlayerSettings {
@@ -135,6 +139,10 @@ export class Player {
       muted: true,
       volume: 1,
       speed: 1,
+      projectAudioMuted: false,
+      projectAudioSolo: false,
+      mediaAudioMuted: false,
+      mediaAudioSolo: false,
       ...initialState,
       paused: true,
     });
@@ -298,6 +306,34 @@ export class Player {
     }
   }
 
+  public toggleProjectAudioMuted(value?: boolean): void {
+    const muted = value ?? !this.playerState.current.projectAudioMuted;
+    this.playerState.current = {
+      ...this.playerState.current,
+      projectAudioMuted: muted,
+    };
+  }
+  public toggleProjectAudioSolo(value?: boolean): void {
+    const solo = value ?? !this.playerState.current.projectAudioSolo;
+    this.playerState.current = {
+      ...this.playerState.current,
+      projectAudioSolo: solo,
+    };
+  }
+  public toggleMediaAudioMuted(value?: boolean): void {
+    const muted = value ?? !this.playerState.current.mediaAudioMuted;
+    this.playerState.current = {
+      ...this.playerState.current,
+      mediaAudioMuted: muted,
+    };
+  }
+  public toggleMediaAudioSolo(value?: boolean): void {
+    const solo = value ?? !this.playerState.current.mediaAudioSolo;
+    this.playerState.current = {
+      ...this.playerState.current,
+      mediaAudioSolo: solo,
+    };
+  }
   public setAudioVolume(value: number): void {
     const clampedValue = clamp(0, 1, value);
     if (clampedValue !== this.playerState.current.volume) {
@@ -422,10 +458,22 @@ export class Player {
       state.seek = this.startFrame;
     }
 
+    // A soloed track silences the others; without any solo, only per-track
+    // mute applies (on top of the global mute).
+    const anySolo = state.mediaAudioSolo || state.projectAudioSolo;
+    const mediaMuted =
+      state.muted ||
+      state.mediaAudioMuted ||
+      (anySolo && !state.mediaAudioSolo);
+    const projectMuted =
+      state.muted ||
+      state.projectAudioMuted ||
+      (anySolo && !state.projectAudioSolo);
+
     // Pause / play sounds.
     this.audioPool.prepare(this.status.time);
     await this.audioPool.setPaused(state.paused || this.finished);
-    this.audioPool.setMuted(state.muted);
+    this.audioPool.setMuted(mediaMuted);
     this.audioPool.setVolume(state.volume);
 
     // Pause / play audio.
@@ -434,7 +482,7 @@ export class Player {
     if (await this.audio.setPaused(audioPaused)) {
       this.syncAudio(-3);
     }
-    this.audio.setMuted(state.muted);
+    this.audio.setMuted(projectMuted);
     this.audio.setVolume(state.volume);
 
     return state;

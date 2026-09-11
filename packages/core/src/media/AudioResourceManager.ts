@@ -1,5 +1,6 @@
 import {Logger} from '../app';
 import {ValueDispatcher} from '../events';
+import {viaProxy} from '../utils';
 import {AudioData, EMPTY_AUDIO_DATA} from './AudioData';
 
 export class AudioResourceManager {
@@ -60,7 +61,7 @@ export class AudioResource {
   private async loadData(signal: AbortSignal): Promise<AudioData | void> {
     let response: Response;
     try {
-      response = await fetch(this.source, {signal});
+      response = await fetch(viaProxy(this.source), {signal});
     } catch (e: any) {
       if (e.name !== 'AbortError') {
         this.logger.error(e);

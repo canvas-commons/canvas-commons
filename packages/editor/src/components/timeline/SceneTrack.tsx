@@ -6,12 +6,14 @@ import {useApplication, useTimelineContext} from '../../contexts';
 import {useScenes, useSubscribableValue} from '../../hooks';
 import {findAndOpenFirstUserFile} from '../../utils';
 import {SlideTrack} from './SlideTrack';
+import {useTrackLayout} from './trackLayout';
 
 export function SceneTrack() {
   const scenes = useScenes();
+  const layoutRef = useTrackLayout<HTMLDivElement>('scene');
 
   return (
-    <div className={styles.sceneTrack}>
+    <div ref={layoutRef} className={styles.sceneTrack}>
       {scenes.map(scene => (
         <SceneClip scene={scene} />
       ))}

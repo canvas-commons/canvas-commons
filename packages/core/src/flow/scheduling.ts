@@ -1,6 +1,6 @@
 import {decorate, threadable} from '../decorators';
 import {ThreadGenerator} from '../threading';
-import {useDuration, usePlayback, useThread} from '../utils';
+import {useDuration, useLogger, usePlayback, useThread} from '../utils';
 
 decorate(waitUntil, threadable());
 /**
@@ -51,6 +51,18 @@ export function* waitFor(
 ): ThreadGenerator {
   const thread = useThread();
   const step = usePlayback().framesToSeconds(1);
+
+  // A non-finite duration (e.g. `video.getDuration()` read before the element's
+  // metadata loaded returns NaN) would otherwise poison the thread time and,
+  // through it, the scene's computed duration - leaving the editor unable to
+  // settle on a timeline and spinning in an endless recalculation. Treat it as
+  // no wait instead of corrupting the timeline.
+  if (!isFinite(seconds)) {
+    useLogger().warn(
+      `waitFor received a non-finite duration (${seconds}); waiting for 0 seconds instead.`,
+    );
+    seconds = 0;
+  }
 
   const targetTime = thread.time() + seconds;
   // subtracting the step is not necessary, but it keeps the thread time ahead

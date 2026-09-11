@@ -124,6 +124,8 @@ export abstract class GeneratorScene<T>
   private runner: ThreadGenerator | null = null;
   private state: SceneState = SceneState.Initial;
   private cached = false;
+  private recalculating = false;
+  private recalcHadPendingResources = false;
   private counters: Record<string, number> = {};
   private size: Vector2;
 
@@ -207,7 +209,8 @@ export abstract class GeneratorScene<T>
 
   public async recalculate(setFrame: (frame: number) => void) {
     const cached = this.cache.current;
-    cached.firstFrame = this.playback.frame;
+    const firstFrame = this.playback.frame;
+    cached.firstFrame = firstFrame;
     cached.lastFrame = cached.firstFrame + cached.duration;
 
     if (this.isCached()) {
@@ -216,17 +219,43 @@ export abstract class GeneratorScene<T>
       return;
     }
 
-    cached.transitionDuration = -1;
-    await this.reset();
-    while (!this.canTransitionOut()) {
-      if (
-        cached.transitionDuration < 0 &&
-        this.state === SceneState.AfterTransitionIn
-      ) {
-        cached.transitionDuration = this.playback.frame - cached.firstFrame;
+    // A scene may read an async property (e.g. a video's duration) before the
+    // underlying resource finished loading, giving a not-yet-ready value that
+    // would otherwise be baked into the timeline. When that happens, retry the
+    // pass a bounded number of times so the resolved value is picked up,
+    // instead of caching a degenerate (e.g. zero-length) duration.
+    //
+    // The limit is generous: several large media sources loading their
+    // metadata over a slow connection may each need their own pass to settle,
+    // and giving up early would bake in a truncated timeline.
+    const maxAttempts = 50;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      this.recalcHadPendingResources = false;
+      this.recalculating = true;
+      try {
+        cached.firstFrame = firstFrame;
+        setFrame(firstFrame);
+        cached.transitionDuration = -1;
+        await this.reset();
+        while (!this.canTransitionOut()) {
+          if (
+            cached.transitionDuration < 0 &&
+            this.state === SceneState.AfterTransitionIn
+          ) {
+            cached.transitionDuration = this.playback.frame - cached.firstFrame;
+          }
+          setFrame(this.playback.frame + 1);
+          await this.next();
+        }
+      } finally {
+        this.recalculating = false;
       }
-      setFrame(this.playback.frame + 1);
-      await this.next();
+
+      if (!this.recalcHadPendingResources) {
+        break;
+      }
+      // Give the pending resources a chance to settle before retrying.
+      await DependencyContext.consumePromises();
     }
 
     if (cached.transitionDuration === -1) {
@@ -268,13 +297,22 @@ export abstract class GeneratorScene<T>
 
     if (DependencyContext.hasPromises()) {
       const promises = await DependencyContext.consumePromises();
-      this.logger.error({
-        message:
-          'Tried to access an asynchronous property before the node was ready. ' +
-          'Make sure to yield the node before accessing the property.',
-        stack: promises[0].stack,
-        inspect: promises[0].owner?.key ?? undefined,
-      });
+      // A pending resource here means a property was read before it finished
+      // loading (e.g. a video's duration before its metadata arrived). During
+      // recalculation this is expected and recoverable: the value resolves
+      // asynchronously, so flag it for a retry instead of reporting an error
+      // and baking in the not-yet-ready value.
+      if (this.recalculating) {
+        this.recalcHadPendingResources = true;
+      } else {
+        this.logger.error({
+          message:
+            'Tried to access an asynchronous property before the node was ready. ' +
+            'Make sure to yield the node before accessing the property.',
+          stack: promises[0].stack,
+          inspect: promises[0].owner?.key ?? undefined,
+        });
+      }
     }
 
     if (result.done) {

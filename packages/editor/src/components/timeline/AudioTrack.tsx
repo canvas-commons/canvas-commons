@@ -6,12 +6,16 @@ import {useApplication, useModifiers, useTimelineContext} from '../../contexts';
 import {useScenes, useSharedSettings, useSubscribableValue} from '../../hooks';
 import {MouseButton} from '../../utils';
 import styles from './Timeline.module.scss';
-import {DEFAULT_WAVE_HEIGHT, useTrackLayout} from './trackLayout';
+import {
+  DEFAULT_WAVE_HEIGHT,
+  useTrackLayout,
+  useWaveHeight,
+} from './trackLayout';
 
 export function AudioTrack() {
   const scenes = useScenes();
   const layoutRef = useTrackLayout<HTMLDivElement>('audio');
-  const height = DEFAULT_WAVE_HEIGHT;
+  const {height} = useWaveHeight('audio');
   return (
     <div
       ref={layoutRef}
@@ -33,9 +37,15 @@ interface AudioGroupProps {
 
 export function AudioGroup({scene, height}: AudioGroupProps) {
   const sounds = useSubscribableValue(scene.sounds.onChanged);
+  // Media audio (embedded in Video nodes) has its own lane; the project audio
+  // track only shows user-authored sounds.
+  const projectSounds = sounds.filter(sound => {
+    const origin = sound.origin ?? (sound.sourceKey ? 'media' : 'audio');
+    return origin === 'audio';
+  });
   return (
     <>
-      {sounds.map(sound => (
+      {projectSounds.map(sound => (
         <AudioClip hoverable height={height} {...sound} />
       ))}
     </>

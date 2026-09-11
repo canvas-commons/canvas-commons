@@ -63,11 +63,21 @@ function TrackResizeHandle({id, label}: {id: TimelineTrackId; label: string}) {
   );
 }
 
-function MixButtons({name}: {name: string}) {
+function MixButtons({name, kind}: {name: string; kind: 'project' | 'media'}) {
   const {player} = useApplication();
   const state = usePlayerState();
-  const muted = state.projectAudioMuted;
-  const solo = state.projectAudioSolo;
+  const muted =
+    kind === 'media' ? state.mediaAudioMuted : state.projectAudioMuted;
+  const solo = kind === 'media' ? state.mediaAudioSolo : state.projectAudioSolo;
+
+  const toggleMuted = () =>
+    kind === 'media'
+      ? player.toggleMediaAudioMuted()
+      : player.toggleProjectAudioMuted();
+  const toggleSolo = () =>
+    kind === 'media'
+      ? player.toggleMediaAudioSolo()
+      : player.toggleProjectAudioSolo();
 
   return (
     <div className={styles.trackButtons}>
@@ -79,7 +89,7 @@ function MixButtons({name}: {name: string}) {
           styles.trackIconButton,
           muted && styles.trackButtonActive,
         )}
-        onClick={() => player.toggleProjectAudioMuted()}
+        onClick={toggleMuted}
       >
         {muted ? <VolumeOff /> : <VolumeOn />}
       </button>
@@ -87,7 +97,7 @@ function MixButtons({name}: {name: string}) {
         type="button"
         title={solo ? `Unsolo ${name}` : `Solo ${name}`}
         className={clsx(styles.trackButton, solo && styles.trackButtonActive)}
-        onClick={() => player.toggleProjectAudioSolo()}
+        onClick={toggleSolo}
       >
         S
       </button>
@@ -100,7 +110,7 @@ interface FixedTrackHeaderProps {
   name: string;
   height: number;
   resizable?: boolean;
-  mixable?: boolean;
+  mixKind?: 'project' | 'media';
 }
 
 function FixedTrackHeader({
@@ -108,7 +118,7 @@ function FixedTrackHeader({
   name,
   height,
   resizable,
-  mixable,
+  mixKind,
 }: FixedTrackHeaderProps) {
   return (
     <div
@@ -122,7 +132,7 @@ function FixedTrackHeader({
           <div className={styles.trackName} title={name}>
             {name}
           </div>
-          {mixable && <MixButtons name={name} />}
+          {mixKind && <MixButtons name={name} kind={mixKind} />}
         </div>
         {resizable && <TrackResizeHandle id={id} label={name} />}
       </div>
@@ -194,8 +204,8 @@ export function TrackSidebar({
                 id={id}
                 name={labelFor(id)}
                 height={height}
-                resizable={id === 'media'}
-                mixable={id === 'audio'}
+                resizable
+                mixKind={id === 'media' ? 'media' : 'project'}
               />
             );
           })}

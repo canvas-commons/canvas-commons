@@ -107,6 +107,45 @@
   color: rgba(255, 255, 255, 0.72);
 }
 
+.trackButtons {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.trackButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-family: var(--font-family);
+  font-size: var(--font-size-small);
+  font-weight: bold;
+  line-height: 1;
+  background-color: var(--surface-color-hover);
+  color: rgba(255, 255, 255, 0.54);
+
+  &:hover {
+    background-color: var(--surface-color-light);
+    color: #fff;
+  }
+
+  &.trackButtonActive {
+    background-color: var(--theme);
+    color: #000;
+  }
+}
+
+.trackIconButton > svg {
+  width: 14px;
+  height: 14px;
+}
+
 .trackResize {
   position: absolute;
   left: 0;
@@ -450,8 +489,6 @@
 
 .projectAudioTrack {
   position: relative;
-  height: calc(96px + 32px * 2);
-  padding: 32px 0;
 }
 
 .audioClip {

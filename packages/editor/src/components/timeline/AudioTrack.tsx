@@ -11,11 +11,16 @@ import {DEFAULT_WAVE_HEIGHT, useTrackLayout} from './trackLayout';
 export function AudioTrack() {
   const scenes = useScenes();
   const layoutRef = useTrackLayout<HTMLDivElement>('audio');
+  const height = DEFAULT_WAVE_HEIGHT;
   return (
-    <div ref={layoutRef} className={styles.projectAudioTrack}>
-      <MainAudioClip />
+    <div
+      ref={layoutRef}
+      className={styles.projectAudioTrack}
+      style={{height: `${height}px`}}
+    >
+      <MainAudioClip height={height} />
       {scenes.map(scene => (
-        <AudioGroup scene={scene} />
+        <AudioGroup scene={scene} height={height} />
       ))}
     </div>
   );
@@ -23,20 +28,21 @@ export function AudioTrack() {
 
 interface AudioGroupProps {
   scene: Scene;
+  height: number;
 }
 
-export function AudioGroup({scene}: AudioGroupProps) {
+export function AudioGroup({scene, height}: AudioGroupProps) {
   const sounds = useSubscribableValue(scene.sounds.onChanged);
   return (
     <>
       {sounds.map(sound => (
-        <AudioClip hoverable {...sound} />
+        <AudioClip hoverable height={height} {...sound} />
       ))}
     </>
   );
 }
 
-function MainAudioClip() {
+function MainAudioClip({height}: {height: number}) {
   const {player, meta} = useApplication();
   const source = player.audio.getSource();
   const {audioOffset} = useSharedSettings();
@@ -58,6 +64,7 @@ function MainAudioClip() {
         editable={active || isEditing}
         audio={source}
         offset={fullOffset}
+        height={height}
         disabled
         onPointerDown={e => {
           if (active && e.button === MouseButton.Left) {

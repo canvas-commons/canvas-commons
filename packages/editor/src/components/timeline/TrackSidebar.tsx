@@ -1,7 +1,9 @@
 import clsx from 'clsx';
 import {useRef} from 'preact/hooks';
-import {useStorage} from '../../hooks';
+import {useApplication} from '../../contexts';
+import {usePlayerState, useStorage} from '../../hooks';
 import {MouseButton} from '../../utils';
+import {VolumeOff, VolumeOn} from '../icons';
 import {ChevronLeft} from '../icons/ChevronLeft';
 import {ChevronRight} from '../icons/ChevronRight';
 import styles from './Timeline.module.scss';
@@ -61,11 +63,44 @@ function TrackResizeHandle({id, label}: {id: TimelineTrackId; label: string}) {
   );
 }
 
+function MixButtons({name}: {name: string}) {
+  const {player} = useApplication();
+  const state = usePlayerState();
+  const muted = state.projectAudioMuted;
+  const solo = state.projectAudioSolo;
+
+  return (
+    <div className={styles.trackButtons}>
+      <button
+        type="button"
+        title={muted ? `Unmute ${name}` : `Mute ${name}`}
+        className={clsx(
+          styles.trackButton,
+          styles.trackIconButton,
+          muted && styles.trackButtonActive,
+        )}
+        onClick={() => player.toggleProjectAudioMuted()}
+      >
+        {muted ? <VolumeOff /> : <VolumeOn />}
+      </button>
+      <button
+        type="button"
+        title={solo ? `Unsolo ${name}` : `Solo ${name}`}
+        className={clsx(styles.trackButton, solo && styles.trackButtonActive)}
+        onClick={() => player.toggleProjectAudioSolo()}
+      >
+        S
+      </button>
+    </div>
+  );
+}
+
 interface FixedTrackHeaderProps {
   id: TimelineTrackId;
   name: string;
   height: number;
   resizable?: boolean;
+  mixable?: boolean;
 }
 
 function FixedTrackHeader({
@@ -73,6 +108,7 @@ function FixedTrackHeader({
   name,
   height,
   resizable,
+  mixable,
 }: FixedTrackHeaderProps) {
   return (
     <div
@@ -86,6 +122,7 @@ function FixedTrackHeader({
           <div className={styles.trackName} title={name}>
             {name}
           </div>
+          {mixable && <MixButtons name={name} />}
         </div>
         {resizable && <TrackResizeHandle id={id} label={name} />}
       </div>
@@ -158,6 +195,7 @@ export function TrackSidebar({
                 name={labelFor(id)}
                 height={height}
                 resizable={id === 'media'}
+                mixable={id === 'audio'}
               />
             );
           })}

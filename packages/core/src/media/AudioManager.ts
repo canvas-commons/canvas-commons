@@ -1,6 +1,7 @@
 import {Logger} from '../app';
 import {Sound} from '../scenes';
 import {useLogger} from '../utils';
+import {decibelsToAmplitude} from './decibelsToAmplitude';
 
 export class AudioManager {
   private readonly audioElement: HTMLAudioElement = new Audio();
@@ -39,7 +40,7 @@ export class AudioManager {
       this.gainNode.connect(this.context.destination);
     }
 
-    this.gainNode.gain.value = Math.pow(10, (sound.gain ?? 0) / 10);
+    this.gainNode.gain.value = decibelsToAmplitude(sound.gain ?? 0);
     this.setPlaybackRate(sound.realPlaybackRate, true);
   }
 

@@ -1,7 +1,7 @@
-import {cancel, linear, waitFor} from '@canvas-commons/core';
+import {cancel, createSignal, linear, waitFor} from '@canvas-commons/core';
 import {describe, expect, it} from 'vitest';
 import {Layout} from '../Layout';
-import {Txt} from '../Txt';
+import {HyphenateFn, Txt} from '../Txt';
 import {generatorTest} from './generatorTest';
 import {mockScene2D} from './mockScene2D';
 import {mockTextContext} from './mockTextContext';
@@ -11,6 +11,25 @@ function lineTexts(txt: Txt): string[] {
     .textLines()
     .lines.map(line => line.fragments.map(f => f.text).join(''));
 }
+
+function wordPositions(txt: Txt): number[] {
+  return txt.textWords().map(word => word.x);
+}
+
+const AVATAR_A =
+  'when the Avatar kept balance between the Water Tribes, Earth Kingdom, Fire Nation, and Air Nomads.';
+const AVATAR_B =
+  'Water. Earth. Fire. Air. My grandmother used to tell me stories about the old days, a time of peace';
+const SHORT = 'Only the Avatar can stop them.';
+
+const SEAM_CASES: [string, string, string][] = [
+  ['grow, near-equal length', AVATAR_A, AVATAR_B],
+  ['shrink, near-equal length', AVATAR_B, AVATAR_A],
+  ['grow, short to long', SHORT, AVATAR_B],
+  ['shrink, long to short', AVATAR_B, SHORT],
+  ['grow, medium to long', AVATAR_A.slice(0, 60), AVATAR_B],
+  ['shrink, long to medium', AVATAR_B, AVATAR_A.slice(0, 60)],
+];
 
 // Width 100 at 10px per mocked glyph gives 10 characters per line, so the
 // expected line sets below are exact.
@@ -261,6 +280,149 @@ describe('Txt textWrap during text tweens', () => {
   );
 
   it(
+    're-wraps when a reactive tween target changes mid-tween',
+    generatorTest(function* () {
+      const target = createSignal('aaaaaa bb cc dd ee ff g');
+      const txt = (
+        <Txt width={100} textWrap text={'aa bb cc dd ee ff gg hh'} />
+      ) as Txt;
+
+      yield txt.text(target, 2, linear);
+      yield* waitFor(1);
+
+      target('zzzz yyyy xxxx wwww vvvv');
+      yield;
+
+      // The captured breaks describe the old target, so the rest of the tween
+      // wraps at the box width; only a soft break's trailing space overhangs.
+      expect(lineTexts(txt)).toEqual(['zzzz yyyy ', 'xxee ff gg ', 'hhv']);
+
+      yield* waitFor(1);
+      expect(txt.text()).toBe('zzzz yyyy xxxx wwww vvvv');
+      expect(lineTexts(txt)).toEqual(['zzzz yyyy ', 'xxxx wwww ', 'vvvv']);
+    }),
+  );
+
+  it(
+    'keeps wrapping when the tween target changes twice',
+    generatorTest(function* () {
+      const target = createSignal('aaaaaa bb cc dd ee ff g');
+      const txt = (
+        <Txt width={100} textWrap text={'aa bb cc dd ee ff gg hh'} />
+      ) as Txt;
+
+      yield txt.text(target, 2, linear);
+      yield* waitFor(0.5);
+      target('zzzz yyyy xxxx wwww vvvv');
+      yield* waitFor(0.5);
+      target('mmmm nnnn oooo pppp');
+      yield;
+
+      expect(txt.textLines().lines.length).toBeGreaterThan(1);
+
+      yield* waitFor(1);
+      expect(txt.text()).toBe('mmmm nnnn oooo pppp');
+      expect(lineTexts(txt)).toEqual(['mmmm nnnn ', 'oooo pppp']);
+    }),
+  );
+
+  it(
+    'stays re-wrapped when the target returns to its first value',
+    generatorTest(function* () {
+      const target = createSignal('aaaaaa bb cc dd ee ff g');
+      const txt = (
+        <Txt width={100} textWrap text={'aa bb cc dd ee ff gg hh'} />
+      ) as Txt;
+
+      yield txt.text(target, 2, linear);
+      yield* waitFor(0.5);
+      target('zzzz yyyy xxxx wwww vvvv');
+      yield* waitFor(0.5);
+      target('aaaaaa bb cc dd ee ff g');
+      yield;
+
+      // A dropped plan is never picked back up, so no captured break is
+      // injected and the text soft-wraps at the box width instead.
+      expect(txt.text()).toBe('aaaaaa bb c ee ff gg hh');
+      expect(lineTexts(txt)).toEqual(['aaaaaa bb ', 'c ee ff gg ', 'hh']);
+
+      yield* waitFor(1);
+      expect(txt.text()).toBe('aaaaaa bb cc dd ee ff g');
+      expect(lineTexts(txt)).toEqual(['aaaaaa bb ', 'cc dd ee ', 'ff g']);
+    }),
+  );
+
+  it(
+    'restores the box when a cancel follows a target change',
+    generatorTest(function* () {
+      const target = createSignal('aaaaaa bb cc dd ee ff g');
+      const txt = (
+        <Txt width={100} textWrap text={'aa bb cc dd ee ff gg hh'} />
+      ) as Txt;
+
+      const task = yield txt.text(target, 2, linear);
+      yield* waitFor(1);
+      target('zzzz yyyy xxxx wwww vvvv');
+      yield;
+
+      const lines = lineTexts(txt);
+      expect(lines.length).toBeGreaterThan(1);
+      // Only a soft break's trailing space may overhang the box.
+      const widest = Math.max(...lines.map(line => line.trimEnd().length * 10));
+      expect(widest).toBeLessThanOrEqual(100);
+
+      cancel(task);
+
+      expect(txt.textWrap()).toBe(true);
+      expect(txt.width()).toBe(100);
+      expect(txt.textLines().lines.length).toBeGreaterThan(1);
+    }),
+  );
+
+  it(
+    'drops justify targets when a reactive target changes',
+    generatorTest(function* () {
+      // The abandoned target plans three lines; the new one settles into two,
+      // so its last line would borrow line two's justify spacing if the plan
+      // survived the change.
+      const target = createSignal('aaaa bbbb cc dd ee ffff');
+      const txt = (
+        <Txt
+          width={100}
+          textWrap
+          textAlign={'justify'}
+          text={'aa bb cc dd ee ff gg hh'}
+        />
+      ) as Txt;
+
+      yield txt.text(target, 2, linear);
+      yield* waitFor(1);
+
+      target('xxxx yyyy cc dd');
+      yield;
+
+      const inflight = (
+        <Txt width={100} textWrap textAlign={'justify'} text={txt.text()} />
+      ) as Txt;
+      expect(lineTexts(txt)).toEqual(lineTexts(inflight));
+      expect(wordPositions(txt)).toEqual(wordPositions(inflight));
+
+      yield* waitFor(1);
+      const settled = (
+        <Txt
+          width={100}
+          textWrap
+          textAlign={'justify'}
+          text={'xxxx yyyy cc dd'}
+        />
+      ) as Txt;
+      expect(txt.text()).toBe('xxxx yyyy cc dd');
+      expect(lineTexts(txt)).toEqual(['xxxx yyyy ', 'cc dd']);
+      expect(wordPositions(txt)).toEqual(wordPositions(settled));
+    }),
+  );
+
+  it(
     'still suppresses wrapping for auto-width Txt mid-tween',
     generatorTest(function* () {
       const txt = (<Txt textWrap>aaaa bbbb cccc dddd eeee ffff</Txt>) as Txt;
@@ -269,6 +431,95 @@ describe('Txt textWrap during text tweens', () => {
       yield* waitFor(1);
 
       expect(txt.textWrap()).toBe(false);
+    }),
+  );
+
+  it.each(SEAM_CASES)(
+    'never draws a line wider than the box: %s',
+    (_name, from, to) =>
+      generatorTest(function* (view) {
+        const txt = (<Txt width={250} textWrap text={from} />) as Txt;
+        view.add(txt);
+        yield txt.text(to, 4, linear);
+        for (let i = 0; i < 60 * 4 - 1; i++) {
+          yield;
+          const widest = Math.max(
+            ...lineTexts(txt).map(line => line.trimEnd().length),
+          );
+          expect(widest).toBeLessThanOrEqual(25);
+        }
+      })(),
+  );
+
+  it(
+    'breaks where the old and the new text meet when the joined line is too wide',
+    generatorTest(function* (view) {
+      const txt = (<Txt width={250} textWrap text={AVATAR_A} />) as Txt;
+      view.add(txt);
+      yield txt.text(AVATAR_B, 4, linear);
+
+      let flat = txt.text().replace(/-?\n/g, '');
+      while (!flat.startsWith('Water. Earth. Fire. Ab')) {
+        yield;
+        flat = txt.text().replace(/-?\n/g, '');
+      }
+
+      expect(lineTexts(txt)).toEqual([
+        'Water. Earth. Fire. A',
+        'balance between the Water ',
+        'Tribes, Earth Kingdom, ',
+        'Fire Nation, and Air ',
+        'Nomads.',
+      ]);
+    }),
+  );
+
+  it(
+    'keeps a seam joined when the joined line still fits',
+    generatorTest(function* (view) {
+      const txt = (<Txt width={100} textWrap text={'cccc bbb aa'} />) as Txt;
+      view.add(txt);
+      yield txt.text('cccc cccc aa', 2, linear);
+
+      let flat = txt.text().replace(/-?\n/g, '');
+      while (flat !== 'cccc cbb aaa') {
+        yield;
+        flat = txt.text().replace(/-?\n/g, '');
+      }
+
+      expect(lineTexts(txt)).toEqual(['cccc cbb ', 'aaa']);
+    }),
+  );
+
+  it(
+    'breaks at a seam instead of drawing a hyphen past the box',
+    generatorTest(function* (view) {
+      const hyphenate: HyphenateFn = word => {
+        if (word.length <= 4) return [word];
+        const half = Math.ceil(word.length / 2);
+        return [word.slice(0, half), word.slice(half)];
+      };
+      const txt = (
+        <Txt
+          width={60}
+          textWrap
+          hyphenate={() => hyphenate}
+          text={'bbbababbb\nabbaba abbabb'}
+        />
+      ) as Txt;
+      view.add(txt);
+      yield txt.text('abbaaa\naaabbbb', 23 / 30, linear);
+
+      let flat = txt.text().replace(/-?\n/g, '');
+      while (flat !== 'bbbababbbabbbbba ') {
+        yield;
+        flat = txt.text().replace(/-?\n/g, '');
+      }
+
+      // The candidate line at the seam ('abbbab') fits the 60px box, but is
+      // drawn with a trailing hyphen ('abbbab-') that would not — the break
+      // must land at the seam instead of overhanging the box.
+      expect(lineTexts(txt)).toEqual(['bbbab-', 'abbb', 'ab-', 'bbbba ']);
     }),
   );
 });

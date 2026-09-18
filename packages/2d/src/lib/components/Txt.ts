@@ -693,6 +693,27 @@ export class Txt extends Shape {
     const newSize = new Vector2(this.size());
     leaf.text(oldText ?? DEFAULT);
 
+    let fits: (line: string) => boolean = () => true;
+    if (fromBreaks !== null && toBreaks !== null && wrapWidth !== null) {
+      const prepared = this.preparedLayout();
+      if (prepared?.kind === 'simple') {
+        const style = prepared.style;
+        const maxWidth = wrapWidth;
+        fits = line =>
+          this.measureStyledText(line.trimEnd(), style) <= maxWidth;
+      }
+    }
+
+    let planDropped = false;
+    /** Give up the measured breaks, justify targets, and endpoint sizes. */
+    const dropPlan = () => {
+      if (planDropped) return;
+      planDropped = true;
+      this.forcedBreaksOnly(false);
+      this.tweenTargetLines(null);
+      this.size(oldSizeRaw);
+    };
+
     let interpolate: InterpolationFunction<string> = interpolationFunction;
     let lastRaw: string | null = null;
     if (fromBreaks !== null && toBreaks !== null) {
@@ -701,12 +722,14 @@ export class Txt extends Shape {
       interpolate = (from, to, t) => {
         const raw = interpolationFunction(from, to, t);
         lastRaw = raw;
-        // A reactive tween target is re-resolved every frame; the measured
-        // offsets only describe the endpoints captured above.
-        if (from !== fromText || to !== toText) {
+        // A reactive tween target is re-resolved every frame; the measurements
+        // above only describe the original endpoints, and the plan cannot be
+        // picked back up once a change has dropped it.
+        if (planDropped || from !== fromText || to !== toText) {
+          dropPlan();
           return raw;
         }
-        return Txt.stabilizeBreaks(raw, from, to, stableFrom, stableTo);
+        return Txt.stabilizeBreaks(raw, from, to, stableFrom, stableTo, fits);
       };
     }
 
@@ -734,6 +757,7 @@ export class Txt extends Shape {
           toText,
           fromBreaks,
           toBreaks,
+          fits,
         ).split('\n'),
       );
     }
@@ -742,6 +766,7 @@ export class Txt extends Shape {
     try {
       yield* all(
         tween(time, t => {
+          if (planDropped) return;
           const progress = timingFunction(t);
           const size = Vector2.lerp(sizeAt(oldSize), sizeAt(newSize), progress);
           // A wrapped percent width stays container-driven, so only the
@@ -762,11 +787,9 @@ export class Txt extends Shape {
       if (!completed && lastRaw !== null) {
         leaf.text(lastRaw);
       }
-      this.forcedBreaksOnly(false);
-      this.tweenTargetLines(null);
+      dropPlan();
       this.releaseLayout();
       this.textWrap(oldWrap ?? DEFAULT);
-      this.size(oldSizeRaw);
     }
   }
 
@@ -844,28 +867,86 @@ export class Txt extends Shape {
     return length;
   }
 
+  /** The owner's last break at or before `offset`, or 0 when it has none. */
+  private static lastBreakBefore(
+    breaks: readonly LineBreakOffset[],
+    offset: number,
+  ): number {
+    let last = 0;
+    for (const brk of breaks) {
+      if (brk.offset > offset) break;
+      last = brk.offset;
+    }
+    return last;
+  }
+
+  /** The owner's first break after `start` and at or before `end`, if any. */
+  private static firstBreakWithin(
+    breaks: readonly LineBreakOffset[],
+    start: number,
+    end: number,
+  ): LineBreakOffset | null {
+    for (const brk of breaks) {
+      if (brk.offset > start) {
+        return brk.offset <= end ? brk : null;
+      }
+    }
+    return null;
+  }
+
   private static stabilizeBreaks(
     text: string,
     source: string,
     target: string,
     fromBreaks: LineBreakOffset[],
     toBreaks: LineBreakOffset[],
+    fits: (line: string) => boolean,
   ): string {
+    const length = text.length;
     const typedTo = Txt.commonPrefixLength(text, target);
     const typedFrom = Txt.commonPrefixLength(text, source);
-    const merged =
-      typedTo >= typedFrom
-        ? [
-            ...toBreaks.filter(b => b.offset <= typedTo),
-            ...fromBreaks.filter(b => b.offset > typedTo),
-          ]
-        : [
-            ...fromBreaks.filter(b => b.offset <= typedFrom),
-            ...toBreaks.filter(b => b.offset > typedFrom),
-            ...fromBreaks.filter(
-              b => b.offset > Math.max(typedFrom, target.length),
-            ),
-          ];
+    const headIsTarget = typedTo >= typedFrom;
+    const headEnd = Math.min(headIsTarget ? typedTo : typedFrom, length);
+    const headBreaks = headIsTarget ? toBreaks : fromBreaks;
+    const tailBreaks = headIsTarget ? fromBreaks : toBreaks;
+    const tailEnd = Math.min(
+      Math.max(headEnd, headIsTarget ? source.length : target.length),
+      length,
+    );
+
+    const pieces = [
+      {breaks: headBreaks, start: 0, end: headEnd},
+      {breaks: tailBreaks, start: headEnd, end: tailEnd},
+      {breaks: headBreaks, start: tailEnd, end: length},
+    ].filter(piece => piece.end > piece.start);
+
+    const merged: LineBreakOffset[] = [];
+    let lineStart = 0;
+    pieces.forEach((piece, index) => {
+      if (
+        index > 0 &&
+        Txt.lastBreakBefore(piece.breaks, piece.start) > lineStart
+      ) {
+        const lineBreak = Txt.firstBreakWithin(
+          piece.breaks,
+          piece.start,
+          piece.end,
+        );
+        const joined =
+          text.slice(lineStart, lineBreak?.offset ?? piece.end) +
+          (lineBreak?.hyphen ? '-' : '');
+        if (!fits(joined)) {
+          merged.push({offset: piece.start, hyphen: false});
+          lineStart = piece.start;
+        }
+      }
+      for (const brk of piece.breaks) {
+        if (brk.offset > piece.start && brk.offset <= piece.end) {
+          merged.push(brk);
+          lineStart = brk.offset;
+        }
+      }
+    });
 
     let result = '';
     let prev = 0;

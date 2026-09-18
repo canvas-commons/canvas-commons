@@ -9,11 +9,11 @@ import {
   isReactive,
   useLogger,
   useThread,
-  viaProxy,
 } from '@canvas-commons/core';
 import {computed, initial, nodeName, signal} from '../decorators';
 import {DesiredLength} from '../partials';
 import {drawImage} from '../utils';
+import {resolveAssetUrl} from '../utils/assetUrl';
 import {Rect, RectProps} from './Rect';
 import reactivePlaybackRate from './__logs__/reactive-playback-rate';
 
@@ -170,18 +170,7 @@ export class Video extends Rect {
 
   @computed()
   protected video(): HTMLVideoElement {
-    const rawSrc = this.src();
-    let src = '';
-    let key = '';
-    if (rawSrc) {
-      key = viaProxy(rawSrc);
-      const url = new URL(key, window.location.origin);
-      if (url.origin === window.location.origin) {
-        const hash = this.view().assetHash();
-        url.searchParams.set('asset-hash', hash);
-      }
-      src = url.toString();
-    }
+    const {key, src} = resolveAssetUrl(this.src(), this.view().assetHash);
 
     const poolKey = `${this.key}/${key}`;
     let video = Video.pool[poolKey];

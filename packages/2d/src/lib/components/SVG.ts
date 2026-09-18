@@ -487,7 +487,12 @@ export class SVG extends Shape {
       .translateSelf(-center.x, -center.y);
 
     const nodes = Array.from(
-      SVG.extractGroupNodes(svgRoot, svgRoot, rootTransform, {}),
+      SVG.extractGroupNodes(
+        svgRoot,
+        svgRoot,
+        rootTransform,
+        SVG.getElementStyle(svgRoot, {}),
+      ),
     );
 
     const builder: SVGDocumentData = {
@@ -608,35 +613,51 @@ export class SVG extends Shape {
     return parseFloat(value);
   }
 
+  /** Read a presentation property, preferring `style` over the attribute. */
+  private static getPresentationProperty(
+    element: SVGGraphicsElement,
+    name: string,
+  ): string | null {
+    return element.style.getPropertyValue(name) || element.getAttribute(name);
+  }
+
   /**
    * Convert the SVG element's style to a Canvas Commons Shape properties.
    * @param element - An SVG element whose style should be converted.
    * @param inheritedStyle - The parent style that should be inherited.
    */
-  private static getElementStyle(
+  protected static getElementStyle(
     element: SVGGraphicsElement,
     inheritedStyle: ShapeProps,
   ): ShapeProps {
+    const lineWidth = this.getPresentationProperty(element, 'stroke-width');
+
     return {
-      fill: element.getAttribute('fill') ?? inheritedStyle.fill,
-      stroke: element.getAttribute('stroke') ?? inheritedStyle.stroke,
-      lineWidth: element.hasAttribute('stroke-width')
-        ? parseFloat(element.getAttribute('stroke-width')!)
-        : inheritedStyle.lineWidth,
+      fill:
+        this.getPresentationProperty(element, 'fill') ?? inheritedStyle.fill,
+      stroke:
+        this.getPresentationProperty(element, 'stroke') ??
+        inheritedStyle.stroke,
+      lineWidth:
+        lineWidth === null ? inheritedStyle.lineWidth : parseFloat(lineWidth),
       lineCap:
-        this.parseLineCap(element.getAttribute('stroke-linecap')) ??
-        inheritedStyle.lineCap,
+        this.parseLineCap(
+          this.getPresentationProperty(element, 'stroke-linecap'),
+        ) ?? inheritedStyle.lineCap,
       lineJoin:
-        this.parseLineJoin(element.getAttribute('stroke-linejoin')) ??
-        inheritedStyle.lineJoin,
+        this.parseLineJoin(
+          this.getPresentationProperty(element, 'stroke-linejoin'),
+        ) ?? inheritedStyle.lineJoin,
       lineDash:
-        this.parseLineDash(element.getAttribute('stroke-dasharray')) ??
-        inheritedStyle.lineDash,
+        this.parseLineDash(
+          this.getPresentationProperty(element, 'stroke-dasharray'),
+        ) ?? inheritedStyle.lineDash,
       lineDashOffset:
-        this.parseDashOffset(element.getAttribute('stroke-dashoffset')) ??
-        inheritedStyle.lineDashOffset,
+        this.parseDashOffset(
+          this.getPresentationProperty(element, 'stroke-dashoffset'),
+        ) ?? inheritedStyle.lineDashOffset,
       opacity:
-        this.parseOpacity(element.getAttribute('opacity')) ??
+        this.parseOpacity(this.getPresentationProperty(element, 'opacity')) ??
         inheritedStyle.opacity,
       layout: false,
     };

@@ -14,11 +14,11 @@ import {
   threadable,
   tween,
   useLogger,
-  viaProxy,
 } from '@canvas-commons/core';
 import {computed, initial, nodeName, signal} from '../decorators';
 import {DesiredLength} from '../partials';
 import {drawImage} from '../utils';
+import {resolveAssetUrl} from '../utils/assetUrl';
 import {Rect, RectProps} from './Rect';
 import imageWithoutSource from './__logs__/image-without-source';
 
@@ -155,17 +155,7 @@ export class Img extends Rect {
   @computed()
   protected image(): HTMLImageElement {
     const rawSrc = this.src();
-    let src = '';
-    let key = '';
-    if (rawSrc) {
-      key = viaProxy(rawSrc);
-      const url = new URL(key, window.location.origin);
-      if (url.origin === window.location.origin) {
-        const hash = this.view().assetHash();
-        url.searchParams.set('asset-hash', hash);
-      }
-      src = url.toString();
-    }
+    const {key, src} = resolveAssetUrl(rawSrc, this.view().assetHash);
 
     let image = Img.pool[key];
     if (!image) {

@@ -13,6 +13,7 @@ import {
 import {computed, initial, nodeName, signal} from '../decorators';
 import {DesiredLength} from '../partials';
 import {drawImage} from '../utils';
+import {resolveAssetUrl} from '../utils/assetUrl';
 import {Rect, RectProps} from './Rect';
 import reactivePlaybackRate from './__logs__/reactive-playback-rate';
 
@@ -169,13 +170,15 @@ export class Video extends Rect {
 
   @computed()
   protected video(): HTMLVideoElement {
-    const src = this.src();
-    const key = `${this.key}/${src}`;
-    let video = Video.pool[key];
+    const {key, src} = resolveAssetUrl(this.src(), this.view().assetHash);
+
+    const poolKey = `${this.key}/${key}`;
+    let video = Video.pool[poolKey];
     if (!video) {
       video = document.createElement('video');
+      video.crossOrigin = 'anonymous';
       video.src = src;
-      Video.pool[key] = video;
+      Video.pool[poolKey] = video;
     }
 
     if (video.readyState < 2) {

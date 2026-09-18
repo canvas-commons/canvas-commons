@@ -1,6 +1,8 @@
+import {decibelsToAmplitude} from '@canvas-commons/core';
+
 /** Decibels to a linear amplitude factor. */
 export function dbToGain(db: number): number {
-  return Math.pow(10, db / 20);
+  return decibelsToAmplitude(db);
 }
 
 /**

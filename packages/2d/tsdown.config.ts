@@ -1,6 +1,6 @@
 import {defineConfig} from 'tsdown';
 
-export default defineConfig([
+export default defineConfig(inlineConfig => [
   {
     entry: [
       'src/lib/index.ts',
@@ -12,7 +12,7 @@ export default defineConfig([
     dts: true,
     sourcemap: true,
     target: 'es2022',
-    clean: true,
+    clean: !inlineConfig.watch,
     tsconfig: 'src/lib/tsconfig.build.json',
     outExtensions: () => ({js: '.js', dts: '.d.ts'}),
     deps: {
@@ -26,7 +26,7 @@ export default defineConfig([
     dts: false,
     sourcemap: true,
     target: 'es2022',
-    clean: true,
+    clean: !inlineConfig.watch,
     minify: true,
     tsconfig: 'src/lib/tsconfig.build.json',
     outExtensions: () => ({js: '.js'}),

@@ -1,4 +1,5 @@
 import {
+  Color,
   ThreadGenerator,
   TimingFunction,
   all,
@@ -16,6 +17,13 @@ import {mockScene2D} from './mockScene2D';
 class TestSVG extends SVG {
   public static transformProps(transform: DOMMatrix): ShapeProps {
     return SVG.getMatrixTransformation(transform);
+  }
+
+  public static styleProps(
+    element: SVGGraphicsElement,
+    inherited: ShapeProps = {},
+  ): ShapeProps {
+    return SVG.getElementStyle(element, inherited);
   }
 
   public transformer(
@@ -47,6 +55,18 @@ function shape(transform: DOMMatrix) {
   return new Path({data: LINE, ...TestSVG.transformProps(transform)});
 }
 
+function painted(markup: string, inherited?: ShapeProps) {
+  const container = window.document.createElement('div');
+  container.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg">${markup}</svg>`;
+  const element = container.querySelector('g');
+  if (element === null) throw new Error('missing element');
+  return new Path({data: LINE, ...TestSVG.styleProps(element, inherited)});
+}
+
+function hex(style: unknown) {
+  return style instanceof Color ? style.hex() : style;
+}
+
 describe('SVG', () => {
   mockScene2D();
 
@@ -69,6 +89,45 @@ describe('SVG', () => {
       const mirror = new DOMMatrix([-1, 0, 0, 1, 12, 34]);
 
       expectMatrix(shape(mirror).localToParent(), mirror);
+    });
+  });
+
+  describe('presentation properties', () => {
+    it('reads paint from the style attribute', () => {
+      const path = painted(
+        `<g style="fill:rgb(166,227,161);stroke:rgb(30,30,46);stroke-width:4;stroke-linejoin:round;opacity:0.5"/>`,
+      );
+
+      expect(hex(path.fill())).toBe('#a6e3a1');
+      expect(hex(path.stroke())).toBe('#1e1e2e');
+      expect(path.lineWidth()).toBe(4);
+      expect(path.lineJoin()).toBe('round');
+      expect(path.opacity()).toBe(0.5);
+    });
+
+    it('prefers the style over the presentation attribute', () => {
+      const path = painted(
+        `<g fill="rgb(243,139,168)" style="fill:rgb(137,180,250)"/>`,
+      );
+
+      expect(hex(path.fill())).toBe('#89b4fa');
+    });
+
+    it('still reads a presentation attribute with no style', () => {
+      const path = painted(`<g fill="rgb(243,139,168)" stroke-width="2"/>`);
+
+      expect(hex(path.fill())).toBe('#f38ba8');
+      expect(path.lineWidth()).toBe(2);
+    });
+
+    it('inherits a property the element does not set', () => {
+      const path = painted(`<g/>`, {
+        fill: 'rgb(249,226,175)',
+        lineJoin: 'round',
+      });
+
+      expect(hex(path.fill())).toBe('#f9e2af');
+      expect(path.lineJoin()).toBe('round');
     });
   });
 

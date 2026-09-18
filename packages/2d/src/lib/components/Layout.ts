@@ -979,17 +979,48 @@ export class Layout extends Node {
   }
 
   /**
-   * Run yoga layout for this root, resolving percent-sized children of
-   * auto-sized containers with a second pass when needed.
+   * Run yoga layout for this root, resolving a missing dimension from its
+   * aspect ratio and percent-sized children of auto-sized containers when
+   * needed.
    */
   protected calculateRootLayout(
     width: number | undefined,
     height: number | undefined,
   ) {
     this.yogaNode.calculateLayout(width, height);
+    const aspectRatioConstraint = this.resolveAspectRatioConstraint(
+      width,
+      height,
+    );
+    if (aspectRatioConstraint) {
+      width = aspectRatioConstraint.width;
+      height = aspectRatioConstraint.height;
+      this.yogaNode.calculateLayout(width, height);
+    }
     if (this.resolvePercentageDimensions()) {
       this.yogaNode.calculateLayout(width, height);
     }
+  }
+
+  private resolveAspectRatioConstraint(
+    width: number | undefined,
+    height: number | undefined,
+  ): {width: number | undefined; height: number | undefined} | undefined {
+    const size = this.desiredSize();
+    if ((size.x === null) === (size.y === null)) return undefined;
+
+    const ratio = this.yogaNode.getAspectRatio();
+    if (!isFinite(ratio) || ratio <= 0) return undefined;
+
+    const layout = this.yogaNode.getComputedLayout();
+    if (size.x === null && isFinite(layout.height)) {
+      return {width: layout.height * ratio, height};
+    }
+    if (size.y === null && isFinite(layout.width)) {
+      return {width, height: layout.width / ratio};
+    }
+
+    return undefined;
   }
 
   /**

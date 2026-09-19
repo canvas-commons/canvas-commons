@@ -21,7 +21,7 @@ enum State {
 
 class CanvasCommonsPlayer extends HTMLElement {
   public static get observedAttributes() {
-    return ['src', 'quality', 'width', 'height', 'auto', 'variables'];
+    return ['src', 'quality', 'width', 'height', 'auto', 'paused', 'variables'];
   }
 
   private get auto() {
@@ -124,7 +124,7 @@ class CanvasCommonsPlayer extends HTMLElement {
   };
 
   private handleClick = () => {
-    if (this.auto) return;
+    if (this.auto || this.hasAttribute('paused')) return;
     this.handleMouseMove();
     this.setPlaying(!this.playing);
     this.button.animate(
@@ -145,7 +145,11 @@ class CanvasCommonsPlayer extends HTMLElement {
   }
 
   private setPlaying(value: boolean) {
-    if (this.state === State.Ready && (value || (this.auto && !this.hover))) {
+    if (
+      this.state === State.Ready &&
+      !this.hasAttribute('paused') &&
+      (value || (this.auto && !this.hover))
+    ) {
       this.player?.togglePlayback(true);
       this.playing = true;
     } else {
@@ -215,6 +219,7 @@ class CanvasCommonsPlayer extends HTMLElement {
   private attributeChangedCallback(name: string, _: any, newValue: any) {
     switch (name) {
       case 'auto':
+      case 'paused':
         this.setPlaying(this.playing);
         break;
       case 'src':

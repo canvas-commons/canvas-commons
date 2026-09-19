@@ -3,6 +3,7 @@ export interface CanvasCommonsPlayerProps {
   width?: number;
   height?: number;
   auto?: boolean;
+  paused?: boolean;
   quality?: number;
   variables?: string;
 }

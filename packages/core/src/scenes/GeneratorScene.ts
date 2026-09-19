@@ -367,7 +367,7 @@ export abstract class GeneratorScene<T>
    *
    * @param callback - The callback to invoke.
    */
-  protected execute<T>(callback: () => T): T {
+  public execute<T>(callback: () => T): T {
     let result: T;
     startScene(this);
     startPlayback(this.playback);

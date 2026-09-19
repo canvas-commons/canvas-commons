@@ -1,8 +1,9 @@
-import {createRef} from '@canvas-commons/core';
+import {all, createRef} from '@canvas-commons/core';
 import {describe, expect, it} from 'vitest';
 import {Layout} from '../Layout';
 import {Rect} from '../Rect';
 import {Txt, TxtProps} from '../Txt';
+import {generatorTest} from './generatorTest';
 import {mockScene2D} from './mockScene2D';
 import {mockTextContext} from './mockTextContext';
 import {add, lineTexts} from './sceneFixtures';
@@ -80,6 +81,13 @@ const Rows: Row[] = [
     lines: ['supercalifragilistic'],
   },
   {
+    name: 'overflowWrap anywhere splits the overlong word',
+    build: () =>
+      squeezed({text: 'supercalifragilistic', overflowWrap: 'anywhere'}),
+    width: 50,
+    lines: ['super', 'calif', 'ragil', 'istic'],
+  },
+  {
     name: 'a newline makes the longest line the floor',
     build: () => squeezed({text: 'aa\nbbbb'}),
     width: 40,
@@ -104,6 +112,12 @@ const Rows: Row[] = [
     lines: ['one two ', 'three'],
   },
   {
+    name: 'a declared width caps the floor and no word splits',
+    build: () => squeezed({text: 'one two three', width: 45}),
+    width: 45,
+    lines: ['one ', 'two ', 'three'],
+  },
+  {
     name: 'a percentage width resolves against the row',
     build: () => inRow({text: 'one two three', width: '20%'}),
     width: 60,
@@ -126,6 +140,22 @@ const Rows: Row[] = [
     build: () => squeezed({text: 'hi', grow: 1}, 100),
     width: 200,
     lines: ['hi'],
+  },
+  {
+    name: 'a narrow column parent keeps its width and overflows',
+    build: () => {
+      const txt = createRef<Txt>();
+      add(
+        <Layout layout direction={'column'} width={40}>
+          <Txt ref={txt} fontSize={10} lineHeight={20}>
+            one two three
+          </Txt>
+        </Layout>,
+      );
+      return txt();
+    },
+    width: 40,
+    lines: ['one ', 'two ', 'three'],
   },
   {
     name: 'a layout root keeps its natural width',
@@ -348,6 +378,20 @@ const ContainerRows: WidthRow[] = [
       ),
     width: 0,
   },
+  {
+    name: 'overflowWrap anywhere drops that text from the floor',
+    build: () =>
+      squeezedIn(
+        new Layout({
+          direction: 'column',
+          children: [
+            makeText('abcdefgh', {overflowWrap: 'anywhere'}),
+            makeText('ab'),
+          ],
+        }),
+      ),
+    width: 20,
+  },
 ];
 
 describe('Txt minimum content width', () => {
@@ -388,4 +432,29 @@ describe('Txt minimum content width', () => {
       expect(row.build().size.x()).toBeCloseTo(row.width);
     });
   }
+
+  it(
+    'never splits a word while the text tweens in a squeezed row',
+    generatorTest(function* () {
+      const txt = squeezed({text: 'one two three', width: 45});
+
+      const words = (source: string) => source.split(/\s+/).filter(Boolean);
+      const split: string[][] = [];
+      let wrapped = 0;
+      const sample = function* () {
+        for (let frame = 0; frame < 60; frame++) {
+          const lines = lineTexts(txt);
+          if (lines.length > 1) wrapped++;
+          const laid = lines.flatMap(words);
+          if (laid.join(' ') !== words(txt.text()).join(' ')) split.push(laid);
+          yield;
+        }
+      };
+
+      yield* all(txt.text('longer words here', 1), sample());
+
+      expect(wrapped).toBeGreaterThan(0);
+      expect(split).toEqual([]);
+    }),
+  );
 });

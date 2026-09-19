@@ -22,5 +22,6 @@ export type {
 export * from './font';
 export * from './knuthPlass';
 export * from './minContentWidth';
+export * from './overflowLineBreak';
 export * from './segmenter';
 export * from './wrapGeometry';

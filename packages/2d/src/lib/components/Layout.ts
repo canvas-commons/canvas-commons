@@ -54,6 +54,7 @@ import {
   LayoutMode,
   Length,
   LengthLimit,
+  OverflowWrap,
   TextAlign,
   TextWrap,
   VerticalAlign,
@@ -153,6 +154,7 @@ export interface LayoutProps extends NodeProps {
   textAlign?: SignalValue<TextAlign>;
   verticalAlign?: SignalValue<VerticalAlign>;
   wordBreak?: SignalValue<WordBreak>;
+  overflowWrap?: SignalValue<OverflowWrap>;
 
   size?: SignalValue<PossibleVector2<Length>>;
   anchorX?: SignalValue<number>;
@@ -387,6 +389,13 @@ export class Layout extends Node {
   @defaultStyle('normal')
   @signal()
   declare public readonly wordBreak: SimpleSignal<WordBreak, this>;
+  /**
+   * Controls text overflow. `normal` to overflow the box, `anywhere` to break
+   * at a grapheme.
+   */
+  @defaultStyle('normal')
+  @signal()
+  declare public readonly overflowWrap: SimpleSignal<OverflowWrap, this>;
 
   protected getX(): number {
     if (this.isLayoutRoot()) {
@@ -1430,6 +1439,7 @@ export class Layout extends Node {
     this.textWrap();
     this.textAlign();
     this.wordBreak();
+    this.overflowWrap();
   }
 
   /**

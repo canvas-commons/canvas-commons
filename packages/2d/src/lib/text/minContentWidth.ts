@@ -34,3 +34,26 @@ export function measureMinContentWidth(
 
   return widest;
 }
+
+export function measureRunWidthAt(
+  prepared: PreparedTextWithSegments,
+  startIndex: number,
+): number {
+  const {kinds, widths, lineEndFitAdvances, letterSpacing} = prepared;
+  const spacingCounts = prepared.spacingGraphemeCounts;
+  let run = 0;
+  let atLineEnd = 0;
+  let hasContent = false;
+
+  for (let i = startIndex; i < kinds.length && !endsRun(kinds[i]); i++) {
+    const leading =
+      letterSpacing !== 0 && hasContent && spacingCounts[i] > 0
+        ? letterSpacing
+        : 0;
+    atLineEnd = run + leading + lineEndFitAdvances[i];
+    run += leading + widths[i];
+    hasContent = true;
+  }
+
+  return atLineEnd;
+}

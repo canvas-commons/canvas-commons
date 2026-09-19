@@ -16,12 +16,10 @@ import {
 import {
   LayoutCursor,
   PreparedTextWithSegments,
-  layoutNextLine,
   materializeLineRange,
   measureLineStats,
   measureNaturalWidth,
   prepareWithSegments,
-  walkLineRanges,
 } from '@chenglou/pretext';
 import {CurveProfile, createCurveSampler} from '../curves/CurveProfile';
 import {Segment} from '../curves/Segment';
@@ -41,6 +39,7 @@ import {
   getPolygonIntervalForBand,
   getRectIntervalsForBand,
   knuthPlass,
+  layoutNextLineIsolatingOverflow,
   materializeRichInlineLineRange,
   measureMinContentWidth,
   measureRichInlineStats,
@@ -366,7 +365,10 @@ type LineBreakOffset = {
 };
 
 type PreparedLayout = {
-  /** Narrowest width that never splits a word, in pretext-space pixels. */
+  /**
+   * Narrowest width that never splits a word, in pretext-space pixels. `0`
+   * under `overflowWrap: 'anywhere'`, where a grapheme is the only floor.
+   */
   minContentWidth: number;
 } & (
   | {
@@ -702,14 +704,16 @@ export class Txt extends Shape {
     const newSize = new Vector2(this.size());
     leaf.text(oldText ?? DEFAULT);
 
-    let fits: (line: string) => boolean = () => true;
+    let breakAtSeam: (line: string, splitsWord: boolean) => boolean = () =>
+      false;
     if (fromBreaks !== null && toBreaks !== null && wrapWidth !== null) {
       const prepared = this.preparedLayout();
       if (prepared?.kind === 'simple') {
         const style = prepared.style;
-        const maxWidth = wrapWidth;
-        fits = line =>
-          this.measureStyledText(line.trimEnd(), style) <= maxWidth;
+        const overflowing = prepared.minContentWidth > wrapWidth;
+        breakAtSeam = (line, splitsWord) =>
+          !(overflowing && splitsWord) &&
+          this.measureStyledText(line.trimEnd(), style) > wrapWidth;
       }
     }
 
@@ -738,7 +742,14 @@ export class Txt extends Shape {
           dropPlan();
           return raw;
         }
-        return Txt.stabilizeBreaks(raw, from, to, stableFrom, stableTo, fits);
+        return Txt.stabilizeBreaks(
+          raw,
+          from,
+          to,
+          stableFrom,
+          stableTo,
+          breakAtSeam,
+        );
       };
     }
 
@@ -766,7 +777,7 @@ export class Txt extends Shape {
           toText,
           fromBreaks,
           toBreaks,
-          fits,
+          breakAtSeam,
         ).split('\n'),
       );
     }
@@ -903,13 +914,20 @@ export class Txt extends Shape {
     return null;
   }
 
+  // Endpoint breaks may fall inside words during interpolation.
+  private static splitsWord(text: string, offset: number): boolean {
+    return (
+      !/\s/.test(text[offset - 1] ?? ' ') && !/\s/.test(text[offset] ?? ' ')
+    );
+  }
+
   private static stabilizeBreaks(
     text: string,
     source: string,
     target: string,
     fromBreaks: LineBreakOffset[],
     toBreaks: LineBreakOffset[],
-    fits: (line: string) => boolean,
+    breakAtSeam: (line: string, splitsWord: boolean) => boolean,
   ): string {
     const length = text.length;
     const typedTo = Txt.commonPrefixLength(text, target);
@@ -944,7 +962,7 @@ export class Txt extends Shape {
         const joined =
           text.slice(lineStart, lineBreak?.offset ?? piece.end) +
           (lineBreak?.hyphen ? '-' : '');
-        if (!fits(joined)) {
+        if (breakAtSeam(joined, Txt.splitsWord(text, piece.start))) {
           merged.push({offset: piece.start, hyphen: false});
           lineStart = piece.start;
         }
@@ -1264,9 +1282,11 @@ export class Txt extends Shape {
         prepared,
         style: styles[0],
         minContentWidth:
-          wrap === false
-            ? measureNaturalWidth(prepared)
-            : measureMinContentWidth(prepared),
+          this.overflowWrap() === 'anywhere'
+            ? 0
+            : wrap === false
+              ? measureNaturalWidth(prepared)
+              : measureMinContentWidth(prepared),
       };
     }
     const groups = buildRichGroups(prepItems, wrap).map(g => ({
@@ -1279,12 +1299,14 @@ export class Txt extends Shape {
       styles,
       inlines,
       minContentWidth:
-        wrap === false
-          ? measureGroupStats(
-              groups.map(g => g.prepared),
-              Number.POSITIVE_INFINITY,
-            ).maxLineWidth
-          : this.measureItemMinContent(prepItems, wrap, wordBreak),
+        this.overflowWrap() === 'anywhere'
+          ? 0
+          : wrap === false
+            ? measureGroupStats(
+                groups.map(g => g.prepared),
+                Number.POSITIVE_INFINITY,
+              ).maxLineWidth
+            : this.measureItemMinContent(prepItems, wrap, wordBreak),
     };
   }
 
@@ -1401,16 +1423,22 @@ export class Txt extends Shape {
         }
       }
 
-      const line = layoutNextLine(prepared, cursor, slot.right - slot.left);
-      if (line === null) break;
+      const range = layoutNextLineIsolatingOverflow(
+        prepared,
+        cursor,
+        slot.right - slot.left,
+        this.overflowWrap() !== 'anywhere',
+      );
+      if (range === null) break;
+      const line = materializeLineRange(prepared, range);
       lines.push({
         text: line.text,
         x: slot.left,
         width: line.width,
         lineTop,
-        end: line.end,
+        end: range.end,
       });
-      cursor = line.end;
+      cursor = range.end;
       lineTop += lh;
     }
 
@@ -1582,7 +1610,15 @@ export class Txt extends Shape {
         if (line.width > width) width = line.width;
       }
     } else {
-      walkLineRanges(prepared, maxWidth, range => {
+      const isolateOverflow = this.overflowWrap() !== 'anywhere';
+      let cursor: LayoutCursor = {segmentIndex: 0, graphemeIndex: 0};
+      let range = layoutNextLineIsolatingOverflow(
+        prepared,
+        cursor,
+        maxWidth,
+        isolateOverflow,
+      );
+      while (range !== null) {
         const line = materializeLineRange(prepared, range);
         lines.push({
           fragments: [{text: line.text, x: 0, style}],
@@ -1591,7 +1627,14 @@ export class Txt extends Shape {
         });
         ends.push(range.end);
         if (line.width > width) width = line.width;
-      });
+        cursor = range.end;
+        range = layoutNextLineIsolatingOverflow(
+          prepared,
+          cursor,
+          maxWidth,
+          isolateOverflow,
+        );
+      }
     }
 
     return {lines, ends, width};
@@ -1624,6 +1667,8 @@ export class Txt extends Shape {
     }
 
     const fragmentLines: StyledFragment[][] = [];
+    // Pretext splits an over-wide run here: `PreparedRichInline` has no
+    // segment widths to measure one run.
     let totalWidth = 0;
     for (const group of prepared.groups) {
       if (group.prepared === null) {

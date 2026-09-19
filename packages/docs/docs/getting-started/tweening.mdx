@@ -3,11 +3,14 @@ sidebar_position: 9
 slug: /tweening
 ---
 
-import AnimationPlayer from '@site/src/components/AnimationPlayer';
-import CodeBlock from '@theme/CodeBlock';
+import Fiddle from '@site/src/components/Fiddle';
+import colorSource from '!!raw-loader!@canvas-commons/examples/src/scenes/tweening-color';
+import cubicSource from '!!raw-loader!@canvas-commons/examples/src/scenes/tweening-cubic';
 import linearSource from '!!raw-loader!@canvas-commons/examples/src/scenes/tweening-linear';
 import saveRestoreSource from '!!raw-loader!@canvas-commons/examples/src/scenes/tweening-save-restore';
 import springSource from '!!raw-loader!@canvas-commons/examples/src/scenes/tweening-spring';
+import vectorSource from '!!raw-loader!@canvas-commons/examples/src/scenes/tweening-vector';
+import visualiserSource from '!!raw-loader!@canvas-commons/examples/src/scenes/tweening-visualiser';
 
 # Tweening
 
@@ -19,7 +22,7 @@ special type of generators that animate between two values over given time.
 The simplest way to create a tween is via the
 [`tween`](/api/core/tweening#tween) function:
 
-<CodeBlock language="tsx">{linearSource}</CodeBlock>
+<Fiddle width={'1920'}>{linearSource}</Fiddle>
 
 In the example above, we animate the x coordinate of our circle from `-300` to
 `300` over a span of `2` second.
@@ -30,9 +33,7 @@ that will be called each frame the tween takes place. The `value` parameter it
 receives is a number ranging from `0` to `1`, informing us about the progress of
 the tween. We can use it to calculate the values that our tween animates. In the
 case of our circle, we use the `map` function to map the `value` range from
-`[0, 1]` to `[-300, 300]` and set it as the `x` coordinate:
-
-<AnimationPlayer small name="tweening-linear" />
+`[0, 1]` to `[-300, 300]` and set it as the `x` coordinate.
 
 ### Timing functions
 
@@ -58,7 +59,9 @@ yield *
   });
 ```
 
-<AnimationPlayer small name="tweening-cubic" />
+<Fiddle mode="preview" width={'1920'}>
+  {cubicSource}
+</Fiddle>
 
 `easeInOut` means that the object will speed up at the start (`in`) and slow
 down at the end (`Out`). `Cubic` denotes the mathematical function used - in
@@ -70,7 +73,9 @@ The effects of a particular easing function can be visualised by animating the
 `y` coordinate of an object as time changes with a constant rate, such as
 bouncing it in and out.
 
-<AnimationPlayer small name="tweening-visualiser" />
+<Fiddle mode="preview" ratio={'1.9'} width={'1920'}>
+  {visualiserSource}
+</Fiddle>
 
 Because using timing functions to map a range of values is a really common
 pattern, it's possible to skip `map` entirely and pass the range to the timing
@@ -106,7 +111,9 @@ yield *
 
 `Color.lerp` is a static function that interpolates between two colors:
 
-<AnimationPlayer small name="tweening-color" />
+<Fiddle mode="preview" width={'1920'}>
+  {colorSource}
+</Fiddle>
 
 :::tip
 
@@ -134,7 +141,9 @@ yield *
   });
 ```
 
-<AnimationPlayer small name="tweening-vector" />
+<Fiddle mode="preview" ratio={'2.8'} width={'1920'}>
+  {vectorSource}
+</Fiddle>
 
 ### Tweening properties
 
@@ -213,9 +222,7 @@ animations.
 In the example below, we use springs to animate a position of a circle, but this
 method can be used for more things than just position.
 
-<CodeBlock language="tsx">{springSource}</CodeBlock>
-
-<AnimationPlayer small name="tweening-spring" />
+<Fiddle width={'1920'}>{springSource}</Fiddle>
 
 ### Spring description
 
@@ -293,6 +300,6 @@ state stack. If there is no saved state, this method does nothing.
 The example below shows a more complete example of how we can store and restore
 multiple states across an animation.
 
-<CodeBlock language="tsx">{saveRestoreSource}</CodeBlock>
-
-<AnimationPlayer small name="tweening-save-restore" />
+<Fiddle ratio={'2.2'} width={'1920'}>
+  {saveRestoreSource}
+</Fiddle>

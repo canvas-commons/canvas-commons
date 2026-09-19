@@ -3,13 +3,14 @@ sidebar_position: 3
 slug: /random-values
 ---
 
-import AnimationPlayer from '@site/src/components/AnimationPlayer';
-import CodeBlock from '@theme/CodeBlock';
-import source from '!!raw-loader!@canvas-commons/examples/src/scenes/random';
+import Fiddle from '@site/src/components/Fiddle';
+import randomSource from '!!raw-loader!@canvas-commons/examples/src/scenes/random';
 
 # Random values
 
-<AnimationPlayer name="random" banner />
+<Fiddle ratio={'3'} width={'1920'}>
+  {randomSource}
+</Fiddle>
 
 Randomly generated values can be used to create a sense of variety and
 unpredictability in your animation. In Canvas Commons, it's achieved using the
@@ -39,6 +40,4 @@ const random = useRandom(123);
 ```
 
 The animation at the top of this page uses a random number generator to vary the
-height of rectangles and make them look like a sound-wave:
-
-<CodeBlock language="tsx">{source}</CodeBlock>
+height of rectangles and make them look like a sound-wave.

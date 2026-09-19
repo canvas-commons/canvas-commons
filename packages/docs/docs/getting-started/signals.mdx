@@ -5,8 +5,7 @@ slug: /signals
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
-import AnimationPlayer from '@site/src/components/AnimationPlayer';
-import CodeBlock from '@theme/CodeBlock';
+import Fiddle from '@site/src/components/Fiddle';
 import signalSource from '!!raw-loader!@canvas-commons/examples/src/scenes/node-signal';
 
 # Signals
@@ -202,12 +201,9 @@ We can use the fact that properties of nodes are represented by signals to
 construct scenes that automatically update when the data changes. Following the
 previous example, let's create a visualisation for the area of the circle:
 
-<AnimationPlayer small name="node-signal" />
-
-Below you'll find the code used to create this animation. We highlighted all the
-places where signals are used:
-
-<CodeBlock language="tsx">{signalSource}</CodeBlock>
+<Fiddle ratio={'1.9'} width={'1920'}>
+  {signalSource}
+</Fiddle>
 
 With this setup, all we need to do is animate the `radius` signal, and the rest
 of the scene will adjust accordingly:

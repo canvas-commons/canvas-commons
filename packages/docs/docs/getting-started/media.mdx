@@ -5,7 +5,6 @@ slug: /media
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
-import AnimationPlayer from '@site/src/components/AnimationPlayer';
 import {VideoSettings} from '@site/src/Icon/VideoSettings';
 
 # Media
@@ -150,7 +149,23 @@ export default makeScene2D(function* (view) {
 </TabItem>
 </Tabs>
 
-<AnimationPlayer name="media-image" small />
+```tsx editor width=1920 ratio=3
+import {Img, makeScene2D} from '@canvas-commons/2d';
+import {all, createRef} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  view.fill('#141414');
+
+  const imageRef = createRef<Img>();
+
+  yield view.add(<Img ref={imageRef} src={'/img/logo_dark.svg'} scale={2} />);
+
+  yield* all(
+    imageRef().scale(2.5, 1.5).to(2, 1.5),
+    imageRef().absoluteRotation(90, 1.5).to(0, 1.5),
+  );
+});
+```
 
 ### Supported Formats
 

@@ -357,7 +357,7 @@ async function parseTypes(options, projectName, externalProject) {
     },
   });
 
-  const promises = [];
+  const comments = [];
   const mdContents = [];
   app.serializer.addSerializer({
     priority: -Infinity,
@@ -366,33 +366,27 @@ async function parseTypes(options, projectName, externalProject) {
     },
     toObject(item, obj) {
       if (item instanceof CommentTag) {
-        obj.contentId = getContentName(project.id, promises.length);
+        obj.contentId = getContentName(project.id, comments.length);
         mdContents.push(obj.contentId);
-        promises.push(
-          writeComment(
-            `./src/generated/markdown/${obj.contentId}.md`,
-            item.content,
-          ),
-        );
+        comments.push([obj.contentId, item.content]);
       }
 
       if (item.summary) {
         obj.summaryText = partsToText(item.summary);
-        obj.summaryId = getContentName(project.id, promises.length);
+        obj.summaryId = getContentName(project.id, comments.length);
         mdContents.push(obj.summaryId);
-        promises.push(
-          writeComment(
-            `./src/generated/markdown/${obj.summaryId}.md`,
-            item.summary,
-          ),
-        );
+        comments.push([obj.summaryId, item.summary]);
       }
       return obj;
     },
   });
   app.serializer.projectToObject(project, process.cwd().replace(/\\/g, '/'));
 
-  await Promise.all(promises);
+  // One open file at a time: a write per comment exceeds the Windows handle
+  // limit.
+  for (const [id, parts] of comments) {
+    await writeComment(`./src/generated/markdown/${id}.md`, parts);
+  }
 
   return {
     id: project.id,

@@ -1333,22 +1333,22 @@ export class Layout extends Node {
     return content + this.margin.left() + this.margin.right();
   }
 
-  /**
-   * The `minWidth` handed to yoga. A flex item of a row gets the automatic
-   * minimum of CSS `min-width: auto` when the user declared none.
-   */
+  @computed()
+  protected parentDirection(): FlexDirection | null {
+    if (this.isLayoutRoot()) {
+      return null;
+    }
+    return this.parentTransform()?.direction() ?? null;
+  }
+
   protected resolvedMinWidth(): LengthLimit {
     const declared = this.minWidth();
     if (declared !== null) {
       return declared;
     }
 
-    const parent = this.parentTransform();
-    if (
-      this.isLayoutRoot() ||
-      parent === null ||
-      !isRowDirection(parent.direction())
-    ) {
+    const direction = this.parentDirection();
+    if (direction === null || !isRowDirection(direction)) {
       return null;
     }
 
@@ -1364,6 +1364,17 @@ export class Layout extends Node {
     }
 
     return floor > 0 ? floor : null;
+  }
+
+  protected resolvedShrink(): number {
+    const shrink = this.shrink();
+    if (this.minHeight() !== null || this.desiredSize().y !== null) {
+      return shrink;
+    }
+
+    const direction = this.parentDirection();
+    // Unconstrained column items retain content height to avoid overlap.
+    return direction === null || isRowDirection(direction) ? shrink : 0;
   }
 
   @computed()
@@ -1422,7 +1433,7 @@ export class Layout extends Node {
       node.setFlexShrink(0);
     } else {
       node.setFlexGrow(this.grow());
-      node.setFlexShrink(this.shrink());
+      node.setFlexShrink(this.resolvedShrink());
     }
   }
 

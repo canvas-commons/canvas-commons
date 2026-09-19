@@ -170,4 +170,9 @@ export const testFrames: Record<string, TestFrame[]> = {
     {frame: 60, label: 'mid'},
     {frame: -1, label: 'final'},
   ],
+  logo: [
+    {frame: 0, label: 'rest'},
+    {frame: 90, label: 'flow'},
+    {frame: -1, label: 'final'},
+  ],
 };

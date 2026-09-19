@@ -1109,6 +1109,11 @@ export class Txt extends Shape {
     return this.collectItemsWithScale(scale);
   }
 
+  protected override collectAsyncResources() {
+    super.collectAsyncResources();
+    this.collectInlineItems();
+  }
+
   /**
    * Apply the user-provided hyphenator to every word in `text`, joining the
    * returned syllables with U+00AD so pretext can use them as soft breaks.

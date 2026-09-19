@@ -11,7 +11,7 @@
   "dependencies": {
     "@canvas-commons/2d": "workspace:^",
     "@canvas-commons/core": "workspace:^",
-    "@lezer/javascript": "^1.4.13"
+    "@lezer/javascript": "^1.5.4"
   },
   "devDependencies": {
     "@canvas-commons/editor": "workspace:^",

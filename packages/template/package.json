@@ -11,15 +11,15 @@
     "build": "tsc && vite build"
   },
   "dependencies": {
-    "@canvas-commons/core": "workspace:^",
-    "@canvas-commons/2d": "workspace:^"
+    "@canvas-commons/2d": "workspace:^",
+    "@canvas-commons/core": "workspace:^"
   },
   "devDependencies": {
     "@canvas-commons/editor": "workspace:^",
     "@canvas-commons/vite-plugin": "workspace:^",
     "@canvas-commons/webcodecs": "workspace:^",
-    "@preact/preset-vite": "^2.10.5",
-    "@types/node": "catalog:",
+    "@preact/preset-vite": "^2.10.6",
+    "@types/node": "^20.19.43",
     "vite": "catalog:"
   }
 }

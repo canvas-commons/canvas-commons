@@ -38,9 +38,9 @@
   ],
   "devDependencies": {
     "@canvas-commons/core": "workspace:^",
-    "@types/node": "catalog:",
-    "sass": "^1.58.0",
-    "terser": "^5.16.1",
+    "@types/node": "^20.19.43",
+    "sass": "^1.104.1",
+    "terser": "^5.51.2",
     "vite": "catalog:"
   }
 }

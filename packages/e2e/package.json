@@ -13,8 +13,8 @@
   "dependencies": {
     "@canvas-commons/2d": "workspace:^",
     "@canvas-commons/core": "workspace:^",
-    "jest-image-snapshot": "^6.2.0",
-    "playwright": "^1.46.1",
+    "jest-image-snapshot": "^6.5.2",
+    "playwright": "^1.63.0",
     "vitest": "catalog:"
   },
   "devDependencies": {

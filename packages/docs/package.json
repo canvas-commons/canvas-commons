@@ -14,15 +14,15 @@
     "typedoc": "node ./typedoc-standalone.js",
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "test": "node --test remark-fiddle.test.cjs"
   },
   "dependencies": {
-    "@babel/standalone": "^7.21.3",
     "@canvas-commons/2d": "workspace:^",
     "@canvas-commons/core": "workspace:^",
     "@canvas-commons/examples": "workspace:^",
+    "@canvas-commons/fiddle": "workspace:^",
     "@canvas-commons/player": "workspace:^",
-    "@codemirror/commands": "^6.6.0",
     "@codemirror/lang-javascript": "^6.1.4",
     "@codemirror/language": "^6.10.2",
     "@codemirror/state": "^6.4.1",
@@ -39,12 +39,8 @@
     "@fontsource/ibm-plex-sans": "^5.3.0",
     "@fontsource/jetbrains-mono": "^5.3.0",
     "@fontsource/space-grotesk": "^5.3.0",
-    "@lezer/highlight": "^1.2.0",
-    "@lezer/javascript": "^1.4.13",
-    "@lezer/rust": "^1.0.2",
     "@mdx-js/react": "^3.0.0",
     "clsx": "catalog:",
-    "codemirror": "^6.0.1",
     "prism-react-renderer": "^2.4.0",
     "raw-loader": "^4.0.2",
     "react": "^18.3.0",
@@ -56,7 +52,8 @@
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "mdn-links": "^0.1.0",
-    "typedoc": "^0.28.19"
+    "typedoc": "^0.28.19",
+    "vite": "catalog:"
   },
   "browserslist": {
     "production": [

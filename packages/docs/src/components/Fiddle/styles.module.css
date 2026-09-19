@@ -1,4 +1,17 @@
 .root {
+  --cc-fiddle-background: var(--cc-mantle);
+  --cc-fiddle-foreground: var(--hl-color);
+  --cc-fiddle-font: var(--ifm-font-family-monospace);
+  --cc-fiddle-selection: var(--ifm-code-selection-color);
+  --cc-fiddle-active-line: var(--ifm-code-active-color);
+  --cc-fiddle-muted: var(--cc-overlay0);
+  --cc-fiddle-border: var(--cc-surface0);
+  --cc-fiddle-keyword: var(--hl-keyword);
+  --cc-fiddle-string: var(--hl-string);
+  --cc-fiddle-comment: var(--hl-comment);
+  --cc-fiddle-number: var(--hl-number);
+  --cc-fiddle-function: var(--hl-function);
+  --cc-fiddle-type: var(--hl-tag);
   position: relative;
   border-radius: var(--ifm-code-border-radius);
   overflow: hidden;
@@ -59,7 +72,7 @@
   padding: 8px;
 }
 
-.section.disabled {
+.icon:disabled {
   opacity: 0.5;
   pointer-events: none;
 }
@@ -124,6 +137,7 @@
 }
 
 .preview {
+  position: relative;
   background-color: var(--ifm-background-surface-color);
   overflow: hidden;
   display: flex;
@@ -131,9 +145,21 @@
   justify-content: center;
 }
 
-.preview canvas {
-  max-width: 100%;
-  max-height: 100%;
+.previewHost,
+.previewHost iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+.previewHost {
+  position: absolute;
+  inset: 0;
+}
+
+.loading {
+  position: relative;
 }
 
 .button {

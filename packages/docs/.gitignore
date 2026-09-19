@@ -12,6 +12,7 @@ docs/2d-api
 static/examples
 static/editor
 static/modules
+static/fiddle
 src/generated
 
 # Misc

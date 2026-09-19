@@ -44,7 +44,7 @@ export function findImportRange(
   let lastImport = firstImport;
   while (lastImport) {
     const nextNode = lastImport.nextSibling;
-    if (!nextNode.type.is('ImportDeclaration')) {
+    if (!nextNode?.type.is('ImportDeclaration')) {
       break;
     }
     lastImport = nextNode;
@@ -89,8 +89,9 @@ export function foldImports(view: EditorView) {
  */
 export function areImportsFolded(state: EditorState) {
   const range = findImportRange(state);
+  if (!range) return false;
   let folded = false;
-  state.field(foldState, false).between(range.from, range.to, () => {
+  state.field(foldState, false)?.between(range.from, range.to, () => {
     folded = true;
     return false;
   });

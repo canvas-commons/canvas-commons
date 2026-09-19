@@ -19,8 +19,9 @@ pnpm --filter @canvas-commons/docs run swizzle       # docusaurus swizzle
 pnpm --filter @canvas-commons/docs run write-translations
 ```
 
-The `examples` and `player` packages need to be built first if you're iterating
-on docs that pull from them; the docs scripts will use the prebuilt output.
+Build `core`, `2d`, `fiddle` and `player` (`pnpm run build`) and `examples`
+(`pnpm examples:build`) before the docs. The vendored fiddle runtime and the
+embedded animations come from that output.
 
 ## Where things live
 
@@ -33,6 +34,16 @@ and `@canvas-commons/2d`. The typedoc script handles the extraction.
 anything in this package's `src/`. The runtime story here is unrelated to the
 editor or 2d. Don't carry React imports out of this package.
 
+**The homepage and MDX fiddles use `@canvas-commons/fiddle`.** Each preview runs
+in a sandboxed iframe with its own compiler worker, released again when the
+fiddle scrolls well clear of the viewport. The lazy editor modules and
+TypeScript language service stay cached across client-side page changes. Editors
+dispose their documents and previews when unmounted. `fiddle.js` writes the
+shared vendored runtime and type pack into `static/fiddle`.
+
+**`remark-fiddle` validates fences only.** It checks ` ``` ` blocks marked
+`editor`, not the `<Fiddle>` JSX blocks that MDX pages can also use.
+
 **Live examples use the player web component, not direct core imports.** Code
 blocks tagged as Canvas Commons get rendered through `<canvas-commons-player>`,
 which bundles its own runtime. Don't try to share a runtime between the docs
@@ -41,6 +52,10 @@ page and the player.
 **TSDoc examples are part of the public API.** TypeDoc renders them into the
 reference site. Breaking an `@example` block in `core` or `2d` shows up here as
 a broken example page.
+
+**`pnpm docs:serve` sends no CORS headers.** Preview a build that includes the
+playground with `npx http-server packages/docs/build --cors -c-1` instead. This
+site does not set `allowSameOrigin`.
 
 ## Don't touch without thinking
 

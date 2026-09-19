@@ -142,7 +142,7 @@ const config = {
   ],
   plugins: [
     './typedoc',
-    './bundle',
+    './fiddle',
     [
       '@docusaurus/plugin-content-docs',
       {
@@ -151,6 +151,7 @@ const config = {
         exclude: ['**/api/core/*.md', '**/api/2d/*.md'],
         showLastUpdateAuthor: true,
         docItemComponent: '@site/src/components/DocPage',
+        remarkPlugins: [require('./remark-fiddle')],
         admonitions: {
           keywords: [
             'note',
@@ -169,11 +170,15 @@ const config = {
       '@docusaurus/plugin-content-blog',
       {
         showReadingTime: true,
+        remarkPlugins: [require('./remark-fiddle')],
         editUrl: ({blogDirPath, blogPath}) =>
           `https://github.com/canvas-commons/canvas-commons/blob/main/packages/docs/${blogDirPath}/${blogPath}`,
       },
     ],
-    '@docusaurus/plugin-content-pages',
+    [
+      '@docusaurus/plugin-content-pages',
+      {remarkPlugins: [require('./remark-fiddle')]},
+    ],
     '@docusaurus/plugin-debug',
     '@docusaurus/plugin-sitemap',
     '@docusaurus/plugin-svgr',

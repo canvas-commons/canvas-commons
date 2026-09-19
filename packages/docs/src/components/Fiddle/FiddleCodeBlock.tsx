@@ -9,6 +9,7 @@ interface CodeProps {
   editor?: boolean;
   mode?: 'code' | 'editor' | 'preview';
   ratio?: string;
+  width?: string;
 }
 
 /** Render editor-marked MDX fences as interactive examples. */
@@ -28,10 +29,14 @@ export default function FiddleCodeBlock(props: Props) {
       const ratio =
         code.ratio ??
         meta.match(/(?:^|\s)ratio=["']?([\d./]+)(?:["']?(?:\s|$))/)?.[1];
+      const width =
+        code.width ??
+        meta.match(/(?:^|\s)width=["']?(\d+)(?:["']?(?:\s|$))/)?.[1];
       return (
         <Fiddle
           mode={mode === 'code' || mode === 'preview' ? mode : 'editor'}
           ratio={ratio}
+          width={width}
         >
           {code.children}
         </Fiddle>

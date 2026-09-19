@@ -16,6 +16,7 @@ module.exports = {
         'editor',
         'examples',
         'ffmpeg',
+        'fiddle',
         'legacy',
         'player',
         'vite-plugin',

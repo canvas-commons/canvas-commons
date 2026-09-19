@@ -416,9 +416,18 @@ importers:
       '@canvas-commons/vite-plugin':
         specifier: workspace:^
         version: link:../vite-plugin
+      geometry-polyfill:
+        specifier: ^1.0.7
+        version: 1.0.7
+      jsdom:
+        specifier: 'catalog:'
+        version: 29.1.1
       vite:
         specifier: 'catalog:'
         version: 8.0.13(@types/node@20.19.39)(jiti@2.6.1)(sass@1.99.0)(terser@5.46.2)(yaml@2.8.4)
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.6(@types/node@20.19.39)(jsdom@29.1.1)(vite@8.0.13(@types/node@20.19.39)(jiti@2.6.1)(sass@1.99.0)(terser@5.46.2)(yaml@2.8.4))
 
   packages/ffmpeg:
     dependencies:

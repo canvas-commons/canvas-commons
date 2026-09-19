@@ -38,6 +38,7 @@ export default defineConfig({
         './src/text-path.ts',
         './src/text-wrap-tween.ts',
         './src/home-reel.ts',
+        './src/logo.ts',
       ],
     }),
   ],

@@ -1,5 +1,14 @@
-import {linear, waitFor} from '@canvas-commons/core';
+import {
+  createSignal,
+  endPlayback,
+  endScene,
+  linear,
+  startPlayback,
+  startScene,
+  waitFor,
+} from '@canvas-commons/core';
 import {describe, expect, it, vi} from 'vitest';
+import {useScene2D} from '../scenes/useScene2D';
 import {Txt} from './Txt';
 import {TxtLeaf} from './TxtLeaf';
 import {generatorTest} from './__tests__/generatorTest';
@@ -7,6 +16,45 @@ import {mockScene2D} from './__tests__/mockScene2D';
 
 describe('Txt', () => {
   mockScene2D();
+
+  it('awaits reactive text outside the scene context', async () => {
+    const effect = createSignal('Blur');
+    const node = new Txt({
+      text: () => `Current Filter: ${effect()}`,
+      children: 'fallback',
+    });
+    const scene = useScene2D();
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    endPlayback(scene.playback);
+    endScene(scene);
+    try {
+      await node.toPromise();
+      expect(error).not.toHaveBeenCalled();
+      expect(node.text()).toBe('Current Filter: Blur');
+      const leaf = node.childAs<TxtLeaf>(0);
+      expect(leaf).toBeInstanceOf(TxtLeaf);
+
+      effect('Hue');
+      await node.toPromise();
+      expect(error).not.toHaveBeenCalled();
+      expect(node.text()).toBe('Current Filter: Hue');
+      expect(node.childAs(0)).toBe(leaf);
+    } finally {
+      startScene(scene);
+      startPlayback(scene.playback);
+      error.mockRestore();
+    }
+  });
+
+  it.each([
+    {text: undefined, expected: 'fallback'},
+    {text: '', expected: ''},
+    {text: 'explicit', expected: 'explicit'},
+  ])('resolves text $text with children', ({text, expected}) => {
+    const node = new Txt({text, children: 'fallback'});
+
+    expect(node.text()).toBe(expected);
+  });
 
   it('Handle plain text', () => {
     const node = (<Txt lineWidth={8}>test</Txt>) as Txt;

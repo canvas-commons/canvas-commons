@@ -8,6 +8,7 @@ const config = {
   url: 'https://canvascommons.io',
   baseUrl: '/',
   onBrokenLinks: 'throw',
+  onBrokenAnchors: 'throw',
   favicon: 'img/favicon.svg',
   organizationName: 'canvas-commons',
   projectName: 'canvas-commons.github.io',

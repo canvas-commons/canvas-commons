@@ -1,6 +1,5 @@
-import ExecutionEnvironment from '@docusaurus/ExecutionEnvironment';
 import useIsBrowser from '@docusaurus/useIsBrowser';
-import React, {ReactNode, useContext, useState} from 'react';
+import React, {ReactNode, useContext, useEffect, useState} from 'react';
 import type {JSONOutput} from 'typedoc';
 
 export interface Filters {
@@ -12,15 +11,26 @@ type FiltersContext = [Filters, (value: Filters) => void];
 
 const FILTERS_KEY = 'api-filters';
 
-const StoredValue = ExecutionEnvironment.canUseDOM
-  ? localStorage.getItem(FILTERS_KEY)
-  : null;
-const DefaultValue = StoredValue
-  ? JSON.parse(StoredValue)
-  : {
-      inherited: true,
-      private: false,
-    };
+// The first client render must match the server, so a stored choice only
+// arrives after mount.
+const DefaultValue: Filters = {
+  inherited: true,
+  private: false,
+};
+
+function readStoredFilters(): Filters | null {
+  const stored = localStorage.getItem(FILTERS_KEY);
+  if (!stored) return null;
+  const parsed: unknown = JSON.parse(stored);
+  if (typeof parsed !== 'object' || parsed === null) return null;
+  if (!('private' in parsed) || typeof parsed.private !== 'boolean') {
+    return null;
+  }
+  if (!('inherited' in parsed) || typeof parsed.inherited !== 'boolean') {
+    return null;
+  }
+  return {private: parsed.private, inherited: parsed.inherited};
+}
 
 const Context = React.createContext<FiltersContext>([
   DefaultValue,
@@ -32,6 +42,11 @@ const Context = React.createContext<FiltersContext>([
 export function FiltersProvider({children}: {children: ReactNode}) {
   const [filters, setFilters] = useState<Filters>(DefaultValue);
   const isBrowser = useIsBrowser();
+
+  useEffect(() => {
+    const stored = readStoredFilters();
+    if (stored) setFilters(stored);
+  }, []);
 
   return (
     <Context.Provider

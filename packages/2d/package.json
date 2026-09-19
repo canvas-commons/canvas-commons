@@ -58,7 +58,7 @@
     "@preact/signals": "catalog:",
     "@rollup/plugin-node-resolve": "^15.3.1",
     "@rollup/plugin-typescript": "^11.1.6",
-    "@types/node": "^20.19.43",
+    "@types/node": "catalog:",
     "clsx": "catalog:",
     "geometry-polyfill": "^1.0.7",
     "jsdom": "catalog:",

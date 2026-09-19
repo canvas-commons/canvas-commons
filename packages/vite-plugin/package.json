@@ -39,7 +39,7 @@
   "devDependencies": {
     "@types/follow-redirects": "^1.14.4",
     "@types/mime-types": "^2.1.4",
-    "@types/node": "^20.19.43"
+    "@types/node": "catalog:"
   },
   "dependencies": {
     "fast-glob": "^3.3.3",

@@ -4,31 +4,66 @@
  * work well for content-centric websites.
  */
 
-/* You can override the default Infima variables here. */
+@import '@fontsource/space-grotesk/400.css';
+@import '@fontsource/space-grotesk/500.css';
+@import '@fontsource/space-grotesk/600.css';
+@import '@fontsource/space-grotesk/700.css';
+@import '@fontsource/ibm-plex-sans/400.css';
+@import '@fontsource/ibm-plex-sans/500.css';
+@import '@fontsource/ibm-plex-sans/600.css';
+@import '@fontsource/ibm-plex-sans/700.css';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+@import '@fontsource/jetbrains-mono/700.css';
+
+/* Light mode = Catppuccin Latte. */
 :root {
-  --ifm-color-primary: #2e8555;
-  --ifm-color-primary-dark: #29784c;
-  --ifm-color-primary-darker: #277148;
-  --ifm-color-primary-darkest: #205d3b;
-  --ifm-color-primary-light: #33925d;
-  --ifm-color-primary-lighter: #359962;
-  --ifm-color-primary-lightest: #3cad6e;
+  --ifm-color-primary: #1e66f5;
+  --ifm-color-primary-dark: #0d58ed;
+  --ifm-color-primary-darker: #0c53e0;
+  --ifm-color-primary-darkest: #0a44b9;
+  --ifm-color-primary-light: #4180f7;
+  --ifm-color-primary-lighter: #5690f8;
+  --ifm-color-primary-lightest: #84aefa;
 
-  --ifm-color-gray-100: #f8f8f8;
-  --ifm-color-gray-200: #ededed;
-  --ifm-color-gray-300: #dddddd;
-  --ifm-color-gray-400: #d0d0d0;
-  --ifm-color-gray-500: #c3c3c3;
-  --ifm-color-gray-600: #959595;
-  --ifm-color-gray-700: #666666;
-  --ifm-color-gray-800: #444444;
-  --ifm-color-gray-900: #1c1c1c;
+  /* Catppuccin Latte semantic palette, read by scenes and components. */
+  --cc-base: #eff1f5;
+  --cc-mantle: #e6e9ef;
+  --cc-crust: #dce0e8;
+  --cc-surface0: #ccd0da;
+  --cc-surface1: #bcc0cc;
+  --cc-surface2: #acb0be;
+  --cc-overlay0: #9ca0b0;
+  --cc-overlay1: #8c8fa1;
+  --cc-overlay2: #7c7f93;
+  --cc-text: #4c4f69;
+  --cc-subtext1: #5c5f77;
+  --cc-subtext0: #6c6f85;
+  --cc-blue: #1e66f5;
+  --cc-mauve: #8839ef;
+  --cc-teal: #179299;
+  --cc-green: #40a02b;
+  --cc-peach: #fe640b;
+  --cc-yellow: #df8e1d;
+  --cc-red: #d20f39;
+  --cc-lavender: #7287fd;
+  --cc-sky: #04a5e5;
 
-  --ifm-color-secondary-dark: #666666;
-  --ifm-color-success-dark: #99c47a;
-  --ifm-color-info-dark: #68abdf;
-  --ifm-color-warning-dark: #ffc66d;
-  --ifm-color-danger-dark: #ff6470;
+  --ifm-color-gray-100: #eff1f5;
+  --ifm-color-gray-200: #e6e9ef;
+  --ifm-color-gray-300: #dce0e8;
+  --ifm-color-gray-400: #ccd0da;
+  --ifm-color-gray-500: #acb0be;
+  --ifm-color-gray-600: #8c8fa1;
+  --ifm-color-gray-700: #6c6f85;
+  --ifm-color-gray-800: #5c5f77;
+  --ifm-color-gray-900: #4c4f69;
+
+  --ifm-color-secondary-dark: #8c8fa1;
+  --ifm-color-success-dark: #40a02b;
+  --ifm-color-info-dark: #1e66f5;
+  --ifm-color-warning-dark: #df8e1d;
+  --ifm-color-danger-dark: #d20f39;
 
   --ifm-color-secondary-contrast-foreground: var(--ifm-font-color-base);
   --ifm-color-success-contrast-foreground: var(--ifm-font-color-base);
@@ -36,68 +71,119 @@
   --ifm-color-warning-contrast-foreground: var(--ifm-font-color-base);
   --ifm-color-danger-contrast-foreground: var(--ifm-font-color-base);
 
-  --ifm-background-color: #ffffff;
-  --ifm-background-surface-color: #f8f8f8;
+  --ifm-background-color: #eff1f5;
+  --ifm-background-surface-color: #e6e9ef;
   --ifm-footer-background-color: var(--ifm-background-surface-color);
+  --ifm-footer-color: var(--cc-subtext0);
+  --ifm-footer-link-color: var(--cc-subtext1);
+  --ifm-footer-link-hover-color: var(--ifm-color-primary);
+  --ifm-footer-title-color: var(--cc-text);
   --ifm-menu-background-color: var(--ifm-background-surface-color);
-  --ifm-navbar-background-color: rgba(255, 255, 255, 0.7);
+  --ifm-menu-color: var(--cc-subtext1);
+  --ifm-menu-color-active: var(--ifm-color-primary);
+  --ifm-toc-link-color: var(--cc-subtext0);
+  --ifm-navbar-background-color: rgba(239, 241, 245, 0.7);
   --ifm-toc-border-color: var(--ifm-color-emphasis-300);
-  --ifm-color-emphasis-300: rgba(60, 60, 60, 0.12);
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
-  --ifm-code-hover-background: #f0f0f0;
+  --ifm-color-emphasis-300: rgba(76, 79, 105, 0.12);
+  --docusaurus-highlighted-code-line-bg: rgba(76, 79, 105, 0.1);
+  --ifm-code-hover-background: #dce0e8;
   --ifm-hr-background-color: var(--ifm-color-emphasis-300);
 
-  --ifm-global-radius: 4px;
+  /* Infima's `.thin-scrollbar` reads these. */
+  --ifm-scrollbar-size: 9px;
+  --ifm-scrollbar-track-background-color: transparent;
+  --ifm-scrollbar-thumb-background-color: var(--cc-overlay0);
+  --ifm-scrollbar-thumb-hover-background-color: var(--cc-overlay1);
+
+  --ifm-global-radius: 8px;
   --ifm-alert-border-left-width: 4px;
   --ifm-font-family-base:
-    Roboto, Noto Sans, system-ui, -apple-system, Segoe UI, sans-serif;
-  --ifm-font-family-monospace: JetBrains Mono, Consolas, monospace;
+    'IBM Plex Sans', system-ui, -apple-system, Segoe UI, sans-serif;
+  --ifm-heading-font-family:
+    'Space Grotesk', system-ui, -apple-system, Segoe UI, sans-serif;
+  --ifm-font-family-monospace: 'JetBrains Mono', Consolas, monospace;
   --ifm-pre-line-height: 1.6;
 
   --ifm-h3-font-size: 1.5rem;
 
-  --ifm-code-selection-color: #dde8e1;
-  --ifm-code-active-color: rgba(0, 0, 0, 0.04);
-  --hl-color: rgb(57, 58, 52);
+  --ifm-code-selection-color: #ccd0da;
+  --ifm-code-active-color: rgba(76, 79, 105, 0.05);
+  --hl-color: var(--cc-text);
   --hl-background: var(--ifm-background-surface-color);
-  --hl-comment: #999988;
+  --hl-comment: var(--cc-overlay1);
   --hl-comment-style: italic;
-  --hl-keyword: #00009f;
-  --hl-number: #36acaa;
-  --hl-namespace: #f0f;
-  --hl-string: #e3116c;
-  --hl-punctuation: #393a34;
-  --hl-constant: #36acaa;
-  --hl-variable: var(--hl-color);
-  --hl-selector: #00a4db;
-  --hl-tag: #00009f;
-  --hl-function: #d73a49;
-  --hl-class: #00009f;
-  --hl-char: rgb(209, 105, 105);
+  --hl-keyword: var(--cc-mauve);
+  --hl-number: var(--cc-peach);
+  --hl-namespace: var(--cc-mauve);
+  --hl-string: var(--cc-green);
+  --hl-punctuation: var(--cc-overlay2);
+  --hl-constant: var(--cc-peach);
+  --hl-variable: var(--cc-text);
+  --hl-selector: var(--cc-teal);
+  --hl-tag: var(--cc-yellow);
+  --hl-function: var(--cc-blue);
+  --hl-class: var(--cc-yellow);
+  --hl-char: var(--cc-teal);
 }
 
-/* For readability concerns, you should choose a lighter palette in dark mode. */
+/* Dark mode = Catppuccin Mocha. */
 html[data-theme='dark'] {
-  --ifm-color-primary: #25c281;
-  --ifm-color-primary-dark: #21af74;
-  --ifm-color-primary-darker: #1fa56e;
-  --ifm-color-primary-darkest: #1a885a;
-  --ifm-color-primary-light: #29d58e;
-  --ifm-color-primary-lighter: #32d893;
-  --ifm-color-primary-lightest: #4fdda2;
+  --ifm-color-primary: #89b4fa;
+  --ifm-color-primary-dark: #6699f9;
+  --ifm-color-primary-darker: #5a90f9;
+  --ifm-color-primary-darkest: #3b78f7;
+  --ifm-color-primary-light: #a6c6fb;
+  --ifm-color-primary-lighter: #b5d0fc;
+  --ifm-color-primary-lightest: #d8e7fd;
 
-  --ifm-background-color: #242424;
-  --ifm-background-surface-color: #1a1a1a;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
-  --ifm-navbar-background-color: rgba(36, 36, 36, 0.7);
+  --cc-base: #1e1e2e;
+  --cc-mantle: #181825;
+  --cc-crust: #11111b;
+  --cc-surface0: #313244;
+  --cc-surface1: #45475a;
+  --cc-surface2: #585b70;
+  --cc-overlay0: #6c7086;
+  --cc-overlay1: #7f849c;
+  --cc-overlay2: #9399b2;
+  --cc-text: #cdd6f4;
+  --cc-subtext1: #bac2de;
+  --cc-subtext0: #a6adc8;
+  --cc-blue: #89b4fa;
+  --cc-mauve: #cba6f7;
+  --cc-teal: #94e2d5;
+  --cc-green: #a6e3a1;
+  --cc-peach: #fab387;
+  --cc-yellow: #f9e2af;
+  --cc-red: #f38ba8;
+  --cc-lavender: #b4befe;
+  --cc-sky: #89dceb;
+
+  --ifm-color-gray-100: #181825;
+  --ifm-color-gray-200: #1e1e2e;
+  --ifm-color-gray-300: #313244;
+  --ifm-color-gray-400: #45475a;
+  --ifm-color-gray-500: #585b70;
+  --ifm-color-gray-600: #7f849c;
+  --ifm-color-gray-700: #a6adc8;
+  --ifm-color-gray-800: #bac2de;
+  --ifm-color-gray-900: #cdd6f4;
+
+  --ifm-background-color: #1e1e2e;
+  --ifm-background-surface-color: #181825;
+  --docusaurus-highlighted-code-line-bg: rgba(205, 214, 244, 0.06);
+  --ifm-navbar-background-color: rgba(30, 30, 46, 0.7);
   --ifm-code-background: var(--ifm-background-surface-color);
-  --ifm-code-hover-background: #141414;
+  --ifm-code-hover-background: #11111b;
 
-  --ifm-color-secondary-dark: #f8f8f8;
-  --ifm-color-success-dark: #7ac445;
-  --ifm-color-info-dark: #50a0de;
-  --ifm-color-warning-dark: #ffaa00;
-  --ifm-color-danger-dark: #ff3849;
+  --ifm-scrollbar-track-background-color: transparent;
+  --ifm-scrollbar-thumb-background-color: var(--cc-overlay0);
+  --ifm-scrollbar-thumb-hover-background-color: var(--cc-overlay1);
+
+  --ifm-color-secondary-dark: #cdd6f4;
+  --ifm-color-success-dark: #a6e3a1;
+  --ifm-color-info-dark: #89b4fa;
+  --ifm-color-warning-dark: #f9e2af;
+  --ifm-color-danger-dark: #f38ba8;
 
   --ifm-color-secondary-contrast-foreground: var(--ifm-font-color-base);
   --ifm-color-success-contrast-foreground: var(--ifm-font-color-base);
@@ -105,26 +191,26 @@ html[data-theme='dark'] {
   --ifm-color-warning-contrast-foreground: var(--ifm-font-color-base);
   --ifm-color-danger-contrast-foreground: var(--ifm-font-color-base);
 
-  --ifm-color-emphasis-300: rgba(84, 84, 84, 0.48);
+  --ifm-color-emphasis-300: rgba(88, 91, 112, 0.48);
   --ifm-toc-border-color: var(--ifm-color-emphasis-300);
 
-  --ifm-code-selection-color: #2b332f;
-  --ifm-code-active-color: rgba(255, 255, 255, 0.04);
-  --hl-color: #f8f8f8;
-  --hl-comment: rgb(106, 153, 85);
+  --ifm-code-selection-color: #313244;
+  --ifm-code-active-color: rgba(205, 214, 244, 0.05);
+  --hl-color: var(--cc-text);
+  --hl-comment: var(--cc-overlay1);
   --hl-comment-style: italic;
-  --hl-keyword: rgb(86, 156, 214);
-  --hl-number: rgb(181, 206, 168);
-  --hl-namespace: #f0f;
-  --hl-string: rgb(206, 145, 120);
-  --hl-punctuation: rgb(212, 212, 212);
-  --hl-constant: rgb(100, 102, 149);
-  --hl-variable: rgb(156, 220, 254);
-  --hl-selector: rgb(215, 186, 125);
-  --hl-tag: rgb(78, 201, 176);
-  --hl-function: rgb(220, 220, 170);
-  --hl-class: rgb(78, 201, 176);
-  --hl-char: rgb(209, 105, 105);
+  --hl-keyword: var(--cc-mauve);
+  --hl-number: var(--cc-peach);
+  --hl-namespace: var(--cc-mauve);
+  --hl-string: var(--cc-green);
+  --hl-punctuation: var(--cc-overlay2);
+  --hl-constant: var(--cc-peach);
+  --hl-variable: var(--cc-text);
+  --hl-selector: var(--cc-teal);
+  --hl-tag: var(--cc-yellow);
+  --hl-function: var(--cc-blue);
+  --hl-class: var(--cc-yellow);
+  --hl-char: var(--cc-teal);
 }
 
 .alert {
@@ -162,11 +248,11 @@ a.button:hover {
 
 @media screen and (max-width: 996px) {
   :root {
-    --ifm-navbar-background-color: rgb(255, 255, 255);
+    --ifm-navbar-background-color: rgb(239, 241, 245);
   }
 
   html[data-theme='dark'] {
-    --ifm-navbar-background-color: rgb(36, 36, 36);
+    --ifm-navbar-background-color: rgb(30, 30, 46);
   }
 
   .navbar {
@@ -259,4 +345,29 @@ kbd {
   border-radius: var(--ifm-global-radius);
   margin-top: 0.5rem;
   margin-bottom: 0.5rem;
+}
+
+/* CodeMirror's scroller doesn't inherit from `html`, so it needs its own rule. */
+html,
+.cm-scroller {
+  scrollbar-width: thin;
+  scrollbar-color: var(--cc-overlay0) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--cc-overlay0);
+  border-radius: 9px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--cc-overlay1);
 }

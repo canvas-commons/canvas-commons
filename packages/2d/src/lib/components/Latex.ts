@@ -40,12 +40,28 @@ import {Txt} from './Txt';
 const Adaptor = liteAdaptor();
 RegisterHTMLHandler(Adaptor);
 
+const SvgOutputJax = new SVG({fontCache: 'local'});
 const JaxDocument = mathjax.document('', {
   // eslint-disable-next-line @typescript-eslint/naming-convention
   InputJax: new TeX({packages: AllPackages}),
   // eslint-disable-next-line @typescript-eslint/naming-convention
-  OutputJax: new SVG({fontCache: 'local'}),
+  OutputJax: SvgOutputJax,
 });
+
+// MathJax sizes the root <svg> in `ex` of its own font. A browser resolves `ex`
+// from the x-height of the container font, which differs between platforms.
+const EX_TO_EM = SvgOutputJax.font.params.x_height;
+
+function rootExToEm(svg: string): string {
+  const rootTagEnd = svg.indexOf('>') + 1;
+  const rootTag = svg
+    .slice(0, rootTagEnd)
+    .replace(
+      /(-?[\d.]+)ex/g,
+      (_, value: string) => `${Number(value) * EX_TO_EM}em`,
+    );
+  return rootTag + svg.slice(rootTagEnd);
+}
 
 /**
  * How a fragment animates into the fragment that replaced it.
@@ -461,7 +477,7 @@ export class Latex extends SVGNode {
     const src = `${tex}::${JSON.stringify(this.options())}`;
     const svg =
       Latex.svgContentsPool[src] ??
-      Adaptor.innerHTML(JaxDocument.convert(tex, this.options()));
+      rootExToEm(Adaptor.innerHTML(JaxDocument.convert(tex, this.options())));
     Latex.svgContentsPool[src] = svg;
 
     return {svg, error: svg.match(/data-mjx-error="(.*?)"/)?.[1] ?? null};

@@ -19,12 +19,7 @@ export type FlexContent =
   | 'stretch';
 
 export type FlexItems =
-  | 'auto'
-  | 'center'
-  | 'start'
-  | 'end'
-  | 'stretch'
-  | 'baseline';
+  'auto' | 'center' | 'start' | 'end' | 'stretch' | 'baseline';
 
 export type TextWrap = boolean | 'pre';
 

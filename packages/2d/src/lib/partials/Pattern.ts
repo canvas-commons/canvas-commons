@@ -3,11 +3,7 @@ import {computed} from '../decorators/computed';
 import {initial, initializeSignals, signal} from '../decorators/signal';
 
 export type CanvasRepetition =
-  | null
-  | 'repeat'
-  | 'repeat-x'
-  | 'repeat-y'
-  | 'no-repeat';
+  null | 'repeat' | 'repeat-x' | 'repeat-y' | 'no-repeat';
 
 // TODO Support custom transformation matrices
 export interface PatternProps {

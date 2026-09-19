@@ -83,12 +83,7 @@ export type TxtPath = CurveProfile | string | Curve;
  * it directly instead of switching states.
  */
 export type PathAlign =
-  | 'baseline'
-  | 'top'
-  | 'middle'
-  | 'bottom'
-  | 'smooth'
-  | number;
+  'baseline' | 'top' | 'middle' | 'bottom' | 'smooth' | number;
 
 /**
  * Unit the text breaks into when laid on {@link Txt.textPath}: `grapheme`

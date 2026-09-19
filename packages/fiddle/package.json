@@ -1,0 +1,109 @@
+{
+  "name": "@canvas-commons/fiddle",
+  "version": "0.3.1",
+  "private": true,
+  "description": "Browser playground runtime for Canvas Commons",
+  "type": "module",
+  "exports": {
+    "./compiler": {
+      "types": "./lib/compiler.d.ts",
+      "default": "./lib/compiler.js"
+    },
+    "./snippets": {
+      "types": "./lib/snippets.d.ts",
+      "default": "./lib/snippets.js"
+    },
+    "./protocol": {
+      "types": "./lib/protocol.d.ts",
+      "default": "./lib/protocol.js"
+    },
+    "./manifest": {
+      "types": "./lib/manifest.d.ts",
+      "default": "./lib/manifest.js"
+    },
+    "./harness": {
+      "types": "./lib/harness.d.ts",
+      "default": "./lib/harness.js"
+    },
+    "./host": {
+      "types": "./lib/host.d.ts",
+      "default": "./lib/host.js"
+    },
+    "./worker": {
+      "types": "./lib/worker.d.ts",
+      "default": "./lib/worker.js"
+    },
+    "./ts-worker": {
+      "types": "./lib/ts-worker.d.ts",
+      "default": "./lib/ts-worker.js"
+    },
+    "./editor": {
+      "types": "./lib/editor.d.ts",
+      "default": "./lib/editor.js"
+    },
+    "./build-vendor": {
+      "types": "./lib/build-vendor.d.ts",
+      "default": "./lib/build-vendor.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "author": "canvas-commons",
+  "homepage": "https://canvascommons.io/",
+  "bugs": "https://github.com/canvas-commons/canvas-commons/issues",
+  "license": "MIT",
+  "scripts": {
+    "dev": "tsdown --watch",
+    "build": "tsdown",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint:pkg": "publint --strict && attw --pack . --profile esm-only --ignore-rules internal-resolution-error"
+  },
+  "sideEffects": [
+    "./lib/cli.js",
+    "./lib/harness.js",
+    "./lib/worker.js",
+    "./lib/ts-worker.js"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/canvas-commons/canvas-commons.git",
+    "directory": "packages/fiddle"
+  },
+  "files": [
+    "lib"
+  ],
+  "peerDependencies": {
+    "vite": "^8.0.0"
+  },
+  "peerDependenciesMeta": {
+    "vite": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@babel/standalone": "8.0.4",
+    "@canvas-commons/2d": "workspace:^",
+    "@canvas-commons/core": "workspace:^",
+    "@codemirror/autocomplete": "^6.20.3",
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/lang-javascript": "^6.2.5",
+    "@codemirror/language": "^6.12.4",
+    "@codemirror/lint": "^6.9.7",
+    "@codemirror/state": "^6.7.5",
+    "@codemirror/view": "^6.43.12",
+    "@lezer/highlight": "^1.2.0",
+    "@lezer/javascript": "^1.4.13",
+    "@typescript/vfs": "1.6.1",
+    "typescript": "^6.0.2"
+  },
+  "devDependencies": {
+    "@babel/types": "^7.28.4",
+    "@types/node": "catalog:",
+    "jsdom": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

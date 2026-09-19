@@ -5,13 +5,7 @@ export default makeScene2D(function* (view) {
   const circle = createRef<Circle>();
 
   view.add(
-    <Circle
-      // highlight-start
-      ref={circle}
-      size={150}
-      position={[-300, -300]}
-      fill={'#e13238'}
-    />,
+    <Circle ref={circle} size={150} position={[-300, -300]} fill={'#e13238'} />,
   );
 
   circle().save();

@@ -1,9 +1,7 @@
 import {makeScene2D} from '@canvas-commons/2d';
 import {createRef, waitFor} from '@canvas-commons/core';
 import {Switch} from '../components/Switch';
-// see this import for the component ^
 
-// usage of the component:
 export default makeScene2D(function* (view) {
   const switchRef = createRef<Switch>();
 

@@ -4,16 +4,8 @@ import {Color, createRef, easeInOutCubic, tween} from '@canvas-commons/core';
 export default makeScene2D(function* (view) {
   const circle = createRef<Circle>();
 
-  view.add(
-    <Circle
-      //highlight-start
-      ref={circle}
-      width={240}
-      height={240}
-      fill="#e13238"
-    />,
-  );
-  //highlight-start
+  view.add(<Circle ref={circle} width={240} height={240} fill="#e13238" />);
+
   yield* tween(2, value => {
     circle().fill(
       Color.lerp(
@@ -23,5 +15,4 @@ export default makeScene2D(function* (view) {
       ),
     );
   });
-  //highlight-end
 });

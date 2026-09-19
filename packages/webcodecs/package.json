@@ -31,6 +31,7 @@
     "dev": "tsdown --watch",
     "build": "tsdown",
     "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint:pkg": "publint --strict && attw --pack . --profile esm-only --ignore-rules internal-resolution-error"
   },
   "repository": {

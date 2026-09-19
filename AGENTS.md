@@ -39,6 +39,9 @@ pnpm -r build
 # Run tests
 pnpm -r test
 
+# Type-check sources and tests
+pnpm typecheck
+
 # Build one package
 pnpm core:build
 
@@ -72,8 +75,8 @@ pnpm lint:packages
 ```
 
 At minimum, core and 2d packages should build and bundle, the examples should
-compile, e2e tests should succeed, and the documentation website should build
-before merging any changes.
+compile, sources and tests should type-check, e2e tests should succeed, and the
+documentation website should build before merging any changes.
 
 ## Project Standards
 

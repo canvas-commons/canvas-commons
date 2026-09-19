@@ -7,6 +7,7 @@
     "prepare": "husky",
     "build": "pnpm --filter @canvas-commons/2d --filter @canvas-commons/core --filter @canvas-commons/ffmpeg --filter @canvas-commons/player --filter @canvas-commons/editor --filter @canvas-commons/vite-plugin --filter @canvas-commons/webcodecs run build",
     "test": "pnpm --filter @canvas-commons/2d --filter @canvas-commons/core --filter @canvas-commons/webcodecs run test",
+    "typecheck": "pnpm --filter @canvas-commons/2d --filter @canvas-commons/core --filter @canvas-commons/e2e --filter @canvas-commons/vite-plugin --filter @canvas-commons/webcodecs run typecheck",
     "core:dev": "pnpm --filter @canvas-commons/core run dev",
     "core:build": "pnpm --filter @canvas-commons/core run build",
     "core:test": "pnpm --filter @canvas-commons/core run test",

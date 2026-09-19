@@ -5,6 +5,7 @@
     "strictNullChecks": false,
     "module": "esnext",
     "target": "es2020",
+    "lib": ["es2020", "es2022.intl", "dom", "dom.iterable"],
     "allowJs": true,
     "noEmit": true,
     "moduleResolution": "bundler",

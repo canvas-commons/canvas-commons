@@ -26,6 +26,11 @@ const PLUGINS = {
     options: response =>
       response.language === 'js' ? `{project: './src/project.js'}` : '',
   },
+  webcodecs: {
+    package: '@canvas-commons/webcodecs',
+    variable: 'webcodecs',
+    version: '*',
+  },
   ffmpeg: {
     package: '@canvas-commons/ffmpeg',
     variable: 'ffmpeg',
@@ -122,9 +127,14 @@ const PLUGINS = {
           selected: true,
         },
         {
-          title: 'Video (FFmpeg)',
-          value: 'ffmpeg',
+          title: 'Video (WebCodecs)',
+          value: 'webcodecs',
+          description: 'Needs a recent Chromium or Firefox browser.',
           selected: true,
+        },
+        {
+          title: 'Video (FFmpeg, deprecated)',
+          value: 'ffmpeg',
         },
       ],
       warn: 'This option is always included.',
@@ -178,6 +188,14 @@ const PLUGINS = {
     path.join(response.path, 'package.json'),
     JSON.stringify(manifest, undefined, 2),
   );
+
+  if (response.plugins.includes('ffmpeg')) {
+    console.log(
+      kleur.yellow(
+        '! The FFmpeg exporter is deprecated. Use @canvas-commons/webcodecs instead.',
+      ),
+    );
+  }
 
   const manager = getPackageManager();
   console.log(kleur.green('\n√ Scaffolding complete. You can now run:'));

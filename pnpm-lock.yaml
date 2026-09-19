@@ -205,6 +205,9 @@ importers:
       '@canvas-commons/vite-plugin':
         specifier: workspace:^
         version: link:../vite-plugin
+      '@canvas-commons/webcodecs':
+        specifier: workspace:^
+        version: link:../webcodecs
 
   packages/docs:
     dependencies:

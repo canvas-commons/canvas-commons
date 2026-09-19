@@ -53,14 +53,17 @@ export async function openScene(sceneName: string): Promise<Page> {
  * @param frame - Scene-local export frame index (matches image-sequence filenames
  * with `groupByScene: true`). Negative values count back from the last frame
  * (`-1` is the final frame).
+ * @param resolutionScale - Multiplier applied to the project's configured size.
+ * Pass `1` to render at the project's own size.
  */
 export async function renderFrame(
   page: Page,
   sceneName: string,
   frame: number,
+  resolutionScale: number = TEST_RENDER_RESOLUTION_SCALE,
 ): Promise<Buffer> {
   if (frame < 0) {
-    return await renderRelativeFrame(page, sceneName, frame);
+    return await renderRelativeFrame(page, sceneName, frame, resolutionScale);
   }
 
   const target = await resolveExportFrame(page, sceneName, frame);
@@ -92,7 +95,7 @@ export async function renderFrame(
       globalFrame: target.globalFrame,
       exporterId: IMAGE_SEQUENCE_EXPORTER_ID,
       exporterOptions: {...TEST_RENDER_IMAGE_EXPORTER_OPTIONS},
-      resolutionScale: TEST_RENDER_RESOLUTION_SCALE,
+      resolutionScale,
     },
   );
 
@@ -104,6 +107,7 @@ async function renderRelativeFrame(
   page: Page,
   sceneName: string,
   frame: number,
+  resolutionScale: number,
 ): Promise<Buffer> {
   const outputDir = path.join(OutputRoot, sceneName, sceneName);
   await fs.promises.rm(outputDir, {recursive: true, force: true});
@@ -126,7 +130,7 @@ async function renderRelativeFrame(
     {
       exporterId: IMAGE_SEQUENCE_EXPORTER_ID,
       exporterOptions: {...TEST_RENDER_IMAGE_EXPORTER_OPTIONS},
-      resolutionScale: TEST_RENDER_RESOLUTION_SCALE,
+      resolutionScale,
     },
   );
 

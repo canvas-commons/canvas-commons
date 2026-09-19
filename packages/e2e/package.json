@@ -7,7 +7,8 @@
     "dev": "vite",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test:docker": "node scripts/test-docker.mjs"
+    "test:docker": "node scripts/test-docker.mjs",
+    "render:social-card": "node scripts/render-social-card.mjs"
   },
   "dependencies": {
     "@canvas-commons/2d": "workspace:^",

@@ -2,6 +2,20 @@ import {Browser, firefox, Page} from 'playwright';
 import {inject} from 'vitest';
 
 let BrowserPromise: Promise<Browser> | null = null;
+let BrowserWsEndpointOverride: string | null = null;
+let VitePortOverride: number | null = null;
+
+/**
+ * Point the shared browser and dev server at instances the caller manages, for
+ * render scripts that run outside a vitest worker and cannot use `inject()`.
+ */
+export function useStandaloneServer(
+  vitePort: number,
+  browserWsEndpoint: string,
+): void {
+  VitePortOverride = vitePort;
+  BrowserWsEndpointOverride = browserWsEndpoint;
+}
 
 export interface PageOptions {
   /**
@@ -18,12 +32,14 @@ export interface PageOptions {
 }
 
 export async function getSharedBrowser(): Promise<Browser> {
-  BrowserPromise ??= firefox.connect(inject('browserWsEndpoint'));
+  BrowserPromise ??= firefox.connect(
+    BrowserWsEndpointOverride ?? inject('browserWsEndpoint'),
+  );
   return BrowserPromise;
 }
 
 export function baseUrl(): string {
-  return `http://localhost:${inject('vitePort')}`;
+  return `http://localhost:${VitePortOverride ?? inject('vitePort')}`;
 }
 
 export async function newPage(options: PageOptions = {}): Promise<Page> {

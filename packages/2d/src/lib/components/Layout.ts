@@ -54,6 +54,7 @@ import {
   LayoutMode,
   Length,
   LengthLimit,
+  OverflowWrap,
   TextAlign,
   TextWrap,
   VerticalAlign,
@@ -153,6 +154,7 @@ export interface LayoutProps extends NodeProps {
   textAlign?: SignalValue<TextAlign>;
   verticalAlign?: SignalValue<VerticalAlign>;
   wordBreak?: SignalValue<WordBreak>;
+  overflowWrap?: SignalValue<OverflowWrap>;
 
   size?: SignalValue<PossibleVector2<Length>>;
   anchorX?: SignalValue<number>;
@@ -385,6 +387,23 @@ export class Layout extends Node {
   @defaultStyle('normal')
   @signal()
   declare public readonly wordBreak: SimpleSignal<WordBreak, this>;
+  /**
+   * What a word wider than its box does: overflow it (`'normal'`, the default)
+   * or break at a grapheme (`'anywhere'`).
+   *
+   * @remarks
+   * Under `'normal'` a `Txt` never shrinks below its widest unbreakable run, so
+   * a long word pushes past the box the way CSS does. `'anywhere'` drops that
+   * floor to a single grapheme.
+   *
+   * @example
+   * ```tsx
+   * <Txt width={80} overflowWrap={'anywhere'}>incomprehensible</Txt>
+   * ```
+   */
+  @defaultStyle('normal')
+  @signal()
+  declare public readonly overflowWrap: SimpleSignal<OverflowWrap, this>;
 
   protected getX(): number {
     if (this.isLayoutRoot()) {
@@ -1436,6 +1455,7 @@ export class Layout extends Node {
     this.textWrap();
     this.textAlign();
     this.wordBreak();
+    this.overflowWrap();
   }
 
   /**

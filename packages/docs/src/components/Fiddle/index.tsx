@@ -31,10 +31,14 @@ export interface FiddleProps {
   children: string;
   mode?: 'code' | 'editor' | 'preview';
   ratio?: string;
+  width?: string;
 }
 
 /** How far outside the viewport a fiddle keeps its iframe and worker. */
 const RETAIN_MARGIN = '50% 0px';
+
+/** Scene width in canvas units, which the ratio turns into a scene height. */
+const DEFAULT_WIDTH = 960;
 
 /** An editable docs example with isolated playback and a shared language service. */
 export default function Fiddle({
@@ -42,6 +46,7 @@ export default function Fiddle({
   className,
   mode: initialMode = 'editor',
   ratio = '4',
+  width,
 }: FiddleProps) {
   const manifest = useFiddleManifest();
   const id = useId();
@@ -74,10 +79,15 @@ export default function Fiddle({
   const visibleRef = useRef(false);
 
   const parsedRatio = useMemo(() => {
-    const [width, height = '1'] = ratio.split('/');
-    const value = Number(width) / Number(height);
+    const [numerator, denominator = '1'] = ratio.split('/');
+    const value = Number(numerator) / Number(denominator);
     return Number.isFinite(value) && value > 0 ? value : 4;
   }, [ratio]);
+
+  const renderWidth = useMemo(() => {
+    const value = Number(width);
+    return Number.isFinite(value) && value > 0 ? value : DEFAULT_WIDTH;
+  }, [width]);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -142,8 +152,8 @@ export default function Fiddle({
       host = createFiddleHost({
         container: previewParent,
         manifest,
-        width: 960,
-        height: Math.round(960 / parsedRatio),
+        width: renderWidth,
+        height: Math.round(renderWidth / parsedRatio),
         onState: setPaused,
         onFrame: setFrame,
         onDuration: value => {
@@ -217,7 +227,7 @@ export default function Fiddle({
       setDuration(null);
       setError(null);
     };
-  }, [mounted, manifest, parsedRatio, snippets, id]);
+  }, [mounted, manifest, parsedRatio, renderWidth, snippets, id]);
 
   const updatePreview = () => {
     const source = editorRef.current?.getValue();

@@ -170,4 +170,9 @@ export const testFrames: Record<string, TestFrame[]> = {
     {frame: 60, label: 'mid'},
     {frame: -1, label: 'final'},
   ],
+  'text-layout': [
+    {frame: 0, label: 'initial'},
+    {frame: 45, label: 'grown'},
+    {frame: -1, label: 'final'},
+  ],
 };

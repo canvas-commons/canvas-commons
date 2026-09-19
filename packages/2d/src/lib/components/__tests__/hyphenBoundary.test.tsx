@@ -4,6 +4,7 @@ import {Txt} from '../Txt';
 import {generatorTest} from './generatorTest';
 import {mockScene2D} from './mockScene2D';
 import {mockTextContext} from './mockTextContext';
+import {lineTexts} from './sceneFixtures';
 
 function charWidth(ch: string): number {
   if (ch === '­') return 0;
@@ -23,12 +24,6 @@ function hyphenateWord(word: string): string[] {
     parts.push(word.slice(i, i + 4));
   }
   return parts;
-}
-
-function lineTexts(txt: Txt): string[] {
-  return txt
-    .textLines()
-    .lines.map(line => line.fragments.map(f => f.text).join(''));
 }
 
 describe('hyphenated tween completion boundary', () => {

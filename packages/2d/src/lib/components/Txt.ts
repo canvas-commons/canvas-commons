@@ -28,7 +28,7 @@ import {Segment} from '../curves/Segment';
 import {getPathProfile} from '../curves/getPathProfile';
 import {computed, initial, nodeName, signal} from '../decorators';
 import {CanvasStyle} from '../partials';
-import type {TextExclusion} from '../partials/types';
+import type {TextExclusion, TextWrap, WordBreak} from '../partials/types';
 import {useScene2D} from '../scenes/useScene2D';
 import {
   Interval,
@@ -42,6 +42,7 @@ import {
   getRectIntervalsForBand,
   knuthPlass,
   materializeRichInlineLineRange,
+  measureMinContentWidth,
   measureRichInlineStats,
   prepareRichInline,
   resolveLineHeight,
@@ -364,7 +365,10 @@ type LineBreakOffset = {
   hyphen: boolean;
 };
 
-type PreparedLayout =
+type PreparedLayout = {
+  /** Narrowest width that never splits a word, in pretext-space pixels. */
+  minContentWidth: number;
+} & (
   | {
       kind: 'rich';
       groups: RichGroup[];
@@ -375,7 +379,8 @@ type PreparedLayout =
       kind: 'simple';
       prepared: PreparedTextWithSegments;
       style: FragmentStyle;
-    };
+    }
+);
 
 @nodeName('Txt')
 export class Txt extends Shape {
@@ -1254,18 +1259,66 @@ export class Txt extends Shape {
         wordBreak,
         letterSpacing: styles[0].letterSpacing || undefined,
       });
-      return {kind: 'simple', prepared, style: styles[0]};
+      return {
+        kind: 'simple',
+        prepared,
+        style: styles[0],
+        minContentWidth:
+          wrap === false
+            ? measureNaturalWidth(prepared)
+            : measureMinContentWidth(prepared),
+      };
     }
-    const groups = buildRichGroups(prepItems, wrap);
+    const groups = buildRichGroups(prepItems, wrap).map(g => ({
+      prepared: g.items.length > 0 ? prepareRichInline(g.items) : null,
+      itemMap: g.itemMap,
+    }));
     return {
       kind: 'rich',
-      groups: groups.map(g => ({
-        prepared: g.items.length > 0 ? prepareRichInline(g.items) : null,
-        itemMap: g.itemMap,
-      })),
+      groups,
       styles,
       inlines,
+      minContentWidth:
+        wrap === false
+          ? measureGroupStats(
+              groups.map(g => g.prepared),
+              Number.POSITIVE_INFINITY,
+            ).maxLineWidth
+          : this.measureItemMinContent(prepItems, wrap, wordBreak),
     };
+  }
+
+  // Rich-item boundaries are legal line-break positions.
+  private measureItemMinContent(
+    items: RichInlineItem[],
+    wrap: TextWrap,
+    wordBreak: WordBreak,
+  ): number {
+    let widest = 0;
+    for (const item of items) {
+      let width: number;
+      if (item.break === 'never') {
+        width =
+          this.measurePlaceholderWidth(item.font) + (item.extraWidth ?? 0);
+      } else {
+        const {text, whiteSpace} = prepareTextForWrapMode(item.text, wrap);
+        width = measureMinContentWidth(
+          prepareWithSegments(text, item.font, {
+            whiteSpace,
+            wordBreak,
+            letterSpacing: item.letterSpacing,
+          }),
+        );
+      }
+      if (width > widest) widest = width;
+    }
+    return widest;
+  }
+
+  @computed()
+  protected override minContentWidth(): number {
+    const floor = this.preparedLayout()?.minContentWidth ?? 0;
+    return floor + this.padding.left() + this.padding.right();
   }
 
   /**

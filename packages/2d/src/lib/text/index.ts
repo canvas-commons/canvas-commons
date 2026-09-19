@@ -21,5 +21,6 @@ export type {
 } from '@chenglou/pretext/rich-inline';
 export * from './font';
 export * from './knuthPlass';
+export * from './minContentWidth';
 export * from './segmenter';
 export * from './wrapGeometry';

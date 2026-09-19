@@ -5,12 +5,7 @@ import {HyphenateFn, Txt} from '../Txt';
 import {generatorTest} from './generatorTest';
 import {mockScene2D} from './mockScene2D';
 import {mockTextContext} from './mockTextContext';
-
-function lineTexts(txt: Txt): string[] {
-  return txt
-    .textLines()
-    .lines.map(line => line.fragments.map(f => f.text).join(''));
-}
+import {lineTexts} from './sceneFixtures';
 
 function wordPositions(txt: Txt): number[] {
   return txt.textWords().map(word => word.x);

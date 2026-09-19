@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build --base /examples/"
+    "build": "tsc && vite build --base /examples/",
+    "test": "vitest run"
   },
   "dependencies": {
     "@canvas-commons/2d": "workspace:^",
@@ -15,6 +16,9 @@
   "devDependencies": {
     "@canvas-commons/editor": "workspace:^",
     "@canvas-commons/vite-plugin": "workspace:^",
-    "vite": "catalog:"
+    "geometry-polyfill": "^1.0.7",
+    "jsdom": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
   }
 }

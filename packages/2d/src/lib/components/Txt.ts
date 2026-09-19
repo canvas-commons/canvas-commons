@@ -918,11 +918,15 @@ export class Txt extends Shape {
     // Yoga caches measure-func results until the node is marked dirty, so a
     // change to any measurement input has to bust the cache.
     const prepared = this.preparedLayout();
+    const wrapMode = this.wrapMode();
     const key: unknown[] = [
       prepared,
       this.resolvedLineHeight(),
-      this.wrapMode(),
+      wrapMode,
       this.exclusions(),
+      // Knuth-Plass line breaking depends on whether the line will be
+      // justified; other wrap modes only use textAlign to render, not break.
+      wrapMode === 'knuth-plass' ? this.textAlign() : null,
     ];
     if (prepared?.kind === 'rich') {
       for (const inline of prepared.inlines) {
@@ -1421,6 +1425,7 @@ export class Txt extends Shape {
       const kpLines = knuthPlass(prepared, maxWidth, {
         normalSpaceWidth,
         hyphenWidth,
+        justified: this.textAlign() === 'justify',
       });
       for (const line of kpLines) {
         lines.push({

@@ -14,10 +14,11 @@ import type {PreparedTextWithSegments} from '@chenglou/pretext';
  * The soft-hyphen character (U+00AD). Invisible in most editors.
  */
 export const SOFT_HYPHEN = '­';
-const HUGE_BADNESS = 1e8;
 const RIVER_THRESHOLD = 1.5;
 const INFEASIBLE_SPACE_RATIO = 0.4;
 const TIGHT_SPACE_RATIO = 0.65;
+/** Same fit tolerance as pretext's greedy pass, so float noise cannot fail a line. */
+const LINE_FIT_EPSILON = 0.005;
 
 type BreakCandidate = {
   segIndex: number;
@@ -45,35 +46,67 @@ export type KnuthPlassLine = {
 export type KnuthPlassOptions = {
   normalSpaceWidth: number;
   hyphenWidth: number;
+  /**
+   * Whether the renderer will justify these lines. Only a justified line may
+   * plan spaces shrunk below their normal width.
+   */
+  justified: boolean;
 };
 
 function isSpaceText(text: string): boolean {
   return text.length > 0 && text.trim().length === 0;
 }
 
-function lineBadness(
+/** Overflow in pixels past `maxWidth`, then badness among paths that tie. */
+type Cost = {
+  overflow: number;
+  badness: number;
+};
+
+/** Whether `a` beats `b`: less overflow, or equal overflow and less badness. */
+function isBetter(a: Cost, b: Cost): boolean {
+  return a.overflow !== b.overflow
+    ? a.overflow < b.overflow
+    : a.badness < b.badness;
+}
+
+function addCost(a: Cost, b: Cost): Cost {
+  return {overflow: a.overflow + b.overflow, badness: a.badness + b.badness};
+}
+
+/**
+ * Pixels past `maxWidth` as the renderer draws the line: at natural width for
+ * the last line and for unjustified text, otherwise with its spaces at the
+ * shrink limit.
+ */
+function lineOverflow(
   stats: LineStats,
   maxWidth: number,
   normalSpaceWidth: number,
   isLast: boolean,
+  justified: boolean,
 ): number {
-  if (isLast) {
-    if (stats.wordWidth > maxWidth) return HUGE_BADNESS;
-    return 0;
-  }
+  const drawnWidth =
+    isLast || !justified
+      ? stats.naturalWidth
+      : stats.wordWidth +
+        stats.spaceCount * normalSpaceWidth * INFEASIBLE_SPACE_RATIO;
+  const overflow = drawnWidth - maxWidth;
+  return overflow > LINE_FIT_EPSILON ? overflow : 0;
+}
 
+/** Ranks lines that already fit; never called on an overflowing line. */
+function lineBadness(
+  stats: LineStats,
+  maxWidth: number,
+  normalSpaceWidth: number,
+): number {
   if (stats.spaceCount <= 0) {
     const slack = maxWidth - stats.wordWidth;
-    if (slack < 0) return HUGE_BADNESS;
     return slack * slack * 10;
   }
 
   const justifiedSpace = (maxWidth - stats.wordWidth) / stats.spaceCount;
-  if (justifiedSpace < 0) return HUGE_BADNESS;
-  if (justifiedSpace < normalSpaceWidth * INFEASIBLE_SPACE_RATIO) {
-    return HUGE_BADNESS;
-  }
-
   const ratio = (justifiedSpace - normalSpaceWidth) / normalSpaceWidth;
   const absRatio = Math.abs(ratio);
   const badness = absRatio * absRatio * absRatio * 1000;
@@ -93,6 +126,27 @@ function lineBadness(
 
   const hyphenPenalty = stats.trailingMarker === 'soft-hyphen' ? 50 : 0;
   return badness + riverPenalty + tightPenalty + hyphenPenalty;
+}
+
+function lineCost(
+  stats: LineStats,
+  maxWidth: number,
+  normalSpaceWidth: number,
+  isLast: boolean,
+  justified: boolean,
+): Cost {
+  const overflow = lineOverflow(
+    stats,
+    maxWidth,
+    normalSpaceWidth,
+    isLast,
+    justified,
+  );
+  if (overflow > 0 || isLast) {
+    // Overflow outranks badness, and the last line is never justified.
+    return {overflow, badness: 0};
+  }
+  return {overflow: 0, badness: lineBadness(stats, maxWidth, normalSpaceWidth)};
 }
 
 type SegmentPrefix = {
@@ -236,14 +290,18 @@ function solveChunk(
   candidates.push({segIndex: chunkEnd, kind: 'end'});
 
   const count = candidates.length;
-  const dp: number[] = new Array(count).fill(Infinity);
+  const dp: Cost[] = new Array(count).fill({
+    overflow: Infinity,
+    badness: Infinity,
+  });
   const previous: number[] = new Array(count).fill(-1);
-  dp[0] = 0;
+  dp[0] = {overflow: 0, badness: 0};
 
   for (let to = 1; to < count; to++) {
     const isLast = candidates[to].kind === 'end';
+    let spaceBreakInside = false;
     for (let from = to - 1; from >= 0; from--) {
-      if (!isFinite(dp[from])) continue;
+      if (!isFinite(dp[from].overflow)) continue;
       const stats = getLineStats(
         segments,
         prefix,
@@ -253,30 +311,30 @@ function solveChunk(
         opts.hyphenWidth,
         opts.normalSpaceWidth,
       );
-      // The end candidate must always be reachable: skipping it on width
-      // grounds would orphan the trailing tokens during reconstruction.
-      if (!isLast && stats.naturalWidth > maxWidth * 2) break;
-      const total =
-        dp[from] + lineBadness(stats, maxWidth, opts.normalSpaceWidth, isLast);
-      if (total < dp[to]) {
+      const cost = lineCost(
+        stats,
+        maxWidth,
+        opts.normalSpaceWidth,
+        isLast,
+        opts.justified,
+      );
+      const total = addCost(dp[from], cost);
+      if (isBetter(total, dp[to])) {
         dp[to] = total;
         previous[to] = from;
       }
+      // A span drawn this far past the node loses to its own split at an
+      // inner space. A split at a soft hyphen adds the hyphen's width, so it
+      // proves nothing. The nearest span is scored before this exit, so every
+      // candidate stays reachable.
+      if (!isLast && spaceBreakInside && cost.overflow > maxWidth) break;
+      spaceBreakInside ||= candidates[from].kind === 'space';
     }
-  }
-
-  if (count > 1 && previous[count - 1] === -1) {
-    previous[count - 1] = count - 2;
-    dp[count - 1] = isFinite(dp[count - 2]) ? dp[count - 2] : 0;
   }
 
   const breakIndices: number[] = [];
   let cur = count - 1;
   while (cur > 0) {
-    if (previous[cur] === -1) {
-      cur--;
-      continue;
-    }
     breakIndices.push(cur);
     cur = previous[cur];
   }

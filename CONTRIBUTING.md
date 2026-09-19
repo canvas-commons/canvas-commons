@@ -56,6 +56,20 @@ The CLI walks you through picking which packages to bump, the bump type
 the generated file under `.changeset/` alongside your changes. Internal-only
 work (refactors, tests, CI tweaks) doesn't need one.
 
+### Release channels
+
+| npm dist-tag    | Source                                     | Example version             |
+| --------------- | ------------------------------------------ | --------------------------- |
+| `latest`        | Merge of the "version packages" PR         | `0.4.0`                     |
+| `next`          | Every push to `main` with pending changes  | `0.4.0-next-20260919193251` |
+| `rc`, `beta`, … | "version packages" PR while in pre mode    | `0.4.0-rc.0`                |
+| Any other tag   | Manual run of the "Release (snapshot)" job | `0.4.0-my-tag-…`            |
+
+Maintainers start a prerelease series with `pnpm changeset pre enter rc` and end
+it with `pnpm changeset pre exit`; commit the resulting `.changeset/pre.json`
+change to `main`. While the series is open, the "version packages" PR produces
+prerelease versions under that tag, and `next` snapshots pause.
+
 ## Making a Pull Request
 
 1. Fork the canvas-commons/canvas-commons repo.

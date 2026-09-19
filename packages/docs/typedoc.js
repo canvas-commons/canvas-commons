@@ -156,7 +156,10 @@ async function parseTypes(options, projectName, externalProject) {
   // Skip TypeDoc's default `TypeDocReader`; it auto-discovers `./typedoc.js`
   // which is this file, not a typedoc config. Loading the TSConfigReader is
   // still needed so typedoc honors `options.tsconfig`.
-  const app = await Application.bootstrap(options, [new TSConfigReader()]);
+  const app = await Application.bootstrap(
+    {...options, treatWarningsAsErrors: true},
+    [new TSConfigReader()],
+  );
 
   app.converter.addUnknownSymbolResolver(ref => {
     const name = ref.symbolReference.path[0].path;
@@ -178,6 +181,9 @@ async function parseTypes(options, projectName, externalProject) {
           }
         }
 
+        if (reference?.flags?.isPrivate || reference?.flags?.isProtected) {
+          return reference.sources?.[0]?.url;
+        }
         return reference?.href;
       }
     }
@@ -186,7 +192,11 @@ async function parseTypes(options, projectName, externalProject) {
   });
 
   const project = await app.convert();
-  if (!project) return null;
+  if (!project || app.logger.hasErrors()) {
+    throw new Error(
+      `TypeDoc failed for ${projectName}; see diagnostics above.`,
+    );
+  }
 
   const hasOwnPage = [
     ReflectionKind.Module,
@@ -359,11 +369,10 @@ async function parseTypes(options, projectName, externalProject) {
         obj.contentId = getContentName(project.id, promises.length);
         mdContents.push(obj.contentId);
         promises.push(
-          fs.promises.writeFile(
+          writeComment(
             `./src/generated/markdown/${obj.contentId}.md`,
-            partsToMarkdown(item.content),
+            item.content,
           ),
-          'utf8',
         );
       }
 
@@ -372,11 +381,10 @@ async function parseTypes(options, projectName, externalProject) {
         obj.summaryId = getContentName(project.id, promises.length);
         mdContents.push(obj.summaryId);
         promises.push(
-          fs.promises.writeFile(
+          writeComment(
             `./src/generated/markdown/${obj.summaryId}.md`,
-            partsToMarkdown(item.summary),
+            item.summary,
           ),
-          'utf8',
         );
       }
       return obj;
@@ -417,6 +425,10 @@ function partsToMarkdown(parts) {
       return part.text;
     })
     .join('');
+}
+
+async function writeComment(fileName, parts) {
+  await fs.promises.writeFile(fileName, partsToMarkdown(parts), 'utf8');
 }
 
 function partsToText(parts) {

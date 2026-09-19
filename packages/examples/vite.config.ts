@@ -39,6 +39,7 @@ export default defineConfig({
         './src/text-wrap-tween.ts',
         './src/home-reel.ts',
         './src/logo.ts',
+        './src/social-card.ts',
       ],
     }),
   ],

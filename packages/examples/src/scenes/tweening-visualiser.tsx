@@ -17,11 +17,9 @@ import {
 } from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
-  // Signals
   const time = createSignal(0);
   const value = createSignal(0);
 
-  // Animation time
   const TIME = 3.5;
 
   view.add(

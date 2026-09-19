@@ -6,7 +6,6 @@ export default makeScene2D(function* (view) {
 
   view.add(
     <Circle
-      //highlight-start
       ref={circle}
       x={-300}
       y={200}
@@ -15,7 +14,7 @@ export default makeScene2D(function* (view) {
       fill="#e13238"
     />,
   );
-  //highlight-start
+
   yield* tween(2, value => {
     circle().position(
       Vector2.arcLerp(
@@ -25,5 +24,4 @@ export default makeScene2D(function* (view) {
       ),
     );
   });
-  //highlight-end
 });

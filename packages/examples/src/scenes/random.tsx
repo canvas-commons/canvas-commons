@@ -9,7 +9,6 @@ import {
 } from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
-  // highlight-next-line
   const random = useRandom();
   const rects: Rect[] = [];
 
@@ -32,7 +31,6 @@ export default makeScene2D(function* (view) {
       0.04,
       ...rects.map(rect =>
         all(
-          // highlight-next-line
           rect.size.y(random.nextInt(100, 200), 0.5).to(10, 0.5),
           rect.fill('#e6a700', 0.5).to('#e13238', 0.5),
         ),

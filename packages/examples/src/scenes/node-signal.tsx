@@ -2,10 +2,8 @@ import {Circle, Line, Txt, makeScene2D} from '@canvas-commons/2d';
 import {Vector2, createSignal, waitFor} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
-  // highlight-start
   const radius = createSignal(3);
   const area = createSignal(() => Math.PI * radius() * radius());
-  // highlight-end
 
   const scale = 100;
   const textStyle = {
@@ -19,18 +17,12 @@ export default makeScene2D(function* (view) {
   view.add(
     <>
       <Circle
-        // highlight-start
         width={() => radius() * scale * 2}
         height={() => radius() * scale * 2}
-        // highlight-end
         fill={'#e13238'}
       />
       <Line
-        points={[
-          Vector2.zero,
-          // highlight-next-line
-          () => Vector2.right.scale(radius() * scale),
-        ]}
+        points={[Vector2.zero, () => Vector2.right.scale(radius() * scale)]}
         lineDash={[20, 20]}
         startArrow
         endArrow
@@ -39,18 +31,14 @@ export default makeScene2D(function* (view) {
         stroke={'#242424'}
       />
       <Txt
-        // highlight-start
         text={() => `r = ${radius().toFixed(2)}`}
         x={() => (radius() * scale) / 2}
-        // highlight-end
         fill={'#242424'}
         {...textStyle}
       />
       <Txt
-        // highlight-start
         text={() => `A = ${area().toFixed(2)}`}
         y={() => radius() * scale}
-        // highlight-end
         fill={'#e13238'}
         {...textStyle}
       />

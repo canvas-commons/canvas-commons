@@ -247,6 +247,10 @@ export interface LayoutProps extends NodeProps {
   clip?: SignalValue<boolean>;
 }
 
+function isRowDirection(direction: FlexDirection): boolean {
+  return direction === 'row' || direction === 'row-reverse';
+}
+
 @nodeName('Layout')
 export class Layout extends Node {
   @initial(null)
@@ -278,6 +282,21 @@ export class Layout extends Node {
   @initial(null)
   @signal()
   declare public readonly maxHeight: SimpleSignal<LengthLimit, this>;
+  /**
+   * The smallest width flex may shrink this node to.
+   *
+   * @remarks
+   * Left unset, a flex item of a row keeps room for its narrowest possible
+   * content, capped by its own `width` and `maxWidth`. Set `0` to let it
+   * shrink past that, as CSS `min-width: 0` does.
+   *
+   * @example
+   * ```tsx
+   * <Layout layout width={420}>
+   *   <Layout minWidth={0}>{...}</Layout>
+   * </Layout>
+   * ```
+   */
   @initial(null)
   @signal()
   declare public readonly minWidth: SimpleSignal<LengthLimit, this>;
@@ -1111,8 +1130,9 @@ export class Layout extends Node {
     }
   }
 
+  /** Descendants that take part in this node's flex layout, in order. */
   @computed()
-  protected applyLayout(): Layout[] {
+  protected participatingChildren(): Layout[] {
     const queue = [...this.children()];
     const result: Layout[] = [];
     while (queue.length) {
@@ -1125,6 +1145,12 @@ export class Layout extends Node {
         queue.unshift(...child.children());
       }
     }
+    return result;
+  }
+
+  @computed()
+  protected applyLayout(): Layout[] {
+    const result = this.participatingChildren();
 
     for (let i = this.yogaNode.getChildCount() - 1; i >= 0; i--) {
       this.yogaNode.removeChild(this.yogaNode.getChild(i));
@@ -1248,6 +1274,95 @@ export class Layout extends Node {
     this.position(this.position().add(newOffset).sub(oldOffset));
   }
 
+  /**
+   * Width of this subtree below which its content cannot be laid out, with
+   * this node's horizontal padding. Leaves with intrinsic content override it.
+   */
+  @computed()
+  protected minContentWidth(): number {
+    const padding = this.padding.left() + this.padding.right();
+    const children = this.participatingChildren();
+    if (children.length === 0) {
+      return padding;
+    }
+
+    let content = 0;
+    if (isRowDirection(this.direction()) && this.wrap() === 'nowrap') {
+      for (const child of children) {
+        content += child.minContentContribution();
+      }
+      const gap = this.gap.x();
+      if (typeof gap === 'number') {
+        content += gap * (children.length - 1);
+      }
+    } else {
+      for (const child of children) {
+        content = Math.max(content, child.minContentContribution());
+      }
+    }
+
+    return content + padding;
+  }
+
+  /**
+   * Outer min-content width this node contributes to its flex parent. A
+   * declared width replaces the content measurement; a percentage one cannot
+   * be resolved yet and contributes nothing.
+   */
+  @computed()
+  protected minContentContribution(): number {
+    const width = this.desiredSize().x;
+    let content = 0;
+    if (typeof width === 'number') {
+      content = width;
+    } else if (width === null) {
+      content = this.minContentWidth();
+    }
+
+    const max = this.maxWidth();
+    if (typeof max === 'number') {
+      content = Math.min(content, max);
+    }
+    const min = this.minWidth();
+    if (typeof min === 'number') {
+      content = Math.max(content, min);
+    }
+
+    return content + this.margin.left() + this.margin.right();
+  }
+
+  /**
+   * The `minWidth` handed to yoga. A flex item of a row gets the automatic
+   * minimum of CSS `min-width: auto` when the user declared none.
+   */
+  protected resolvedMinWidth(): LengthLimit {
+    const declared = this.minWidth();
+    if (declared !== null) {
+      return declared;
+    }
+
+    const parent = this.parentTransform();
+    if (
+      this.isLayoutRoot() ||
+      parent === null ||
+      !isRowDirection(parent.direction())
+    ) {
+      return null;
+    }
+
+    let floor = this.minContentWidth();
+    const width = this.desiredSize().x;
+    if (typeof width === 'number') {
+      floor = Math.min(floor, width);
+    }
+    const max = this.maxWidth();
+    if (typeof max === 'number') {
+      floor = Math.min(floor, max);
+    }
+
+    return floor > 0 ? floor : null;
+  }
+
   @computed()
   protected applyFlex() {
     const node = this.yogaNode;
@@ -1260,7 +1375,7 @@ export class Layout extends Node {
     setYogaDimension(node, 'setWidth', size.x);
     setYogaDimension(node, 'setHeight', size.y);
     setYogaDimension(node, 'setMaxWidth', this.maxWidth());
-    setYogaDimension(node, 'setMinWidth', this.minWidth());
+    setYogaDimension(node, 'setMinWidth', this.resolvedMinWidth());
     setYogaDimension(node, 'setMaxHeight', this.maxHeight());
     setYogaDimension(node, 'setMinHeight', this.minHeight());
 

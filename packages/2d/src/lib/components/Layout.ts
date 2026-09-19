@@ -1350,6 +1350,15 @@ export class Layout extends Node {
     return content + this.margin.left() + this.margin.right();
   }
 
+  /** The flex direction of the parent this node is an item of. */
+  @computed()
+  protected parentDirection(): FlexDirection | null {
+    if (this.isLayoutRoot()) {
+      return null;
+    }
+    return this.parentTransform()?.direction() ?? null;
+  }
+
   /**
    * The `minWidth` handed to yoga. A flex item of a row gets the automatic
    * minimum of CSS `min-width: auto` when the user declared none.
@@ -1360,12 +1369,8 @@ export class Layout extends Node {
       return declared;
     }
 
-    const parent = this.parentTransform();
-    if (
-      this.isLayoutRoot() ||
-      parent === null ||
-      !isRowDirection(parent.direction())
-    ) {
+    const direction = this.parentDirection();
+    if (direction === null || !isRowDirection(direction)) {
       return null;
     }
 
@@ -1380,6 +1385,21 @@ export class Layout extends Node {
     }
 
     return floor > 0 ? floor : null;
+  }
+
+  /**
+   * The `flexShrink` handed to yoga. Nothing makes content shorter, so an item
+   * of a column that has no height of its own keeps the height of its content,
+   * as CSS `min-height: auto` requires. A `minHeight` of zero opts out.
+   */
+  protected resolvedShrink(): number {
+    const shrink = this.shrink();
+    if (this.minHeight() !== null || this.desiredSize().y !== null) {
+      return shrink;
+    }
+
+    const direction = this.parentDirection();
+    return direction === null || isRowDirection(direction) ? shrink : 0;
   }
 
   @computed()
@@ -1438,7 +1458,7 @@ export class Layout extends Node {
       node.setFlexShrink(0);
     } else {
       node.setFlexGrow(this.grow());
-      node.setFlexShrink(this.shrink());
+      node.setFlexShrink(this.resolvedShrink());
     }
   }
 

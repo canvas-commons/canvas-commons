@@ -1,0 +1,80 @@
+name: Release (snapshot)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: npm dist-tag to publish the snapshot under
+        required: true
+        default: next
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  HUSKY: 0
+  DIST_TAG: ${{ inputs.tag || 'next' }}
+
+jobs:
+  publish-snapshot:
+    name: Publish snapshot to npm
+    if: github.repository == 'canvas-commons/canvas-commons'
+    runs-on: ubuntu-latest
+    environment:
+      name: npm-next
+      url: https://www.npmjs.com/org/canvas-commons
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: step-security/harden-runner@ab7a9404c0f3da075243ca237b5fac12c98deaa5 # v2.19.3
+        with:
+          egress-policy: audit
+          disable-sudo: true
+      - name: Validate dist-tag
+        run: |
+          if [[ ! "$DIST_TAG" =~ ^[a-z][a-z0-9-]*$ || "$DIST_TAG" == "latest" ]]; then
+            echo "::error::Invalid snapshot dist-tag: $DIST_TAG"
+            exit 1
+          fi
+        shell: bash
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: pnpm
+      # OIDC trusted publishing needs npm >= 11.5.1. See release.yml.
+      - run: corepack prepare npm@latest --activate
+      - run: pnpm install --frozen-lockfile
+      # Changesets refuses snapshot versions in pre mode. Without changesets,
+      # the versions in the tree belong to the `latest` release; publishing
+      # them here would put them on npm unapproved.
+      - id: snapshot
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ ! -f .changeset/pre.json ]]; then
+            pnpm exec changeset version --snapshot "$DIST_TAG"
+          fi
+          if git diff --quiet; then
+            echo "versioned=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "versioned=true" >> "$GITHUB_OUTPUT"
+          fi
+        shell: bash
+      - if: steps.snapshot.outputs.versioned == 'true'
+        run: pnpm run build
+      - if: steps.snapshot.outputs.versioned == 'true'
+        run: pnpm run lint:packages
+      - if: steps.snapshot.outputs.versioned == 'true'
+        run: pnpm exec changeset publish --tag "$DIST_TAG" --no-git-tag

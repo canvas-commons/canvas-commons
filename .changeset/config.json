@@ -21,6 +21,7 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
+  "snapshot": {"useCalculatedVersion": true},
   "ignore": [
     "@canvas-commons/docs",
     "@canvas-commons/e2e",

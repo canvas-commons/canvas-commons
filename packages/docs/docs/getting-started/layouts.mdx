@@ -3,14 +3,18 @@ sidebar_position: 5
 slug: /layouts
 ---
 
-import AnimationPlayer from '@site/src/components/AnimationPlayer';
+import Fiddle from '@site/src/components/Fiddle';
+import layoutGroupSource from '!!raw-loader!@canvas-commons/examples/src/scenes/layout-group';
+import layoutSource from '!!raw-loader!@canvas-commons/examples/src/scenes/layout';
 import ApiSnippet from '@site/src/components/Api/ApiSnippet';
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
 # Layouts
 
-<AnimationPlayer name="layout" banner />
+<Fiddle mode="preview" ratio={'3'}>
+  {layoutSource}
+</Fiddle>
 
 Layouts allow you to arrange your nodes using [Flexbox][flexbox]. Any node
 extending the [`Layout`](/api/2d/components/Layout) node can become a part of
@@ -301,6 +305,8 @@ const layout = new Layout({
 </TabItem>
 </Tabs>
 
-<AnimationPlayer name="layout-group" small />
+<Fiddle mode="preview" ratio={'2.2'} width={'1920'}>
+  {layoutGroupSource}
+</Fiddle>
 
 [flexbox]: https://css-tricks.com/snippets/css/a-guide-to-flexbox/

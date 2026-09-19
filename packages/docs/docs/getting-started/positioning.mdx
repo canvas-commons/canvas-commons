@@ -5,12 +5,15 @@ slug: /positioning
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
-import AnimationPlayer from '@site/src/components/AnimationPlayer';
+import Fiddle from '@site/src/components/Fiddle';
+import positioningSource from '!!raw-loader!@canvas-commons/examples/src/scenes/positioning';
 import ApiSnippet from '@site/src/components/Api/ApiSnippet';
 
 # Positioning
 
-<AnimationPlayer name="positioning" banner />
+<Fiddle mode="preview" ratio={'3'} width={'1920'}>
+  {positioningSource}
+</Fiddle>
 
 Canvas Commons uses a Cartesian coordinate system. Its origin is located in the
 center of the scene, with the x-axis going to the right and the y-axis going

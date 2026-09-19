@@ -967,7 +967,11 @@ export class Txt extends Shape {
 
   public constructor({children, text, ...props}: TxtProps) {
     super(props);
-    this.children(text ?? children);
+    if (text == null) {
+      this.children(children);
+    } else {
+      this.text(text);
+    }
 
     this.yogaNode.setMeasureFunc((width, widthMode) =>
       this.measureForYoga(width, widthMode),

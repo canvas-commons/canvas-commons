@@ -46,7 +46,7 @@ const config = {
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
       metadata: [{name: 'keywords', content: 'typescript, animation, library'}],
-      image: 'img/banner.png',
+      image: 'img/social-card.png',
       colorMode: {
         defaultMode: 'dark',
       },

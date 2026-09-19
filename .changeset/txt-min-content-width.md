@@ -2,6 +2,8 @@
 '@canvas-commons/2d': minor
 ---
 
-A flex item in a row now keeps room for its narrowest content: a squeezed
-`<Txt>` stops at its widest word and a container stops at its children. Set
-`overflowWrap` to `'anywhere'` to break inside a word again.
+Flex items now keep room for their content: a squeezed `<Txt>` in a row stops at
+its widest word, a container stops at its children, and an item of a column
+keeps the height of its lines instead of overlapping the next one. Set
+`overflowWrap` to `'anywhere'` or `minWidth`/`minHeight` to `0` to squeeze
+again.

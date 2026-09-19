@@ -1,7 +1,7 @@
 import {all, createRef} from '@canvas-commons/core';
 import {describe, expect, it} from 'vitest';
 import {useScene2D} from '../../scenes';
-import {Layout} from '../Layout';
+import {Layout, LayoutProps} from '../Layout';
 import {Node} from '../Node';
 import {Rect} from '../Rect';
 import {Txt, TxtProps} from '../Txt';
@@ -74,6 +74,13 @@ type WidthRow = {
   name: string;
   build: () => Layout;
   width: number;
+};
+
+type HeightRow = {
+  name: string;
+  build: () => {item: Layout; next: Layout};
+  height: number;
+  nextTop: number;
 };
 
 // Every glyph measures ten units, so each width below reads as a character
@@ -417,6 +424,142 @@ const ContainerRows: WidthRow[] = [
     width: 20,
   },
 ];
+
+const Lines = (props: TxtProps = {}) =>
+  (
+    <Txt
+      fontSize={10}
+      lineHeight={20}
+      width={50}
+      text={'one two three'}
+      {...props}
+    />
+  ) as Txt;
+
+/**
+ * Put `item` above a rigid `Rect` in a column half as tall as the two of them,
+ * so every row below shows what the column does to an item it cannot fit.
+ */
+function shortColumn(
+  item: Layout,
+  props: LayoutProps = {},
+): {item: Layout; next: Layout} {
+  const next = createRef<Rect>();
+  add(
+    <Layout layout direction={'column'} width={200} height={40} {...props}>
+      {item}
+      <Rect ref={next} width={50} height={20} shrink={0} />
+    </Layout>,
+  );
+  return {item, next: next()};
+}
+
+// The column spans -20 to 20, so a first item that keeps its 60 units of text
+// ends at 40 and pushes the rigid sibling out of the column.
+const HeightRows: HeightRow[] = [
+  {
+    name: 'three lines survive a column that cannot fit them',
+    build: () => shortColumn(Lines()),
+    height: 60,
+    nextTop: 40,
+  },
+  {
+    name: 'a minHeight of zero lets the column squeeze the text',
+    build: () => shortColumn(Lines({minHeight: 0})),
+    height: 20,
+    nextTop: 0,
+  },
+  {
+    name: 'a declared shrink does not opt out',
+    build: () => shortColumn(Lines({shrink: 1})),
+    height: 60,
+    nextTop: 40,
+  },
+  {
+    name: 'a declared height keeps shrinking',
+    build: () => shortColumn(Lines({height: 60})),
+    height: 20,
+    nextTop: 0,
+  },
+  {
+    name: 'a row container keeps the height of the text it wraps',
+    build: () => shortColumn((<Layout>{Lines()}</Layout>) as Layout),
+    height: 60,
+    nextTop: 40,
+  },
+  {
+    name: 'a column-reverse parent keeps the text below the sibling',
+    build: () => shortColumn(Lines(), {direction: 'column-reverse'}),
+    height: 60,
+    nextTop: -20,
+  },
+  {
+    name: 'a row parent leaves the vertical axis alone',
+    build: () => shortColumn(Lines(), {direction: 'row'}),
+    height: 40,
+    nextTop: -20,
+  },
+  {
+    name: 'a tall column still gives free space to a growing sibling',
+    build: () => {
+      const next = createRef<Rect>();
+      const item = Lines();
+      add(
+        <Layout layout direction={'column'} width={200} height={200}>
+          {item}
+          <Rect ref={next} width={50} height={20} shrink={0} grow={1} />
+        </Layout>,
+      );
+      return {item, next: next()};
+    },
+    height: 60,
+    nextTop: -40,
+  },
+  {
+    name: 'justifyContent center splits the overflow',
+    build: () => shortColumn(Lines(), {justifyContent: 'center'}),
+    height: 60,
+    nextTop: 20,
+  },
+  {
+    name: 'justifyContent end pushes the overflow above the column',
+    build: () => shortColumn(Lines(), {justifyContent: 'end'}),
+    height: 60,
+    nextTop: 0,
+  },
+  {
+    name: 'gap and padding add to the overflow',
+    build: () => shortColumn(Lines(), {gap: 10, padding: 5}),
+    height: 60,
+    nextTop: 55,
+  },
+  {
+    name: 'a layout root is not an item of the column',
+    build: () =>
+      shortColumn(
+        (
+          <Layout layoutSelf={false} direction={'column'}>
+            {Lines()}
+          </Layout>
+        ) as Layout,
+      ),
+    height: 60,
+    nextTop: -20,
+  },
+];
+
+describe('column items at content height', () => {
+  mockScene2D();
+  mockTextContext(10);
+
+  for (const row of HeightRows) {
+    it(row.name, () => {
+      const {item, next} = row.build();
+      expect(item.size.y()).toBeCloseTo(row.height);
+      expect(next.top().y).toBeCloseTo(row.nextTop);
+    });
+  }
+});
 
 describe('Txt minimum content width', () => {
   mockScene2D();

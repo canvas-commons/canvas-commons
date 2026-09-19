@@ -416,6 +416,12 @@ importers:
       '@canvas-commons/vite-plugin':
         specifier: workspace:^
         version: link:../vite-plugin
+      '@fontsource/ibm-plex-sans':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@fontsource/space-grotesk':
+        specifier: ^5.3.0
+        version: 5.3.0
       geometry-polyfill:
         specifier: ^1.0.7
         version: 1.0.7

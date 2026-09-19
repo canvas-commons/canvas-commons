@@ -46,39 +46,39 @@ export interface ShapeProps extends LayoutProps {
    */
   rough?: SignalValue<boolean>;
   /**
-   * {@inheritDoc RoughConfig.roughness}
+   * {@inheritDoc partials.RoughConfig.roughness}
    */
   roughness?: SignalValue<number>;
   /**
-   * {@inheritDoc RoughConfig.bowing}
+   * {@inheritDoc partials.RoughConfig.bowing}
    */
   bowing?: SignalValue<number>;
   /**
-   * {@inheritDoc RoughConfig.fillStyle}
+   * {@inheritDoc partials.RoughConfig.fillStyle}
    */
   roughFillStyle?: SignalValue<RoughFillStyle>;
   /**
-   * {@inheritDoc RoughConfig.fillWeight}
+   * {@inheritDoc partials.RoughConfig.fillWeight}
    */
   roughFillWeight?: SignalValue<number>;
   /**
-   * {@inheritDoc RoughConfig.hachureAngle}
+   * {@inheritDoc partials.RoughConfig.hachureAngle}
    */
   roughHachureAngle?: SignalValue<number>;
   /**
-   * {@inheritDoc RoughConfig.hachureGap}
+   * {@inheritDoc partials.RoughConfig.hachureGap}
    */
   roughHachureGap?: SignalValue<number>;
   /**
-   * {@inheritDoc RoughConfig.seed}
+   * {@inheritDoc partials.RoughConfig.seed}
    */
   roughSeed?: SignalValue<number>;
   /**
-   * {@inheritDoc RoughConfig.disableMultiStroke}
+   * {@inheritDoc partials.RoughConfig.disableMultiStroke}
    */
   roughDisableMultiStroke?: SignalValue<boolean>;
   /**
-   * {@inheritDoc RoughConfig.disableMultiStrokeFill}
+   * {@inheritDoc partials.RoughConfig.disableMultiStrokeFill}
    */
   roughDisableMultiStrokeFill?: SignalValue<boolean>;
 
@@ -122,25 +122,25 @@ export abstract class Shape extends Layout {
   @signal()
   declare public readonly rough: SimpleSignal<boolean, this>;
   /**
-   * {@inheritDoc RoughConfig.roughness}
+   * {@inheritDoc partials.RoughConfig.roughness}
    */
   @initial(1)
   @signal()
   declare public readonly roughness: SimpleSignal<number, this>;
   /**
-   * {@inheritDoc RoughConfig.bowing}
+   * {@inheritDoc partials.RoughConfig.bowing}
    */
   @initial(1)
   @signal()
   declare public readonly bowing: SimpleSignal<number, this>;
   /**
-   * {@inheritDoc RoughConfig.fillStyle}
+   * {@inheritDoc partials.RoughConfig.fillStyle}
    */
   @initial('hachure')
   @signal()
   declare public readonly roughFillStyle: SimpleSignal<RoughFillStyle, this>;
   /**
-   * {@inheritDoc RoughConfig.fillWeight}
+   * {@inheritDoc partials.RoughConfig.fillWeight}
    */
   @signal()
   declare public readonly roughFillWeight: SimpleSignal<
@@ -148,30 +148,30 @@ export abstract class Shape extends Layout {
     this
   >;
   /**
-   * {@inheritDoc RoughConfig.hachureAngle}
+   * {@inheritDoc partials.RoughConfig.hachureAngle}
    */
   @initial(-41)
   @signal()
   declare public readonly roughHachureAngle: SimpleSignal<number, this>;
   /**
-   * {@inheritDoc RoughConfig.hachureGap}
+   * {@inheritDoc partials.RoughConfig.hachureGap}
    */
   @initial(4)
   @signal()
   declare public readonly roughHachureGap: SimpleSignal<number, this>;
   /**
-   * {@inheritDoc RoughConfig.seed}
+   * {@inheritDoc partials.RoughConfig.seed}
    */
   @signal()
   declare public readonly roughSeed: SimpleSignal<number | undefined, this>;
   /**
-   * {@inheritDoc RoughConfig.disableMultiStroke}
+   * {@inheritDoc partials.RoughConfig.disableMultiStroke}
    */
   @initial(false)
   @signal()
   declare public readonly roughDisableMultiStroke: SimpleSignal<boolean, this>;
   /**
-   * {@inheritDoc RoughConfig.disableMultiStrokeFill}
+   * {@inheritDoc partials.RoughConfig.disableMultiStrokeFill}
    */
   @initial(false)
   @signal()

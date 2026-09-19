@@ -11,6 +11,7 @@ const {
 } = require('typedoc');
 const mdn = require('mdn-links');
 const fs = require('fs');
+const {validateFiddleComment} = require('./remark-fiddle');
 
 module.exports = () => ({
   name: 'docusaurus-typedoc-plugin',
@@ -422,6 +423,11 @@ function partsToMarkdown(parts) {
 }
 
 async function writeComment(fileName, parts) {
+  try {
+    await validateFiddleComment(parts);
+  } catch (error) {
+    throw new Error(`${fileName}: ${error.message}`);
+  }
   await fs.promises.writeFile(fileName, partsToMarkdown(parts), 'utf8');
 }
 

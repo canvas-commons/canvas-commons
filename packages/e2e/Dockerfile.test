@@ -27,6 +27,7 @@ COPY packages/ffmpeg/package.json ./packages/ffmpeg/
 COPY packages/player/package.json ./packages/player/
 COPY packages/template/package.json ./packages/template/
 COPY packages/vite-plugin/package.json ./packages/vite-plugin/
+COPY packages/webcodecs/package.json ./packages/webcodecs/
 
 RUN pnpm install --frozen-lockfile
 

@@ -364,7 +364,10 @@ type LineBreakOffset = {
 };
 
 type PreparedLayout = {
-  /** Narrowest width that never splits a word, in pretext-space pixels. */
+  /**
+   * Narrowest width that never splits a word, in pretext-space pixels. `0`
+   * under `overflowWrap: 'anywhere'`, where a grapheme is the only floor.
+   */
   minContentWidth: number;
 } & (
   | {
@@ -698,14 +701,17 @@ export class Txt extends Shape {
     const newSize = new Vector2(this.size());
     leaf.text(oldText ?? DEFAULT);
 
-    let fits: (line: string) => boolean = () => true;
+    let breakAtSeam: (line: string, splitsWord: boolean) => boolean = () =>
+      false;
     if (fromBreaks !== null && toBreaks !== null && wrapWidth !== null) {
       const prepared = this.preparedLayout();
       if (prepared?.kind === 'simple') {
         const style = prepared.style;
-        const maxWidth = wrapWidth;
-        fits = line =>
-          this.measureStyledText(line.trimEnd(), style) <= maxWidth;
+        const maxWidth = this.wrapWidth(wrapWidth);
+        const overflowing = maxWidth > wrapWidth;
+        breakAtSeam = (line, splitsWord) =>
+          !(overflowing && splitsWord) &&
+          this.measureStyledText(line.trimEnd(), style) > maxWidth;
       }
     }
 
@@ -734,7 +740,14 @@ export class Txt extends Shape {
           dropPlan();
           return raw;
         }
-        return Txt.stabilizeBreaks(raw, from, to, stableFrom, stableTo, fits);
+        return Txt.stabilizeBreaks(
+          raw,
+          from,
+          to,
+          stableFrom,
+          stableTo,
+          breakAtSeam,
+        );
       };
     }
 
@@ -762,7 +775,7 @@ export class Txt extends Shape {
           toText,
           fromBreaks,
           toBreaks,
-          fits,
+          breakAtSeam,
         ).split('\n'),
       );
     }
@@ -899,13 +912,23 @@ export class Txt extends Shape {
     return null;
   }
 
+  /**
+   * Whether a break at `offset` would land inside a word. The endpoint break
+   * offsets describe the endpoint texts, not the string between them.
+   */
+  private static splitsWord(text: string, offset: number): boolean {
+    return (
+      !/\s/.test(text[offset - 1] ?? ' ') && !/\s/.test(text[offset] ?? ' ')
+    );
+  }
+
   private static stabilizeBreaks(
     text: string,
     source: string,
     target: string,
     fromBreaks: LineBreakOffset[],
     toBreaks: LineBreakOffset[],
-    fits: (line: string) => boolean,
+    breakAtSeam: (line: string, splitsWord: boolean) => boolean,
   ): string {
     const length = text.length;
     const typedTo = Txt.commonPrefixLength(text, target);
@@ -940,7 +963,7 @@ export class Txt extends Shape {
         const joined =
           text.slice(lineStart, lineBreak?.offset ?? piece.end) +
           (lineBreak?.hyphen ? '-' : '');
-        if (!fits(joined)) {
+        if (breakAtSeam(joined, Txt.splitsWord(text, piece.start))) {
           merged.push({offset: piece.start, hyphen: false});
           lineStart = piece.start;
         }
@@ -1252,9 +1275,11 @@ export class Txt extends Shape {
         prepared,
         style: styles[0],
         minContentWidth:
-          wrap === false
-            ? measureNaturalWidth(prepared)
-            : measureMinContentWidth(prepared),
+          this.overflowWrap() === 'anywhere'
+            ? 0
+            : wrap === false
+              ? measureNaturalWidth(prepared)
+              : measureMinContentWidth(prepared),
       };
     }
     const groups = buildRichGroups(prepItems, wrap).map(g => ({
@@ -1267,12 +1292,14 @@ export class Txt extends Shape {
       styles,
       inlines,
       minContentWidth:
-        wrap === false
-          ? measureGroupStats(
-              groups.map(g => g.prepared),
-              Number.POSITIVE_INFINITY,
-            ).maxLineWidth
-          : this.measureItemMinContent(prepItems, wrap, wordBreak),
+        this.overflowWrap() === 'anywhere'
+          ? 0
+          : wrap === false
+            ? measureGroupStats(
+                groups.map(g => g.prepared),
+                Number.POSITIVE_INFINITY,
+              ).maxLineWidth
+            : this.measureItemMinContent(prepItems, wrap, wordBreak),
     };
   }
 
@@ -1304,6 +1331,15 @@ export class Txt extends Shape {
       if (width > widest) widest = width;
     }
     return widest;
+  }
+
+  /**
+   * Wrap width handed to pretext. Never below the widest unbreakable run, so
+   * an overlong word overflows its box instead of splitting, as in CSS.
+   */
+  private wrapWidth(maxWidth: number): number {
+    const floor = this.preparedLayout()?.minContentWidth ?? 0;
+    return maxWidth > floor ? maxWidth : floor;
   }
 
   @computed()
@@ -1392,7 +1428,11 @@ export class Txt extends Shape {
         }
       }
 
-      const line = layoutNextLine(prepared, cursor, slot.right - slot.left);
+      const line = layoutNextLine(
+        prepared,
+        cursor,
+        this.wrapWidth(slot.right - slot.left),
+      );
       if (line === null) break;
       lines.push({
         text: line.text,
@@ -1560,7 +1600,7 @@ export class Txt extends Shape {
       const {normalSpaceWidth, hyphenWidth} = this.measureFontConstants(
         style.font,
       );
-      const kpLines = knuthPlass(prepared, maxWidth, {
+      const kpLines = knuthPlass(prepared, this.wrapWidth(maxWidth), {
         normalSpaceWidth,
         hyphenWidth,
       });
@@ -1574,7 +1614,7 @@ export class Txt extends Shape {
         if (line.width > width) width = line.width;
       }
     } else {
-      walkLineRanges(prepared, maxWidth, range => {
+      walkLineRanges(prepared, this.wrapWidth(maxWidth), range => {
         const line = materializeLineRange(prepared, range);
         lines.push({
           fragments: [{text: line.text, x: 0, style}],
@@ -1616,6 +1656,7 @@ export class Txt extends Shape {
     }
 
     const fragmentLines: StyledFragment[][] = [];
+    const wrapWidth = this.wrapWidth(maxWidth);
     let totalWidth = 0;
     for (const group of prepared.groups) {
       if (group.prepared === null) {
@@ -1623,7 +1664,7 @@ export class Txt extends Shape {
         continue;
       }
       const groupPrepared = group.prepared;
-      walkRichInlineLineRanges(groupPrepared, maxWidth, range => {
+      walkRichInlineLineRanges(groupPrepared, wrapWidth, range => {
         const line = materializeRichInlineLineRange(groupPrepared, range);
         const styledFragments: StyledFragment[] = [];
         let x = 0;

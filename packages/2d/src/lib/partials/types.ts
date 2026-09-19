@@ -31,6 +31,12 @@ export type TextWrap = boolean | 'pre';
 export type WordBreak = 'normal' | 'keep-all';
 
 /**
+ * What happens to a word that is wider than its box. `'normal'` lets it
+ * overflow, `'anywhere'` breaks it at a grapheme boundary.
+ */
+export type OverflowWrap = 'normal' | 'anywhere';
+
+/**
  * Line-level text alignment. Extends `CanvasTextAlign` with `'justify'`,
  * which distributes line-end slack across word gaps. Justification only
  * affects non-last lines of a paragraph; the last line falls back to the

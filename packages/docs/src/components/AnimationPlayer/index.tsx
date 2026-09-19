@@ -1,5 +1,6 @@
 import type {CanvasCommonsPlayerProps} from '@canvas-commons/player';
 import ExecutionEnvironment from '@docusaurus/ExecutionEnvironment';
+import useBaseUrl from '@docusaurus/useBaseUrl';
 import clsx from 'clsx';
 import React, {ComponentProps} from 'react';
 import AnimationLink from './AnimationLink';
@@ -31,6 +32,7 @@ export default function AnimationPlayer({
   small,
   link,
 }: AnimationPlayerProps) {
+  const src = useBaseUrl(`/examples/${name}.js`);
   return (
     <div
       className={clsx(
@@ -39,11 +41,7 @@ export default function AnimationPlayer({
         small && styles.small,
       )}
     >
-      <canvas-commons-player
-        class={styles.player}
-        src={`/examples/${name}.js`}
-        auto={banner}
-      />
+      <canvas-commons-player class={styles.player} src={src} auto={banner} />
       <AnimationLink name={link || name} />
     </div>
   );

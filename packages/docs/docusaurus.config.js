@@ -4,7 +4,7 @@
 const config = {
   title: 'Canvas Commons',
   tagline:
-    'A community TypeScript library for creating animated videos using the Canvas API.',
+    'A TypeScript framework for creating animations with code. Write animations with JSX and generators.',
   url: 'https://canvascommons.io',
   baseUrl: '/',
   onBrokenLinks: 'throw',
@@ -66,6 +66,16 @@ const config = {
           },
           {to: '/api/core', label: 'API', position: 'left'},
           {to: '/blog', label: 'Blog', position: 'left'},
+          {
+            href: 'https://github.com/canvas-commons/canvas-commons',
+            label: 'GitHub',
+            position: 'right',
+          },
+          {
+            href: 'https://chat.canvascommons.io',
+            label: 'Discord',
+            position: 'right',
+          },
         ],
       },
       footer: {

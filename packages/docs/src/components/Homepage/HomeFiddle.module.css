@@ -1,0 +1,244 @@
+.root {
+  border: 1px solid var(--cc-surface0);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--cc-mantle);
+
+  /* The editor reads these; the Catppuccin tokens follow the site theme. */
+  --cc-fiddle-background: var(--cc-mantle);
+  --cc-fiddle-foreground: var(--hl-color);
+  --cc-fiddle-font: var(--ifm-font-family-monospace);
+  --cc-fiddle-selection: var(--ifm-code-selection-color);
+  --cc-fiddle-active-line: var(--ifm-code-active-color);
+  --cc-fiddle-muted: var(--cc-overlay0);
+  --cc-fiddle-border: var(--cc-surface0);
+  --cc-fiddle-keyword: var(--hl-keyword);
+  --cc-fiddle-string: var(--hl-string);
+  --cc-fiddle-comment: var(--hl-comment);
+  --cc-fiddle-number: var(--hl-number);
+  --cc-fiddle-function: var(--hl-function);
+  --cc-fiddle-type: var(--hl-tag);
+}
+
+.tabBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 12px;
+  background: var(--cc-mantle);
+  border-bottom: 1px solid var(--cc-surface0);
+}
+
+.tab {
+  cursor: pointer;
+  appearance: none;
+  border: none;
+  background: transparent;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: 8px;
+  color: var(--cc-subtext0);
+  transition:
+    color var(--ifm-transition-fast),
+    background var(--ifm-transition-fast);
+}
+
+.tab:hover {
+  color: var(--cc-text);
+}
+
+.tabActive {
+  color: var(--cc-base);
+  background: var(--cc-blue);
+}
+
+.body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  height: 380px;
+}
+
+.editor {
+  min-height: 0;
+  overflow: hidden;
+  border-right: 1px solid var(--cc-surface0);
+  background: var(--cc-mantle);
+}
+
+.editor :global(.cm-editor) {
+  height: 100%;
+}
+
+.editor :global(.cm-scroller) {
+  overflow: auto;
+}
+
+.previewPane {
+  position: relative;
+  background: var(--cc-crust);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* The aspect comes from the render size the host is configured with. */
+.preview {
+  width: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview iframe {
+  border: none;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.progress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--cc-blue);
+  pointer-events: none;
+  transition: width 0.1s linear;
+}
+
+.runOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  border: none;
+  background: rgba(14, 14, 22, 0.45);
+  color: var(--cc-text);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.runOverlay svg {
+  width: 3rem;
+  height: 3rem;
+  fill: var(--cc-blue);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--cc-mantle);
+  border-top: 1px solid var(--cc-surface0);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.play {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  background: var(--cc-blue);
+  color: var(--cc-base);
+}
+
+.play svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  fill: currentColor;
+}
+
+.icon {
+  cursor: pointer;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cc-subtext0);
+}
+
+.icon:hover {
+  background: var(--cc-surface0);
+  color: var(--cc-text);
+}
+
+.icon svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  fill: currentColor;
+}
+
+.reset {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--cc-surface2);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: var(--cc-surface0);
+  color: var(--cc-text);
+}
+
+.reset:hover {
+  border-color: var(--cc-blue);
+  color: var(--cc-text);
+}
+
+.error {
+  margin: 0;
+  border-top: 1px solid var(--cc-red);
+  padding: 10px 14px;
+  white-space: pre-wrap;
+  font-size: 0.8rem;
+  background: var(--cc-crust);
+  color: var(--cc-red);
+}
+
+@media screen and (min-width: 1200px) {
+  .body {
+    height: 460px;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .body {
+    grid-template-columns: 1fr;
+    grid-template-rows: 220px 1fr;
+    height: 520px;
+  }
+
+  .editor {
+    border-right: none;
+    border-top: 1px solid var(--cc-surface0);
+    order: 2;
+  }
+
+  .previewPane {
+    order: 1;
+  }
+}

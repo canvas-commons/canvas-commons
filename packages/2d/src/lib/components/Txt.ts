@@ -1138,11 +1138,11 @@ export class Txt extends Shape {
         );
         requestFontLoad(font);
         const letterSpacing = txt.letterSpacing() * scale;
+        // Untyped callers pass numbers, which still have to reach the canvas.
+        const source = String(node.text());
         // A path forces a single line, so newlines collapse to spaces.
         const text =
-          this.textPath() === null
-            ? node.text()
-            : node.text().replace(/\n/g, ' ');
+          this.textPath() === null ? source : source.replace(/\n/g, ' ');
         items.push({
           text,
           font,

@@ -252,16 +252,19 @@ export class CodeSignalContext<TOwner>
       fragments,
     });
 
-    yield* progress(1, duration);
+    try {
+      yield* progress(1, duration);
 
-    current = this.get();
-    this.set({
-      progress: current.progress,
-      fragments: current.fragments.map(fragment =>
-        fragment === scope ? code : fragment,
-      ),
-    });
-    progress.context.dispose();
+      current = this.get();
+      this.set({
+        progress: current.progress,
+        fragments: current.fragments.map(fragment =>
+          fragment === scope ? code : fragment,
+        ),
+      });
+    } finally {
+      progress.context.dispose();
+    }
   }
 
   private *editTween(value: CodeTag[], duration: number) {
@@ -292,15 +295,18 @@ export class CodeSignalContext<TOwner>
       progress: current.progress,
       fragments: [...current.fragments, scope],
     });
-    yield* progress(1, duration);
-    current = this.get();
-    this.set({
-      progress: current.progress,
-      fragments: current.fragments.map(fragment =>
-        fragment === scope ? value : fragment,
-      ),
-    });
-    progress.context.dispose();
+    try {
+      yield* progress(1, duration);
+      current = this.get();
+      this.set({
+        progress: current.progress,
+        fragments: current.fragments.map(fragment =>
+          fragment === scope ? value : fragment,
+        ),
+      });
+    } finally {
+      progress.context.dispose();
+    }
   }
 
   private *prependTween(value: CodeTag, duration: number) {
@@ -315,15 +321,18 @@ export class CodeSignalContext<TOwner>
       progress: current.progress,
       fragments: [scope, ...current.fragments],
     });
-    yield* progress(1, duration);
-    current = this.get();
-    this.set({
-      progress: current.progress,
-      fragments: current.fragments.map(fragment =>
-        fragment === scope ? value : fragment,
-      ),
-    });
-    progress.context.dispose();
+    try {
+      yield* progress(1, duration);
+      current = this.get();
+      this.set({
+        progress: current.progress,
+        fragments: current.fragments.map(fragment =>
+          fragment === scope ? value : fragment,
+        ),
+      });
+    } finally {
+      progress.context.dispose();
+    }
   }
 
   public override parse(value: PossibleCodeScope): CodeScope {

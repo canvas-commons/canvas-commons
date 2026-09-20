@@ -242,7 +242,7 @@ export class CodeSignalContext<TOwner>
     const [fragments, index] = extractRange(range, current.fragments);
     const progress = createSignal(0);
     const resolved = resolveCodeTag(code, true);
-    const scope = {
+    const scope: CodeScope = {
       progress,
       fragments: [replace(fragments[index] as string, resolved)],
     };
@@ -252,16 +252,21 @@ export class CodeSignalContext<TOwner>
       fragments,
     });
 
-    yield* progress(1, duration);
+    try {
+      yield* progress(1, duration);
 
-    current = this.get();
-    this.set({
-      progress: current.progress,
-      fragments: current.fragments.map(fragment =>
-        fragment === scope ? code : fragment,
-      ),
-    });
-    progress.context.dispose();
+      current = this.get();
+      this.set({
+        progress: current.progress,
+        fragments: current.fragments.map(fragment =>
+          fragment === scope ? code : fragment,
+        ),
+      });
+    } finally {
+      // The fragment outlives a cancelled tween; leave it a readable value.
+      scope.progress = progress();
+      progress.context.dispose();
+    }
   }
 
   private *editTween(value: CodeTag[], duration: number) {
@@ -284,7 +289,7 @@ export class CodeSignalContext<TOwner>
     let current = this.get();
     const progress = createSignal(0);
     const resolved = resolveCodeTag(value, true);
-    const scope = {
+    const scope: CodeScope = {
       progress,
       fragments: [insert(resolved)],
     };
@@ -292,22 +297,27 @@ export class CodeSignalContext<TOwner>
       progress: current.progress,
       fragments: [...current.fragments, scope],
     });
-    yield* progress(1, duration);
-    current = this.get();
-    this.set({
-      progress: current.progress,
-      fragments: current.fragments.map(fragment =>
-        fragment === scope ? value : fragment,
-      ),
-    });
-    progress.context.dispose();
+    try {
+      yield* progress(1, duration);
+      current = this.get();
+      this.set({
+        progress: current.progress,
+        fragments: current.fragments.map(fragment =>
+          fragment === scope ? value : fragment,
+        ),
+      });
+    } finally {
+      // The fragment outlives a cancelled tween; leave it a readable value.
+      scope.progress = progress();
+      progress.context.dispose();
+    }
   }
 
   private *prependTween(value: CodeTag, duration: number) {
     let current = this.get();
     const progress = createSignal(0);
     const resolved = resolveCodeTag(value, true);
-    const scope = {
+    const scope: CodeScope = {
       progress,
       fragments: [insert(resolved)],
     };
@@ -315,15 +325,20 @@ export class CodeSignalContext<TOwner>
       progress: current.progress,
       fragments: [scope, ...current.fragments],
     });
-    yield* progress(1, duration);
-    current = this.get();
-    this.set({
-      progress: current.progress,
-      fragments: current.fragments.map(fragment =>
-        fragment === scope ? value : fragment,
-      ),
-    });
-    progress.context.dispose();
+    try {
+      yield* progress(1, duration);
+      current = this.get();
+      this.set({
+        progress: current.progress,
+        fragments: current.fragments.map(fragment =>
+          fragment === scope ? value : fragment,
+        ),
+      });
+    } finally {
+      // The fragment outlives a cancelled tween; leave it a readable value.
+      scope.progress = progress();
+      progress.context.dispose();
+    }
   }
 
   public override parse(value: PossibleCodeScope): CodeScope {

@@ -48,6 +48,7 @@ import {
   segment,
   walkRichInlineLineRanges,
 } from '../text';
+import type {FontComponents, Run} from '../text/paragraphTypes';
 import {fontsVersion, requestFontLoad, resolveCanvasStyle} from '../utils';
 import {sharedMeasurementContext} from '../utils/measurement';
 import {MeasureMode} from '../utils/yoga';
@@ -135,13 +136,6 @@ export interface TxtProps extends ShapeProps {
   pathSplit?: SignalValue<PathSplit>;
 }
 
-type FontComponents = {
-  style: string;
-  weight: number;
-  size: number;
-  family: string;
-};
-
 type FragmentStyle = {
   fill: CanvasStyle;
   stroke: CanvasStyle;
@@ -226,6 +220,7 @@ export type TextUnit = {
 
 const HORIZONTAL_WHITESPACE_RE = /[ \t\f\r]+/g;
 const MAX_BAND_ITERATIONS = 2048;
+const INLINE_PLACEHOLDER = '￼';
 
 /** Untyped callers pass values a `string` signal cannot hold. */
 function textValue(value: string): string {
@@ -379,8 +374,8 @@ type PreparedLayout = {
   | {
       kind: 'rich';
       groups: RichGroup[];
+      runs: Run[];
       styles: FragmentStyle[];
-      inlines: (Layout | null)[];
     }
   | {
       kind: 'simple';
@@ -1050,8 +1045,8 @@ export class Txt extends Shape {
       wrapMode === 'knuth-plass' ? this.textAlign() : null,
     ];
     if (prepared?.kind === 'rich') {
-      for (const inline of prepared.inlines) {
-        if (inline) key.push(inline.size.y());
+      for (const run of prepared.runs) {
+        if (run.kind === 'inline') key.push(run.height);
       }
     }
     const last = this.lastMeasureKey;
@@ -1119,92 +1114,62 @@ export class Txt extends Shape {
     return this.fitFontSize(w, h);
   }
 
-  private collectItemsWithScale(scale: number): {
-    items: RichInlineItem[];
-    styles: FragmentStyle[];
-    inlines: (Layout | null)[];
-  } {
+  private collectRunsWithScale(scale: number): Run[] {
     // Re-collect when a web font finishes loading; it has no signal to track.
     fontsVersion();
-    const items: RichInlineItem[] = [];
-    const styles: FragmentStyle[] = [];
-    const inlines: (Layout | null)[] = [];
+    const runs: Run[] = [];
+    let offset = 0;
 
-    const collect = (node: Node, ownerTxt: Txt) => {
+    const fontFor = (txt: Txt) => {
+      const fontComponents: FontComponents = {
+        style: txt.fontStyle(),
+        weight: txt.fontWeight(),
+        size: txt.fontSize() * scale,
+        family: txt.fontFamily(),
+      };
+      const font = buildCanvasFontString(
+        fontComponents.style,
+        fontComponents.weight,
+        fontComponents.size,
+        fontComponents.family,
+      );
+      requestFontLoad(font);
+      return {font, fontComponents};
+    };
+
+    const collect = (node: Node, owner: Txt) => {
       if (node instanceof TxtLeaf) {
-        const txt = ownerTxt;
-        const fontComponents: FontComponents = {
-          style: txt.fontStyle(),
-          weight: txt.fontWeight(),
-          size: txt.fontSize() * scale,
-          family: txt.fontFamily(),
-        };
-        const font = buildCanvasFontString(
-          fontComponents.style,
-          fontComponents.weight,
-          fontComponents.size,
-          fontComponents.family,
-        );
-        requestFontLoad(font);
-        const letterSpacing = txt.letterSpacing() * scale;
         const source = textValue(node.text());
         // A path forces a single line, so newlines collapse to spaces.
         const text =
           this.textPath() === null ? source : source.replace(/\n/g, ' ');
-        items.push({
+        runs.push({
+          kind: 'text',
           text,
-          font,
-          letterSpacing: letterSpacing || undefined,
+          leaf: node,
+          owner,
+          source: {start: offset, end: offset + source.length},
+          metrics: {
+            ...fontFor(owner),
+            letterSpacing: owner.letterSpacing() * scale,
+          },
         });
-        styles.push({
-          fill: txt.fill(),
-          stroke: txt.stroke(),
-          lineWidth: txt.lineWidth(),
-          strokeFirst: txt.strokeFirst(),
-          font,
-          fontComponents,
-          letterSpacing,
-        });
-        inlines.push(null);
+        offset += source.length;
       } else if (node instanceof Txt && node !== this) {
         for (const child of node.children()) {
           collect(child, node);
         }
       } else if (node instanceof Layout) {
-        // Inline children render at native size, not scaled by autoSize.
-        const childWidth = node.size.x();
-        const fontComponents: FontComponents = {
-          style: ownerTxt.fontStyle(),
-          weight: ownerTxt.fontWeight(),
-          size: ownerTxt.fontSize() * scale,
-          family: ownerTxt.fontFamily(),
-        };
-        const font = buildCanvasFontString(
-          fontComponents.style,
-          fontComponents.weight,
-          fontComponents.size,
-          fontComponents.family,
-        );
-        requestFontLoad(font);
-        // Subtract the placeholder's own advance so the slot equals the
-        // child's width (pretext reserves measured + extraWidth).
-        const placeholderWidth = this.measurePlaceholderWidth(font);
-        items.push({
-          text: '￼',
-          font,
-          break: 'never',
-          extraWidth: Math.max(0, childWidth - placeholderWidth),
+        runs.push({
+          kind: 'inline',
+          node,
+          owner,
+          // Inline children render at native size, not scaled by autoSize.
+          width: node.size.x(),
+          height: node.size.y(),
+          source: {start: offset, end: offset},
+          metrics: {...fontFor(owner), letterSpacing: 0},
         });
-        styles.push({
-          fill: null,
-          stroke: null,
-          lineWidth: 0,
-          strokeFirst: false,
-          font,
-          fontComponents,
-          letterSpacing: 0,
-        });
-        inlines.push(node);
       }
     };
 
@@ -1212,30 +1177,71 @@ export class Txt extends Shape {
       collect(child, this);
     }
 
-    return {items, styles, inlines};
+    return runs;
   }
 
   /**
-   * Collect all descendant text runs as RichInlineItems with their styles.
+   * Collect all descendant content as runs.
    *
    * Walks `TxtLeaf` and nested `Txt` descendants; direct `Layout` children of
-   * a top-level `Txt` become atomic inline slots (`break: 'never'`) sized by
-   * the child's own `width`/`height` signals.
+   * a top-level `Txt` become atomic inline slots sized by the child's own
+   * `width`/`height` signals.
    */
   @computed()
-  protected collectInlineItems(): {
-    items: RichInlineItem[];
-    styles: FragmentStyle[];
-    inlines: (Layout | null)[];
-  } {
+  protected collectRuns(): Run[] {
     const raw = this.fontSize();
     const scale = raw > 0 ? this.effectiveFontSize() / raw : 1;
-    return this.collectItemsWithScale(scale);
+    return this.collectRunsWithScale(scale);
+  }
+
+  /** Paint and font snapshot a run's owner contributes to its fragments. */
+  private paintStyleFor(run: Run): FragmentStyle {
+    const {font, fontComponents, letterSpacing} = run.metrics;
+    if (run.kind === 'inline') {
+      return {
+        fill: null,
+        stroke: null,
+        lineWidth: 0,
+        strokeFirst: false,
+        font,
+        fontComponents,
+        letterSpacing,
+      };
+    }
+    return {
+      fill: run.owner.fill(),
+      stroke: run.owner.stroke(),
+      lineWidth: run.owner.lineWidth(),
+      strokeFirst: run.owner.strokeFirst(),
+      font,
+      fontComponents,
+      letterSpacing,
+    };
+  }
+
+  /** Feed a run to pretext's rich-inline preparation. */
+  private runToItem(run: Run): RichInlineItem {
+    if (run.kind === 'inline') {
+      // Subtract the placeholder's own advance so the slot equals the
+      // child's width (pretext reserves measured + extraWidth).
+      const placeholderWidth = this.measurePlaceholderWidth(run.metrics.font);
+      return {
+        text: INLINE_PLACEHOLDER,
+        font: run.metrics.font,
+        break: 'never',
+        extraWidth: Math.max(0, run.width - placeholderWidth),
+      };
+    }
+    return {
+      text: run.text,
+      font: run.metrics.font,
+      letterSpacing: run.metrics.letterSpacing || undefined,
+    };
   }
 
   protected override collectAsyncResources() {
     super.collectAsyncResources();
-    this.collectInlineItems();
+    this.collectRuns();
   }
 
   /**
@@ -1258,15 +1264,17 @@ export class Txt extends Shape {
   @computed()
   protected preparedLayout(): PreparedLayout | null {
     if (!this.measurementContext()) return null;
-    const {items, styles, inlines} = this.collectInlineItems();
-    if (items.length === 0) return null;
+    const runs = this.collectRuns();
+    if (runs.length === 0) return null;
 
-    const hasInline = inlines.some(n => n !== null);
+    const hasInline = runs.some(run => run.kind === 'inline');
     const hyphenate = this.hyphenate();
     const wordBreak = this.wordBreak();
     const wrap = this.textWrap();
-    const useSimplePath = !hasInline && items.length === 1;
+    const useSimplePath = !hasInline && runs.length === 1;
 
+    const styles = runs.map(run => this.paintStyleFor(run));
+    const items = runs.map(run => this.runToItem(run));
     const prepItems =
       hyphenate && !hasInline
         ? items.map(item => ({
@@ -1304,8 +1312,8 @@ export class Txt extends Shape {
     return {
       kind: 'rich',
       groups,
+      runs,
       styles,
-      inlines,
       minContentWidth:
         this.overflowWrap() === 'anywhere'
           ? 0
@@ -1558,7 +1566,7 @@ export class Txt extends Shape {
     if ('letterSpacing' in ctx) {
       ctx.letterSpacing = '0px';
     }
-    return ctx.measureText('￼').width;
+    return ctx.measureText(INLINE_PLACEHOLDER).width;
   }
 
   private static readonly emptyLayout: TextLayoutResult = {
@@ -1677,13 +1685,13 @@ export class Txt extends Shape {
       };
     }
 
-    const fragmentLines: StyledFragment[][] = [];
+    const fragmentLines: {fragments: StyledFragment[]; height: number}[] = [];
     // Pretext splits an over-wide run here: `PreparedRichInline` has no
     // segment widths to measure one run.
     let totalWidth = 0;
     for (const group of prepared.groups) {
       if (group.prepared === null) {
-        fragmentLines.push([]);
+        fragmentLines.push({fragments: [], height: baseLineHeight});
         continue;
       }
       const groupPrepared = group.prepared;
@@ -1691,12 +1699,15 @@ export class Txt extends Shape {
         const line = materializeRichInlineLineRange(groupPrepared, range);
         const styledFragments: StyledFragment[] = [];
         let x = 0;
+        // A tall inline element grows only its own line's box, CSS-style.
+        let height = baseLineHeight;
         for (const fragment of line.fragments) {
           x += fragment.gapBefore;
           const originalIndex = group.itemMap[fragment.itemIndex];
+          const run = prepared.runs[originalIndex];
           const style = prepared.styles[originalIndex];
-          const inline = prepared.inlines[originalIndex] ?? undefined;
           if (style) {
+            const inline = run.kind === 'inline' ? run.node : undefined;
             styledFragments.push({
               text: fragment.text,
               x,
@@ -1704,27 +1715,22 @@ export class Txt extends Shape {
               inline,
               inlineWidth: inline ? fragment.occupiedWidth : undefined,
             });
+            if (run.kind === 'inline' && run.height > height) {
+              height = run.height;
+            }
           }
           x += fragment.occupiedWidth;
         }
-        fragmentLines.push(styledFragments);
+        fragmentLines.push({fragments: styledFragments, height});
         if (line.width > totalWidth) {
           totalWidth = line.width;
         }
       });
     }
 
-    // A tall inline element grows only its own line's box, CSS-style.
     const lines: TextLine[] = [];
     let top = 0;
-    for (const fragments of fragmentLines) {
-      let height = baseLineHeight;
-      for (const frag of fragments) {
-        if (frag.inline) {
-          const inlineHeight = frag.inline.size.y();
-          if (inlineHeight > height) height = inlineHeight;
-        }
-      }
+    for (const {fragments, height} of fragmentLines) {
       lines.push({fragments, top, height});
       top += height;
     }
@@ -2543,9 +2549,11 @@ export class Txt extends Shape {
    * Produces a single-line layout with zero widths; preserves text order.
    */
   private fallbackSplit(granularity: SegmentGranularity): TextUnit[] {
-    const {items} = this.collectInlineItems();
-    if (items.length === 0) return [];
-    const joined = items.map(item => item.text).join('');
+    const runs = this.collectRuns();
+    if (runs.length === 0) return [];
+    const joined = runs
+      .map(run => (run.kind === 'inline' ? INLINE_PLACEHOLDER : run.text))
+      .join('');
     const lh = this.resolvedLineHeight();
     const result: TextUnit[] = [];
     let indexInLine = 0;
@@ -2780,10 +2788,11 @@ export class Txt extends Shape {
    * ```
    */
   public fitFontSize(maxWidth: number, maxHeight: number): number {
-    const {items, styles} = this.collectItemsWithScale(1);
+    const runs = this.collectRunsWithScale(1);
     const rawSize = this.fontSize();
-    if (items.length === 0 || !this.measurementContext()) return rawSize;
+    if (runs.length === 0 || !this.measurementContext()) return rawSize;
 
+    const items = runs.map(run => this.runToItem(run));
     const wrap = this.textWrap();
     let lo = 1;
     let hi = rawSize;
@@ -2792,7 +2801,7 @@ export class Txt extends Shape {
       const mid = (lo + hi) / 2;
       const scale = mid / rawSize;
       const scaledItems = items.map((item, idx) => {
-        const {fontComponents} = styles[idx];
+        const {fontComponents} = runs[idx].metrics;
         const scaledFont = buildCanvasFontString(
           fontComponents.style,
           fontComponents.weight,

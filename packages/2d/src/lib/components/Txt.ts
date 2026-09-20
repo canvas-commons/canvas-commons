@@ -29,6 +29,7 @@ import {getPathProfile} from '../curves/getPathProfile';
 import {computed, initial, nodeName, signal} from '../decorators';
 import {CanvasStyle} from '../partials';
 import type {TextExclusion} from '../partials/types';
+import {useScene2D} from '../scenes/useScene2D';
 import {
   Interval,
   PreparedRichInline,
@@ -54,7 +55,7 @@ import {Layout} from './Layout';
 import {Node} from './Node';
 import {Shape, ShapeProps} from './Shape';
 import {TxtLeaf} from './TxtLeaf';
-import {ComponentChildren} from './types';
+import {ComponentChild, ComponentChildren} from './types';
 
 type TxtChildren = string | Node | (string | Node)[];
 
@@ -609,8 +610,10 @@ export class Txt extends Shape {
     if (leaf === null) {
       leaf = new TxtLeaf({text: value});
       leaf.parent(this);
+      this.ownedLeaves = [leaf];
     } else {
       leaf.text(value);
+      this.ownedLeaves = this.ownedLeaves.includes(leaf) ? [leaf] : [];
     }
 
     this.setParsedChildren([leaf]);
@@ -1775,9 +1778,50 @@ export class Txt extends Shape {
     return {width: layout.width, height: layout.height};
   }
 
+  /** Leaves that this node made for string children, in string order. */
+  private ownedLeaves: TxtLeaf[] = [];
+
+  /**
+   * Owned leaves still safe to hand back to a string child: still this
+   * node's child (a `remove()`/move elsewhere drops a leaf from
+   * `realChildren`), not disposed (unregistered from the scene), and not
+   * itself present as an explicit child in `array` (which would otherwise
+   * collide with the explicit child's own slot).
+   */
+  private reusableLeaves(array: ComponentChild[]): TxtLeaf[] {
+    const explicit = new Set<Node>(
+      array.filter((child): child is Node => child instanceof Node),
+    );
+    const scene = useScene2D();
+    return this.ownedLeaves.filter(
+      leaf =>
+        this.realChildren.includes(leaf) &&
+        !explicit.has(leaf) &&
+        scene.getNode(leaf.key) === leaf,
+    );
+  }
+
+  /** Raw reads keep the leaf out of the dependencies of reactive children. */
+  private static leafFor(
+    reusable: TxtLeaf[],
+    index: number,
+    text: string,
+  ): TxtLeaf {
+    const leaf = reusable[index];
+    if (!leaf) {
+      return new TxtLeaf({text});
+    }
+    if (leaf.text.context.raw() !== text) {
+      leaf.text(text);
+    }
+    return leaf;
+  }
+
   protected override parseChildren(children: ComponentChildren): Node[] {
     const result: Node[] = [];
     const array = Array.isArray(children) ? children : [children];
+    const reusable = this.reusableLeaves(array);
+    const usedLeaves: TxtLeaf[] = [];
     for (const child of array) {
       if (child instanceof Txt || child instanceof TxtLeaf) {
         result.push(child);
@@ -1787,10 +1831,13 @@ export class Txt extends Shape {
         child.position(() => this.inlinePositionOf(child));
         result.push(child);
       } else if (typeof child === 'string') {
-        result.push(new TxtLeaf({text: child}));
+        const leaf = Txt.leafFor(reusable, usedLeaves.length, child);
+        usedLeaves.push(leaf);
+        result.push(leaf);
       }
     }
 
+    this.ownedLeaves = usedLeaves;
     return result;
   }
 

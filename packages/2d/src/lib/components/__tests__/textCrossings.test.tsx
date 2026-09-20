@@ -672,11 +672,6 @@ describe('Txt feature crossings', () => {
         m.startsWith('inv3 ') &&
         (m.includes('content=two-runs') || m.includes('content=three-runs')),
     },
-    {
-      id: 'autosize-ignores-nowrap',
-      description: 'autoSize does not shrink text when textWrap is false',
-      test: m => m.startsWith('inv6 autosize') && m.includes('wrap=false'),
-    },
   ];
 
   // `FAILURES` is only populated once the sweep `it` above has run, so this

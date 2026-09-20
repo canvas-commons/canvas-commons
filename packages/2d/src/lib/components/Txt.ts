@@ -15,8 +15,6 @@ import {
 } from '@canvas-commons/core';
 import {
   LayoutCursor,
-  PreparedTextWithSegments,
-  materializeLineRange,
   measureLineStats,
   measureNaturalWidth,
   prepareWithSegments,
@@ -29,26 +27,24 @@ import {CanvasStyle} from '../partials';
 import type {TextExclusion, TextWrap, WordBreak} from '../partials/types';
 import {useScene2D} from '../scenes/useScene2D';
 import {
-  Interval,
   PreparedRichInline,
   RichInlineItem,
   SOFT_HYPHEN,
   SegmentGranularity,
   buildCanvasFontString,
-  carveTextLineSlots,
-  getPolygonIntervalForBand,
-  getRectIntervalsForBand,
-  knuthPlass,
-  layoutNextLineIsolatingOverflow,
-  materializeRichInlineLineRange,
   measureMinContentWidth,
   measureRichInlineStats,
   prepareRichInline,
   resolveLineHeight,
   segment,
-  walkRichInlineLineRanges,
 } from '../text';
-import type {FontComponents, Run} from '../text/paragraphTypes';
+import {
+  LayoutConstraints,
+  ParagraphLayout,
+  emptyParagraphLayout,
+  layoutParagraph,
+} from '../text/layoutParagraph';
+import type {FontComponents, PreparedLayout, Run} from '../text/paragraphTypes';
 import {PlacedLine, placeParagraph} from '../text/placeParagraph';
 import {fontsVersion, requestFontLoad, resolveCanvasStyle} from '../utils';
 import {sharedMeasurementContext} from '../utils/measurement';
@@ -223,7 +219,6 @@ export type TextUnit = {
 };
 
 const HORIZONTAL_WHITESPACE_RE = /[ \t\f\r]+/g;
-const MAX_BAND_ITERATIONS = 2048;
 const INLINE_PLACEHOLDER = '￼';
 
 /** Untyped callers pass values a `string` signal cannot hold. */
@@ -252,12 +247,6 @@ function prepareTextForWrapMode(
   if (wrap === false) return {text, whiteSpace: 'normal'};
   return {text: collapseInlineWhitespace(text), whiteSpace: 'pre-wrap'};
 }
-
-type RichGroup = {
-  // `null` is a blank line — no items to feed to pretext.
-  prepared: PreparedRichInline | null;
-  itemMap: number[];
-};
 
 /**
  * Split rich items at explicit newline boundaries into per-line groups.
@@ -340,25 +329,6 @@ type LineBreakOffset = {
   /** True when the cut breaks a word at a soft hyphen and needs a visible '-'. */
   hyphen: boolean;
 };
-
-type PreparedLayout = {
-  /**
-   * Narrowest width that never splits a word, in pretext-space pixels. `0`
-   * under `overflowWrap: 'anywhere'`, where a grapheme is the only floor.
-   */
-  minContentWidth: number;
-} & (
-  | {
-      kind: 'rich';
-      groups: RichGroup[];
-      runs: Run[];
-    }
-  | {
-      kind: 'simple';
-      prepared: PreparedTextWithSegments;
-      style: FragmentStyle;
-    }
-);
 
 /**
  * A block of text.
@@ -846,11 +816,7 @@ export class Txt extends Shape {
       return null;
     }
 
-    const {ends} = this.layoutSimple(
-      prepared.prepared,
-      prepared.style,
-      maxWidth,
-    );
+    const {ends} = this.layoutFor(maxWidth);
 
     const breaks: LineBreakOffset[] = [];
     for (let i = 0; i < ends.length - 1; i++) {
@@ -1284,8 +1250,15 @@ export class Txt extends Shape {
 
   @computed()
   protected preparedLayout(): PreparedLayout | null {
+    return this.prepareRuns(this.collectRuns());
+  }
+
+  /**
+   * Measure runs with pretext. Takes the runs so a fit can prepare a candidate
+   * scale without going through {@link effectiveFontSize}.
+   */
+  private prepareRuns(runs: Run[]): PreparedLayout | null {
     if (!this.measurementContext()) return null;
-    const runs = this.collectRuns();
     if (runs.length === 0) return null;
 
     const hasInline = runs.some(run => run.kind === 'inline');
@@ -1380,108 +1353,6 @@ export class Txt extends Shape {
   protected override minContentWidth(): number {
     const floor = this.preparedLayout()?.minContentWidth ?? 0;
     return floor + this.padding.left() + this.padding.right();
-  }
-
-  /**
-   * Band-by-band greedy layout that wraps around `exclusions`. Used when one
-   * or more `exclusions` are present; falls back to pretext's single-width
-   * walker otherwise.
-   *
-   * @returns one entry per laid-out line, with `x` being the slot's left
-   *   offset (in Txt-local pretext-space, where 0 = block left).
-   */
-  private layoutWithExclusions(
-    prepared: PreparedTextWithSegments,
-    maxWidth: number,
-    exclusions: TextExclusion[],
-  ): {
-    text: string;
-    x: number;
-    width: number;
-    lineTop: number;
-    end: LayoutCursor;
-  }[] {
-    const lh = this.resolvedLineHeight();
-    const lines: {
-      text: string;
-      x: number;
-      width: number;
-      lineTop: number;
-      end: LayoutCursor;
-    }[] = [];
-    let cursor = {segmentIndex: 0, graphemeIndex: 0};
-    let lineTop = 0;
-    const blocked: Interval[] = [];
-
-    for (let i = 0; i < MAX_BAND_ITERATIONS; i++) {
-      const bandTop = lineTop;
-      const bandBottom = lineTop + lh;
-      blocked.length = 0;
-      for (const ex of exclusions) {
-        const hp = ex.horizontalPadding ?? 0;
-        const vp = ex.verticalPadding ?? 0;
-        if (ex.kind === 'rect') {
-          for (const interval of getRectIntervalsForBand(
-            [
-              {
-                x: ex.x,
-                y: ex.y,
-                width: ex.width,
-                height: ex.height,
-              },
-            ],
-            bandTop,
-            bandBottom,
-            hp,
-            vp,
-          )) {
-            blocked.push(interval);
-          }
-        } else {
-          const interval = getPolygonIntervalForBand(
-            ex.points,
-            bandTop,
-            bandBottom,
-            hp,
-            vp,
-          );
-          if (interval) blocked.push(interval);
-        }
-      }
-
-      const slots = carveTextLineSlots({left: 0, right: maxWidth}, blocked);
-      if (slots.length === 0) {
-        lineTop += lh;
-        continue;
-      }
-
-      let slot = slots[0];
-      for (const candidate of slots) {
-        if (candidate.right - candidate.left > slot.right - slot.left) {
-          slot = candidate;
-        }
-      }
-
-      const range = layoutNextLineIsolatingOverflow(
-        prepared,
-        cursor,
-        slot.right - slot.left,
-        this.overflowWrap() !== 'anywhere',
-      );
-      if (range === null) break;
-      const line = materializeLineRange(prepared, range);
-      lines.push({
-        text: line.text,
-        x: slot.left,
-        width: line.width,
-        lineTop,
-        end: range.end,
-      });
-      cursor = range.end;
-      lineTop += lh;
-    }
-
-    return lines;
   }
 
   /**
@@ -1589,176 +1460,48 @@ export class Txt extends Shape {
     return ctx.measureText(INLINE_PLACEHOLDER).width;
   }
 
-  private static readonly emptyLayout: TextLayoutResult = {
-    lines: [],
-    width: 0,
-    height: 0,
-    lineHeight: 0,
-  };
-
-  /**
-   * Lay out a simple (single-style) prepared text, dispatching between the
-   * three wrapping strategies: exclusion bands, Knuth-Plass, and pretext's
-   * greedy walker. Single source of truth for that dispatch — the per-line
-   * `ends` cursors feed {@link lineBreakOffsets}, so tween break
-   * stabilization always matches what {@link layoutFor} renders.
-   */
-  private layoutSimple(
-    prepared: PreparedTextWithSegments,
-    style: FragmentStyle,
+  /** Line-breaking inputs that do not depend on the font scale. */
+  private layoutConstraints(
     maxWidth: number,
-  ): {lines: TextLine[]; ends: LayoutCursor[]; width: number} {
-    const lineHeight = this.resolvedLineHeight();
-    const lines: TextLine[] = [];
-    const ends: LayoutCursor[] = [];
-    let width = 0;
-
-    const exclusions = this.exclusions();
-    if (exclusions.length > 0 && Number.isFinite(maxWidth)) {
-      const bandLines = this.layoutWithExclusions(
-        prepared,
-        maxWidth,
-        exclusions,
-      );
-      for (const line of bandLines) {
-        lines.push({
-          fragments: [{text: line.text, x: line.x, style}],
-          top: line.lineTop,
-          height: lineHeight,
-        });
-        ends.push(line.end);
-        const fullRight = line.x + line.width;
-        if (fullRight > width) width = fullRight;
-      }
-    } else if (this.wrapMode() === 'knuth-plass') {
-      const {normalSpaceWidth, hyphenWidth} = this.measureFontConstants(
-        style.font,
-      );
-      const kpLines = knuthPlass(prepared, maxWidth, {
-        normalSpaceWidth,
-        hyphenWidth,
-        justified: this.textAlign() === 'justify',
-      });
-      for (const line of kpLines) {
-        lines.push({
-          fragments: [{text: line.text, x: 0, style}],
-          top: lines.length * lineHeight,
-          height: lineHeight,
-        });
-        ends.push({segmentIndex: line.endSegmentIndex, graphemeIndex: 0});
-        if (line.width > width) width = line.width;
-      }
-    } else {
-      const isolateOverflow = this.overflowWrap() !== 'anywhere';
-      let cursor: LayoutCursor = {segmentIndex: 0, graphemeIndex: 0};
-      let range = layoutNextLineIsolatingOverflow(
-        prepared,
-        cursor,
-        maxWidth,
-        isolateOverflow,
-      );
-      while (range !== null) {
-        const line = materializeLineRange(prepared, range);
-        lines.push({
-          fragments: [{text: line.text, x: 0, style}],
-          top: lines.length * lineHeight,
-          height: lineHeight,
-        });
-        ends.push(range.end);
-        if (line.width > width) width = line.width;
-        cursor = range.end;
-        range = layoutNextLineIsolatingOverflow(
-          prepared,
-          cursor,
-          maxWidth,
-          isolateOverflow,
-        );
-      }
-    }
-
-    return {lines, ends, width};
+    lineHeight: number,
+  ): LayoutConstraints {
+    return {
+      maxWidth,
+      lineHeight,
+      wrapMode: this.wrapMode(),
+      overflowWrap: this.overflowWrap(),
+      exclusions: this.exclusions(),
+      // Knuth-Plass plans compressed lines only when they will be justified.
+      justified: this.textAlign() === 'justify',
+    };
   }
 
   /**
-   * Compute the text layout for an explicit max-width. Used by the yoga
+   * Break a prepared paragraph into lines. Every consumer — drawing, yoga
+   * measurement, tween stabilization and the {@link autoSize} fit — lays out
+   * through this one call, so none of them can see different lines.
+   */
+  private layoutPrepared(
+    prepared: PreparedLayout | null,
+    constraints: LayoutConstraints,
+  ): ParagraphLayout {
+    if (!prepared) return emptyParagraphLayout;
+    return layoutParagraph(prepared, constraints, {
+      fontConstants: font => this.measureFontConstants(font),
+      styleFor: run => this.styleFor(run),
+    });
+  }
+
+  /**
+   * Compute the text layout for an explicit breaking width. Used by the yoga
    * measure function (which receives the constraint dynamically) and by
    * draw() / public introspection methods (which read the resolved size).
    */
-  protected layoutFor(maxWidth: number): TextLayoutResult {
-    const prepared = this.preparedLayout();
-    if (!prepared) return Txt.emptyLayout;
-
-    const baseLineHeight = this.resolvedLineHeight();
-
-    if (prepared.kind === 'simple') {
-      const {lines, width} = this.layoutSimple(
-        prepared.prepared,
-        prepared.style,
-        maxWidth,
-      );
-      const lastLine = lines[lines.length - 1];
-      return {
-        lines,
-        width,
-        height: lastLine ? lastLine.top + lastLine.height : 0,
-        lineHeight: baseLineHeight,
-      };
-    }
-
-    const fragmentLines: {fragments: StyledFragment[]; height: number}[] = [];
-    // Pretext splits an over-wide run here: `PreparedRichInline` has no
-    // segment widths to measure one run.
-    let totalWidth = 0;
-    for (const group of prepared.groups) {
-      if (group.prepared === null) {
-        fragmentLines.push({fragments: [], height: baseLineHeight});
-        continue;
-      }
-      const groupPrepared = group.prepared;
-      walkRichInlineLineRanges(groupPrepared, maxWidth, range => {
-        const line = materializeRichInlineLineRange(groupPrepared, range);
-        const styledFragments: StyledFragment[] = [];
-        let x = 0;
-        // A tall inline element grows only its own line's box, CSS-style.
-        let height = baseLineHeight;
-        for (const fragment of line.fragments) {
-          x += fragment.gapBefore;
-          const originalIndex = group.itemMap[fragment.itemIndex];
-          const run = prepared.runs[originalIndex];
-          if (run) {
-            const inline = run.kind === 'inline' ? run.node : undefined;
-            styledFragments.push({
-              text: fragment.text,
-              x,
-              style: this.styleFor(run),
-              inline,
-              inlineWidth: inline ? fragment.occupiedWidth : undefined,
-            });
-            if (run.kind === 'inline' && run.height > height) {
-              height = run.height;
-            }
-          }
-          x += fragment.occupiedWidth;
-        }
-        fragmentLines.push({fragments: styledFragments, height});
-        if (line.width > totalWidth) {
-          totalWidth = line.width;
-        }
-      });
-    }
-
-    const lines: TextLine[] = [];
-    let top = 0;
-    for (const {fragments, height} of fragmentLines) {
-      lines.push({fragments, top, height});
-      top += height;
-    }
-    return {
-      lines,
-      width: totalWidth,
-      height: top,
-      lineHeight: baseLineHeight,
-    };
+  protected layoutFor(maxWidth: number): ParagraphLayout {
+    return this.layoutPrepared(
+      this.preparedLayout(),
+      this.layoutConstraints(maxWidth, this.resolvedLineHeight()),
+    );
   }
 
   /**
@@ -1863,11 +1606,10 @@ export class Txt extends Shape {
   private readonly tweenTargetLines = createSignal<string[] | null>(null);
 
   /**
-   * Effective wrap constraint when no explicit yoga measurement is in play
-   * (e.g. for `draw()` and `textLines()`).
+   * Width line breaking must fit; `available` is read only when a break is
+   * possible at all.
    */
-  @computed()
-  protected effectiveMaxWidth(): number {
+  private breakingWidth(available: () => number): number {
     if (this.pathProfile() || this.textWrap() === false) {
       return Number.POSITIVE_INFINITY;
     }
@@ -1876,19 +1618,34 @@ export class Txt extends Shape {
     if (this.forcedBreaksOnly() && this.exclusions().length === 0) {
       return Number.POSITIVE_INFINITY;
     }
-    const desiredWidth = this.width.context.getter();
-    if (typeof desiredWidth === 'number') {
-      return desiredWidth;
-    }
-    // Flex/percent Txts have no numeric width; wrap at the yoga-resolved one.
-    // The +0.5 absorbs yoga's pixel rounding, which would otherwise re-wrap.
-    const computedWidth = this.computedSize().x;
-    return computedWidth > 0 ? computedWidth + 0.5 : Number.POSITIVE_INFINITY;
+    return available();
+  }
+
+  /**
+   * Effective wrap constraint when no explicit yoga measurement is in play
+   * (e.g. for `draw()` and `textLines()`).
+   */
+  @computed()
+  protected effectiveMaxWidth(): number {
+    return this.breakingWidth(() => {
+      const desiredWidth = this.width.context.getter();
+      if (typeof desiredWidth === 'number') {
+        return desiredWidth;
+      }
+      // Flex/percent Txts have no numeric width; wrap at the yoga-resolved
+      // one. The +0.5 absorbs yoga's pixel rounding, which would otherwise
+      // re-wrap.
+      const computedWidth = this.computedSize().x;
+      return computedWidth > 0 ? computedWidth + 0.5 : Number.POSITIVE_INFINITY;
+    });
   }
 
   @computed()
   protected textLayout(): TextLayoutResult {
-    return this.layoutFor(this.effectiveMaxWidth());
+    const {lines, width, height, lineHeight} = this.layoutFor(
+      this.effectiveMaxWidth(),
+    );
+    return {lines, width, height, lineHeight};
   }
 
   private measureForYoga(
@@ -1899,15 +1656,11 @@ export class Txt extends Shape {
     if (pathBBox) {
       return {width: pathBBox.width, height: pathBBox.height};
     }
-    const maxWidth =
-      widthMode === MeasureMode.Undefined ? Number.POSITIVE_INFINITY : width;
-    const wrap = this.textWrap();
-    const effectiveMax = wrap === false ? Number.POSITIVE_INFINITY : maxWidth;
-    const desiredWidth = this.width.context.getter();
-    const reusable =
-      wrap === false ||
-      (typeof desiredWidth === 'number' && effectiveMax === desiredWidth);
-    const layout = reusable ? this.textLayout() : this.layoutFor(effectiveMax);
+    const layout = this.layoutFor(
+      this.breakingWidth(() =>
+        widthMode === MeasureMode.Undefined ? Number.POSITIVE_INFINITY : width,
+      ),
+    );
     return {width: layout.width, height: layout.height};
   }
 
@@ -2661,9 +2414,11 @@ export class Txt extends Shape {
    * dimensions, clamped at the configured {@link fontSize}.
    *
    * @remarks
-   * Reads each leaf at its raw (unscaled) size, so this method is safe to
-   * call from inside {@link effectiveFontSize} without creating a dependency
-   * cycle.
+   * Every candidate is laid out with the operation that draws the text, so
+   * the size that wins is a size that fits the lines you see — with
+   * `textWrap: false` that is the one unwrapped line. Leaves are read at
+   * their raw (unscaled) size, so calling this from inside
+   * {@link effectiveFontSize} creates no dependency cycle.
    *
    * @example
    * ```ts
@@ -2671,46 +2426,36 @@ export class Txt extends Shape {
    * ```
    */
   public fitFontSize(maxWidth: number, maxHeight: number): number {
-    const runs = this.collectRunsWithScale(1);
     const rawSize = this.fontSize();
-    if (runs.length === 0 || !this.measurementContext()) return rawSize;
+    if (rawSize <= 1 || !this.measurementContext()) return rawSize;
+    if (this.collectRunsWithScale(1).length === 0) return rawSize;
 
-    const items = runs.map(run => this.runToItem(run));
-    const wrap = this.textWrap();
-    let lo = 1;
-    let hi = rawSize;
-
-    for (let i = 0; i < 20; i++) {
-      const mid = (lo + hi) / 2;
-      const scale = mid / rawSize;
-      const scaledItems = items.map((item, idx) => {
-        const {fontComponents} = runs[idx].metrics;
-        const scaledFont = buildCanvasFontString(
-          fontComponents.style,
-          fontComponents.weight,
-          fontComponents.size * scale,
-          fontComponents.family,
-        );
-        return {...item, font: scaledFont};
-      });
-      const groups = buildRichGroups(scaledItems, wrap);
-      const stats = measureGroupStats(
-        groups.map(g =>
-          g.items.length > 0 ? prepareRichInline(g.items) : null,
+    const fits = (size: number) => {
+      const layout = this.layoutPrepared(
+        this.prepareRuns(this.collectRunsWithScale(size / rawSize)),
+        this.layoutConstraints(
+          this.breakingWidth(() => maxWidth),
+          resolveLineHeight(this.lineHeight(), size),
         ),
-        maxWidth,
       );
-      const lh = resolveLineHeight(this.lineHeight(), mid);
-      const height = stats.lineCount * lh;
-      const fits = stats.maxLineWidth <= maxWidth && height <= maxHeight;
-      if (fits) {
+      return layout.width <= maxWidth && layout.height <= maxHeight;
+    };
+
+    // Whole pixels, so the size that wins is one that was laid out and fit —
+    // the fit is not monotone under exclusions or Knuth-Plass, and a rounded
+    // winner would otherwise go untested.
+    let lo = 1;
+    let hi = Math.floor(rawSize);
+    while (lo < hi) {
+      const mid = Math.ceil((lo + hi) / 2);
+      if (fits(mid)) {
         lo = mid;
       } else {
-        hi = mid;
+        hi = mid - 1;
       }
     }
 
-    return Math.floor(lo);
+    return lo;
   }
 
   // Nested runs inherit fill / stroke / line settings from the parent Txt.

@@ -6,10 +6,10 @@ import {afterAll, beforeAll} from 'vitest';
  * and the paint calls are no-ops. Restores the original `getContext` afterwards.
  *
  * @param charWidth - Width reported per character by `measureText`, or a
- *   function measuring a whole string for per-character widths.
+ *   function measuring a whole string against the context's current font.
  */
 export function mockTextContext(
-  charWidth: number | ((text: string) => number) = 10,
+  charWidth: number | ((text: string, font: string) => number) = 10,
 ): void {
   const measure =
     typeof charWidth === 'number'
@@ -41,7 +41,7 @@ export function mockTextContext(
       rotate() {},
       drawImage() {},
       measureText(text: string) {
-        return {width: measure(text)} as TextMetrics;
+        return {width: measure(text, context.font)} as TextMetrics;
       },
       fillText() {},
       strokeText() {},

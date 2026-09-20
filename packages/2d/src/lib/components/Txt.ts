@@ -145,6 +145,18 @@ type FragmentStyle = {
   letterSpacing: number;
 };
 
+/** One painted word of a placed line, with its offset in the line's text. */
+type PaintedSpan = {
+  start: number;
+  end: number;
+  /** Left edge in block space. */
+  left: number;
+  /** Right edge in block space. */
+  right: number;
+  whitespace: boolean;
+  style: FragmentStyle;
+};
+
 /**
  * A single styled slice of laid-out text on one line of a {@link Txt}.
  *
@@ -2113,22 +2125,20 @@ export class Txt extends Shape {
       const y = line.top - blockHeight / 2 + line.height / 2;
       let indexInLine = 0;
 
+      if (granularity === 'sentence') {
+        result.push(...this.lineSentences(line, lineIdx, y, blockWidth));
+        continue;
+      }
+
       // Measure cumulatively so kerning against the prefix is preserved.
-      // `slack` is added per whitespace run (so sentences get it per gap).
-      const emit = (
-        text: string,
-        style: FragmentStyle,
-        startX: number,
-        slack: number,
-      ) => {
+      const emit = (text: string, style: FragmentStyle, startX: number) => {
         let cursor = startX;
         let cumulativeText = '';
         let prevCum = 0;
         for (const seg of segment(text, granularity)) {
           cumulativeText += seg.segment;
           const cumWidth = this.measureStyledText(cumulativeText, style);
-          const runs = slack > 0 ? (seg.segment.match(/\s+/g)?.length ?? 0) : 0;
-          const advance = cumWidth - prevCum + slack * runs;
+          const advance = cumWidth - prevCum;
           prevCum = cumWidth;
           if (granularity === 'word' && !seg.isWordLike) {
             const whitespace = /^\s+$/.test(seg.segment);
@@ -2157,22 +2167,110 @@ export class Txt extends Shape {
       for (const placed of line.fragments) {
         const {fragment} = placed;
         if (fragment.inline) continue;
-        const fragLeft = placed.x - blockWidth / 2;
-        if (placed.words && granularity !== 'sentence') {
+        if (placed.words) {
           // Match the word-by-word paint; a whole-fragment measure re-adds the
           // inter-word kerning the paint omits.
           for (const word of placed.words) {
             if (word.whitespace) continue;
-            emit(word.text, fragment.style, word.x - blockWidth / 2, 0);
+            emit(word.text, fragment.style, word.x - blockWidth / 2);
           }
         } else {
-          // Sentences span painted words, so measure cumulatively; justified
-          // sentence units stay sub-pixel off from the word-by-word paint.
-          emit(fragment.text, fragment.style, fragLeft, line.extraPerSpace);
+          emit(fragment.text, fragment.style, placed.x - blockWidth / 2);
         }
       }
     }
 
+    return result;
+  }
+
+  /**
+   * Every painted word of a placed line, in block space, tagged with its
+   * offset in the line's text.
+   */
+  private paintedSpans(line: PlacedLine): PaintedSpan[] {
+    const spans: PaintedSpan[] = [];
+    let offset = 0;
+    for (const placed of line.fragments) {
+      const {fragment} = placed;
+      if (fragment.inline) continue;
+      const {style} = fragment;
+      if (placed.words) {
+        let cursor = 0;
+        for (const word of placed.words) {
+          spans.push({
+            start: offset + cursor,
+            end: offset + cursor + word.text.length,
+            left: word.x,
+            right: word.x + word.advance,
+            whitespace: word.whitespace,
+            style,
+          });
+          cursor += word.text.length;
+        }
+      } else {
+        // Measure prefixes so each word keeps its kerning against the ones
+        // before it, as the whole-fragment paint does.
+        let previous = 0;
+        for (const seg of segment(fragment.text, 'word')) {
+          const through = this.measureStyledText(
+            fragment.text.slice(0, seg.index + seg.segment.length),
+            style,
+          );
+          spans.push({
+            start: offset + seg.index,
+            end: offset + seg.index + seg.segment.length,
+            left: placed.x + previous,
+            right: placed.x + through,
+            whitespace: /^\s+$/.test(seg.segment),
+            style,
+          });
+          previous = through;
+        }
+      }
+      offset += fragment.text.length;
+    }
+    return spans;
+  }
+
+  /**
+   * Sentences of one placed line, spanning from the first painted word of the
+   * sentence to the last, across fragment boundaries.
+   */
+  private lineSentences(
+    line: PlacedLine,
+    lineIndex: number,
+    y: number,
+    blockWidth: number,
+  ): {unit: TextUnit; style: FragmentStyle}[] {
+    const spans = this.paintedSpans(line);
+    const lineText = line.fragments
+      .filter(placed => !placed.fragment.inline)
+      .map(placed => placed.fragment.text)
+      .join('');
+
+    const result: {unit: TextUnit; style: FragmentStyle}[] = [];
+    let indexInLine = 0;
+    for (const seg of segment(lineText, 'sentence')) {
+      const end = seg.index + seg.segment.length;
+      const covered = spans.filter(
+        span => !span.whitespace && span.start < end && span.end > seg.index,
+      );
+      if (covered.length === 0) continue;
+      const first = covered[0];
+      const last = covered[covered.length - 1];
+      result.push({
+        unit: {
+          text: lineText.slice(first.start, last.end),
+          x: (first.left + last.right) / 2 - blockWidth / 2,
+          y,
+          width: last.right - first.left,
+          height: line.height,
+          lineIndex,
+          indexInLine: indexInLine++,
+        },
+        style: first.style,
+      });
+    }
     return result;
   }
 
@@ -2279,9 +2377,8 @@ export class Txt extends Shape {
    * ```
    *
    * Returns an empty array in headless environments without a 2D canvas (e.g.
-   * jsdom). Caveats: grapheme splitting breaks ligature shaping; `'sentence'`
-   * on justified lines is sub-pixel-approximate; per-node `filters`, `shadow*`,
-   * and `cache` on the source are not transferred.
+   * jsdom). Caveats: grapheme splitting breaks ligature shaping; per-node
+   * `filters`, `shadow*`, and `cache` on the source are not transferred.
    *
    * @param granularity - `'grapheme'` (default), `'word'`, or `'sentence'`.
    */

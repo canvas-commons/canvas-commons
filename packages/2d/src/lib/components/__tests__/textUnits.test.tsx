@@ -130,6 +130,63 @@ describe('Txt text units geometry', () => {
     expect(ltrWords[0].x).toBeLessThan(rtlWords[0].x);
   });
 
+  it('bounds a sentence by the words painted on its line', () => {
+    // Knuth-Plass plans lines that justify squeezes below their natural
+    // width, so a sentence measured on its own text would overshoot.
+    const txt = (
+      <Txt
+        width={100}
+        fontSize={10}
+        lineHeight={20}
+        wrapMode={'knuth-plass'}
+        textAlign={'justify'}
+      >
+        aa bb cc dd ee ff gg hh
+      </Txt>
+    ) as Txt;
+
+    const words = txt.textWords().filter(word => word.lineIndex === 0);
+    const sentences = txt
+      .textSentences()
+      .filter(sentence => sentence.lineIndex === 0);
+    expect(words.length).toBeGreaterThan(1);
+    expect(sentences).toHaveLength(1);
+
+    const last = words[words.length - 1];
+    expect(sentences[0].x - sentences[0].width / 2).toBeCloseTo(
+      words[0].x - words[0].width / 2,
+      2,
+    );
+    expect(sentences[0].x + sentences[0].width / 2).toBeCloseTo(
+      last.x + last.width / 2,
+      2,
+    );
+  });
+
+  it('spans a sentence across two runs of one line', () => {
+    const txt = (
+      <Txt width={300} fontSize={10} lineHeight={20} textAlign={'left'}>
+        <Txt fill={'red'}>{'one two '}</Txt>
+        <Txt>{'three four'}</Txt>
+      </Txt>
+    ) as Txt;
+
+    const words = txt.textWords();
+    const sentences = txt.textSentences();
+    expect(words.map(word => word.text)).toContain('four');
+    expect(sentences).toHaveLength(1);
+
+    const last = words[words.length - 1];
+    expect(sentences[0].x - sentences[0].width / 2).toBeCloseTo(
+      words[0].x - words[0].width / 2,
+      2,
+    );
+    expect(sentences[0].x + sentences[0].width / 2).toBeCloseTo(
+      last.x + last.width / 2,
+      2,
+    );
+  });
+
   it('distributes justify slack across whitespace runs', () => {
     // 'aa bb' = 5 chars * 10 = 50px text. Two-line forced via width=30 so
     // the first line ('aa') is short enough that pretext wraps. With

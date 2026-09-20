@@ -52,6 +52,35 @@ describe('Txt non-string text values', () => {
     expect(painted(txt)).toEqual(['0', 'x']);
   });
 
+  it('renders nothing for a null text', () => {
+    const txt = new Probe({fontSize: 10, lineHeight: 20, text: 'x'});
+    add(txt);
+    // @ts-expect-error untyped callers pass null here
+    txt.text(null);
+
+    expect(txt.text()).toBe('');
+    expect(lineTexts(txt).join('\n')).toBe('');
+    expect(painted(txt)).toEqual([]);
+  });
+
+  it('renders nothing for a null span between two runs', () => {
+    const txt = new Probe({
+      fontSize: 10,
+      lineHeight: 20,
+      children: [
+        new Txt({text: 'a'}),
+        // @ts-expect-error untyped callers pass null here
+        new Txt({text: () => null}),
+        new Txt({text: 'b'}),
+      ],
+    });
+    add(txt);
+
+    expect(txt.text()).toBe('ab');
+    expect(lineTexts(txt).join('\n')).toBe('ab');
+    expect(painted(txt)).toEqual(['a', 'b']);
+  });
+
   it('renders a number returned by a reactive text', () => {
     const txt = new Probe({
       fontSize: 10,

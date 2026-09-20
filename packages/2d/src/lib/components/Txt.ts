@@ -226,6 +226,11 @@ export type TextUnit = {
 const HORIZONTAL_WHITESPACE_RE = /[ \t\f\r]+/g;
 const MAX_BAND_ITERATIONS = 2048;
 
+/** Untyped callers pass values a `string` signal cannot hold. */
+function textValue(value: string): string {
+  return value === null || value === undefined ? '' : String(value);
+}
+
 /**
  * Normalize runs of horizontal whitespace to a single space while preserving
  * literal newlines. Matches CSS `white-space: pre-line` semantics when the
@@ -1043,7 +1048,7 @@ export class Txt extends Shape {
     const children = this.childrenAs<Txt | TxtLeaf>();
     let text = '';
     for (const child of children) {
-      text += child.text();
+      text += textValue(child.text());
     }
 
     return text;
@@ -1116,8 +1121,7 @@ export class Txt extends Shape {
         );
         requestFontLoad(font);
         const letterSpacing = txt.letterSpacing() * scale;
-        // Untyped callers pass numbers, which still have to reach the canvas.
-        const source = String(node.text());
+        const source = textValue(node.text());
         // A path forces a single line, so newlines collapse to spaces.
         const text =
           this.textPath() === null ? source : source.replace(/\n/g, ' ');

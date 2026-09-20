@@ -59,6 +59,36 @@ describe('Txt non-string text values', () => {
     expect(painted(txt)).toEqual(['0', 'x']);
   });
 
+  // The same untyped route, with a value that has no text of its own.
+  const nothing: string = JSON.parse('null');
+
+  it('renders nothing for a null text', () => {
+    const txt = new Probe({fontSize: 10, lineHeight: 20, text: 'x'});
+    add(txt);
+    txt.text(nothing);
+
+    expect(txt.text()).toBe('');
+    expect(lineText(txt)).toBe('');
+    expect(painted(txt)).toEqual([]);
+  });
+
+  it('renders nothing for a null span between two runs', () => {
+    const txt = new Probe({
+      fontSize: 10,
+      lineHeight: 20,
+      children: [
+        new Txt({text: 'a'}),
+        new Txt({text: () => nothing}),
+        new Txt({text: 'b'}),
+      ],
+    });
+    add(txt);
+
+    expect(txt.text()).toBe('ab');
+    expect(lineText(txt)).toBe('ab');
+    expect(painted(txt)).toEqual(['a', 'b']);
+  });
+
   it('renders a number returned by a reactive text', () => {
     const txt = new Probe({fontSize: 10, lineHeight: 20, text: () => zero});
     add(txt);

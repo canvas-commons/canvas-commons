@@ -138,6 +138,8 @@ export interface TxtProps extends ShapeProps {
 }
 
 type FragmentStyle = {
+  /** The `Txt` whose paint properties apply to this fragment. */
+  owner: Txt;
   fill: CanvasStyle;
   stroke: CanvasStyle;
   lineWidth: number;
@@ -152,8 +154,9 @@ type FragmentStyle = {
  *
  * @remarks
  * `x` is the fragment's left edge in pretext-space (`0` is the left edge of
- * the text block, before the `Txt`'s own anchor is applied). `style` mirrors
- * the owning `Txt` node's text properties at layout time.
+ * the text block, before the `Txt`'s own anchor is applied). `style` carries
+ * the metrics the fragment was measured with, and reads its paint from the
+ * owning `Txt` node.
  */
 export type StyledFragment = {
   text: string;
@@ -349,7 +352,6 @@ type PreparedLayout = {
       kind: 'rich';
       groups: RichGroup[];
       runs: Run[];
-      styles: FragmentStyle[];
     }
   | {
       kind: 'simple';
@@ -358,6 +360,23 @@ type PreparedLayout = {
     }
 );
 
+/**
+ * A block of text.
+ *
+ * @remarks
+ * A nested `Txt` styles a span of that block. Its `fill`, `stroke`, line
+ * properties, font properties and `opacity` apply to the span's text; its
+ * transform, filters and shadow do not, because the outermost `Txt` paints
+ * every span. A span's fill and stroke are painted at the same alpha, not
+ * composited together.
+ *
+ * @example
+ * ```tsx
+ * <Txt fontSize={48}>
+ *   plain <Txt fill={'red'}>red</Txt> plain
+ * </Txt>
+ * ```
+ */
 @nodeName('Txt')
 export class Txt extends Shape {
   /**
@@ -1168,11 +1187,16 @@ export class Txt extends Shape {
     return this.collectRunsWithScale(scale);
   }
 
-  /** Paint and font snapshot a run's owner contributes to its fragments. */
-  private paintStyleFor(run: Run): FragmentStyle {
+  /**
+   * Style of a run's fragments: measured metrics, and paint read from the
+   * owner on access so recoloring a span never re-runs layout.
+   */
+  private styleFor(run: Run): FragmentStyle {
     const {font, fontComponents, letterSpacing} = run.metrics;
+    const owner = run.owner;
     if (run.kind === 'inline') {
       return {
+        owner,
         fill: null,
         stroke: null,
         lineWidth: 0,
@@ -1183,14 +1207,37 @@ export class Txt extends Shape {
       };
     }
     return {
-      fill: run.owner.fill(),
-      stroke: run.owner.stroke(),
-      lineWidth: run.owner.lineWidth(),
-      strokeFirst: run.owner.strokeFirst(),
+      owner,
+      get fill() {
+        return owner.fill();
+      },
+      get stroke() {
+        return owner.stroke();
+      },
+      get lineWidth() {
+        return owner.lineWidth();
+      },
+      get strokeFirst() {
+        return owner.strokeFirst();
+      },
       font,
       fontComponents,
       letterSpacing,
     };
+  }
+
+  /**
+   * Opacity a fragment's owner adds on top of this root's own, which
+   * {@link Node.render} already applies.
+   */
+  private relativeOpacityOf(owner: Txt): number {
+    let opacity = 1;
+    let node: Txt | null = owner;
+    while (node !== null && node !== this) {
+      opacity *= node.opacity();
+      node = node.parentTxt();
+    }
+    return opacity;
   }
 
   /** Feed a run to pretext's rich-inline preparation. */
@@ -1247,7 +1294,6 @@ export class Txt extends Shape {
     const wrap = this.textWrap();
     const useSimplePath = !hasInline && runs.length === 1;
 
-    const styles = runs.map(run => this.paintStyleFor(run));
     const items = runs.map(run => this.runToItem(run));
     const prepItems =
       hyphenate && !hasInline
@@ -1262,15 +1308,16 @@ export class Txt extends Shape {
         prepItems[0].text,
         wrap,
       );
+      const style = this.styleFor(runs[0]);
       const prepared = prepareWithSegments(sourceText, prepItems[0].font, {
         whiteSpace,
         wordBreak,
-        letterSpacing: styles[0].letterSpacing || undefined,
+        letterSpacing: style.letterSpacing || undefined,
       });
       return {
         kind: 'simple',
         prepared,
-        style: styles[0],
+        style,
         minContentWidth:
           this.overflowWrap() === 'anywhere'
             ? 0
@@ -1287,7 +1334,6 @@ export class Txt extends Shape {
       kind: 'rich',
       groups,
       runs,
-      styles,
       minContentWidth:
         this.overflowWrap() === 'anywhere'
           ? 0
@@ -1679,13 +1725,12 @@ export class Txt extends Shape {
           x += fragment.gapBefore;
           const originalIndex = group.itemMap[fragment.itemIndex];
           const run = prepared.runs[originalIndex];
-          const style = prepared.styles[originalIndex];
-          if (style) {
+          if (run) {
             const inline = run.kind === 'inline' ? run.node : undefined;
             styledFragments.push({
               text: fragment.text,
               x,
-              style,
+              style: this.styleFor(run),
               inline,
               inlineWidth: inline ? fragment.occupiedWidth : undefined,
             });
@@ -2005,6 +2050,7 @@ export class Txt extends Shape {
     this.applyStyle(context);
     this.applyText(context);
     context.textBaseline = 'alphabetic';
+    const baseAlpha = context.globalAlpha;
 
     for (const line of lines) {
       for (const placed of line.fragments) {
@@ -2012,6 +2058,10 @@ export class Txt extends Shape {
         if (fragment.inline) continue;
 
         const {style} = fragment;
+        const alpha = baseAlpha * this.relativeOpacityOf(style.owner);
+        if (alpha <= 0) continue;
+        context.globalAlpha = alpha;
+
         // Alphabetic baseline with metric offsets matches CSS line-box
         // centering (content box, not the em square).
         const fragY = height / -2 + line.top + placed.baselineOffset;
@@ -2146,6 +2196,7 @@ export class Txt extends Shape {
         ? this.buildSmoothAnchor(profile, matrix, scale)
         : null;
     const staticAnchor = resolvePathAnchor(align);
+    const baseAlpha = context.globalAlpha;
     const metricsCache = new Map<string, {ascent: number; descent: number}>();
     const glyphBaseline = (style: FragmentStyle, anchor: number | null) => {
       if (anchor === null) return 0;
@@ -2167,6 +2218,8 @@ export class Txt extends Shape {
     // `walkUnits` is cumulative, so `unit.x`/`unit.width` are kerned — arc
     // spacing follows the real layout, not a sum of isolated advances.
     for (const {unit, style} of this.walkUnits(this.pathSplit(), true)) {
+      const alpha = baseAlpha * this.relativeOpacityOf(style.owner);
+      if (alpha <= 0) continue;
       const center = unit.x + textWidth / 2 + alignBase + offset;
       // Clip overflow rather than letting the sampler clamp glyphs onto the ends.
       if (center < 0 || center > arcLength) {
@@ -2213,6 +2266,7 @@ export class Txt extends Shape {
           : midPoint.normal.flipped.perpendicular.transform(matrix).radians;
 
       context.save();
+      context.globalAlpha = alpha;
       context.translate(position.x, position.y);
       context.rotate(angle);
       context.font = style.font;

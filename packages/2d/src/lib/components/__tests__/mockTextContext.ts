@@ -29,9 +29,17 @@ export function mockTextContext(
       lineCap: 'butt' as CanvasLineCap,
       lineJoin: 'miter' as CanvasLineJoin,
       lineDashOffset: 0,
+      // A node that needs a cache (e.g. a nested Txt with opacity) draws into
+      // one of these, so it also stands in for a cache canvas.
+      canvas: {width: 0, height: 0},
       save() {},
       restore() {},
       setLineDash() {},
+      setTransform() {},
+      transform() {},
+      translate() {},
+      rotate() {},
+      drawImage() {},
       measureText(text: string) {
         return {width: measure(text)} as TextMetrics;
       },

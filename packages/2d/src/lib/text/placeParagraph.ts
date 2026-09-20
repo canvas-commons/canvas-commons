@@ -26,10 +26,7 @@ export type PlacedFragment = {
   words: PlacedWord[] | null;
 };
 
-/**
- * A line of text with every position resolved: `top` includes the
- * vertical-align offset and each fragment carries its final origin.
- */
+/** A line of text with every position resolved. */
 export type PlacedLine = {
   fragments: PlacedFragment[];
   top: number;
@@ -91,14 +88,7 @@ function countSpaces(text: string): number {
   return spaces;
 }
 
-/**
- * Resolve every fragment of a laid-out paragraph to its final origin.
- *
- * @remarks
- * Justification stretches whitespace, so every fragment after a stretched
- * space — including inline slots — moves by the slack added before it. Callers
- * paint and report these positions directly.
- */
+/** Resolve every fragment of a laid-out paragraph to its final origin. */
 export function placeParagraph(input: PlaceParagraphInput): PlacedLine[] {
   const {lines, blockWidth, blockHeight, layoutHeight, measure} = input;
   const verticalOffset =
@@ -243,10 +233,7 @@ export function placeParagraph(input: PlaceParagraphInput): PlacedLine[] {
   return result;
 }
 
-/**
- * Alphabetic baseline inside the line box, from real font metrics, so glyphs
- * land where CSS inline layout would put them.
- */
+/** Alphabetic baseline inside the line box, from real font metrics. */
 function baselineOffsetFor(
   lineHeight: number,
   metrics: {ascent: number; descent: number},

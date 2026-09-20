@@ -59,15 +59,7 @@ export const emptyParagraphLayout: ParagraphLayout = {
   ends: [],
 };
 
-/**
- * Break a prepared paragraph into lines.
- *
- * @remarks
- * The one line-breaking operation: drawing, yoga measurement, tween break
- * stabilization and the `autoSize` fit all reach the wrapping strategies
- * through here, so they cannot disagree. Every input is explicit — the
- * candidate scale of a fit is just another `prepared` and `lineHeight`.
- */
+/** The one operation that breaks a prepared paragraph into lines. */
 export function layoutParagraph(
   prepared: PreparedLayout,
   constraints: LayoutConstraints,
@@ -78,10 +70,7 @@ export function layoutParagraph(
     : layoutRich(prepared.groups, prepared.runs, constraints, measures);
 }
 
-/**
- * Lay out a single-style paragraph, dispatching between the three wrapping
- * strategies: exclusion bands, Knuth-Plass, and pretext's greedy walker.
- */
+/** Lay out one measured paragraph: exclusions, Knuth-Plass, or greedy. */
 function layoutSimple(
   prepared: PreparedTextWithSegments,
   style: FragmentStyle,
@@ -158,12 +147,7 @@ function layoutSimple(
   };
 }
 
-/**
- * Band-by-band greedy layout that wraps around `exclusions`.
- *
- * @returns one entry per laid-out line, with `x` being the slot's left
- *   offset (in Txt-local pretext-space, where 0 = block left).
- */
+/** Band-by-band greedy layout that wraps around `exclusions`. */
 function layoutWithExclusions(
   prepared: PreparedTextWithSegments,
   constraints: LayoutConstraints,

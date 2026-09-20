@@ -3,6 +3,7 @@ import {Rect} from '../Rect';
 import {TextUnit, Txt, TxtProps} from '../Txt';
 import {mockScene2D} from './mockScene2D';
 import {mockTextContext} from './mockTextContext';
+import {recordingTextContext} from './recordingTextContext';
 
 const CHAR_WIDTH = 10;
 
@@ -12,46 +13,19 @@ class DrawProbe extends Txt {
   }
 }
 
-/**
- * Canvas stand-in that records the origin of every painted run. Measurement
- * matches {@link mockTextContext} so the recorded geometry is comparable.
- */
-function recordingContext(): {
-  context: CanvasRenderingContext2D;
-  painted: {text: string; x: number; y: number}[];
-} {
-  const painted: {text: string; x: number; y: number}[] = [];
-  const context = {
-    font: '',
-    letterSpacing: '0px',
-    direction: 'inherit' as CanvasDirection,
-    textBaseline: 'alphabetic' as CanvasTextBaseline,
-    fillStyle: '',
-    strokeStyle: '',
-    lineWidth: 0,
-    lineCap: 'butt' as CanvasLineCap,
-    lineJoin: 'miter' as CanvasLineJoin,
-    lineDashOffset: 0,
-    globalAlpha: 1,
-    save() {},
-    restore() {},
-    setLineDash() {},
-    transform() {},
-    setTransform() {},
-    beginPath() {},
-    measureText(text: string) {
-      return {width: text.length * CHAR_WIDTH} as TextMetrics;
-    },
-    fillText(text: string, x: number, y: number) {
-      painted.push({text, x, y});
-    },
-    strokeText() {},
-  } as unknown as CanvasRenderingContext2D;
-  return {context, painted};
-}
-
 function lineWords(txt: Txt, lineIndex: number): TextUnit[] {
   return txt.textWords().filter(word => word.lineIndex === lineIndex);
+}
+
+/** Assert that two nodes broke the same words onto `lineIndex`. */
+function expectSameWords(rich: Txt, plain: Txt, lineIndex: number): TextUnit[] {
+  const richWords = lineWords(rich, lineIndex);
+  const plainWords = lineWords(plain, lineIndex);
+  expect(plainWords.length).toBeGreaterThan(0);
+  expect(richWords.map(word => word.text)).toEqual(
+    plainWords.map(word => word.text),
+  );
+  return plainWords;
 }
 
 function expectNoOverlap(words: TextUnit[]) {
@@ -83,14 +57,11 @@ describe('Txt placement', () => {
       ],
     });
 
-    const plainWords = lineWords(plain, 0);
+    const plainWords = expectSameWords(rich, plain, 0);
     const richWords = lineWords(rich, 0);
     expectNoOverlap(plainWords);
     expectNoOverlap(richWords);
 
-    expect(richWords.map(word => word.text)).toEqual(
-      plainWords.map(word => word.text),
-    );
     for (let i = 0; i < richWords.length; i++) {
       expect(richWords[i].x).toBeCloseTo(plainWords[i].x, 2);
     }
@@ -107,9 +78,9 @@ describe('Txt placement', () => {
       ],
     });
 
+    const plainWords = expectSameWords(rich, plain, 0);
     const richWords = lineWords(rich, 0);
     expectNoOverlap(richWords);
-    const plainWords = lineWords(plain, 0);
     for (let i = 0; i < richWords.length; i++) {
       expect(richWords[i].x).toBeCloseTo(plainWords[i].x, 2);
     }
@@ -130,12 +101,9 @@ describe('Txt placement', () => {
 
     expect(rich.textLines().lines).toHaveLength(3);
     for (let line = 0; line < 3; line++) {
+      const plainWords = expectSameWords(rich, plain, line);
       const richWords = lineWords(rich, line);
-      const plainWords = lineWords(plain, line);
       expectNoOverlap(richWords);
-      expect(richWords.map(word => word.text)).toEqual(
-        plainWords.map(word => word.text),
-      );
       for (let i = 0; i < richWords.length; i++) {
         expect(richWords[i].x).toBeCloseTo(plainWords[i].x, 2);
       }
@@ -150,13 +118,13 @@ describe('Txt placement', () => {
       textAlign: 'left',
       text: 'aa bb',
     });
-    const referenceRun = recordingContext();
+    const referenceRun = recordingTextContext();
     reference.drawTo(referenceRun.context);
     const referenceWord = lineWords(reference, 0)[0];
     // Paint origins and unit positions share a coordinate space up to this
     // offset; derive it instead of assuming one.
     const originToLeftEdge =
-      referenceRun.painted[0].x - (referenceWord.x - referenceWord.width / 2);
+      referenceRun.calls[0].x - (referenceWord.x - referenceWord.width / 2);
 
     const txt = new DrawProbe({
       ...justified,
@@ -165,15 +133,16 @@ describe('Txt placement', () => {
         new Txt({text: 'cc dddddddddd'}),
       ],
     });
-    const run = recordingContext();
+    const run = recordingTextContext();
     txt.drawTo(run.context);
 
     const words = txt.textWords();
-    expect(run.painted.map(call => call.text)).toEqual(
+    expect(words.length).toBeGreaterThan(0);
+    expect(run.calls.map(call => call.text)).toEqual(
       words.map(word => word.text),
     );
     for (let i = 0; i < words.length; i++) {
-      expect(run.painted[i].x - originToLeftEdge).toBeCloseTo(
+      expect(run.calls[i].x - originToLeftEdge).toBeCloseTo(
         words[i].x - words[i].width / 2,
         2,
       );
@@ -199,18 +168,27 @@ describe('Txt placement', () => {
     expect(slotLeft + rect.width()).toBeCloseTo(txt.width() / 2, 2);
   });
 
+  /** Left edge of each word, measured from the block's left edge. */
+  function wordLefts(txt: Txt, lineIndex: number): number[] {
+    const half = txt.width() / 2;
+    return lineWords(txt, lineIndex).map(
+      word => word.x - word.width / 2 + half,
+    );
+  }
+
   it('keeps single-run justification in place', () => {
     const txt = new Txt({...justified, text: 'aa bb cc dddddddddd'});
-    expect(lineWords(txt, 0).map(word => word.x)).toEqual([
-      -60,
-      expect.closeTo(-13.333, 2),
-      expect.closeTo(33.333, 2),
-    ]);
+    // 'aa bb cc ' is 9 glyphs; the remaining width rides its 3 spaces.
+    const slack = (140 - 9 * CHAR_WIDTH) / 3;
+    expect(wordLefts(txt, 0)).toEqual(
+      [0, 3 * CHAR_WIDTH + slack, 6 * CHAR_WIDTH + 2 * slack].map(x =>
+        expect.closeTo(x, 2),
+      ),
+    );
 
+    // 'aa bb cc dd ee' is exactly 140 wide, so justify adds nothing.
     const wide = new Txt({...justified, text: 'aa bb cc dd ee ffffffffff'});
-    expect(lineWords(wide, 0).map(word => word.x)).toEqual([
-      -60, -30, 0, 30, 60,
-    ]);
+    expect(wordLefts(wide, 0)).toEqual([0, 30, 60, 90, 120]);
   });
 
   it('keeps center and right alignment of multi-span lines in place', () => {
@@ -229,7 +207,13 @@ describe('Txt placement', () => {
       children: spans(),
     });
 
-    expect(lineWords(center, 0).map(word => word.x)).toEqual([-35, -5, 25]);
-    expect(lineWords(right, 0).map(word => word.x)).toEqual([-10, 20, 50]);
+    // The line occupies 'aa bb ' plus 'cc', 9 glyphs, and the words start
+    // every third glyph inside it.
+    const lineWidth = 9 * CHAR_WIDTH;
+    const starts = [0, 3 * CHAR_WIDTH, 6 * CHAR_WIDTH];
+    expect(wordLefts(center, 0)).toEqual(
+      starts.map(x => x + (140 - lineWidth) / 2),
+    );
+    expect(wordLefts(right, 0)).toEqual(starts.map(x => x + 140 - lineWidth));
   });
 });

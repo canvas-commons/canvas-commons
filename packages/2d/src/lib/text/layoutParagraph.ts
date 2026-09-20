@@ -96,7 +96,7 @@ function layoutSimple(
   if (constraints.exclusions.length > 0 && Number.isFinite(maxWidth)) {
     for (const line of layoutWithExclusions(prepared, constraints)) {
       lines.push({
-        fragments: [{text: line.text, x: line.x, style}],
+        fragments: [{text: line.text, x: line.x, gapBefore: 0, style}],
         top: line.lineTop,
         height: lineHeight,
       });
@@ -113,7 +113,7 @@ function layoutSimple(
     });
     for (const line of kpLines) {
       lines.push({
-        fragments: [{text: line.text, x: 0, style}],
+        fragments: [{text: line.text, x: 0, gapBefore: 0, style}],
         top: lines.length * lineHeight,
         height: lineHeight,
       });
@@ -132,7 +132,7 @@ function layoutSimple(
     while (range !== null) {
       const line = materializeLineRange(prepared, range);
       lines.push({
-        fragments: [{text: line.text, x: 0, style}],
+        fragments: [{text: line.text, x: 0, gapBefore: 0, style}],
         top: lines.length * lineHeight,
         height: lineHeight,
       });
@@ -292,6 +292,7 @@ function layoutRich(
           styledFragments.push({
             text: fragment.text,
             x,
+            gapBefore: styledFragments.length === 0 ? 0 : fragment.gapBefore,
             style: measures.styleFor(run),
             inline,
             inlineWidth: inline ? fragment.occupiedWidth : undefined,

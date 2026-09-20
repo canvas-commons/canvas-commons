@@ -4,9 +4,6 @@ import {segment} from './segmenter';
 
 type FragmentStyle = StyledFragment['style'];
 
-/** Smallest fragment gap that counts as a justifiable space. */
-const MIN_JUSTIFY_GAP = 0.01;
-
 /** One word of a justified fragment, with its share of the slack applied. */
 export type PlacedWord = {
   text: string;
@@ -156,13 +153,9 @@ export function placeParagraph(input: PlaceParagraphInput): PlacedLine[] {
         lineWidth < blockWidth ||
         (lineWidth > blockWidth && input.wrapMode === 'knuth-plass'));
 
-    // A gap between two fragments is the space pretext kept outside both of
-    // them; it stretches like any other space on the line.
-    const stretchedGap = line.fragments.map(
-      (frag, f) =>
-        f > 0 &&
-        frag.x - (line.fragments[f - 1].x + advances[f - 1]) > MIN_JUSTIFY_GAP,
-    );
+    // A gap between two fragments is the space the layout kept outside both
+    // of them; it stretches like any other space on the line.
+    const stretchedGap = line.fragments.map(frag => frag.gapBefore > 0);
 
     let extraPerSpace = 0;
     let wordsPerFragment: PlacedWord[][] | null = null;

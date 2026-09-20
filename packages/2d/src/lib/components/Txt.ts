@@ -157,6 +157,12 @@ type FragmentStyle = {
 export type StyledFragment = {
   text: string;
   x: number;
+  /**
+   * Width of the whitespace the layout kept between this fragment and the
+   * previous one on its line; `0` for the first fragment of a line and
+   * wherever the two fragments touch. Justification stretches it.
+   */
+  gapBefore: number;
   style: FragmentStyle;
   /**
    * Set when this fragment is an inline non-text node placeholder. The owning

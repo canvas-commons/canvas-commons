@@ -176,18 +176,18 @@ describe('Txt feature crossings', () => {
   mockScene2D();
   mockTextContext(GLYPH_WIDTH);
 
-  // All layout checks run inside one `it` (rather than directly in the
-  // describe body) so the scene from `mockScene2D`'s `beforeAll` exists by
-  // the time nodes are built; the classification `it`s below then read the
-  // `FAILURES` this one fills in.
-  it('builds the crossing failure set', () => {
-    // --- Main sweep: content x align x wrap x wrapMode x box, one sentence. ---
-    // Wide-word coverage and overflowWrap variation live in a smaller dedicated
-    // loop below instead of crossing every dimension, to keep this file's
-    // runtime well under 10 seconds.
-    const WRAPS: TextWrap[] = [true, false];
+  // All layout checks run inside `it`s (rather than directly in the describe
+  // body) so the scene from `mockScene2D`'s `beforeAll` exists by the time
+  // nodes are built; the classification `it`s below then read the `FAILURES`
+  // these fill in. The sweep is split one `it` per alignment so no single
+  // test approaches the default timeout.
+  for (const align of ALIGNS) {
+    it(`builds the crossing failure set: align=${align}`, () => {
+      // --- Main sweep: content x wrap x wrapMode x box, one sentence. ---
+      // Wide-word coverage and overflowWrap variation live in smaller
+      // dedicated `it`s below instead of crossing every dimension.
+      const WRAPS: TextWrap[] = [true, false];
 
-    for (const align of ALIGNS) {
       for (const wrap of WRAPS) {
         for (const wrapMode of WRAP_MODES) {
           for (const box of BOX_VARIANTS) {
@@ -331,9 +331,11 @@ describe('Txt feature crossings', () => {
           }
         }
       }
-    }
+    });
+  }
 
-    // --- Dedicated loop: wide-word sentence x overflowWrap, fixed width only.
+  // --- Dedicated loop: wide-word sentence x overflowWrap, fixed width only.
+  it('builds the crossing failure set: wide word', () => {
     const overflowWraps: OverflowWrap[] = ['normal', 'anywhere'];
     for (const content of CONTENTS) {
       for (const align of ['left', 'justify'] as TextAlign[]) {
@@ -387,46 +389,48 @@ describe('Txt feature crossings', () => {
         }
       }
     }
+  });
 
-    // --- Dedicated case: rich (multi-run) text never runs Knuth-Plass, so it
-    // can break at different words than single-run text laid out with the
-    // same settings. The run boundary sits inside a word (not on a space) so
-    // this isolates the break choice from the space-loss defect above.
-    {
-      const kpSentence = 'aaaaaaaaaa bbbbbbbbbb cccccccccc dddddddddd';
-      const cut = 15; // inside "bbbbbbbbbb", away from any space
-      const settingTag = tag({sentence: 'kp-fallback', content: 'two-runs'});
-      const plain = buildContent('text-prop', kpSentence, {
-        fontSize: 16,
-        lineHeight: 20,
-        width: 150,
-        textWrap: true,
-        wrapMode: 'knuth-plass',
-      });
-      add(plain);
-      const rich = (
-        <Txt
-          fontSize={16}
-          lineHeight={20}
-          width={150}
-          textWrap
-          wrapMode={'knuth-plass'}
-        >
-          <Txt>{kpSentence.slice(0, cut)}</Txt>
-          <Txt fill={'red'}>{kpSentence.slice(cut)}</Txt>
-        </Txt>
-      ) as Txt;
-      add(rich);
-      const plainLines = lineTexts(plain);
-      const richLines = lineTexts(rich);
-      if (JSON.stringify(plainLines) !== JSON.stringify(richLines)) {
-        FAILURES.push(
-          `inv3 lines ${settingTag}: ${JSON.stringify(richLines)} !== ${JSON.stringify(plainLines)}`,
-        );
-      }
+  // --- Dedicated case: rich (multi-run) text never runs Knuth-Plass, so it
+  // can break at different words than single-run text laid out with the
+  // same settings. The run boundary sits inside a word (not on a space) so
+  // this isolates the break choice from the space-loss defect above.
+  it('builds the crossing failure set: Knuth-Plass fallback', () => {
+    const kpSentence = 'aaaaaaaaaa bbbbbbbbbb cccccccccc dddddddddd';
+    const cut = 15; // inside "bbbbbbbbbb", away from any space
+    const settingTag = tag({sentence: 'kp-fallback', content: 'two-runs'});
+    const plain = buildContent('text-prop', kpSentence, {
+      fontSize: 16,
+      lineHeight: 20,
+      width: 150,
+      textWrap: true,
+      wrapMode: 'knuth-plass',
+    });
+    add(plain);
+    const rich = (
+      <Txt
+        fontSize={16}
+        lineHeight={20}
+        width={150}
+        textWrap
+        wrapMode={'knuth-plass'}
+      >
+        <Txt>{kpSentence.slice(0, cut)}</Txt>
+        <Txt fill={'red'}>{kpSentence.slice(cut)}</Txt>
+      </Txt>
+    ) as Txt;
+    add(rich);
+    const plainLines = lineTexts(plain);
+    const richLines = lineTexts(rich);
+    if (JSON.stringify(plainLines) !== JSON.stringify(richLines)) {
+      FAILURES.push(
+        `inv3 lines ${settingTag}: ${JSON.stringify(richLines)} !== ${JSON.stringify(plainLines)}`,
+      );
     }
+  });
 
-    // --- Dedicated loop: textWrap='pre' with an embedded newline. ---
+  // --- Dedicated loop: textWrap='pre' with an embedded newline. ---
+  it('builds the crossing failure set: explicit newlines', () => {
     for (const content of ['text-prop', 'two-runs'] as ContentKind[]) {
       const settingTag = tag({sentence: 'newline', content, wrap: 'pre'});
       const props: TxtProps = {
@@ -443,8 +447,10 @@ describe('Txt feature crossings', () => {
         FAILURES.push(`inv-pre ${settingTag}: newline was not preserved`);
       }
     }
+  });
 
-    // --- Dedicated loop: autoSize on/off. ---
+  // --- Dedicated loop: autoSize on/off. ---
+  it('builds the crossing failure set: autoSize', () => {
     const autosizeSentence = 'pack my box with five dozen liquor jugs';
     for (const content of ['text-prop', 'two-runs'] as ContentKind[]) {
       for (const align of ['left', 'justify'] as TextAlign[]) {
@@ -484,11 +490,13 @@ describe('Txt feature crossings', () => {
         }
       }
     }
+  });
 
-    // --- Dedicated subset: draw() paints exactly where textGlyphs() reports. ---
-    // Restricted to single-fragment-per-line content: multi-run fragment
-    // boundaries would need per-fragment grapheme bookkeeping this sweep does
-    // not attempt (see report).
+  // --- Dedicated subset: draw() paints exactly where textGlyphs() reports. ---
+  // Restricted to single-fragment-per-line content: multi-run fragment
+  // boundaries would need per-fragment grapheme bookkeeping this sweep does
+  // not attempt.
+  it('builds the crossing failure set: paint matches queries', () => {
     let calibratedOffsetY: number | null = null;
     for (const content of ['text-prop', 'string-children'] as ContentKind[]) {
       for (const wrapMode of WRAP_MODES) {

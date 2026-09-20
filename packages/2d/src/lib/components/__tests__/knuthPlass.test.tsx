@@ -225,7 +225,7 @@ describe('Txt knuth-plass justify', () => {
     // KP picks 'aa bb cc dd' (natural 110 > 100) over the badly stretched
     // three-word split; justify must squeeze its three spaces to fit.
     const lines = txt.probeLines();
-    expect(lines[0].justified).not.toBeNull();
+    expect(lines[0].fragments[0].words).not.toBeNull();
     expect(lines[0].extraPerSpace).toBeCloseTo(-10 / 3);
   });
 
@@ -247,7 +247,7 @@ describe('Txt knuth-plass justify', () => {
       // line's compressed spacing, so it can never overflow the block.
       const lines = txt.probeLines();
       expect(lines).toHaveLength(1);
-      expect(lines[0].justified).not.toBeNull();
+      expect(lines[0].fragments[0].words).not.toBeNull();
       expect(lines[0].extraPerSpace).toBeCloseTo(-10 / 3);
     }),
   );

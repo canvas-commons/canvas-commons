@@ -49,6 +49,7 @@ import {
   walkRichInlineLineRanges,
 } from '../text';
 import type {FontComponents, Run} from '../text/paragraphTypes';
+import {PlacedLine, placeParagraph} from '../text/placeParagraph';
 import {fontsVersion, requestFontLoad, resolveCanvasStyle} from '../utils';
 import {sharedMeasurementContext} from '../utils/measurement';
 import {MeasureMode} from '../utils/yoga';
@@ -326,33 +327,6 @@ function measureGroupStats(
   }
   return {lineCount, maxLineWidth};
 }
-
-type JustifiedSegment = {
-  text: string;
-  advance: number;
-  whitespace: boolean;
-};
-
-/**
- * A {@link TextLine} with alignment fully resolved: `top` includes the
- * vertical-align offset, `alignOffset` is the horizontal shift for the
- * current `textAlign`, and `justified` carries pre-measured word segments
- * (one list per fragment) when the line is justified.
- */
-type PositionedLine = {
-  fragments: StyledFragment[];
-  top: number;
-  height: number;
-  alignOffset: number;
-  extraPerSpace: number;
-  justified: JustifiedSegment[][] | null;
-  /**
-   * Offset from the line-box top to each fragment's alphabetic baseline,
-   * computed from real font metrics so glyphs land where CSS inline layout
-   * would put them. `0` for inline-element fragments.
-   */
-  baselineOffsets: number[];
-};
 
 type LineBreakOffset = {
   /**
@@ -1970,13 +1944,10 @@ export class Txt extends Shape {
     const lines = root.positionedLines();
     const {x: width, y: height} = root.size();
     for (const line of lines) {
-      for (const fragment of line.fragments) {
-        if (fragment.inline === child) {
+      for (const placed of line.fragments) {
+        if (placed.fragment.inline === child) {
           return new Vector2(
-            width / -2 +
-              fragment.x +
-              line.alignOffset +
-              (fragment.inlineWidth ?? 0) / 2,
+            width / -2 + placed.x + placed.advance / 2,
             height / -2 + line.top + line.height / 2,
           );
         }
@@ -1986,130 +1957,29 @@ export class Txt extends Shape {
   }
 
   /**
-   * The current layout with alignment fully resolved per line: line widths
-   * measured (inline-aware), `textAlign` / `verticalAlign` offsets applied,
-   * and justify slack pre-measured. Single source of truth for `draw()`,
-   * {@link splitLayout}, and inline child positioning.
+   * The current layout with every position resolved: `textAlign` /
+   * `verticalAlign` offsets applied and justify slack distributed across the
+   * whole line. Single source of truth for `draw()`, {@link splitLayout}, and
+   * inline child positioning.
    */
   @computed()
-  protected positionedLines(): PositionedLine[] {
+  protected positionedLines(): PlacedLine[] {
     const layout = this.textLayout();
     if (layout.lines.length === 0) return [];
     const {x: blockWidth, y: blockHeight} = this.size();
-    const align = this.textAlign();
-    const verticalAlign = this.verticalAlign();
-    const verticalOffset =
-      verticalAlign === 'middle'
-        ? (blockHeight - layout.height) / 2
-        : verticalAlign === 'bottom'
-          ? blockHeight - layout.height
-          : 0;
-
-    const result: PositionedLine[] = [];
-    for (let i = 0; i < layout.lines.length; i++) {
-      const line = layout.lines[i];
-      const isLastLine = i === layout.lines.length - 1;
-
-      let lineWidth = 0;
-      for (const frag of line.fragments) {
-        lineWidth = Math.max(
-          lineWidth,
-          frag.x +
-            (frag.inline
-              ? (frag.inlineWidth ?? 0)
-              : this.measureStyledText(frag.text, frag.style)),
-        );
-      }
-
-      // During a stabilized tween every line's final content is known, so
-      // the still-typing line can borrow its target's justify spacing —
-      // words land at their settled positions, and an overfull Knuth-Plass
-      // line never pokes past the block while incomplete.
-      let finalText: string | null = null;
-      if (align === 'justify' && isLastLine && line.fragments.length === 1) {
-        const targetLines = this.tweenTargetLines();
-        if (targetLines !== null && i < targetLines.length - 1) {
-          const target =
-            this.wrapMode() === 'knuth-plass'
-              ? targetLines[i].replace(/\s+$/, '')
-              : targetLines[i];
-          if (target.startsWith(line.fragments[0].text)) {
-            finalText = target;
-          }
-        }
-      }
-
-      // Knuth-Plass plans lines whose spaces compress below their natural
-      // width, so justify must also squeeze overfull lines there; greedy
-      // never plans compression (an overfull greedy line is hyphen overhang
-      // or an in-flight tween seam, both drawn at natural width).
-      const justifyLine =
-        align === 'justify' &&
-        (!isLastLine || finalText !== null) &&
-        (finalText !== null ||
-          lineWidth < blockWidth ||
-          (lineWidth > blockWidth && this.wrapMode() === 'knuth-plass'));
-      let extraPerSpace = 0;
-      let justified: JustifiedSegment[][] | null = null;
-      if (justifyLine) {
-        let spaceCount = 0;
-        justified = line.fragments.map(frag => {
-          if (frag.inline) return [];
-          const segments: JustifiedSegment[] = [];
-          for (const seg of segment(frag.text, 'word')) {
-            // Slack rides only whitespace runs, not punctuation.
-            const whitespace = !seg.isWordLike && /^\s+$/.test(seg.segment);
-            if (whitespace) spaceCount++;
-            segments.push({
-              text: seg.segment,
-              advance: this.measureStyledText(seg.segment, frag.style),
-              whitespace,
-            });
-          }
-          return segments;
-        });
-        if (finalText !== null) {
-          let finalSpaceCount = 0;
-          for (const seg of segment(finalText, 'word')) {
-            if (!seg.isWordLike && /^\s+$/.test(seg.segment)) {
-              finalSpaceCount++;
-            }
-          }
-          if (finalSpaceCount > 0) {
-            extraPerSpace =
-              (blockWidth -
-                this.measureStyledText(finalText, line.fragments[0].style)) /
-              finalSpaceCount;
-          } else {
-            justified = null;
-          }
-        } else if (spaceCount > 0) {
-          extraPerSpace = (blockWidth - lineWidth) / spaceCount;
-        } else {
-          justified = null;
-        }
-      }
-
-      const baselineOffsets = line.fragments.map(frag => {
-        if (frag.inline) return 0;
-        const {ascent, descent} = this.measureFontMetrics(frag.style);
-        return (line.height - (ascent + descent)) / 2 + ascent;
-      });
-
-      result.push({
-        fragments: line.fragments,
-        top: line.top + verticalOffset,
-        height: line.height,
-        alignOffset: justifyLine
-          ? 0
-          : this.computeAlignOffset(blockWidth, lineWidth),
-        extraPerSpace,
-        justified: extraPerSpace !== 0 ? justified : null,
-        baselineOffsets,
-      });
-    }
-
-    return result;
+    return placeParagraph({
+      lines: layout.lines,
+      layoutHeight: layout.height,
+      blockWidth,
+      blockHeight,
+      textAlign: this.textAlign(),
+      rtl: this.textDirection() === 'rtl',
+      verticalAlign: this.verticalAlign(),
+      wrapMode: this.wrapMode(),
+      targetLines: this.tweenTargetLines(),
+      measure: (text, style) => this.measureStyledText(text, style),
+      fontMetrics: style => this.measureFontMetrics(style),
+    });
   }
 
   protected override draw(context: CanvasRenderingContext2D) {
@@ -2137,15 +2007,14 @@ export class Txt extends Shape {
     context.textBaseline = 'alphabetic';
 
     for (const line of lines) {
-      for (let fragIndex = 0; fragIndex < line.fragments.length; fragIndex++) {
-        const fragment = line.fragments[fragIndex];
+      for (const placed of line.fragments) {
+        const {fragment} = placed;
         if (fragment.inline) continue;
 
         const {style} = fragment;
-        const x = width / -2 + fragment.x + line.alignOffset;
         // Alphabetic baseline with metric offsets matches CSS line-box
         // centering (content box, not the em square).
-        const fragY = height / -2 + line.top + line.baselineOffsets[fragIndex];
+        const fragY = height / -2 + line.top + placed.baselineOffset;
 
         context.font = style.font;
         if ('letterSpacing' in context) {
@@ -2156,33 +2025,25 @@ export class Txt extends Shape {
         context.strokeStyle = resolveCanvasStyle(style.stroke, context);
         context.lineWidth = style.lineWidth;
 
-        const justified = line.justified?.[fragIndex];
-        if (justified && line.extraPerSpace !== 0) {
-          let cursorX = x;
-          for (const seg of justified) {
-            if (!seg.whitespace) {
-              if (style.lineWidth <= 0) {
-                context.fillText(seg.text, cursorX, fragY);
-              } else if (style.strokeFirst) {
-                context.strokeText(seg.text, cursorX, fragY);
-                context.fillText(seg.text, cursorX, fragY);
-              } else {
-                context.fillText(seg.text, cursorX, fragY);
-                context.strokeText(seg.text, cursorX, fragY);
-              }
-              cursorX += seg.advance;
-            } else {
-              cursorX += seg.advance + line.extraPerSpace;
-            }
+        const paint = (text: string, x: number) => {
+          if (style.lineWidth <= 0) {
+            context.fillText(text, x, fragY);
+          } else if (style.strokeFirst) {
+            context.strokeText(text, x, fragY);
+            context.fillText(text, x, fragY);
+          } else {
+            context.fillText(text, x, fragY);
+            context.strokeText(text, x, fragY);
           }
-        } else if (style.lineWidth <= 0) {
-          context.fillText(fragment.text, x, fragY);
-        } else if (style.strokeFirst) {
-          context.strokeText(fragment.text, x, fragY);
-          context.fillText(fragment.text, x, fragY);
+        };
+
+        if (placed.words) {
+          for (const word of placed.words) {
+            if (word.whitespace) continue;
+            paint(word.text, width / -2 + word.x);
+          }
         } else {
-          context.fillText(fragment.text, x, fragY);
-          context.strokeText(fragment.text, x, fragY);
+          paint(fragment.text, width / -2 + placed.x);
         }
       }
     }
@@ -2398,28 +2259,6 @@ export class Txt extends Shape {
       .expand(stroke);
   }
 
-  private computeAlignOffset(
-    containerWidth: number,
-    lineWidth: number,
-  ): number {
-    const align = this.textAlign();
-    const rtl = this.textDirection() === 'rtl';
-    switch (align) {
-      case 'center':
-        return (containerWidth - lineWidth) / 2;
-      case 'right':
-        return containerWidth - lineWidth;
-      case 'end':
-        return rtl ? 0 : containerWidth - lineWidth;
-      case 'start':
-        return rtl ? containerWidth - lineWidth : 0;
-      case 'left':
-        return 0;
-      default:
-        return rtl ? containerWidth - lineWidth : 0;
-    }
-  }
-
   /**
    * Get the computed lines of the text layout.
    *
@@ -2502,26 +2341,16 @@ export class Txt extends Shape {
         }
       };
 
-      for (let f = 0; f < line.fragments.length; f++) {
-        const fragment = line.fragments[f];
+      for (const placed of line.fragments) {
+        const {fragment} = placed;
         if (fragment.inline) continue;
-        const fragLeft = fragment.x + line.alignOffset - blockWidth / 2;
-        const justified = line.justified?.[f];
-        if (
-          justified &&
-          line.extraPerSpace !== 0 &&
-          granularity !== 'sentence'
-        ) {
+        const fragLeft = placed.x - blockWidth / 2;
+        if (placed.words && granularity !== 'sentence') {
           // Match the word-by-word paint; a whole-fragment measure re-adds the
           // inter-word kerning the paint omits.
-          let cursor = fragLeft;
-          for (const seg of justified) {
-            if (seg.whitespace) {
-              cursor += seg.advance + line.extraPerSpace;
-            } else {
-              emit(seg.text, fragment.style, cursor, 0);
-              cursor += seg.advance;
-            }
+          for (const word of placed.words) {
+            if (word.whitespace) continue;
+            emit(word.text, fragment.style, word.x - blockWidth / 2, 0);
           }
         } else {
           // Sentences span painted words, so measure cumulatively; justified

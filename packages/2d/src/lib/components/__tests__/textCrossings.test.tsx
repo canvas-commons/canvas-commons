@@ -656,17 +656,6 @@ describe('Txt feature crossings', () => {
       },
     },
     {
-      id: 'justify-multi-run-overlap',
-      description:
-        'justify misplaces or overlaps words once a line has more than one run',
-      test: m =>
-        m.includes('align=justify') &&
-        (m.includes('content=two-runs') || m.includes('content=three-runs')) &&
-        (m.startsWith('inv2 ') ||
-          m.startsWith('inv3 ') ||
-          m.startsWith('inv4 ')),
-    },
-    {
       id: 'knuth-plass-ignores-overflow-anywhere',
       description:
         'Knuth-Plass never splits a word, so overflowWrap: anywhere has no effect under wrapMode: knuth-plass — an over-wide word stays whole and overflows',

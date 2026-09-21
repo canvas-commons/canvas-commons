@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 //@ts-check
 import fs from 'fs';
-import kleur from 'kleur';
 import minimist from 'minimist';
 import {fileURLToPath} from 'node:url';
+import {styleText} from 'node:util';
 import path from 'path';
 import prompts from 'prompts';
 
@@ -53,7 +53,7 @@ const PLUGINS = {
     for (const plugin of options.plugins) {
       if (plugin === 'core') continue;
       if (!(plugin in PLUGINS)) {
-        console.log(kleur.yellow(`! Unknown plugin "${plugin}".\n`));
+        console.log(styleText('yellow', `! Unknown plugin "${plugin}".\n`));
         continue;
       }
       plugins.push(plugin);
@@ -156,7 +156,7 @@ const PLUGINS = {
   ]);
 
   if (!response.plugins) {
-    console.log(kleur.red('× Scaffolding aborted by the user.\n'));
+    console.log(styleText('red', '× Scaffolding aborted by the user.\n'));
     return;
   }
 
@@ -191,20 +191,21 @@ const PLUGINS = {
 
   if (response.plugins.includes('ffmpeg')) {
     console.log(
-      kleur.yellow(
+      styleText(
+        'yellow',
         '! The FFmpeg exporter is deprecated. Use @canvas-commons/webcodecs instead.',
       ),
     );
   }
 
   const manager = getPackageManager();
-  console.log(kleur.green('\n√ Scaffolding complete. You can now run:'));
+  console.log(styleText('green', '\n√ Scaffolding complete. You can now run:'));
   if (response.path !== process.cwd()) {
     console.log(
-      `  ${kleur.bold('cd')} ${path.relative(process.cwd(), response.path)}`,
+      `  ${styleText('bold', 'cd')} ${path.relative(process.cwd(), response.path)}`,
     );
   }
-  const boldManager = kleur.bold(manager);
+  const boldManager = styleText('bold', manager);
   if (manager === 'yarn') {
     console.log(`  ${boldManager}`);
     console.log(`  ${boldManager} start`);

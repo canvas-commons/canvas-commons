@@ -418,7 +418,7 @@ export class Code extends Shape {
 
     let current: BBox | null = null;
     let line = 0;
-    let column = 0;
+    let column: number;
     for (const info of drawingInfo.fragments) {
       if (info.cursor.y !== line) {
         line = info.cursor.y;

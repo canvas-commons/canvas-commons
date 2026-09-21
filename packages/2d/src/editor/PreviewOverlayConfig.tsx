@@ -38,9 +38,9 @@ function Component({children}: {children?: ComponentChildren}) {
 
 function drawHook() {
   const {selectedNode, hoveredKey, afterRender, scene} = usePluginState();
-  selectedNode.value;
-  hoveredKey.value;
-  afterRender.value;
+  void selectedNode.value;
+  void hoveredKey.value;
+  void afterRender.value;
 
   return (ctx: CanvasRenderingContext2D, matrix: DOMMatrix) => {
     const currentScene = scene.peek();

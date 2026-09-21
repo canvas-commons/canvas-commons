@@ -41,7 +41,7 @@ export function Provider({children}: {children?: ComponentChildren}) {
     const visibleNodes = new Set<string>();
     const scene = signal(currentScene as Scene2D);
     const selectedNode = computed(() => {
-      afterRender.value;
+      void afterRender.value;
       const {key, payload} = inspection.value;
       if (key === NodeInspectorKey) {
         return scene.value?.getNode(payload as string) ?? null;

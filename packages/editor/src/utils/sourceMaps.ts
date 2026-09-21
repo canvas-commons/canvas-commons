@@ -92,7 +92,7 @@ export async function resolveStackTrace(
             return entry;
           }
         }
-      } catch (e) {
+      } catch (_) {
         entry.isExternal = true;
       }
     }

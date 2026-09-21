@@ -35,7 +35,7 @@
     "dev": "tsdown --watch",
     "build": "pnpm run build-lib && pnpm run build-editor",
     "build-lib": "tsdown",
-    "build-editor": "rollup -c rollup.editor.mjs",
+    "build-editor": "vite build -c vite.editor.config.ts",
     "test": "vitest run",
     "test:sweeps": "vitest run --config vitest.sweeps.config.ts",
     "typecheck": "tsc --noEmit -p src/lib/tsconfig.json && tsc --noEmit -p src/editor/tsconfig.json",
@@ -56,16 +56,15 @@
   "devDependencies": {
     "@canvas-commons/2d": "workspace:*",
     "@canvas-commons/editor": "workspace:^",
+    "@preact/preset-vite": "^2.10.6",
     "@preact/signals": "catalog:",
-    "@rollup/plugin-node-resolve": "^15.3.1",
-    "@rollup/plugin-typescript": "^11.1.6",
     "@types/node": "catalog:",
     "clsx": "catalog:",
     "geometry-polyfill": "^1.0.7",
     "jsdom": "catalog:",
     "preact": "catalog:",
-    "rollup": "^4.63.3",
-    "rollup-plugin-postcss": "^4.0.2",
+    "sass": "^1.104.1",
+    "vite": "catalog:",
     "vitest": "catalog:"
   },
   "dependencies": {

@@ -95,7 +95,7 @@ importers:
         specifier: workspace:^
         version: link:../core
       '@chenglou/pretext':
-        specifier: ~0.0.9
+        specifier: 0.0.9
         version: 0.0.9
       '@codemirror/language':
         specifier: ^6.12.4

@@ -10,11 +10,12 @@ if (ExecutionEnvironment.canUseDOM) {
   import('@canvas-commons/player');
 }
 
-declare global {
+declare module 'react' {
   namespace JSX {
     interface IntrinsicElements {
       // eslint-disable-next-line @typescript-eslint/naming-convention
-      'canvas-commons-player': CanvasCommonsPlayerProps & ComponentProps<'div'>;
+      'canvas-commons-player': CanvasCommonsPlayerProps &
+        ComponentProps<'div'> & {class?: string};
     }
   }
 }

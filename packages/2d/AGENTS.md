@@ -14,6 +14,7 @@ See the [root `AGENTS.md`](../../AGENTS.md) for repo-wide standards.
 pnpm 2d:dev          # tsdown --watch
 pnpm 2d:build        # build-lib then build-editor
 pnpm 2d:test         # vitest run
+pnpm 2d:test:sweeps  # text layout sweeps and oracles (*.sweep.test.*)
 pnpm --filter @canvas-commons/2d run build-lib       # tsdown, outputs to lib/
 pnpm --filter @canvas-commons/2d run build-editor    # rollup -c rollup.editor.mjs, outputs to editor/
 pnpm --filter @canvas-commons/2d run lint:pkg

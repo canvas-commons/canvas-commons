@@ -37,6 +37,7 @@
     "build-lib": "tsdown",
     "build-editor": "rollup -c rollup.editor.mjs",
     "test": "vitest run",
+    "test:sweeps": "vitest run --config vitest.sweeps.config.ts",
     "typecheck": "tsc --noEmit -p src/lib/tsconfig.json && tsc --noEmit -p src/editor/tsconfig.json",
     "lint:pkg": "publint --strict && attw --pack . --profile esm-only --ignore-rules internal-resolution-error --exclude-entrypoints ./editor"
   },

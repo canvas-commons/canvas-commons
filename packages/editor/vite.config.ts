@@ -25,7 +25,7 @@ export default defineConfig({
   },
   plugins: [
     preact(),
-    dts(),
+    dts({entryRoot: '.'}),
     {
       name: 'copy-files',
       async buildStart() {

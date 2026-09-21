@@ -5,7 +5,11 @@ import {afterAll, beforeAll, describe, expect, test} from 'vitest';
 import {openScene, renderFrame} from './helpers/render';
 
 function diffPixels(a: PNG, b: PNG): number {
-  return pixelmatch(a.data, b.data, null, a.width, a.height, {threshold: 0.1});
+  return pixelmatch(a.data, b.data, null, a.width, a.height, {
+    threshold: 0.1,
+    // The thresholds below assume semitransparent pixels blend against white.
+    checkerboard: false,
+  });
 }
 
 describe('text-split', () => {

@@ -9,7 +9,7 @@ import {
   useSignalEffect,
 } from '@preact/signals';
 import {ComponentChildren, createContext} from 'preact';
-import {useContext, useMemo} from 'preact/hooks';
+import {useContext, useEffect, useMemo} from 'preact/hooks';
 import {SignalSet} from './utils';
 
 export interface PluginState {
@@ -74,14 +74,17 @@ export function Provider({children}: {children?: ComponentChildren}) {
 
   state.scene.value = currentScene as Scene2D;
 
-  useSignalEffect(() =>
-    state.scene.value?.onRenderLifecycle.subscribe(
-      ([event]: [SceneRenderEvent, CanvasRenderingContext2D]) => {
-        if (event === SceneRenderEvent.AfterRender) {
-          state.afterRender.value++;
-        }
-      },
-    ),
+  // useSignalEffect subscribes a frame late and misses the first AfterRender.
+  useEffect(
+    () =>
+      currentScene?.onRenderLifecycle.subscribe(
+        ([event]: [SceneRenderEvent, CanvasRenderingContext2D]) => {
+          if (event === SceneRenderEvent.AfterRender) {
+            state.afterRender.value++;
+          }
+        },
+      ),
+    [currentScene],
   );
 
   // Expand all nodes necessary to reveal the selected one:

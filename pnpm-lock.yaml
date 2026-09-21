@@ -7,8 +7,8 @@ settings:
 catalogs:
   default:
     '@preact/signals':
-      specifier: ^1.3.4
-      version: 1.3.4
+      specifier: ^2.11.2
+      version: 2.11.2
     clsx:
       specifier: ^2.1.1
       version: 2.1.1
@@ -136,7 +136,7 @@ importers:
         version: 2.10.6(@babel/core@7.29.0)(preact@10.29.8)(vite@8.3.0(@types/node@20.19.43)(jiti@2.6.1)(sass@1.104.1)(terser@5.51.2)(yaml@2.9.1))
       '@preact/signals':
         specifier: 'catalog:'
-        version: 1.3.4(preact@10.29.8)
+        version: 2.11.2(preact@10.29.8)
       '@types/node':
         specifier: ^20.19.43
         version: 20.19.43
@@ -389,7 +389,7 @@ importers:
         version: link:../core
       '@preact/signals':
         specifier: 'catalog:'
-        version: 1.3.4(preact@10.29.8)
+        version: 2.11.2(preact@10.29.8)
       highlight.js:
         specifier: ^11.12.0
         version: 11.12.0
@@ -2659,13 +2659,13 @@ packages:
       '@babel/core': 7.x
       vite: 2.x || 3.x || 4.x || 5.x || 6.x || 7.x || 8.x
 
-  '@preact/signals-core@1.14.1':
-    resolution: {integrity: sha512-vxPpfXqrwUe9lpjqfYNjAF/0RF/eFGeLgdJzdmIIZjpOnTmGmAB4BjWone562mJGMRP4frU6iZ6ei3PDsu52Ng==}
+  '@preact/signals-core@1.14.4':
+    resolution: {integrity: sha512-HNB6HYeYKhQbJ1aKl+YRjrS4+QWHLKX6qKoUsfS/m0vqzsVaEBiZiaKbG/e+NKk2ch5ALQr/ihWaMHxiCuuWHA==}
 
-  '@preact/signals@1.3.4':
-    resolution: {integrity: sha512-TPMkStdT0QpSc8FpB63aOwXoSiZyIrPsP9Uj347KopdS6olZdAYeeird/5FZv/M1Yc1ge5qstub2o8VDbvkT4g==}
+  '@preact/signals@2.11.2':
+    resolution: {integrity: sha512-rVTRTt/T0HIRgbugwS5FigbfF/kfdEFYFtiqxa+lbpqTajepqnR0firuAS2iNdHyejWB7Yc9p9QePkVNBtTAwg==}
     peerDependencies:
-      preact: 10.x
+      preact: '>= 10.25.0 || >=11.0.0-0'
 
   '@prefresh/babel-plugin@0.5.3':
     resolution: {integrity: sha512-57LX2SHs4BX2s1IwCjNzTE2OJeEepRCNf1VTEpbNcUyHfMO68eeOWGDIt4ob9aYlW6PEWZ1SuwNikuoIXANDtQ==}
@@ -11801,11 +11801,11 @@ snapshots:
       - rollup
       - supports-color
 
-  '@preact/signals-core@1.14.1': {}
+  '@preact/signals-core@1.14.4': {}
 
-  '@preact/signals@1.3.4(preact@10.29.8)':
+  '@preact/signals@2.11.2(preact@10.29.8)':
     dependencies:
-      '@preact/signals-core': 1.14.1
+      '@preact/signals-core': 1.14.4
       preact: 10.29.8
 
   '@prefresh/babel-plugin@0.5.3': {}

@@ -1,3 +1,4 @@
+import {threads} from '@canvas-commons/core';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {useScene2D} from '../../scenes';
 import {Img} from '../Img';
@@ -87,5 +88,15 @@ describe('Img layout', () => {
 
     expect(image.size().x).toBe(240);
     expect(image.size().y).toBe(180);
+  });
+
+  it('waits for the new image when tweening src', () => {
+    const image = new Img({src: 'image.svg', width: 240});
+    useScene2D().getView().add(image);
+
+    const yielded = [...threads(() => image.src('other.svg', 1))];
+
+    expect(image.src()).toBe('other.svg');
+    expect(yielded).toContain(image);
   });
 });

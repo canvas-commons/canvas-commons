@@ -39,7 +39,7 @@ and `@canvas-commons/2d`. The typedoc script handles the extraction.
 
 ## Traps
 
-**This package is React 18, not Preact.** Docusaurus pulls in React, and so does
+**This package is React 19, not Preact.** Docusaurus pulls in React, and so does
 anything in this package's `src/`. The runtime story here is unrelated to the
 editor or 2d. Don't carry React imports out of this package.
 

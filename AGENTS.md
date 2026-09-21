@@ -175,7 +175,7 @@ Preact hooks, and `@preact/signals` for UI state. The 2D editor plugin in
 `packages/2d/src/editor/` shares this runtime and lives next to the 2d code only
 because that's the package that owns its UI surface.
 
-**`@canvas-commons/docs` is React 18 via Docusaurus.** That's unrelated to the
+**`@canvas-commons/docs` is React 19 via Docusaurus.** That's unrelated to the
 runtime story; it's just the doc site. Don't import React anywhere else.
 
 Two signal systems coexist. `@canvas-commons/core`'s signals (`createSignal`,

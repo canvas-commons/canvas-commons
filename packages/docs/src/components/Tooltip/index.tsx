@@ -19,9 +19,9 @@ export default function Tooltip({children}: {children: ReactNode}) {
 
   const [show, setShow] = useState(false);
   const [comment, setComment] = useState(null);
-  const containerRef = useRef<HTMLDivElement>();
-  const linkRef = useRef<HTMLAnchorElement>();
-  const tooltipRef = useRef<HTMLDivElement>();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const linkRef = useRef<HTMLAnchorElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
 
   const updatePosition = useCallback(() => {
     if (!linkRef.current || !tooltipRef.current) return;

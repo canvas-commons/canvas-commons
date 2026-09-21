@@ -22,6 +22,7 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
+  "privatePackages": {"version": true, "tag": false},
   "snapshot": {"useCalculatedVersion": true},
   "ignore": [
     "@canvas-commons/docs",

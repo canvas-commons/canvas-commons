@@ -38,13 +38,13 @@
   },
   "devDependencies": {
     "@types/follow-redirects": "^1.14.4",
-    "@types/mime-types": "^2.1.4",
+    "@types/mime-types": "^3.0.1",
     "@types/node": "catalog:"
   },
   "dependencies": {
     "fast-glob": "^3.3.3",
     "follow-redirects": "^1.16.0",
-    "mime-types": "^2.1.35",
+    "mime-types": "^3.0.2",
     "source-map": "^0.6.1"
   }
 }

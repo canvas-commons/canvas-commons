@@ -67,8 +67,5 @@
   "lint-staged": {
     "*.{ts,tsx}": "eslint --fix",
     "*.{js,jsx,ts,tsx,md,scss}": "prettier --write"
-  },
-  "dependencies": {
-    "webpack": "5.105.4"
   }
 }

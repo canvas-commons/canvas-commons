@@ -16,13 +16,13 @@ pnpm 2d:build        # build-lib then build-editor
 pnpm 2d:test         # vitest run
 pnpm 2d:test:sweeps  # text layout sweeps and oracles (*.sweep.test.*)
 pnpm --filter @canvas-commons/2d run build-lib       # tsdown, outputs to lib/
-pnpm --filter @canvas-commons/2d run build-editor    # rollup -c rollup.editor.mjs, outputs to editor/
+pnpm --filter @canvas-commons/2d run build-editor    # vite build -c vite.editor.config.ts, outputs to editor/
 pnpm --filter @canvas-commons/2d run lint:pkg
 ```
 
-The full `build` is two stages: tsdown for the library, then Rollup for the
-editor plugin. The editor entrypoint is shipped as a separate bundle from
-`./editor` and pulled in by `@canvas-commons/editor` when the 2D plugin is
+The full `build` is two stages: tsdown for the library, then Vite (library mode)
+for the editor plugin. The editor entrypoint is shipped as a separate bundle
+from `./editor` and pulled in by `@canvas-commons/editor` when the 2D plugin is
 active.
 
 ## Where things live
@@ -62,4 +62,4 @@ back with `myRef()`.
 - The component class hierarchy in `src/lib/components/`. The `@signal`
   decorator and node-name metadata are load-bearing for tooling (inspector,
   scene graph, serialization).
-- `rollup.editor.mjs`: the editor bundle config.
+- `vite.editor.config.ts`: the editor bundle config.

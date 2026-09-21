@@ -691,10 +691,10 @@ export class Layout extends Node {
    *
    * The value is relative to the size of this node. A value of `1` means as far
    * to the right/bottom as possible. Here are a few examples of anchors:
-   * - `[-1, -1]` - top left corner
-   * - `[1, -1]` - top right corner
-   * - `[0, 1]` - bottom edge
-   * - `[-1, 1]` - bottom left corner
+   * - `[-1, -1]` or `Vector2.topLeft` - top left corner
+   * - `[1, -1]` or `Vector2.topRight` - top right corner
+   * - `[0, 1]` or `Vector2.bottom` - bottom edge
+   * - `[-1, 1]` or `Vector2.bottomLeft` - bottom left corner
    */
   @vector2Signal('anchor')
   declare public readonly anchor: Vector2Signal<this>;

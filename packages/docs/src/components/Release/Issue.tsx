@@ -6,7 +6,7 @@ import styles from '@site/src/components/Release/styles.module.css';
 import React, {ReactNode} from 'react';
 
 export interface IssueProps {
-  user: string;
+  user?: string;
   pr?: number;
   experimental?: boolean;
   children: ReactNode | ReactNode[];
@@ -15,7 +15,7 @@ export interface IssueProps {
 export default function Issue({user, pr, experimental, children}: IssueProps) {
   return (
     <li className={styles.element}>
-      <Contributor name={user} />
+      {user && <Contributor name={user} />}
       {experimental && (
         <Link to="/docs/experimental" title="Experimental feature">
           <IconScience className="experimental" />

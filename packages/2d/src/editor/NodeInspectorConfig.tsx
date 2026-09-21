@@ -17,13 +17,13 @@ function Component() {
   const {inspection} = useApplication();
   const {scene, afterRender} = usePluginState();
   const node = useComputed(() => {
-    afterRender.value;
+    void afterRender.value;
     const {payload} = inspection.value;
     return scene.value?.getNode(payload as string);
   });
 
   const attributes = useComputed(() => {
-    afterRender.value;
+    void afterRender.value;
     const currentNode = node.value;
     const attributes: [string, unknown][] = [];
 

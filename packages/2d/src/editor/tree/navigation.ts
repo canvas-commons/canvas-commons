@@ -9,7 +9,7 @@ export function useKeyboardNavigation() {
     usePluginState();
 
   const detachedNodes = useComputed(() => {
-    afterRender.value;
+    void afterRender.value;
     const detachedNodes: string[] = [];
     for (const node of scene.value?.getDetachedNodes() ?? []) {
       detachedNodes.push(node.key);

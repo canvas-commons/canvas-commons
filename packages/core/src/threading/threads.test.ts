@@ -31,7 +31,7 @@ describe('threads()', () => {
       order.push(7);
     });
 
-    [...task];
+    void [...task];
 
     expect(order).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
   });
@@ -59,7 +59,7 @@ describe('threads()', () => {
       order.push(8);
     });
 
-    [...task];
+    void [...task];
 
     expect(order).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8]);
   });
@@ -120,7 +120,7 @@ describe('threads()', () => {
       order.push(10);
     });
 
-    [...task];
+    void [...task];
 
     expect(order).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
   });

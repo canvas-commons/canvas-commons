@@ -30,7 +30,7 @@ export interface FFmpegExporterSettings extends RendererSettings {
 function formatFilters(filters: AudioVideoFilter[]): string {
   return filters
     .map(f => {
-      let options: string[] = [];
+      let options: string[];
       if (typeof f.options === 'string') {
         options = [f.options];
       } else if (f.options.constructor === Array) {

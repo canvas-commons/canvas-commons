@@ -22,6 +22,6 @@ export function generatorTest(factory: ThreadGeneratorFactory<View2D>) {
   return () => {
     const view = useScene2D().getView();
     const tasks = threads(() => factory(view));
-    [...tasks];
+    void [...tasks];
   };
 }

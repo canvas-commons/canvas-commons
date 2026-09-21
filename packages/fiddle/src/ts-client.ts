@@ -1,3 +1,4 @@
+import {terminateWorker} from './terminate-worker';
 import type {
   TsCompletionDetails,
   TsCompletionEntry,
@@ -254,12 +255,7 @@ class TsClientInternal implements TsClient {
   private stop(reason: Error): void {
     const worker = this.worker;
     this.worker = null;
-    if (worker) {
-      worker.onmessage = null;
-      worker.onerror = null;
-      worker.onmessageerror = null;
-      worker.terminate();
-    }
+    if (worker) terminateWorker(worker);
     for (const pending of this.pending.values()) {
       pending.reject(reason);
     }

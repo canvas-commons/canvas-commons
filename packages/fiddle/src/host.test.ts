@@ -341,7 +341,6 @@ describe('createFiddleHost harness handshake', () => {
     expect(diagnostics).toEqual([]);
     expect(worker.posted).toHaveLength(1);
     expect(worker.onmessage).toBeNull();
-    expect(worker.onerror).toBeNull();
     expect(worker.terminated).toBe(true);
   });
 
@@ -361,6 +360,15 @@ describe('createFiddleHost harness handshake', () => {
     const {host, errors} = mount({handshakeTimeoutMs: 5000});
     host.dispose();
     vi.advanceTimersByTime(5000);
+    expect(errors).toHaveLength(0);
+  });
+
+  it('handles the load error of a worker that dispose terminated', () => {
+    const {host, worker, errors} = mount({});
+    host.dispose();
+    const event = new ErrorEvent('error', {cancelable: true});
+    worker.onerror?.(event);
+    expect(event.defaultPrevented).toBe(true);
     expect(errors).toHaveLength(0);
   });
 });

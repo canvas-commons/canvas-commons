@@ -343,6 +343,14 @@ describe('ts-client', () => {
     await expect(client.diagnostics('doc', 0)).resolves.toBeNull();
   });
 
+  test('handles the load error of a worker that dispose terminated', () => {
+    const {worker} = startClient();
+    disposeTsClient();
+    const event = new ErrorEvent('error', {cancelable: true});
+    worker.onerror?.(event);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
   test('disposeTsClient terminates the worker the next call replaces', () => {
     const {worker} = startClient();
     respondInit(worker);

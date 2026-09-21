@@ -7,6 +7,7 @@ import type {
   HostToHarnessMessage,
 } from './protocol';
 import {DEFAULT_RENDER_SIZE, GenerationTracker} from './protocol';
+import {terminateWorker} from './terminate-worker';
 import type {WorkerCompileRequest, WorkerCompileResponse} from './worker';
 
 const DEFAULT_DEBOUNCE_MS = 250;
@@ -310,9 +311,7 @@ export function createFiddleHost(options: FiddleHostOptions): FiddleHost {
       clearTimeout(handshakeTimer);
       if (compileTimer !== null) clearTimeout(compileTimer);
       window.removeEventListener('message', handleReadyMessage);
-      worker.onmessage = null;
-      worker.onerror = null;
-      worker.terminate();
+      terminateWorker(worker);
       if (port) port.onmessage = null;
       port?.close();
       port = null;

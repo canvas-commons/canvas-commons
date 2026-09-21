@@ -23,6 +23,12 @@ export function buildCanvasFontString(
   return parts.join(' ');
 }
 
+/** Pixel size of a canvas font shorthand; 16 when it names none. */
+export function canvasFontSize(font: string): number {
+  const match = font.match(/(?:^|\D)(\d+(?:\.\d+)?)\s*px/);
+  return match === null ? 16 : parseFloat(match[1]);
+}
+
 /**
  * Resolve a `lineHeight` signal value to pixels.
  *

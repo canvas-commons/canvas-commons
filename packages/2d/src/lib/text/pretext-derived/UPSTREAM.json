@@ -1,0 +1,92 @@
+{
+  "package": "@chenglou/pretext",
+  "version": "0.0.9",
+  "commit": "8460bf940c50d82be90a396fb0ea2c4e7a2dc6f3",
+  "license": "MIT, see ./LICENSE",
+  "sources": [
+    {
+      "upstream": "src/line-break.ts",
+      "sha256": "f226213c179d65adea48b849040719349c8c3928519348d03d38b7b41f344796",
+      "copiedInto": ["lineBreak.ts"],
+      "functions": [
+        {"name": "LineBreakCursor", "lines": "4-7"},
+        {
+          "name": "PreparedLineBreakData",
+          "lines": "9-26",
+          "note": "replaced by ParagraphItems"
+        },
+        {"name": "InternalLineVisitor", "lines": "28-34"},
+        {"name": "isDiscretionaryLineEnd", "lines": "39-45"},
+        {"name": "consumesAtLineStart", "lines": "47-49"},
+        {"name": "breaksAfter", "lines": "51-59"},
+        {"name": "normalizeLineStartSegmentIndex", "lines": "61-72"},
+        {"name": "getTabAdvance", "lines": "74-80"},
+        {"name": "getLeadingLetterSpacing", "lines": "82-94"},
+        {"name": "getLineEndContribution", "lines": "96-98"},
+        {"name": "getTabTrailingLetterSpacing", "lines": "100-110"},
+        {"name": "getWholeSegmentFitContribution", "lines": "112-123"},
+        {"name": "getBreakOpportunityFitContribution", "lines": "125-133"},
+        {"name": "getLineEndPaintContribution", "lines": "135-144"},
+        {"name": "getBreakableGraphemeAdvance", "lines": "146-154"},
+        {"name": "getBreakableCandidateFitWidth", "lines": "156-163"},
+        {"name": "getNextPreferredBreakIndex", "lines": "165-183"},
+        {"name": "getTerminalLetterSpacing", "lines": "185-216"},
+        {"name": "finalizeLinePaintWidth", "lines": "218-233"},
+        {"name": "findChunkIndexForStart", "lines": "235-249"},
+        {"name": "normalizeLineStartInChunk", "lines": "251-284"},
+        {"name": "normalizePreparedLineStart", "lines": "287-296"},
+        {"name": "normalizeLineStartChunkIndexFromHint", "lines": "298-314"},
+        {"name": "countPreparedLines", "lines": "316-318"},
+        {"name": "walkPreparedLinesSimple", "lines": "320-507"},
+        {"name": "walkPreparedLinesRaw", "lines": "509-518"},
+        {"name": "stepPreparedChunkLineGeometry", "lines": "520-527"},
+        {"name": "walkPreparedComplexLines", "lines": "529-785"},
+        {"name": "stepPreparedSimpleLineGeometry", "lines": "787-910"},
+        {"name": "stepPreparedLineGeometryFromChunk", "lines": "912-923"},
+        {"name": "stepPreparedLineGeometry", "lines": "925-933"},
+        {"name": "measurePreparedLineGeometry", "lines": "935-975"}
+      ]
+    },
+    {
+      "upstream": "src/measurement.ts",
+      "sha256": "7768e0452c9dcc027182a3ed8131ed4a26d1d6099c9642ed93389a1c52342b01",
+      "copiedInto": ["engineProfile.ts", "emojiCorrection.ts"],
+      "functions": [
+        {"name": "EngineProfile", "lines": "10-16"},
+        {"name": "getEngineProfile", "lines": "71-110"},
+        {"name": "emoji patterns", "lines": "30-31"},
+        {"name": "isEmojiGrapheme", "lines": "118-120"},
+        {"name": "textMayContainEmoji", "lines": "122-124"},
+        {"name": "countEmojiGraphemes", "lines": "157-164"},
+        {"name": "getCorrectedSegmentWidth", "lines": "173-176"}
+      ]
+    },
+    {
+      "upstream": "src/analysis.ts",
+      "note": "Hashed by range: the file is 1583 lines and only these parts are copied.",
+      "copiedInto": ["segmentBreakKind.ts", "normalizeWhitespace.ts"],
+      "functions": [
+        {
+          "name": "SegmentBreakKind",
+          "lines": "4-12",
+          "sha256": "2851146537d678c6a94439708d1bc361e9eaac844f2c9e3f04a7730df570b199"
+        },
+        {
+          "name": "whitespace normalization patterns",
+          "lines": "37-38",
+          "sha256": "e85b01abd823c408002c0376e2c7aad5b8b917d7b2e65df17d91981c10f81bfe"
+        },
+        {
+          "name": "normalizeWhitespaceNormal",
+          "lines": "40-51",
+          "sha256": "7ef43db328fb21d47e4c58f1ac1fccd5e99119c96542ff248975bab6aea4d5aa"
+        },
+        {
+          "name": "normalizeWhitespacePreWrap",
+          "lines": "53-58",
+          "sha256": "add2f5dc086731834d9508c83989bab100cd87ba5582f10fa2e95cee6d73701f"
+        }
+      ]
+    }
+  ]
+}

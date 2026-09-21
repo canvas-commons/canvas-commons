@@ -14,6 +14,7 @@
     "2d:dev": "pnpm --filter @canvas-commons/2d run dev",
     "2d:build": "pnpm --filter @canvas-commons/2d run build",
     "2d:test": "pnpm --filter @canvas-commons/2d run test",
+    "2d:test:sweeps": "pnpm --filter @canvas-commons/2d run test:sweeps",
     "editor:dev": "pnpm --filter @canvas-commons/editor run dev",
     "editor:build": "pnpm --filter @canvas-commons/editor run build",
     "editor:showcase": "pnpm --filter @canvas-commons/editor run showcase",

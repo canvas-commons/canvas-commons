@@ -12,6 +12,10 @@ export function lineTexts(txt: Txt): string[] {
     .lines.map(line => line.fragments.map(fragment => fragment.text).join(''));
 }
 
+export function fontSizeOf(font: string): number {
+  return Number(font.match(/(\d+(?:\.\d+)?)px/)?.[1] ?? 0);
+}
+
 export const CHAR_WIDTH = 10;
 const KERN = 2;
 

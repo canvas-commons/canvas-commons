@@ -133,6 +133,44 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
       - run: pnpm run test
+  sweeps:
+    name: Text layout sweeps
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: step-security/harden-runner@ab7a9404c0f3da075243ca237b5fac12c98deaa5 # v2.19.3
+        with:
+          egress-policy: audit
+          disable-sudo: true
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: text
+        name: Detect text layout changes
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ -z "$BASE" ] || git diff --name-only "$BASE" HEAD | grep -qE \
+            '^(packages/2d/src/lib/text/|packages/2d/src/lib/components/Txt(Leaf)?\.ts$|packages/2d/src/lib/components/__tests__/text|packages/2d/package\.json$|pnpm-lock\.yaml$|packages/2d/vitest[^/]*\.config\.ts$|\.github/workflows/verify\.yml$)'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        if: steps.text.outputs.changed == 'true'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        if: steps.text.outputs.changed == 'true'
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        if: steps.text.outputs.changed == 'true'
+      - run: pnpm run build
+        if: steps.text.outputs.changed == 'true'
+      - run: pnpm run 2d:test:sweeps
+        if: steps.text.outputs.changed == 'true'
   playwright-version:
     name: Resolve Playwright version
     runs-on: ubuntu-latest

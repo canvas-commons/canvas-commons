@@ -1,5 +1,4 @@
 import {
-  DEFAULT,
   InterpolationFunction,
   PossibleVector2,
   Signal,
@@ -14,7 +13,6 @@ import {
   Vector2Signal,
   Vector2SignalContext,
   deepLerp,
-  unwrap,
 } from '@canvas-commons/core';
 import {Node} from '../components/Node';
 import {makeSignalExtensions} from '../utils/makeSignalExtensions';
@@ -179,15 +177,17 @@ class TransformConverter {
       Vector2.magnitude(viewMatrix.m21, viewMatrix.m22),
     ];
   }
+}
 
-  public static absoluteToLocalLayoutPosition(
-    owner: Node,
-    absoluteValue: SignalValue<PossibleVector2>,
-  ): SignalValue<PossibleVector2> {
-    return this.wrapVectorSignalTransform(absoluteValue, val =>
-      val.transformAsPoint(owner.worldToLocal()),
-    );
-  }
+interface SpaceMethod<TSetterValue, TValue extends TSetterValue, TOwner> {
+  (): TValue;
+  (value: SignalValue<TSetterValue>): TOwner;
+  (
+    value: SignalValue<TSetterValue>,
+    duration: number,
+    timingFunction?: TimingFunction,
+    interpolationFunction?: InterpolationFunction<TValue>,
+  ): SignalGenerator<TSetterValue, TValue>;
 }
 
 interface ComponentTransformMethod<TOwner> {
@@ -201,532 +201,335 @@ interface ComponentTransformMethod<TOwner> {
   ): ThreadGenerator;
 }
 
-const GETTER_ARGS = 0;
-const SETTER_ARGS = 1;
-
-/**
- * Enhanced transform method interface that provides both vector and component access.
- *
- * This interface allows you to work with 2D transforms in multiple ways:
- * - Get/set the entire vector: `position()` or `position([x, y])`
- * - Animate the vector: `position([x, y], duration)`
- * - Access individual components: `position.x()` or `position.y()`
- * - Animate components: `position.x(value, duration)`
- *
- * @typeParam TOwner - The type of the object that owns this transform method
- */
-interface EnhancedTransformMethod<TOwner> {
-  /** Get the current transform value */
-  (): Vector2;
-  /** Set the transform value immediately */
-  (value: SignalValue<PossibleVector2>): TOwner;
-  /** Animate the transform to a new value */
-  (
-    value: SignalValue<PossibleVector2>,
-    duration: number,
-    timingFunction?: TimingFunction,
-    interpolationFunction?: InterpolationFunction<Vector2>,
-  ): SignalGenerator<PossibleVector2, Vector2>;
-  /** Access to the X component of the transform */
+interface EnhancedTransformMethod<TOwner> extends SpaceMethod<
+  PossibleVector2,
+  Vector2,
+  TOwner
+> {
   x: ComponentTransformMethod<TOwner>;
-  /** Access to the Y component of the transform */
   y: ComponentTransformMethod<TOwner>;
 }
 
-// Node-based transform method interface (takes a node parameter)
-interface NodeTransformMethod<TOwner extends Node> {
-  (node: Node): CurriedRelativeTransformSignal<TOwner>;
+type EnhancedRotationMethod<TOwner> = SpaceMethod<number, number, TOwner>;
+
+interface TransformSpaces<TMethod> {
+  abs: TMethod;
+  view: TMethod;
+  local: TMethod;
+  relativeTo: (node: Node) => TMethod;
 }
 
-// Transform-specific signal helpers with enhanced component-wise support
-interface PositionSignalHelpers<TOwner extends Node> {
-  abs: EnhancedTransformMethod<TOwner>;
-  relativeTo: NodeTransformMethod<TOwner>;
-  view: EnhancedTransformMethod<TOwner>;
-  local: EnhancedTransformMethod<TOwner>;
-}
+type ComponentSpaces<TOwner> = TransformSpaces<
+  ComponentTransformMethod<TOwner>
+>;
 
-interface ScaleSignalHelpers<TOwner extends Node> {
-  abs: EnhancedTransformMethod<TOwner>;
-  relativeTo: NodeScaleTransformMethod<TOwner>;
-  view: EnhancedTransformMethod<TOwner>;
-  local: EnhancedTransformMethod<TOwner>;
-}
-
-// Node-based scale transform method interface (similar to position but returns scale signal)
-interface NodeScaleTransformMethod<TOwner extends Node> {
-  (node: Node): CurriedRelativeScaleSignal<TOwner>;
-}
-
-// Rotation-specific transform method interface (scalar)
-interface EnhancedRotationMethod<TOwner extends Node> {
-  (): number;
-  (value: SignalValue<number>): TOwner;
-  (
-    value: SignalValue<number>,
-    duration: number,
-    timingFunction?: TimingFunction,
-    interpolationFunction?: InterpolationFunction<number>,
-  ): SignalGenerator<number, number>;
-}
-
-// Node-based rotation transform method interface
-interface NodeRotationMethod<TOwner extends Node> {
-  (node: Node): CurriedRelativeRotationSignal<TOwner>;
-}
-
-interface RotationSignalHelpers<TOwner extends Node> {
-  abs: EnhancedRotationMethod<TOwner>;
-  relativeTo: NodeRotationMethod<TOwner>;
-  view: EnhancedRotationMethod<TOwner>;
-  local: EnhancedRotationMethod<TOwner>;
-}
+const AXES = ['x', 'y'] as const;
+type Axis = (typeof AXES)[number];
 
 /**
- * Enhanced position signal that provides coordinate space transformation methods.
+ * One component of a {@link PositionSignal}, like `node.x`.
+ */
+export type PositionComponentSignal<TOwner extends Node = Node> = Signal<
+  number,
+  number,
+  TOwner
+> &
+  ComponentSpaces<TOwner>;
+
+/**
+ * A position signal that can be read, set, and tweened in other coordinate
+ * spaces.
  *
  * @example
  * ```typescript
- * // Get/set position in different coordinate spaces
- * node.position([100, 200]);              // Set local position
- * node.position.abs([300, 400]);          // Set absolute position
- * node.position.relativeTo(other, [50, 0]); // Set position relative to another node
- * node.position.view([0, 0]);             // Set position in view space
+ * node.position.abs([300, 400]);
+ * node.position.relativeTo(other)([50, 0], 1);
  *
- * // Component access
- * node.position.x(150);                   // Set only X coordinate
- * node.position.abs.y(250);               // Set only absolute Y coordinate
+ * // Components and spaces can be accessed in either order.
+ * node.position.view.y(250);
+ * node.position.y.view(250);
  * ```
  */
 export type PositionSignal<TOwner extends Node = Node> = Vector2Signal<TOwner> &
-  PositionSignalHelpers<TOwner>;
+  TransformSpaces<EnhancedTransformMethod<TOwner>> &
+  Record<Axis, PositionComponentSignal<TOwner>>;
 
 /**
- * Enhanced scale signal that provides coordinate space transformation methods.
- *
- * @example
- * ```typescript
- * // Scale operations in different coordinate spaces
- * node.scale([2, 1.5]);                   // Set local scale
- * node.scale.abs([4, 3]);                 // Set absolute scale
- * node.scale.relativeTo(parent, [0.5, 0.5]); // Scale relative to parent
- * ```
+ * A scale signal that can be read, set, and tweened in other coordinate
+ * spaces, the same as {@link PositionSignal}.
  */
 export type ScaleSignal<TOwner extends Node = Node> = Vector2Signal<TOwner> &
-  ScaleSignalHelpers<TOwner>;
+  TransformSpaces<EnhancedTransformMethod<TOwner>> &
+  Record<Axis, ComponentSpaces<TOwner>>;
 
 /**
- * Enhanced rotation signal that provides coordinate space transformation methods.
- *
- * @example
- * ```typescript
- * // Rotation operations in different coordinate spaces
- * node.rotation(45);                      // Set local rotation (degrees)
- * node.rotation.abs(90);                  // Set absolute rotation
- * node.rotation.relativeTo(other, 180);   // Set rotation relative to another node
- * ```
+ * A rotation signal, in degrees, that can be read, set, and tweened in other
+ * coordinate spaces.
  */
 export type RotationSignal<TOwner extends Node = Node> = Signal<
   number,
   number,
   TOwner
 > &
-  RotationSignalHelpers<TOwner>;
+  TransformSpaces<EnhancedRotationMethod<TOwner>>;
 
 /**
- * Layout position signal for computed position properties like `top`, `left`, etc.
+ * A computed point of a layout node, like `top` or `left`. Setting it moves
+ * the node.
  *
- * These signals compute their values dynamically based on the node's size and origin,
- * and delegate setting operations to the main position signal.
+ * @example
+ * ```typescript
+ * yield* node.left.abs(other.right.abs(), 1);
+ * yield* node.right.x.view(view.width() / 2, 1);
+ * ```
  */
 export type LayoutPositionSignal<TOwner extends Node = Node> =
-  SimpleVector2Signal<TOwner> & PositionSignalHelpers<TOwner>;
+  SimpleVector2Signal<TOwner> &
+    TransformSpaces<EnhancedTransformMethod<TOwner>> &
+    Record<Axis, ComponentTransformMethod<TOwner> & ComponentSpaces<TOwner>>;
 
-// Shared helper functions for creating enhanced transform methods
-
-/**
- * UNIFIED TRANSFORM SIGNAL ARCHITECTURE
- *
- * Every signal in the system is a coordinate space transformation:
- * - Forward transform: base space → target space
- * - Inverse transform: target space → base space
- * - Component access and tweening built on top
- */
-
-// Type for component configuration
-interface ComponentConfig<TTarget> {
-  getComponent: (target: TTarget, component: 'x' | 'y') => number;
-  setComponent: (
-    target: TTarget,
-    component: 'x' | 'y',
-    value: number,
-  ) => TTarget;
-}
-
-// Standard Vector2 component configuration
-const VECTOR2_COMPONENT_CONFIG: ComponentConfig<Vector2> = {
-  getComponent: (vec: Vector2, component: 'x' | 'y') => vec[component],
-  setComponent: (vec: Vector2, component: 'x' | 'y', value: number) =>
-    new Vector2(component === 'x' ? [value, vec.y] : [vec.x, value]),
-};
-
-/**
- * Creates a unified transform signal that handles coordinate space transformations.
- * This is the foundation for all signals (abs, view, local, relativeTo, origin signals).
- */
-function createTransformSignal<TBase, TTarget, TOwner extends Node>(
-  baseGetter: () => TBase,
-  baseSetter: (value: SignalValue<TBase>) => TOwner,
-  baseTweener: (
-    value: SignalValue<TBase>,
+function createSpaceMethod<TSetterValue, TValue extends TSetterValue, TOwner>(
+  signal: Signal<TSetterValue, TValue, TOwner>,
+  toSpace: (local: TValue) => TValue,
+  toLocal: (value: SignalValue<TSetterValue>) => SignalValue<TSetterValue>,
+): SpaceMethod<TSetterValue, TValue, TOwner> {
+  function method(): TValue;
+  function method(value: SignalValue<TSetterValue>): TOwner;
+  function method(
+    value: SignalValue<TSetterValue>,
     duration: number,
     timingFunction?: TimingFunction,
-    interpolationFunction?: InterpolationFunction<TTarget>,
-  ) => any,
-  forwardTransform: (base: TBase) => TTarget,
-  inverseTransform: (target: TTarget) => SignalValue<TBase>,
-  componentConfig?: ComponentConfig<TTarget>,
-) {
-  // Main signal function with proper overloads
-  function signal(): TTarget;
-  function signal(value: SignalValue<TTarget>): TOwner;
-  function signal(
-    value: SignalValue<TTarget>,
-    duration: number,
-    timingFunction?: TimingFunction,
-    interpolationFunction?: InterpolationFunction<TTarget>,
-  ): any;
-  function signal(
-    value?: SignalValue<TTarget>,
+    interpolationFunction?: InterpolationFunction<TValue>,
+  ): SignalGenerator<TSetterValue, TValue>;
+  function method(
+    value?: SignalValue<TSetterValue>,
     duration?: number,
     timingFunction?: TimingFunction,
-    interpolationFunction?: InterpolationFunction<TTarget>,
-  ): TTarget | TOwner | any {
-    if (arguments.length === 0) {
-      // Getter: apply forward transform
-      return forwardTransform(baseGetter());
+    interpolationFunction?: InterpolationFunction<TValue>,
+  ): TValue | TOwner | SignalGenerator<TSetterValue, TValue> {
+    if (value === undefined) {
+      return toSpace(signal());
     }
-
-    if (arguments.length === 1) {
-      // Setter: apply inverse transform and store
-      const baseValue = inverseTransform(unwrap(value!));
-      return baseSetter(baseValue);
+    if (duration === undefined) {
+      return signal(toLocal(value));
     }
-
-    // Tweener: apply inverse transform and animate
-    const baseValue = inverseTransform(unwrap(value!));
-    return baseTweener(
-      baseValue,
-      duration!,
+    return signal(
+      toLocal(value),
+      duration,
       timingFunction,
       interpolationFunction,
     );
   }
 
-  // Add component accessors for Vector2-like targets
-  if (componentConfig) {
-    const {getComponent, setComponent} = componentConfig;
-
-    (signal as any).x = function (
-      value?: SignalValue<number>,
-      duration?: number,
-      timingFunction?: TimingFunction,
-      interpolationFunction?: InterpolationFunction<TTarget>,
-    ): number | TOwner | any {
-      if (arguments.length === 0) {
-        return getComponent(signal(), 'x');
-      }
-
-      const currentTarget = signal();
-      const newTarget = setComponent(currentTarget, 'x', unwrap(value!));
-
-      if (arguments.length === 1) {
-        return signal(newTarget);
-      }
-
-      // Component tweening
-      return signal(
-        newTarget,
-        duration!,
-        timingFunction,
-        interpolationFunction as InterpolationFunction<TTarget>,
-      );
-    };
-
-    (signal as any).y = function (
-      value?: SignalValue<number>,
-      duration?: number,
-      timingFunction?: TimingFunction,
-      interpolationFunction?: InterpolationFunction<TTarget>,
-    ): number | TOwner | any {
-      if (arguments.length === 0) {
-        return getComponent(signal(), 'y');
-      }
-
-      const currentTarget = signal();
-      const newTarget = setComponent(currentTarget, 'y', unwrap(value!));
-
-      if (arguments.length === 1) {
-        return signal(newTarget);
-      }
-
-      // Component tweening
-      return signal(
-        newTarget,
-        duration!,
-        timingFunction,
-        interpolationFunction as InterpolationFunction<TTarget>,
-      );
-    };
-  }
-
-  return signal;
+  return method;
 }
 
-/**
- * Create a curried relative transform signal.
- */
-function createCurriedRelativeSignal<TOwner extends Node = Node>(
-  baseContext: PositionSignalContext<TOwner>,
-  targetNode: Node,
-): CurriedRelativeTransformSignal<TOwner> {
-  // Create the main function
-  const curriedSignal = function (
-    ...args: any[]
-  ): Vector2 | TOwner | SignalGenerator<PossibleVector2, Vector2> {
-    if (args.length === 0) {
-      // Getter: compute relative position using internal method
-      return baseContext['relativeToImpl'](targetNode);
-    }
-
-    // Setter/Tweener: delegate to internal method
-    const [value, duration, timingFunction, interpolationFunction] = args;
-    return baseContext['relativeToImpl'](
-      targetNode,
-      value,
-      duration,
-      timingFunction,
-      interpolationFunction,
-    );
+function createComponentMethod<TOwner>(
+  method: SpaceMethod<PossibleVector2, Vector2, TOwner>,
+  axis: Axis,
+): ComponentTransformMethod<TOwner> {
+  const withComponent = (
+    value: SignalValue<number>,
+  ): SignalValue<PossibleVector2> => {
+    const current = method();
+    const build = (component: number) =>
+      axis === 'x'
+        ? new Vector2(component, current.y)
+        : new Vector2(current.x, component);
+    return typeof value === 'function' ? () => build(value()) : build(value);
   };
 
-  // Add component accessors
-  Object.defineProperty(curriedSignal, 'x', {
-    get() {
-      return function (...args: any[]): number | TOwner | ThreadGenerator {
-        if (args.length === 0) {
-          return (curriedSignal() as Vector2).x;
-        }
-        // Component setter/tweener - build new vector and set/animate it
-        const current = curriedSignal() as Vector2;
-        if (args.length === 1) {
-          return curriedSignal(
-            new Vector2([unwrap(args[0]), current.y]),
-          ) as TOwner;
-        }
-        // Component tweener
-        const [value, duration, timingFunction, interpolationFunction] = args;
-        return curriedSignal(
-          new Vector2([unwrap(value), current.y]),
-          duration,
-          timingFunction,
-          interpolationFunction as any,
-        ) as ThreadGenerator;
-      };
-    },
-  });
-
-  Object.defineProperty(curriedSignal, 'y', {
-    get() {
-      return function (...args: any[]): number | TOwner | ThreadGenerator {
-        if (args.length === 0) {
-          return (curriedSignal() as Vector2).y;
-        }
-        // Component setter/tweener - build new vector and set/animate it
-        const current = curriedSignal() as Vector2;
-        if (args.length === 1) {
-          return curriedSignal(
-            new Vector2([current.x, unwrap(args[0])]),
-          ) as TOwner;
-        }
-        // Component tweener
-        const [value, duration, timingFunction, interpolationFunction] = args;
-        return curriedSignal(
-          new Vector2([current.x, unwrap(value)]),
-          duration,
-          timingFunction,
-          interpolationFunction as any,
-        ) as ThreadGenerator;
-      };
-    },
-  });
-
-  return curriedSignal as CurriedRelativeTransformSignal<TOwner>;
-}
-
-// Properly typed curried signal interface for position
-interface CurriedRelativeTransformSignal<TOwner extends Node> {
-  (): Vector2;
-  (value: SignalValue<PossibleVector2>): TOwner;
-  (
-    value: SignalValue<PossibleVector2>,
-    duration: number,
-    timingFunction?: TimingFunction,
-    interpolationFunction?: InterpolationFunction<Vector2>,
-  ): SignalGenerator<PossibleVector2, Vector2>;
-
-  x: ComponentTransformMethod<TOwner>;
-  y: ComponentTransformMethod<TOwner>;
-}
-
-/**
- * Create a curried relative transform signal for rotation.
- */
-function createCurriedRelativeRotationSignal<TOwner extends Node = Node>(
-  baseContext: RotationSignalContext<TOwner>,
-  targetNode: Node,
-): CurriedRelativeRotationSignal<TOwner> {
-  // Create the main function
-  const curriedSignal = function (
-    ...args: any[]
-  ): number | TOwner | SignalGenerator<number, number> {
-    if (args.length === 0) {
-      // Getter: compute relative rotation using internal method
-      return baseContext['relativeToImpl'](targetNode);
-    }
-
-    // Setter/Tweener: delegate to internal method
-    const [value, duration, timingFunction, interpolationFunction] = args;
-    return baseContext['relativeToImpl'](
-      targetNode,
-      value,
-      duration,
-      timingFunction,
-      interpolationFunction,
-    );
-  };
-
-  return curriedSignal as CurriedRelativeRotationSignal<TOwner>;
-}
-
-/**
- * Create a curried relative transform signal for scale.
- */
-function createCurriedRelativeScaleSignal<TOwner extends Node = Node>(
-  baseContext: ScaleSignalContext<TOwner>,
-  targetNode: Node,
-): CurriedRelativeScaleSignal<TOwner> {
-  // Create the main function
-  const curriedSignal = function (
-    ...args: any[]
-  ): Vector2 | TOwner | SignalGenerator<PossibleVector2, Vector2> {
-    if (args.length === 0) {
-      // Getter: compute relative scale
-      const absScale = (baseContext as any).owner.absoluteScale();
-      const targetAbsScale = targetNode.absoluteScale();
-      return absScale.div(targetAbsScale);
-    }
-
-    // Setter/Tweener: convert relative scale to local scale and set it
-    const [value, duration, timingFunction, interpolationFunction] = args;
-    const absoluteValue = TransformConverter.relativeToAbsoluteScale(
-      targetNode,
-      value,
-    );
-    const localValue = TransformConverter.absoluteToLocalScale(
-      (baseContext as any).owner,
-      absoluteValue,
-    );
-    return (baseContext as any).invoke(
-      localValue,
-      duration,
-      timingFunction,
-      interpolationFunction,
-    ) as TOwner | SignalGenerator<PossibleVector2, Vector2>;
-  };
-
-  // Add component accessors
-  Object.defineProperty(curriedSignal, 'x', {
-    get() {
-      return function (...args: any[]): number | TOwner | ThreadGenerator {
-        if (args.length === 0) {
-          return (curriedSignal() as Vector2).x;
-        }
-        // Component setter/tweener - build new vector and set/animate it
-        const current = curriedSignal() as Vector2;
-        if (args.length === 1) {
-          return curriedSignal(
-            new Vector2([unwrap(args[0]), current.y]),
-          ) as TOwner;
-        }
-        // Component tweener
-        const [value, duration, timingFunction, interpolationFunction] = args;
-        return curriedSignal(
-          new Vector2([unwrap(value), current.y]),
-          duration,
-          timingFunction,
-          interpolationFunction as any,
-        ) as ThreadGenerator;
-      };
-    },
-  });
-
-  Object.defineProperty(curriedSignal, 'y', {
-    get() {
-      return function (...args: any[]): number | TOwner | ThreadGenerator {
-        if (args.length === 0) {
-          return (curriedSignal() as Vector2).y;
-        }
-        // Component setter/tweener - build new vector and set/animate it
-        const current = curriedSignal() as Vector2;
-        if (args.length === 1) {
-          return curriedSignal(
-            new Vector2([current.x, unwrap(args[0])]),
-          ) as TOwner;
-        }
-        // Component tweener
-        const [value, duration, timingFunction, interpolationFunction] = args;
-        return curriedSignal(
-          new Vector2([current.x, unwrap(value)]),
-          duration,
-          timingFunction,
-          interpolationFunction as any,
-        ) as ThreadGenerator;
-      };
-    },
-  });
-
-  return curriedSignal as CurriedRelativeScaleSignal<TOwner>;
-}
-
-// Properly typed curried signal interface for rotation
-interface CurriedRelativeRotationSignal<TOwner extends Node> {
-  (): number;
-  (value: SignalValue<number>): TOwner;
-  (
+  function component(): number;
+  function component(value: SignalValue<number>): TOwner;
+  function component(
     value: SignalValue<number>,
     duration: number,
     timingFunction?: TimingFunction,
     interpolationFunction?: InterpolationFunction<number>,
-  ): SignalGenerator<number, number>;
-}
-
-// Properly typed curried signal interface for scale
-interface CurriedRelativeScaleSignal<TOwner extends Node> {
-  (): Vector2;
-  (value: SignalValue<PossibleVector2>): TOwner;
-  (
-    value: SignalValue<PossibleVector2>,
-    duration: number,
+  ): ThreadGenerator;
+  function component(
+    value?: SignalValue<number>,
+    duration?: number,
     timingFunction?: TimingFunction,
-    interpolationFunction?: InterpolationFunction<Vector2>,
-  ): SignalGenerator<PossibleVector2, Vector2>;
+    interpolationFunction?: InterpolationFunction<number>,
+  ): number | TOwner | ThreadGenerator {
+    if (value === undefined) {
+      return method()[axis];
+    }
+    if (duration === undefined) {
+      return method(withComponent(value));
+    }
+    return method(
+      withComponent(value),
+      duration,
+      timingFunction,
+      interpolationFunction &&
+        ((from, to, progress) =>
+          new Vector2(
+            interpolationFunction(from.x, to.x, progress),
+            interpolationFunction(from.y, to.y, progress),
+          )),
+    );
+  }
 
-  x: ComponentTransformMethod<TOwner>;
-  y: ComponentTransformMethod<TOwner>;
+  return component;
 }
 
-// Position-aware Vector2 signal context
+function createVectorSpaceMethod<TOwner>(
+  signal: Signal<PossibleVector2, Vector2, TOwner>,
+  toSpace: (local: Vector2) => Vector2,
+  toLocal: (
+    value: SignalValue<PossibleVector2>,
+  ) => SignalValue<PossibleVector2>,
+): EnhancedTransformMethod<TOwner> {
+  const method = createSpaceMethod(signal, toSpace, toLocal);
+  return Object.assign(method, {
+    x: createComponentMethod(method, 'x'),
+    y: createComponentMethod(method, 'y'),
+  });
+}
+
+function componentSpaces<TOwner>(
+  spaces: TransformSpaces<EnhancedTransformMethod<TOwner>>,
+  axis: Axis,
+): ComponentSpaces<TOwner> {
+  return {
+    abs: spaces.abs[axis],
+    view: spaces.view[axis],
+    local: spaces.local[axis],
+    relativeTo: node => spaces.relativeTo(node)[axis],
+  };
+}
+
+function attachSpaces<TMethod>(
+  target: object,
+  spaces: TransformSpaces<TMethod>,
+): void {
+  for (const [name, value] of Object.entries(spaces)) {
+    Object.defineProperty(target, name, {value, enumerable: false});
+  }
+}
+
+/** `signal` must hold a point in the parent space of `owner`. */
+function createPositionSpaces<TOwner extends Node>(
+  signal: Signal<PossibleVector2, Vector2, TOwner>,
+  owner: TOwner,
+): TransformSpaces<EnhancedTransformMethod<TOwner>> {
+  const toAbsolute = (local: Vector2) =>
+    local.transformAsPoint(owner.parentToWorld());
+
+  return {
+    abs: createVectorSpaceMethod(signal, toAbsolute, absolute =>
+      TransformConverter.absoluteToLocalPosition(owner, absolute),
+    ),
+    view: createVectorSpaceMethod(
+      signal,
+      local => toAbsolute(local).transformAsPoint(owner.view().worldToLocal()),
+      view => TransformConverter.viewToLocalPosition(owner, view),
+    ),
+    local: createVectorSpaceMethod(
+      signal,
+      local => local,
+      local => local,
+    ),
+    relativeTo: node =>
+      createVectorSpaceMethod(
+        signal,
+        local => toAbsolute(local).sub(node.absolutePosition()),
+        relative =>
+          TransformConverter.absoluteToLocalPosition(
+            owner,
+            TransformConverter.relativeToAbsolutePosition(node, relative),
+          ),
+      ),
+  };
+}
+
+function createScaleSpaces<TOwner extends Node>(
+  signal: Signal<PossibleVector2, Vector2, TOwner>,
+  owner: TOwner,
+): TransformSpaces<EnhancedTransformMethod<TOwner>> {
+  return {
+    abs: createVectorSpaceMethod(
+      signal,
+      () => {
+        const matrix = owner.localToWorld();
+        return new Vector2(
+          Vector2.magnitude(matrix.m11, matrix.m12),
+          Vector2.magnitude(matrix.m21, matrix.m22),
+        );
+      },
+      absolute => TransformConverter.absoluteToLocalScale(owner, absolute),
+    ),
+    view: createVectorSpaceMethod(
+      signal,
+      local => TransformConverter.calculateViewSpaceScale(owner, local),
+      view => TransformConverter.viewToLocalScale(owner, view),
+    ),
+    local: createVectorSpaceMethod(
+      signal,
+      local => local,
+      local => local,
+    ),
+    relativeTo: node =>
+      createVectorSpaceMethod(
+        signal,
+        () => owner.absoluteScale().div(node.absoluteScale()),
+        relative =>
+          TransformConverter.absoluteToLocalScale(
+            owner,
+            TransformConverter.relativeToAbsoluteScale(node, relative),
+          ),
+      ),
+  };
+}
+
+function createRotationSpaces<TOwner extends Node>(
+  signal: Signal<number, number, TOwner>,
+  owner: TOwner,
+): TransformSpaces<EnhancedRotationMethod<TOwner>> {
+  return {
+    abs: createSpaceMethod(
+      signal,
+      () => {
+        const matrix = owner.localToWorld();
+        return Vector2.degrees(matrix.m11, matrix.m12);
+      },
+      absolute => TransformConverter.absoluteToLocalRotation(owner, absolute),
+    ),
+    view: createSpaceMethod(
+      signal,
+      local => local + TransformConverter.getViewRotation(owner),
+      view => TransformConverter.viewToLocalRotation(owner, view),
+    ),
+    local: createSpaceMethod(
+      signal,
+      local => local,
+      local => local,
+    ),
+    relativeTo: node =>
+      createSpaceMethod(
+        signal,
+        () => owner.absoluteRotation() - node.absoluteRotation(),
+        relative =>
+          TransformConverter.absoluteToLocalRotation(
+            owner,
+            TransformConverter.relativeToAbsoluteRotation(node, relative),
+          ),
+      ),
+  };
+}
+
+function attachVectorSpaces<TOwner>(
+  signal: Vector2Signal<TOwner>,
+  spaces: TransformSpaces<EnhancedTransformMethod<TOwner>>,
+): void {
+  attachSpaces(signal, spaces);
+  for (const axis of AXES) {
+    attachSpaces(signal[axis], componentSpaces(spaces, axis));
+  }
+}
+
 export class PositionSignalContext<
   TOwner extends Node = Node,
 > extends Vector2SignalContext<TOwner> {
@@ -739,109 +542,15 @@ export class PositionSignalContext<
     extensions: Partial<SignalExtensions<PossibleVector2, Vector2>> = {},
   ) {
     super(entries, parser, initial, interpolation, owner, extensions);
-
-    // Create enhanced transform methods using unified approach
-    Object.defineProperty(this.invokable, 'abs', {
-      value: createTransformSignal<PossibleVector2, Vector2, TOwner>(
-        () => this.get(),
-        value => this.invoke(value) as TOwner,
-        (value, duration, timingFunction, interpolationFunction) =>
-          this.invoke(value, duration, timingFunction, interpolationFunction),
-        local =>
-          new Vector2(local).transformAsPoint(this.owner.parentToWorld()),
-        absolute =>
-          TransformConverter.absoluteToLocalPosition(
-            this.owner,
-            unwrap(absolute!) as PossibleVector2,
-          ),
-        VECTOR2_COMPONENT_CONFIG,
-      ),
-      enumerable: false,
-    });
-
-    Object.defineProperty(this.invokable, 'view', {
-      value: createTransformSignal<PossibleVector2, Vector2, TOwner>(
-        () => this.get(),
-        value => this.invoke(value) as TOwner,
-        (value, duration, timingFunction, interpolationFunction) =>
-          this.invoke(value, duration, timingFunction, interpolationFunction),
-        local => {
-          // Transform local position to world, then world to view space
-          const worldPos = new Vector2(local).transformAsPoint(
-            this.owner.parentToWorld(),
-          );
-          return worldPos.transformAsPoint(this.owner.view().worldToLocal());
-        },
-        view =>
-          TransformConverter.viewToLocalPosition(
-            this.owner,
-            unwrap(view!) as PossibleVector2,
-          ),
-        VECTOR2_COMPONENT_CONFIG,
-      ),
-      enumerable: false,
-    });
-
-    Object.defineProperty(this.invokable, 'local', {
-      value: createTransformSignal<PossibleVector2, Vector2, TOwner>(
-        () => this.get(),
-        value => this.invoke(value) as TOwner,
-        (value, duration, timingFunction, interpolationFunction) =>
-          this.invoke(value, duration, timingFunction, interpolationFunction),
-        local => new Vector2(local),
-        local => local,
-        VECTOR2_COMPONENT_CONFIG,
-      ),
-      enumerable: false,
-    });
-
-    Object.defineProperty(this.invokable, 'relativeTo', {
-      value: this.relativeTo.bind(this),
-      enumerable: false,
-    });
+    const signal = super.toSignal();
+    attachVectorSpaces(signal, createPositionSpaces(signal, owner));
   }
 
   public override toSignal(): PositionSignal<TOwner> {
-    return this.invokable as PositionSignal<TOwner>;
-  }
-
-  // Internal method for the actual relativeTo implementation
-  private relativeToImpl(
-    node: Node,
-    value?: SignalValue<PossibleVector2>,
-    duration?: number,
-    timingFunction?: TimingFunction,
-    interpolationFunction?: InterpolationFunction<Vector2>,
-  ): Vector2 | TOwner | SignalGenerator<PossibleVector2, Vector2> {
-    if (arguments.length === 1) {
-      const absPosition = this.owner.absolutePosition();
-      const targetAbsPosition = node.absolutePosition();
-      return absPosition.sub(targetAbsPosition);
-    }
-
-    // Convert relative value to local value and set it
-    const absoluteValue = TransformConverter.relativeToAbsolutePosition(
-      node,
-      value!,
-    );
-    const localValue = TransformConverter.absoluteToLocalPosition(
-      this.owner,
-      absoluteValue,
-    );
-    return this.invoke(
-      localValue,
-      duration,
-      timingFunction,
-      interpolationFunction,
-    ) as TOwner | SignalGenerator<PossibleVector2, Vector2>;
-  }
-
-  public relativeTo(node: Node): CurriedRelativeTransformSignal<TOwner> {
-    return createCurriedRelativeSignal(this, node);
+    return this.invokable;
   }
 }
 
-// Scale-aware Vector2 signal context
 export class ScaleSignalContext<
   TOwner extends Node = Node,
 > extends Vector2SignalContext<TOwner> {
@@ -854,81 +563,15 @@ export class ScaleSignalContext<
     extensions: Partial<SignalExtensions<PossibleVector2, Vector2>> = {},
   ) {
     super(entries, parser, initial, interpolation, owner, extensions);
-
-    // Create enhanced transform methods using unified approach
-    Object.defineProperty(this.invokable, 'abs', {
-      value: createTransformSignal<PossibleVector2, Vector2, TOwner>(
-        () => this.get(),
-        value => this.invoke(value) as TOwner,
-        (value, duration, timingFunction, interpolationFunction) =>
-          this.invoke(value, duration, timingFunction, interpolationFunction),
-        () => {
-          const matrix = this.owner.localToWorld();
-          return new Vector2(
-            Vector2.magnitude(matrix.m11, matrix.m12),
-            Vector2.magnitude(matrix.m21, matrix.m22),
-          );
-        },
-        absolute =>
-          TransformConverter.absoluteToLocalScale(
-            this.owner,
-            unwrap(absolute!) as PossibleVector2,
-          ),
-        VECTOR2_COMPONENT_CONFIG,
-      ),
-      enumerable: false,
-    });
-
-    Object.defineProperty(this.invokable, 'view', {
-      value: createTransformSignal<PossibleVector2, Vector2, TOwner>(
-        () => this.get(),
-        value => this.invoke(value) as TOwner,
-        (value, duration, timingFunction, interpolationFunction) =>
-          this.invoke(value, duration, timingFunction, interpolationFunction),
-        local =>
-          TransformConverter.calculateViewSpaceScale(
-            this.owner,
-            new Vector2(local),
-          ),
-        view =>
-          TransformConverter.viewToLocalScale(
-            this.owner,
-            unwrap(view!) as PossibleVector2,
-          ),
-        VECTOR2_COMPONENT_CONFIG,
-      ),
-      enumerable: false,
-    });
-
-    Object.defineProperty(this.invokable, 'local', {
-      value: createTransformSignal<PossibleVector2, Vector2, TOwner>(
-        () => this.get(),
-        value => this.invoke(value) as TOwner,
-        (value, duration, timingFunction, interpolationFunction) =>
-          this.invoke(value, duration, timingFunction, interpolationFunction),
-        local => new Vector2(local),
-        local => local,
-        VECTOR2_COMPONENT_CONFIG,
-      ),
-      enumerable: false,
-    });
-
-    Object.defineProperty(this.invokable, 'relativeTo', {
-      value: this.relativeTo.bind(this),
-      enumerable: false,
-    });
+    const signal = super.toSignal();
+    attachVectorSpaces(signal, createScaleSpaces(signal, owner));
   }
 
   public override toSignal(): ScaleSignal<TOwner> {
-    return this.invokable as ScaleSignal<TOwner>;
-  }
-
-  public relativeTo(node: Node): CurriedRelativeScaleSignal<TOwner> {
-    return createCurriedRelativeScaleSignal(this, node);
+    return this.invokable;
   }
 }
 
-// Rotation-aware signal context
 export class RotationSignalContext<
   TOwner extends Node = Node,
 > extends SignalContext<number, number, TOwner> {
@@ -940,173 +583,24 @@ export class RotationSignalContext<
     extensions: Partial<SignalExtensions<number, number>> = {},
   ) {
     super(initial, interpolation, owner, parser, extensions);
-
-    Object.defineProperty(this.invokable, 'abs', {
-      value: this.abs.bind(this),
-      enumerable: false,
-    });
-
-    Object.defineProperty(this.invokable, 'relativeTo', {
-      value: this.relativeTo.bind(this),
-      enumerable: false,
-    });
-
-    Object.defineProperty(this.invokable, 'view', {
-      value: this.view.bind(this),
-      enumerable: false,
-    });
-
-    Object.defineProperty(this.invokable, 'local', {
-      value: this.local.bind(this),
-      enumerable: false,
-    });
+    const signal = super.toSignal();
+    attachSpaces(signal, createRotationSpaces(signal, owner));
   }
 
   public override toSignal(): RotationSignal<TOwner> {
-    return this.invokable as RotationSignal<TOwner>;
-  }
-
-  public abs(): number;
-  public abs(value: SignalValue<number>): TOwner;
-  public abs(
-    value: SignalValue<number>,
-    duration: number,
-    timingFunction?: TimingFunction,
-    interpolationFunction?: InterpolationFunction<number>,
-  ): SignalGenerator<number, number>;
-  public abs(
-    value?: SignalValue<number>,
-    duration?: number,
-    timingFunction?: TimingFunction,
-    interpolationFunction?: InterpolationFunction<number>,
-  ): number | TOwner | SignalGenerator<number, number> {
-    if (arguments.length === 0) {
-      // Get absolute rotation by extracting it from localToWorld matrix
-      const matrix = this.owner.localToWorld();
-      return Vector2.degrees(matrix.m11, matrix.m12);
-    }
-
-    // Convert absolute rotation to local rotation and set it
-    const localValue = TransformConverter.absoluteToLocalRotation(
-      this.owner,
-      value!,
-    );
-    return this.invoke(
-      localValue,
-      duration,
-      timingFunction,
-      interpolationFunction,
-    ) as TOwner | SignalGenerator<number, number>;
-  }
-
-  // Internal method for the actual relativeTo implementation
-  private relativeToImpl(
-    node: Node,
-    value?: SignalValue<number>,
-    duration?: number,
-    timingFunction?: TimingFunction,
-    interpolationFunction?: InterpolationFunction<number>,
-  ): number | TOwner | SignalGenerator<number, number> {
-    if (arguments.length === 1) {
-      const absRotation = this.owner.absoluteRotation();
-      const targetAbsRotation = node.absoluteRotation();
-      return absRotation - targetAbsRotation;
-    }
-
-    // Convert relative rotation to local rotation and set it
-    const absoluteValue = TransformConverter.relativeToAbsoluteRotation(
-      node,
-      value!,
-    );
-    const localValue = TransformConverter.absoluteToLocalRotation(
-      this.owner,
-      absoluteValue,
-    );
-    return this.invoke(
-      localValue,
-      duration,
-      timingFunction,
-      interpolationFunction,
-    ) as TOwner | SignalGenerator<number, number>;
-  }
-
-  public relativeTo(node: Node): CurriedRelativeRotationSignal<TOwner> {
-    return createCurriedRelativeRotationSignal(this, node);
-  }
-
-  public view(): number;
-  public view(value: SignalValue<number>): TOwner;
-  public view(
-    value: SignalValue<number>,
-    duration: number,
-    timingFunction?: TimingFunction,
-    interpolationFunction?: InterpolationFunction<number>,
-  ): SignalGenerator<number, number>;
-  public view(
-    value?: SignalValue<number>,
-    duration?: number,
-    timingFunction?: TimingFunction,
-    interpolationFunction?: InterpolationFunction<number>,
-  ): number | TOwner | SignalGenerator<number, number> {
-    if (arguments.length === 0) {
-      // For rotation in view space, we need to get the rotation relative to view
-      const currentRotation = this.get();
-      const viewRotation = TransformConverter.getViewRotation(this.owner);
-      return currentRotation + viewRotation;
-    }
-
-    // Convert view space rotation to local rotation and set it
-    const localValue = TransformConverter.viewToLocalRotation(
-      this.owner,
-      value!,
-    );
-    return this.invoke(
-      localValue,
-      duration,
-      timingFunction,
-      interpolationFunction,
-    ) as TOwner | SignalGenerator<number, number>;
-  }
-
-  public local(): number;
-  public local(value: SignalValue<number>): TOwner;
-  public local(
-    value: SignalValue<number>,
-    duration: number,
-    timingFunction?: TimingFunction,
-    interpolationFunction?: InterpolationFunction<number>,
-  ): SignalGenerator<number, number>;
-  public local(
-    value?: SignalValue<number>,
-    duration?: number,
-    timingFunction?: TimingFunction,
-    interpolationFunction?: InterpolationFunction<number>,
-  ): number | TOwner | SignalGenerator<number, number> {
-    if (arguments.length === 0) {
-      return this.get();
-    }
-
-    // Local value is just the raw value
-    return this.invoke(
-      value!,
-      duration,
-      timingFunction,
-      interpolationFunction,
-    ) as TOwner | SignalGenerator<number, number>;
+    return this.invokable;
   }
 }
 
-// Custom setter function type for layout positions
-type LayoutPositionSetter<TOwner> = (
-  value: SignalValue<PossibleVector2> | typeof DEFAULT,
-) => TOwner;
-
-// Layout position signal context (for computed position signals like top, left, etc.)
+/**
+ * Context for computed position signals like `top` and `left`.
+ *
+ * @remarks
+ * The getter extension must return a point in the parent space of the owner.
+ */
 export class LayoutPositionSignalContext<
   TOwner extends Node = Node,
 > extends SignalContext<PossibleVector2, Vector2, TOwner> {
-  private readonly hasCustomDelegate: boolean;
-
   public constructor(
     initial: SignalValue<PossibleVector2> | undefined,
     interpolation: InterpolationFunction<Vector2>,
@@ -1116,390 +610,21 @@ export class LayoutPositionSignalContext<
   ) {
     super(initial, interpolation, owner, parser, extensions);
 
-    // Track if we have custom delegation behavior
-    this.hasCustomDelegate = Boolean(extensions.getter || extensions.setter);
-
-    // Create enhanced transform methods with component access using shared helpers
-    const absMethod = this.abs.bind(this);
-
-    // Add component methods to abs
-    (absMethod as any).x = function (
-      value?: SignalValue<number>,
-      duration?: number,
-      timingFunction?: TimingFunction,
-      interpolationFunction?: InterpolationFunction<number>,
-    ): number | TOwner | ThreadGenerator {
-      if (arguments.length === 0) {
-        return absMethod().x;
-      }
-      // Get the current absolute position once and preserve the y component
-      const currentAbsPos = absMethod();
-      const newAbsPos = new Vector2([unwrap(value!), currentAbsPos.y]);
-      if (arguments.length === 1) {
-        return absMethod(newAbsPos);
-      }
-      return absMethod(
-        newAbsPos,
-        duration!,
-        timingFunction,
-        interpolationFunction as any,
-      ) as ThreadGenerator;
-    };
-
-    (absMethod as any).y = function (
-      value?: SignalValue<number>,
-      duration?: number,
-      timingFunction?: TimingFunction,
-      interpolationFunction?: InterpolationFunction<number>,
-    ): number | TOwner | ThreadGenerator {
-      if (arguments.length === 0) {
-        return absMethod().y;
-      }
-      // Get the current absolute position once and preserve the x component
-      const currentAbsPos = absMethod();
-      const newAbsPos = new Vector2([currentAbsPos.x, unwrap(value!)]);
-      if (arguments.length === 1) {
-        return absMethod(newAbsPos);
-      }
-      return absMethod(
-        newAbsPos,
-        duration!,
-        timingFunction,
-        interpolationFunction as any,
-      ) as ThreadGenerator;
-    };
-
-    Object.defineProperty(this.invokable, 'abs', {
-      value: absMethod,
-      enumerable: false,
-    });
-
-    Object.defineProperty(this.invokable, 'relativeTo', {
-      value: this.relativeTo.bind(this),
-      enumerable: false,
-    });
-
-    const viewMethod = this.view.bind(this);
-
-    // Add component methods to view
-    (viewMethod as any).x = function (
-      this: LayoutPositionSignalContext<TOwner>,
-      value?: SignalValue<number>,
-      duration?: number,
-      timingFunction?: TimingFunction,
-      interpolationFunction?: InterpolationFunction<number>,
-    ): number | TOwner | ThreadGenerator {
-      if (arguments.length === 0) {
-        return viewMethod().x;
-      }
-
-      // For view space component setting, we need to be more precise about preserving the other component
-      // Get the current LOCAL position and current VIEW position
-      const currentLocal = this.get();
-      const currentView = currentLocal
-        .transformAsPoint(this.owner.localToWorld())
-        .transformAsPoint(this.owner.view().worldToLocal());
-
-      // Create target view position with only the x component changed
-      const targetView = new Vector2([unwrap(value!), currentView.y]);
-
-      // Transform to local and set
-      const targetLocal = new Vector2(
-        unwrap(TransformConverter.viewToLocalPosition(this.owner, targetView)),
-      );
-
-      if (arguments.length === 1) {
-        return this.invoke(targetLocal) as TOwner;
-      }
-      return this.invoke(
-        targetLocal,
-        duration!,
-        timingFunction,
-        interpolationFunction as any,
-      ) as ThreadGenerator;
-    }.bind(this);
-
-    (viewMethod as any).y = function (
-      this: LayoutPositionSignalContext<TOwner>,
-      value?: SignalValue<number>,
-      duration?: number,
-      timingFunction?: TimingFunction,
-      interpolationFunction?: InterpolationFunction<number>,
-    ): number | TOwner | ThreadGenerator {
-      if (arguments.length === 0) {
-        return viewMethod().y;
-      }
-
-      // Get the current LOCAL position and current VIEW position
-      const currentLocal = this.get();
-      const currentView = currentLocal
-        .transformAsPoint(this.owner.localToWorld())
-        .transformAsPoint(this.owner.view().worldToLocal());
-
-      // Create target view position with only the y component changed
-      const targetView = new Vector2([currentView.x, unwrap(value!)]);
-
-      // Transform to local and set
-      const targetLocal = new Vector2(
-        unwrap(TransformConverter.viewToLocalPosition(this.owner, targetView)),
-      );
-
-      if (arguments.length === 1) {
-        return this.invoke(targetLocal) as TOwner;
-      }
-      return this.invoke(
-        targetLocal,
-        duration!,
-        timingFunction,
-        interpolationFunction as any,
-      ) as ThreadGenerator;
-    }.bind(this);
-
-    Object.defineProperty(this.invokable, 'view', {
-      value: viewMethod,
-      enumerable: false,
-    });
-
-    const localMethod = this.local.bind(this);
-
-    // Add component methods to local
-    (localMethod as any).x = function (
-      value?: SignalValue<number>,
-      duration?: number,
-      timingFunction?: TimingFunction,
-      interpolationFunction?: InterpolationFunction<number>,
-    ): number | TOwner | ThreadGenerator {
-      if (arguments.length === 0) {
-        return localMethod().x;
-      }
-      // Get the current local position once and preserve the y component
-      const currentLocalPos = localMethod();
-      const newLocalPos = new Vector2([unwrap(value!), currentLocalPos.y]);
-      if (arguments.length === 1) {
-        return localMethod(newLocalPos);
-      }
-      return localMethod(
-        newLocalPos,
-        duration!,
-        timingFunction,
-        interpolationFunction as any,
-      ) as ThreadGenerator;
-    };
-
-    (localMethod as any).y = function (
-      value?: SignalValue<number>,
-      duration?: number,
-      timingFunction?: TimingFunction,
-      interpolationFunction?: InterpolationFunction<number>,
-    ): number | TOwner | ThreadGenerator {
-      if (arguments.length === 0) {
-        return localMethod().y;
-      }
-      // Get the current local position once and preserve the x component
-      const currentLocalPos = localMethod();
-      const newLocalPos = new Vector2([currentLocalPos.x, unwrap(value!)]);
-      if (arguments.length === 1) {
-        return localMethod(newLocalPos);
-      }
-      return localMethod(
-        newLocalPos,
-        duration!,
-        timingFunction,
-        interpolationFunction as any,
-      ) as ThreadGenerator;
-    };
-
-    Object.defineProperty(this.invokable, 'local', {
-      value: localMethod,
-      enumerable: false,
-    });
-  }
-
-  /**
-   * Override get to use custom getter if available.
-   * This enables computed layout positions (e.g., top, left) to calculate their values dynamically.
-   */
-  public override get(): Vector2 {
-    if (this.extensions.getter) {
-      return this.extensions.getter();
+    const signal = super.toSignal();
+    const spaces = createPositionSpaces(signal, owner);
+    attachSpaces(signal, spaces);
+    for (const axis of AXES) {
+      const component = createComponentMethod(spaces.local, axis);
+      attachSpaces(component, componentSpaces(spaces, axis));
+      Object.defineProperty(signal, axis, {
+        value: component,
+        enumerable: false,
+      });
     }
-    return super.get();
-  }
-
-  /**
-   * Set a custom setter function for layout position delegation.
-   * This allows layout signals to delegate setting behavior to position updates.
-   */
-  public setCustomSetter(setterFunc: LayoutPositionSetter<TOwner>): void {
-    this.extensions.setter = setterFunc;
-  }
-
-  /**
-   * Override invoke to handle layout-specific delegation patterns.
-   * Uses custom setter for simple value assignments when available.
-   */
-  public override invoke(
-    value?: SignalValue<PossibleVector2> | typeof DEFAULT,
-    duration?: number,
-    timingFunction?: TimingFunction,
-    interpolationFunction?: InterpolationFunction<Vector2>,
-  ): Vector2 | TOwner | SignalGenerator<PossibleVector2, Vector2> {
-    // Getter: no arguments
-    if (arguments.length === GETTER_ARGS) {
-      return this.get();
-    }
-
-    // Setter: single argument with custom delegate
-    if (
-      arguments.length === SETTER_ARGS &&
-      this.hasCustomDelegate &&
-      this.extensions.setter
-    ) {
-      const result = this.extensions.setter(value!);
-      return result !== undefined ? result : this.owner;
-    }
-
-    // Animation or fallback to default behavior
-    return super.invoke(value, duration, timingFunction, interpolationFunction);
   }
 
   public override toSignal(): LayoutPositionSignal<TOwner> {
-    return this.invokable as LayoutPositionSignal<TOwner>;
-  }
-
-  public abs(): Vector2;
-  public abs(value: SignalValue<PossibleVector2>): TOwner;
-  public abs(
-    value: SignalValue<PossibleVector2>,
-    duration: number,
-    timingFunction?: TimingFunction,
-    interpolationFunction?: InterpolationFunction<Vector2>,
-  ): SignalGenerator<PossibleVector2, Vector2>;
-  public abs(
-    value?: SignalValue<PossibleVector2>,
-    duration?: number,
-    timingFunction?: TimingFunction,
-    interpolationFunction?: InterpolationFunction<Vector2>,
-  ): Vector2 | TOwner | SignalGenerator<PossibleVector2, Vector2> {
-    if (arguments.length === 0) {
-      // For layout position signals, get the current computed value
-      const currentValue = this.get();
-      return currentValue.transformAsPoint(this.owner.localToWorld());
-    }
-
-    // Convert absolute value to local value for this layout position and set it
-    const localValue = TransformConverter.absoluteToLocalLayoutPosition(
-      this.owner,
-      value!,
-    );
-    return this.invoke(
-      localValue,
-      duration,
-      timingFunction,
-      interpolationFunction,
-    ) as TOwner | SignalGenerator<PossibleVector2, Vector2>;
-  }
-
-  public relativeTo(node: Node): Vector2;
-  public relativeTo(node: Node, value: SignalValue<PossibleVector2>): TOwner;
-  public relativeTo(
-    node: Node,
-    value: SignalValue<PossibleVector2>,
-    duration: number,
-    timingFunction?: TimingFunction,
-    interpolationFunction?: InterpolationFunction<Vector2>,
-  ): SignalGenerator<PossibleVector2, Vector2>;
-  public relativeTo(
-    node: Node,
-    value?: SignalValue<PossibleVector2>,
-    duration?: number,
-    timingFunction?: TimingFunction,
-    interpolationFunction?: InterpolationFunction<Vector2>,
-  ): Vector2 | TOwner | SignalGenerator<PossibleVector2, Vector2> {
-    if (arguments.length === 1) {
-      // For layout positions, calculate relative position using absolute coordinates
-      const currentValue = this.get();
-      const absPosition = currentValue.transformAsPoint(
-        this.owner.localToWorld(),
-      );
-      const targetAbsPosition = node.absolutePosition();
-      return absPosition.sub(targetAbsPosition);
-    }
-
-    // Convert relative value to local value and set it
-    const absoluteValue = TransformConverter.relativeToAbsolutePosition(
-      node,
-      value!,
-    );
-    const localValue = TransformConverter.absoluteToLocalLayoutPosition(
-      this.owner,
-      absoluteValue,
-    );
-    return this.invoke(
-      localValue,
-      duration,
-      timingFunction,
-      interpolationFunction,
-    ) as TOwner | SignalGenerator<PossibleVector2, Vector2>;
-  }
-
-  public view(): Vector2;
-  public view(value: SignalValue<PossibleVector2>): TOwner;
-  public view(
-    value: SignalValue<PossibleVector2>,
-    duration: number,
-    timingFunction?: TimingFunction,
-    interpolationFunction?: InterpolationFunction<Vector2>,
-  ): SignalGenerator<PossibleVector2, Vector2>;
-  public view(
-    value?: SignalValue<PossibleVector2>,
-    duration?: number,
-    timingFunction?: TimingFunction,
-    interpolationFunction?: InterpolationFunction<Vector2>,
-  ): Vector2 | TOwner | SignalGenerator<PossibleVector2, Vector2> {
-    if (arguments.length === 0) {
-      const currentValue = this.get();
-      return currentValue.transformAsPoint(this.owner.view().localToWorld());
-    }
-
-    // Convert view space value to local value and set it
-    const localValue = TransformConverter.viewToLocalPosition(
-      this.owner,
-      value!,
-    );
-    return this.invoke(
-      localValue,
-      duration,
-      timingFunction,
-      interpolationFunction,
-    ) as TOwner | SignalGenerator<PossibleVector2, Vector2>;
-  }
-
-  public local(): Vector2;
-  public local(value: SignalValue<PossibleVector2>): TOwner;
-  public local(
-    value: SignalValue<PossibleVector2>,
-    duration: number,
-    timingFunction?: TimingFunction,
-    interpolationFunction?: InterpolationFunction<Vector2>,
-  ): SignalGenerator<PossibleVector2, Vector2>;
-  public local(
-    value?: SignalValue<PossibleVector2>,
-    duration?: number,
-    timingFunction?: TimingFunction,
-    interpolationFunction?: InterpolationFunction<Vector2>,
-  ): Vector2 | TOwner | SignalGenerator<PossibleVector2, Vector2> {
-    if (arguments.length === 0) {
-      return this.get();
-    }
-
-    // Local value is just the raw value
-    return this.invoke(
-      value!,
-      duration,
-      timingFunction,
-      interpolationFunction,
-    ) as TOwner | SignalGenerator<PossibleVector2, Vector2>;
+    return this.invokable;
   }
 }
 
@@ -1565,7 +690,7 @@ export function positionSignal(
  * // Usage:
  * node.scale([2, 1.5]);                  // Local scale
  * node.scale.abs([4, 3]);                // Absolute scale
- * node.scale.relativeTo(parent, [0.5, 0.5]); // Scale relative to parent
+ * node.scale.relativeTo(parent)([0.5, 0.5]); // Scale relative to parent
  * ```
  */
 export function scaleSignal(
@@ -1604,7 +729,7 @@ export function scaleSignal(
  * // Usage:
  * node.rotation(45);                     // Local rotation (45 degrees)
  * node.rotation.abs(90);                 // Absolute rotation (90 degrees)
- * node.rotation.relativeTo(other, 180);  // 180 degrees relative to other node
+ * node.rotation.relativeTo(other)(180);  // 180 degrees relative to other node
  * ```
  */
 export function rotationSignal(): PropertyDecorator {

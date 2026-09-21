@@ -63,7 +63,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [[ ! -f .changeset/pre.json ]]; then
+          pending=$(find .changeset -name '*.md' ! -name README.md | wc -l)
+          if [[ ! -f .changeset/pre.json && "$pending" -gt 0 ]]; then
             pnpm exec changeset version --snapshot "$DIST_TAG"
           fi
           if git diff --quiet; then

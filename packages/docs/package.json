@@ -10,7 +10,7 @@
     "deploy": "docusaurus deploy",
     "clear": "docusaurus clear",
     "serve": "docusaurus serve",
-    "blog": "node ./release-blog-generator.js",
+    "blog": "node ./release-blog-generator.mjs",
     "typedoc": "node ./typedoc-standalone.js",
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
@@ -53,10 +53,13 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@changesets/get-release-plan": "^4.0.16",
     "@docusaurus/module-type-aliases": "^3.10.2",
     "@tsconfig/docusaurus": "^2.0.9",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
+    "mdast-util-from-markdown": "^2.0.3",
+    "mdast-util-to-markdown": "^2.1.2",
     "mdn-links": "^0.1.0",
     "typedoc": "^0.28.20",
     "vite": "catalog:"

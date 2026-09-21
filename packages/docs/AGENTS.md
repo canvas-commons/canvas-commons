@@ -12,7 +12,7 @@ See the [root `AGENTS.md`](../../AGENTS.md) for repo-wide standards.
 pnpm docs:dev          # docusaurus start --no-open
 pnpm docs:build        # docusaurus build
 pnpm docs:serve        # docusaurus serve (preview built output)
-pnpm docs:blog         # node release-blog-generator.js
+pnpm docs:blog         # generate a draft from pending Changesets
 pnpm --filter @canvas-commons/docs run typedoc       # API reference generation
 pnpm --filter @canvas-commons/docs run typecheck     # tsc
 pnpm --filter @canvas-commons/docs run swizzle       # docusaurus swizzle
@@ -22,6 +22,15 @@ pnpm --filter @canvas-commons/docs run write-translations
 Build `core`, `2d`, `fiddle` and `player` (`pnpm run build`) and `examples`
 (`pnpm examples:build`) before the docs. The vendored fiddle runtime and the
 embedded animations come from that output.
+
+Run `pnpm docs:blog` before `pnpm run version` consumes the pending changesets.
+It prints the next release's blog draft to stdout. Pass
+`--output release-draft.mdx` to create a file relative to this package; existing
+files are never overwritten. The draft uses `Issue` and `IssueGroup`, with
+features and fixes classified by the commits that introduce the changesets. PR
+numbers and closing issue references come from git; direct commits get commit
+links. An authenticated `gh` CLI enriches PR links and contributor attribution
+in one API request. If it is unavailable, git links still work.
 
 ## Where things live
 

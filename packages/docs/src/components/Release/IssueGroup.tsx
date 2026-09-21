@@ -3,18 +3,20 @@ import Heading from '@theme/Heading';
 import React, {ReactNode} from 'react';
 
 export interface IssueGroupProps {
-  type: 'feat' | 'fix';
+  type: 'feat' | 'fix' | 'change';
   children: ReactNode | ReactNode[];
 }
 
 const Titles = {
   feat: 'New features 🎉',
   fix: 'Fixed bugs 🐛',
+  change: 'Other changes',
 };
 
 const IDs = {
   feat: 'new-features',
   fix: 'fixed-bugs',
+  change: 'other-changes',
 };
 
 export default function IssueGroup({type, children}: IssueGroupProps) {

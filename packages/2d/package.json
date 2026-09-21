@@ -70,7 +70,7 @@
   },
   "dependencies": {
     "@canvas-commons/core": "workspace:^",
-    "@chenglou/pretext": "~0.0.9",
+    "@chenglou/pretext": "0.0.9",
     "@codemirror/language": "^6.12.4",
     "@lezer/common": "^1.5.2",
     "@lezer/highlight": "^1.2.3",

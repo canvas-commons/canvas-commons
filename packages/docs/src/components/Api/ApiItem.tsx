@@ -28,7 +28,7 @@ interface ApiItemProps {
   };
 }
 
-export default function ApiItem({route}: ApiItemProps): JSX.Element {
+export default function ApiItem({route}: ApiItemProps): React.JSX.Element {
   const lookup = useApiLookup(route.projectId);
   const reflection: JSONOutput.DeclarationReflection =
     lookup[route.reflectionId];

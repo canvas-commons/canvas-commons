@@ -19,7 +19,7 @@ if (ExecutionEnvironment.canUseDOM) {
   import('@canvas-commons/player');
 }
 
-declare global {
+declare module 'react' {
   namespace JSX {
     interface IntrinsicElements {
       // eslint-disable-next-line @typescript-eslint/naming-convention

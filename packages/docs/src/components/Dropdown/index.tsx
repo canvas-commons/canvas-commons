@@ -17,8 +17,8 @@ export default function Dropdown({
   className,
   onChange,
 }: DropdownProps) {
-  const ref = useRef<HTMLDivElement>();
-  const linkRef = useRef<HTMLAnchorElement>();
+  const ref = useRef<HTMLDivElement>(null);
+  const linkRef = useRef<HTMLAnchorElement>(null);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -71,7 +71,7 @@ export default function Dropdown({
                 event.preventDefault();
                 onChange(option.value);
                 setOpen(false);
-                linkRef.current.focus();
+                linkRef.current?.focus();
               }}
               onKeyDown={event => {
                 if (
@@ -81,7 +81,7 @@ export default function Dropdown({
                 ) {
                   event.preventDefault();
                   setOpen(false);
-                  linkRef.current.focus();
+                  linkRef.current?.focus();
                 }
               }}
             >

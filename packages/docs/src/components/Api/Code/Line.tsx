@@ -8,7 +8,7 @@ function compare(a: number, b: number) {
 }
 
 export default function Line({children}: {children?: ReactNode | ReactNode[]}) {
-  const line = useRef<HTMLSpanElement>();
+  const line = useRef<HTMLSpanElement>(null);
 
   useLayoutEffect(() => {
     if (!line.current) return;

@@ -48,6 +48,7 @@ import {
 import {FiltersSignal, filtersSignal} from '../decorators/filtersSignal';
 import {spacingSignal} from '../decorators/spacingSignal';
 import {
+  PositionComponentSignal,
   PositionSignal,
   RotationSignal,
   ScaleSignal,
@@ -176,11 +177,11 @@ export class Node implements Promisable<Node> {
   @positionSignal()
   declare public readonly position: PositionSignal<this>;
 
-  public get x() {
-    return this.position.x as SimpleSignal<number, this>;
+  public get x(): PositionComponentSignal<this> {
+    return this.position.x;
   }
-  public get y() {
-    return this.position.y as SimpleSignal<number, this>;
+  public get y(): PositionComponentSignal<this> {
+    return this.position.y;
   }
 
   /**

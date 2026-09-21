@@ -1,4 +1,4 @@
-import {Vector2} from '@canvas-commons/core';
+import {Vector2, createSignal, threads} from '@canvas-commons/core';
 import 'geometry-polyfill';
 import {beforeEach, describe, expect, test} from 'vitest';
 import {Layout} from '../components/Layout';
@@ -470,17 +470,90 @@ describe('Curried Transform Signals', () => {
       }).not.toThrow();
     });
 
-    test('should support relativeTo for layout origin signals', () => {
-      // Create another layout to use as reference
-      const reference = new Layout({
-        size: [200, 150],
-        position: [0, 0],
-      });
-      useScene2D().getView().add(reference);
+    describe('in a nested parent', () => {
+      let nested: Layout;
+      let reference: Layout;
 
-      // Test getting relative position
-      const relativePos = layout.left.relativeTo(reference);
-      expect(relativePos).toBeInstanceOf(Vector2);
+      beforeEach(() => {
+        const nestedParent = new Layout({size: 200, position: [100, 50]});
+        nested = new Layout({size: 100, position: [50, 25]});
+        nestedParent.add(nested);
+        reference = new Layout({size: 100, position: [-200, 100]});
+        useScene2D().getView().add([nestedParent, reference]);
+      });
+
+      test('should read origins in absolute and view space', () => {
+        expect(nested.right.abs()).toEqual(
+          nested.absolutePosition().add([50, 0]),
+        );
+        expect(nested.right.view()).toEqual(
+          nested.position.view().add([50, 0]),
+        );
+      });
+
+      test('should not move when an origin is set to its own value', () => {
+        nested.right.abs(nested.right.abs());
+        expect(nested.position()).toEqual(new Vector2(50, 25));
+
+        nested.right.view(nested.right.view());
+        expect(nested.position()).toEqual(new Vector2(50, 25));
+      });
+
+      test('should get and set origins relative to another node', () => {
+        const relative = nested.left.relativeTo(reference);
+        expect(relative()).toEqual(
+          nested.left.abs().sub(reference.absolutePosition()),
+        );
+
+        relative([10, 20]);
+        expect(nested.left.abs()).toEqual(
+          reference.absolutePosition().add([10, 20]),
+        );
+
+        relative.x(30);
+        expect(relative()).toEqual(new Vector2(30, 20));
+      });
+
+      test('should tween origins relative to another node', () => {
+        const relative = nested.left.relativeTo(reference);
+        Array.from(threads(() => relative([10, 20], 1)));
+
+        expect(relative().x).toBeCloseTo(10);
+        expect(relative().y).toBeCloseTo(20);
+      });
+
+      test('should follow reactive component values', () => {
+        const target = createSignal(200);
+        nested.right.x.abs(() => target());
+        target(400);
+
+        expect(nested.right.abs.x()).toBeCloseTo(400);
+      });
+
+      test('should access spaces from the components of origins', () => {
+        nested.right.x.abs(500);
+        expect(nested.right.abs.x()).toBeCloseTo(500);
+        expect(nested.right.x.abs()).toBeCloseTo(500);
+
+        nested.top.y.view(-40);
+        expect(nested.top.view.y()).toBeCloseTo(-40);
+
+        nested.left.x.relativeTo(reference)(15);
+        expect(nested.left.relativeTo(reference).x()).toBeCloseTo(15);
+
+        nested.bottom.y(80);
+        expect(nested.bottom.y()).toBeCloseTo(80);
+        expect(nested.bottom.y.local()).toBeCloseTo(80);
+      });
+    });
+
+    test('should access spaces from the components of position and scale', () => {
+      layout.position.x.abs(400);
+      expect(layout.position.abs.x()).toBeCloseTo(400);
+      expect(layout.x.abs).toBe(layout.position.x.abs);
+
+      layout.scale.y.abs(3);
+      expect(layout.scale.abs.y()).toBeCloseTo(3);
     });
 
     test('should maintain consistency between origin signal coordinate spaces', () => {

@@ -1786,26 +1786,22 @@ function originSignal(origin: Origin): PropertyDecorator {
               .getOriginOffset(origin)
               .transformAsPoint(this.localToParent());
           }.bind(instance),
+          setter: function (
+            this: Layout,
+            value: SignalValue<PossibleVector2> | typeof DEFAULT,
+          ) {
+            if (value === DEFAULT) {
+              return;
+            }
+            this.position(
+              modify(value, unwrapped =>
+                this.getOriginDelta(origin)
+                  .transform(this.scalingRotationMatrix())
+                  .flipped.add(unwrapped),
+              ),
+            );
+          }.bind(instance),
         },
-      );
-
-      signalContext.setCustomSetter(
-        function (
-          this: Layout,
-          value: SignalValue<PossibleVector2> | typeof DEFAULT,
-        ) {
-          if (value === DEFAULT) {
-            return this;
-          }
-          this.position(
-            modify(value, unwrapped =>
-              this.getOriginDelta(origin)
-                .transform(this.scalingRotationMatrix())
-                .flipped.add(unwrapped),
-            ),
-          );
-          return this;
-        }.bind(instance),
       );
 
       Object.defineProperty(instance, key, {

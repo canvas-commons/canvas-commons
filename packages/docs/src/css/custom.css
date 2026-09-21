@@ -191,7 +191,18 @@ html[data-theme='dark'] {
   --ifm-color-warning-contrast-foreground: var(--ifm-font-color-base);
   --ifm-color-danger-contrast-foreground: var(--ifm-font-color-base);
 
+  /* Infima reverses the gray scale for dark mode. Mocha already runs dark to light. */
+  --ifm-color-emphasis-0: var(--cc-mantle);
+  --ifm-color-emphasis-100: var(--cc-base);
+  --ifm-color-emphasis-200: var(--cc-surface0);
   --ifm-color-emphasis-300: rgba(88, 91, 112, 0.48);
+  --ifm-color-emphasis-400: var(--cc-surface1);
+  --ifm-color-emphasis-500: var(--cc-surface2);
+  --ifm-color-emphasis-600: var(--cc-overlay1);
+  --ifm-color-emphasis-700: var(--cc-subtext0);
+  --ifm-color-emphasis-800: var(--cc-subtext1);
+  --ifm-color-emphasis-900: var(--cc-text);
+  --ifm-color-emphasis-1000: var(--cc-text);
   --ifm-toc-border-color: var(--ifm-color-emphasis-300);
 
   --ifm-code-selection-color: #313244;

@@ -1,10 +1,10 @@
-declare namespace jest {
-  interface Matchers<R> {
-    toMatchImageSnapshot(...args: unknown[]): R;
-  }
-}
-
 declare module 'jest-image-snapshot' {
-  const toMatchImageSnapshot: any;
+  import type {MatcherResult} from 'vitest';
+
+  const toMatchImageSnapshot: (
+    this: unknown,
+    received: unknown,
+    ...args: unknown[]
+  ) => MatcherResult;
   export {toMatchImageSnapshot};
 }

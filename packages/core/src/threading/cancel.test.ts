@@ -45,7 +45,7 @@ describe('cancel()', () => {
       yield;
     });
 
-    [...task];
+    void [...task];
 
     expect(started).toBe(false);
   });

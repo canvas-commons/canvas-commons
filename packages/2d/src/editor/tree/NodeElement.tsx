@@ -33,7 +33,7 @@ export function NodeElement({node, depth = 0}: NodeElementProps) {
   }, [node.key]);
 
   const children = useComputed(() => {
-    afterRender.value;
+    void afterRender.value;
     return nodeSignal.value.peekChildren();
   });
 

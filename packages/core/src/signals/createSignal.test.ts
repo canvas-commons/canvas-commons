@@ -81,7 +81,7 @@ describe('createSignal()', () => {
     }
     const signal = new EndedEarly(0, deepLerp).toSignal();
 
-    [...threads(() => signal(5, 1))];
+    void [...threads(() => signal(5, 1))];
 
     expect(signal()).toBe(2);
   });
@@ -90,7 +90,7 @@ describe('createSignal()', () => {
     const signal = createSignal(0);
     const seen: number[] = [];
 
-    [
+    void [
       ...threads(function* () {
         yield signal(10, 1);
         yield* waitFor(0.5);

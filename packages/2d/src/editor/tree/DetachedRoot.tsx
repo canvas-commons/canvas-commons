@@ -7,7 +7,7 @@ export function DetachedRoot() {
   const {afterRender, openDetached, scene} = usePluginState();
   const currentScene = scene.value;
   const children = currentScene ? [...currentScene.getDetachedNodes()] : [];
-  afterRender.value;
+  void afterRender.value;
 
   return children.length > 0 ? (
     <TreeRoot>

@@ -38,7 +38,7 @@ describe('createDeferredEffect()', () => {
       expect(callback).toBeCalledTimes(2);
     });
 
-    [...task];
+    void [...task];
   });
 
   test('Executed after all threads', () => {
@@ -73,7 +73,7 @@ describe('createDeferredEffect()', () => {
       yield;
     });
 
-    [...task];
+    void [...task];
 
     expect(order).toEqual([0, 1, 2, 3, -1, 4, 5, 6, -1]);
   });

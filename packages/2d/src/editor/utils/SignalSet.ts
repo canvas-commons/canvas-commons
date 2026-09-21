@@ -5,7 +5,7 @@ export class SignalSet<T> {
   private readonly signal = signal(0);
 
   public has(value: T) {
-    this.signal.value;
+    void this.signal.value;
     return this.set.has(value);
   }
 

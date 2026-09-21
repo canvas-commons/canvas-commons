@@ -37,7 +37,7 @@ describe('threads()', () => {
       order.push(7);
     });
 
-    [...task];
+    void [...task];
 
     expect(order).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
   });
@@ -65,7 +65,7 @@ describe('threads()', () => {
       order.push(8);
     });
 
-    [...task];
+    void [...task];
 
     expect(order).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8]);
   });
@@ -126,7 +126,7 @@ describe('threads()', () => {
       order.push(10);
     });
 
-    [...task];
+    void [...task];
 
     expect(order).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
   });
@@ -148,7 +148,7 @@ describe('threads()', () => {
       cancel(child);
     });
 
-    [...task];
+    void [...task];
 
     expect(seen).not.toBeNull();
     expect(seen).toBe(self);
@@ -180,7 +180,7 @@ describe('threads()', () => {
       outerAfterCancel = outer;
     });
 
-    [...task];
+    void [...task];
 
     expect(warn).toHaveBeenCalledOnce();
     expect(outerAfterCancel).toBe(true);
@@ -210,7 +210,7 @@ describe('threads()', () => {
       afterCatch = true;
     });
 
-    [...task];
+    void [...task];
 
     expect(caught).toBeInstanceOf(Error);
     expect(afterCatch).toBe(true);
@@ -235,7 +235,7 @@ describe('threads()', () => {
       yield* waitFor(1);
     });
 
-    [...task];
+    void [...task];
 
     expect(finalizedWhileRootRuns).toBe(true);
   });
@@ -262,7 +262,7 @@ describe('threads()', () => {
       yield* waitFor(1);
     });
 
-    [...task];
+    void [...task];
 
     expect(finalizedWhileRootRuns).toBe(true);
   });

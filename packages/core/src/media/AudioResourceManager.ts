@@ -76,7 +76,7 @@ export class AudioResource {
     let audioBuffer: AudioBuffer;
     try {
       audioBuffer = await this.decodeAudioData(rawBuffer);
-    } catch (e) {
+    } catch (_) {
       return;
     }
 

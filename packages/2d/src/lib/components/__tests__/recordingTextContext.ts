@@ -6,6 +6,8 @@ export type PaintCall = {
   globalAlpha: number;
   fillStyle: string;
   font: string;
+  /** Spacing the context adds between the glyphs of this run. */
+  letterSpacing: number;
   textAlign: CanvasTextAlign;
   direction: CanvasDirection;
   /** Where the pen lands once the transform in place is applied. */
@@ -53,6 +55,7 @@ export function recordingTextContext(): {
       globalAlpha: fixture.globalAlpha ?? 1,
       fillStyle: String(fixture.fillStyle ?? ''),
       font: fixture.font ?? '',
+      letterSpacing: parseFloat(fixture.letterSpacing ?? '0') || 0,
       textAlign: fixture.textAlign ?? 'start',
       direction: fixture.direction ?? 'inherit',
       penX: transform.x + x * cos - y * sin,

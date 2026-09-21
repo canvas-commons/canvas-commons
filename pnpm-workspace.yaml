@@ -17,7 +17,7 @@ catalog:
   '@preact/signals': ^1.3.4
   '@types/node': ^20.19.43
   clsx: ^2.1.1
-  jsdom: ^29.1.1
+  jsdom: ^30.1.0
   preact: ^10.29.8
   vite: ^8.3.0
   vitest: ^5.0.1

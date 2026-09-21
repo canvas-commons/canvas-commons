@@ -6,5 +6,6 @@ export default defineConfig({
     exclude: [...configDefaults.exclude, '**/*.sweep.test.*'],
     environment: 'jsdom',
     setupFiles: ['geometry-polyfill'],
+    server: {deps: {inline: ['@chenglou/pretext']}},
   },
 });

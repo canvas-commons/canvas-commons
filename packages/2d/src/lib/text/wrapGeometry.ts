@@ -26,6 +26,11 @@ export type Interval = {
 
 const MIN_SLOT_WIDTH = 24;
 
+/**
+ * Horizontal extent of a polygon inside one band, or `null` when it misses
+ * the band. A strip never has negative height: negative padding shrinks it to
+ * a line at its top, so a taller band always meets at least the same shapes.
+ */
 export function getPolygonIntervalForBand(
   points: ExclusionPoint[],
   bandTop: number,
@@ -34,7 +39,7 @@ export function getPolygonIntervalForBand(
   verticalPadding: number,
 ): Interval | null {
   const stripTop = bandTop - verticalPadding;
-  const stripBottom = bandBottom + verticalPadding;
+  const stripBottom = Math.max(bandBottom + verticalPadding, stripTop);
 
   let left = Infinity;
   let right = -Infinity;
@@ -61,7 +66,8 @@ export function getPolygonIntervalForBand(
   }
 
   if (!Number.isFinite(left) || !Number.isFinite(right)) return null;
-  return {left: left - horizontalPadding, right: right + horizontalPadding};
+  const padded = left - horizontalPadding;
+  return {left: padded, right: Math.max(right + horizontalPadding, padded)};
 }
 
 export function getRectIntervalsForBand(
@@ -77,6 +83,7 @@ export function getRectIntervalsForBand(
       verticalPadding,
       horizontalPadding,
     ]);
+    if (padded.width < 0 || padded.height < 0) continue;
     if (bandBottom <= padded.top || bandTop >= padded.bottom) {
       continue;
     }
@@ -88,7 +95,8 @@ export function getRectIntervalsForBand(
 /**
  * Given one allowed horizontal `base` interval and a set of `blocked`
  * intervals, return the remaining text slots for one line band. Slivers
- * narrower than {@link MIN_SLOT_WIDTH} pixels are dropped.
+ * narrower than {@link MIN_SLOT_WIDTH} pixels are dropped, unless `base` is
+ * narrower still: a box that small has no wider slot to offer.
  */
 export function carveTextLineSlots(
   base: Interval,
@@ -97,6 +105,7 @@ export function carveTextLineSlots(
   let slots: Interval[] = [base];
 
   for (const interval of blocked) {
+    if (interval.right <= interval.left) continue;
     const next: Interval[] = [];
     for (const slot of slots) {
       if (interval.right <= slot.left || interval.left >= slot.right) {
@@ -113,5 +122,6 @@ export function carveTextLineSlots(
     slots = next;
   }
 
-  return slots.filter(slot => slot.right - slot.left >= MIN_SLOT_WIDTH);
+  const minimum = Math.min(MIN_SLOT_WIDTH, base.right - base.left);
+  return slots.filter(slot => slot.right - slot.left >= minimum);
 }

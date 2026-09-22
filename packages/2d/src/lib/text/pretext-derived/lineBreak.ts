@@ -10,6 +10,68 @@ export type LineBreakCursor = {
   graphemeIndex: number;
 };
 
+/** Free band a candidate line runs in. */
+export type LineBreakBand = {
+  /** Width the candidate has to fit. */
+  readonly width: number;
+  /**
+   * True when an exclusion bounds the band on the right. A discretionary
+   * hyphen hangs past the box edge, as upstream has it, but not into a shape.
+   */
+  readonly hardEdge: boolean;
+};
+
+/** Rules a line needs that upstream, with one width and no exclusion, has not. */
+export type LineBreakOptions = {
+  /**
+   * Band of the candidate line that holds every item through `throughItem`,
+   * and the hard break that closes the chunk when `consumesHardBreak`. Asked
+   * for before each candidate is tested, so a band that narrows as the line
+   * grows taller is the band the emitted line occupies. Absent, `maxWidth`
+   * holds for the whole line and no edge is hard.
+   */
+  readonly bandAt?: (
+    throughItem: number,
+    consumesHardBreak: boolean,
+  ) => LineBreakBand;
+  /**
+   * False forbids a break at an arbitrary grapheme, so a unit wider than the
+   * line stays whole and overflows, and the space behind it hangs on its
+   * line: CSS `overflow-wrap: normal`.
+   */
+  readonly emergencyBreaks?: boolean;
+  /**
+   * Left edge of the line inside the paragraph. Tab stops stand at multiples
+   * of the stop advance from the paragraph origin, so a line that starts
+   * beside an exclusion reaches the same stops as one that starts at 0.
+   */
+  readonly originLeft?: number;
+  /**
+   * True ends a line at a break the unit in front of it offers inside itself
+   * when the line reaches one, so `a www.abc-def.com` in 100 pixels ends at
+   * `a www.abc-`. Upstream takes the break behind that unit and leaves `a`
+   * alone on the line.
+   */
+  readonly internalBreaks?: boolean;
+};
+
+/**
+ * What a grapheme walk does with a candidate the line can no longer hold and
+ * no break inside the item answers: break at the grapheme, run on to the next
+ * legal break, or report that the item offers the line nothing.
+ */
+type OverflowRule = 'break' | 'run-on' | 'give-up';
+
+/** What a candidate walk changes, so a walk that finds nothing undoes itself. */
+type LineWalkState = {
+  lineW: number;
+  hasContent: boolean;
+  lineEndSegmentIndex: number;
+  lineEndGraphemeIndex: number;
+  fitLimit: number;
+  hardEdge: boolean;
+};
+
 type InternalLineVisitor = (
   width: number,
   startSegmentIndex: number,
@@ -51,6 +113,16 @@ function breaksAfter(kind: ParagraphItemKind): boolean {
   );
 }
 
+/**
+ * Whether a line may end in front of this item. Segmentation puts a boundary
+ * where a break is legal, so an item starts a unit unless it carries the
+ * break of the text before it: a soft hyphen needs its hyphen painted, and
+ * glue holds two items together.
+ */
+function beginsUnit(kind: ParagraphItemKind): boolean {
+  return kind !== 'soft-hyphen' && kind !== 'glue';
+}
+
 function normalizeLineStartSegmentIndex(
   prepared: ParagraphItems,
   segmentIndex: number,
@@ -80,18 +152,54 @@ function rendersGraphemes(kind: ParagraphItemKind): boolean {
   );
 }
 
+/** Last item on the line that rendered a glyph, or -1 when there is none. */
+function getPrecedingRenderingIndex(
+  prepared: ParagraphItems,
+  lineStartSegmentIndex: number,
+  segmentIndex: number,
+): number {
+  for (let i = segmentIndex - 1; i >= lineStartSegmentIndex; i--) {
+    if (rendersGraphemes(prepared.kinds[i])) return i;
+  }
+  return -1;
+}
+
 /** Letter spacing of the last item that rendered a glyph on the line. */
 function getPrecedingLetterSpacing(
   prepared: ParagraphItems,
   lineStartSegmentIndex: number,
   segmentIndex: number,
 ): number {
-  for (let i = segmentIndex - 1; i >= lineStartSegmentIndex; i--) {
-    if (rendersGraphemes(prepared.kinds[i])) {
-      return prepared.letterSpacings[i];
-    }
-  }
-  return prepared.letterSpacings[segmentIndex];
+  const preceding = getPrecedingRenderingIndex(
+    prepared,
+    lineStartSegmentIndex,
+    segmentIndex,
+  );
+  return prepared.letterSpacings[preceding < 0 ? segmentIndex : preceding];
+}
+
+/**
+ * Width a soft hyphen adds to the line it ends. The hyphen is drawn in the
+ * soft hyphen's own styling, and only the gap in front of it belongs to the
+ * glyph before it; upstream stores the width with the hyphen's own spacing on
+ * both sides.
+ */
+function getDiscretionaryHyphenWidth(
+  prepared: ParagraphItems,
+  lineStartSegmentIndex: number,
+  segmentIndex: number,
+): number {
+  const preceding = getPrecedingRenderingIndex(
+    prepared,
+    lineStartSegmentIndex,
+    segmentIndex,
+  );
+  const width = prepared.discretionaryHyphenWidths[segmentIndex];
+  return preceding < 0
+    ? width
+    : width +
+        prepared.letterSpacings[preceding] -
+        prepared.letterSpacings[segmentIndex];
 }
 
 /** Letter spacing of the gap before an item, owned by the glyph before it. */
@@ -238,8 +346,27 @@ function getNextPreferredBreakIndex(
   return lo;
 }
 
+/**
+ * Whether an item offers a break strictly inside itself, which is a break no
+ * item boundary carries.
+ *
+ * @example
+ * ```ts
+ * const hyphenated = offersInternalBreak(items, 3);
+ * ```
+ */
+export function offersInternalBreak(
+  prepared: ParagraphItems,
+  index: number,
+): boolean {
+  const breaks = prepared.breakablePreferredBreaks[index];
+  const advances = prepared.breakableFitAdvances[index];
+  if (breaks === null || advances === null) return false;
+  return breaks.some(at => at < advances.length);
+}
+
 /** End of the run of items joined to the one at `index`, exclusive. */
-function getJoinedGroupEnd(
+export function getJoinedGroupEnd(
   prepared: ParagraphItems,
   index: number,
   limit: number,
@@ -661,6 +788,7 @@ function stepPreparedChunkLineGeometry(
   cursor: LineBreakCursor,
   chunkIndex: number,
   maxWidth: number,
+  options?: LineBreakOptions,
 ): number | null {
   return walkPreparedComplexLines(
     prepared,
@@ -669,6 +797,7 @@ function stepPreparedChunkLineGeometry(
     maxWidth,
     undefined,
     1,
+    options,
   ).lastLineWidth;
 }
 
@@ -679,12 +808,54 @@ function walkPreparedComplexLines(
   maxWidth: number,
   onLine?: InternalLineVisitor,
   lineLimit = Number.POSITIVE_INFINITY,
+  options?: LineBreakOptions,
 ): {lineCount: number; lastLineWidth: number | null} {
-  const {widths, kinds, breakableFitAdvances, breakablePreferredBreaks} =
-    prepared;
+  const {
+    widths,
+    kinds,
+    joinsPrevious,
+    breakableFitAdvances,
+    breakablePreferredBreaks,
+  } = prepared;
   const engineProfile = getEngineProfile();
   const lineFitEpsilon = engineProfile.lineFitEpsilon;
-  const fitLimit = maxWidth + lineFitEpsilon;
+  const bandAt = options?.bandAt;
+  const emergencyBreaks = options?.emergencyBreaks ?? true;
+  const originLeft = options?.originLeft ?? 0;
+  const internalBreaks = options?.internalBreaks ?? false;
+  const overflowRule: OverflowRule = emergencyBreaks ? 'break' : 'run-on';
+  let fitLimit = maxWidth + lineFitEpsilon;
+  let hardEdge = false;
+
+  /**
+   * Stand in the band of the candidate that holds every item through `index`,
+   * and the hard break that closes the chunk when that candidate takes it: a
+   * grapheme that completes the last item of a chunk takes it, a grapheme
+   * before that one does not.
+   */
+  function useBandThrough(index: number, consumesHardBreak = false): void {
+    if (bandAt === undefined) return;
+    const band = bandAt(index, consumesHardBreak);
+    fitLimit = band.width + lineFitEpsilon;
+    hardEdge = band.hardEdge;
+  }
+
+  /** Whether this run of items offers a break strictly inside itself. */
+  function hasPreferredBreakInside(from: number, to: number): boolean {
+    for (let i = from; i < to; i++) {
+      if (offersInternalBreak(prepared, i)) return true;
+    }
+    return false;
+  }
+
+  /** Whether a line may end inside this run of items. */
+  function mayBreakInside(from: number, to: number): boolean {
+    if (emergencyBreaks) return true;
+    for (let i = from; i < to; i++) {
+      if (breakablePreferredBreaks[i] !== null) return true;
+    }
+    return false;
+  }
 
   let lineStartSegmentIndex: number;
   let lineStartGraphemeIndex: number;
@@ -695,14 +866,24 @@ function walkPreparedComplexLines(
   let pendingBreakSegmentIndex: number;
   let pendingBreakFitWidth: number;
   let pendingBreakPaintWidth: number;
-  let pendingBreakKind: ParagraphItemKind | null;
+  let pendingBreakFitLimit: number;
+
+  /** Whether the break the line kept still fits the band it was found in. */
+  function pendingBreakFits(): boolean {
+    return (
+      pendingBreakSegmentIndex >= 0 &&
+      pendingBreakFitWidth <= pendingBreakFitLimit
+    );
+  }
 
   function getCurrentLinePaintWidth(): number {
-    return pendingBreakKind === 'soft-hyphen' &&
-      pendingBreakSegmentIndex === lineEndSegmentIndex &&
-      lineEndGraphemeIndex === 0
-      ? pendingBreakPaintWidth
-      : lineW;
+    if (
+      pendingBreakSegmentIndex !== lineEndSegmentIndex ||
+      lineEndGraphemeIndex !== 0
+    ) {
+      return lineW;
+    }
+    return pendingBreakPaintWidth;
   }
 
   function finishLine(
@@ -776,13 +957,16 @@ function walkPreparedComplexLines(
     pendingBreakSegmentIndex = segmentIndex + 1;
     pendingBreakFitWidth = lineW - advance + fitAdvance;
     pendingBreakPaintWidth = lineW - advance + paintAdvance;
-    pendingBreakKind = kind;
+    pendingBreakFitLimit = fitLimit;
   }
 
   function appendBreakableSegmentFrom(
     segmentIndex: number,
     startGraphemeIndex: number,
+    endsChunk: boolean,
+    onOverflow: OverflowRule,
   ): number | null {
+    useBandThrough(segmentIndex);
     const fitAdvances = getBreakableFitAdvances(prepared, segmentIndex);
     const preferredBreaks = breakablePreferredBreaks[segmentIndex] ?? null;
     let preferredBreakIndex =
@@ -798,6 +982,9 @@ function walkPreparedComplexLines(
 
     for (let g = startGraphemeIndex; g < fitAdvances.length; g++) {
       const baseGw = fitAdvances[g];
+      if (endsChunk && g === fitAdvances.length - 1) {
+        useBandThrough(segmentIndex, true);
+      }
 
       if (!hasContent) {
         startLineAtGrapheme(segmentIndex, g, baseGw);
@@ -821,7 +1008,10 @@ function walkPreparedComplexLines(
               lastPreferredBreakWidth,
             );
           }
-          return finishLine();
+          // Running on carries the unit to its next legal break, which the
+          // test above takes once it is behind us.
+          if (onOverflow === 'break') return finishLine();
+          if (onOverflow === 'give-up') return null;
         }
 
         lineW = candidatePaintWidth;
@@ -848,6 +1038,111 @@ function walkPreparedComplexLines(
       lineEndSegmentIndex = segmentIndex + 1;
       lineEndGraphemeIndex = 0;
     }
+    return null;
+  }
+
+  /** Whether the line ends on a break the item list offers inside an item. */
+  function endsAtPreferredBreak(): boolean {
+    const index =
+      lineEndGraphemeIndex === 0
+        ? lineEndSegmentIndex - 1
+        : lineEndSegmentIndex;
+    const breaks = breakablePreferredBreaks[index] ?? null;
+    if (breaks === null) return false;
+    const at =
+      lineEndGraphemeIndex === 0
+        ? (breakableFitAdvances[index]?.length ?? -1)
+        : lineEndGraphemeIndex;
+    return breaks.includes(at);
+  }
+
+  /** Whether the line, as it stands, ends where a break is legal. */
+  function endsAtLegalBreak(): boolean {
+    if (lineEndSegmentIndex <= 0) return false;
+    if (lineEndGraphemeIndex > 0) return endsAtPreferredBreak();
+    if (breaksAfter(kinds[lineEndSegmentIndex - 1])) return true;
+    if (lineEndSegmentIndex >= kinds.length) return true;
+    return (
+      !joinsPrevious[lineEndSegmentIndex] &&
+      beginsUnit(kinds[lineEndSegmentIndex])
+    );
+  }
+
+  /** Upstream ends a full line at its line end; an illegal end may not. */
+  function prefersLineEnd(): boolean {
+    return emergencyBreaks || endsAtLegalBreak();
+  }
+
+  /**
+   * Whether a space ends a line an over-wide unit already carried past its
+   * band, hanging there as it does after any other line.
+   */
+  function hangsPastRunOn(kind: ParagraphItemKind): boolean {
+    return (
+      !emergencyBreaks &&
+      (kind === 'space' || kind === 'preserved-space' || kind === 'tab') &&
+      lineW > fitLimit
+    );
+  }
+
+  /** Without an emergency break an over-wide unit runs on to its next break. */
+  function runsOn(): boolean {
+    if (emergencyBreaks || endsAtLegalBreak()) return false;
+    return !pendingBreakFits();
+  }
+
+  function captureWalk(): LineWalkState {
+    return {
+      lineW,
+      hasContent,
+      lineEndSegmentIndex,
+      lineEndGraphemeIndex,
+      fitLimit,
+      hardEdge,
+    };
+  }
+
+  function restoreWalk(saved: LineWalkState): void {
+    lineW = saved.lineW;
+    hasContent = saved.hasContent;
+    lineEndSegmentIndex = saved.lineEndSegmentIndex;
+    lineEndGraphemeIndex = saved.lineEndGraphemeIndex;
+    fitLimit = saved.fitLimit;
+    hardEdge = saved.hardEdge;
+  }
+
+  /**
+   * End the line at a break the unit in front of it offers inside itself,
+   * when the line reaches one. The unit no longer fits whole, and a break
+   * inside it stands further on than the one behind it.
+   */
+  function stepInternalBreak(
+    from: number,
+    to: number,
+    startGraphemeIndex: number,
+    endsChunk: boolean,
+  ): number | null {
+    if (!internalBreaks) return null;
+    if (breakableFitAdvances[from] === null) return null;
+    if (!hasPreferredBreakInside(from, to)) return null;
+    const saved = captureWalk();
+    const line =
+      to > from + 1
+        ? appendJoinedGroupGraphemesFrom(
+            to,
+            from,
+            startGraphemeIndex,
+            endsChunk,
+            'give-up',
+          )
+        : appendBreakableSegmentFrom(
+            from,
+            startGraphemeIndex,
+            endsChunk,
+            'give-up',
+          );
+    if (line !== null) return line;
+    restoreWalk(saved);
     return null;
   }
 
@@ -884,12 +1179,17 @@ function walkPreparedComplexLines(
     end: number,
     startIndex: number,
     startGraphemeIndex: number,
+    endsChunk: boolean,
+    onOverflow: OverflowRule,
   ): number | null {
     let lastPreferredBreakItem = -1;
     let lastPreferredBreakEnd = -1;
     let lastPreferredBreakWidth = 0;
 
     for (let i = startIndex; i < end; i++) {
+      // A part of the group stands in the band of what it holds, not of the
+      // whole group.
+      useBandThrough(i);
       const fitAdvances = getBreakableFitAdvances(prepared, i);
       const preferredBreaks = breakablePreferredBreaks[i] ?? null;
       const firstGraphemeIndex = i === startIndex ? startGraphemeIndex : 0;
@@ -904,6 +1204,9 @@ function walkPreparedComplexLines(
 
       for (let g = firstGraphemeIndex; g < fitAdvances.length; g++) {
         const baseGw = fitAdvances[g];
+        if (endsChunk && i === end - 1 && g === fitAdvances.length - 1) {
+          useBandThrough(i, true);
+        }
 
         if (!hasContent) {
           startLineAtGrapheme(i, g, baseGw);
@@ -928,7 +1231,8 @@ function walkPreparedComplexLines(
                 lastPreferredBreakWidth,
               );
             }
-            return finishLine();
+            if (onOverflow === 'break') return finishLine();
+            if (onOverflow === 'give-up') return null;
           }
 
           lineW = candidatePaintWidth;
@@ -991,14 +1295,18 @@ function walkPreparedComplexLines(
           prepared.lineEndPaintAdvances,
         ),
       );
-    pendingBreakKind = kind;
+    pendingBreakFitLimit = fitLimit;
   }
 
   /**
    * Lay out a run of joined items as one unit: the seams inside it exist for
    * measurement, so they offer no break, and the grapheme walk crosses them.
    */
-  function stepJoinedGroup(groupStart: number, end: number): number | null {
+  function stepJoinedGroup(
+    groupStart: number,
+    end: number,
+    endsChunk: boolean,
+  ): number | null {
     const kind = kinds[groupStart];
     const startGraphemeIndex =
       groupStart === cursor.segmentIndex ? cursor.graphemeIndex : 0;
@@ -1022,12 +1330,16 @@ function walkPreparedComplexLines(
     if (!hasContent) {
       if (
         startGraphemeIndex > 0 ||
-        (fitAdvance > fitLimit && breakableFitAdvances[groupStart] !== null)
+        (fitAdvance > fitLimit &&
+          breakableFitAdvances[groupStart] !== null &&
+          mayBreakInside(groupStart, end))
       ) {
         const line = appendJoinedGroupGraphemesFrom(
           end,
           groupStart,
           startGraphemeIndex,
+          endsChunk,
+          overflowRule,
         );
         if (line !== null) return line;
       } else {
@@ -1043,12 +1355,20 @@ function walkPreparedComplexLines(
       return null;
     }
 
-    if (lineW + fitAdvance > fitLimit) {
-      if (pendingBreakSegmentIndex >= 0 && pendingBreakFitWidth <= fitLimit) {
+    if (lineW + fitAdvance > fitLimit && !runsOn()) {
+      const inside = stepInternalBreak(
+        groupStart,
+        end,
+        startGraphemeIndex,
+        endsChunk,
+      );
+      if (inside !== null) return inside;
+      if (pendingBreakFits()) {
         if (
-          lineEndSegmentIndex > pendingBreakSegmentIndex ||
-          (lineEndSegmentIndex === pendingBreakSegmentIndex &&
-            lineEndGraphemeIndex > 0)
+          prefersLineEnd() &&
+          (lineEndSegmentIndex > pendingBreakSegmentIndex ||
+            (lineEndSegmentIndex === pendingBreakSegmentIndex &&
+              lineEndGraphemeIndex > 0))
         ) {
           return finishLine();
         }
@@ -1080,7 +1400,7 @@ function walkPreparedComplexLines(
     pendingBreakSegmentIndex = -1;
     pendingBreakFitWidth = 0;
     pendingBreakPaintWidth = 0;
-    pendingBreakKind = null;
+    pendingBreakFitLimit = fitLimit;
 
     const chunk = prepared.chunks[chunkIndex];
     let lineWidth: number | null = null;
@@ -1099,8 +1419,16 @@ function walkPreparedComplexLines(
           i,
           chunk.endSegmentIndex,
         );
+        useBandThrough(
+          joinedGroupEnd - 1,
+          joinedGroupEnd === chunk.endSegmentIndex,
+        );
         if (joinedGroupEnd > i + 1) {
-          const line = stepJoinedGroup(i, joinedGroupEnd);
+          const line = stepJoinedGroup(
+            i,
+            joinedGroupEnd,
+            joinedGroupEnd === chunk.endSegmentIndex,
+          );
           if (line !== null) {
             lineWidth = line;
             break lineLoop;
@@ -1121,7 +1449,10 @@ function walkPreparedComplexLines(
         );
         const w =
           kind === 'tab'
-            ? getTabAdvance(lineW + leadingSpacing, prepared.tabStopAdvances[i])
+            ? getTabAdvance(
+                originLeft + lineW + leadingSpacing,
+                prepared.tabStopAdvances[i],
+              )
             : widths[i];
         const advance = leadingSpacing + w;
         const fitAdvance = getWholeSegmentFitContribution(
@@ -1133,37 +1464,50 @@ function walkPreparedComplexLines(
         );
 
         if (kind === 'soft-hyphen' && startGraphemeIndex === 0) {
-          if (hasContent) {
+          const hyphenWidth = getDiscretionaryHyphenWidth(
+            prepared,
+            lineStartSegmentIndex,
+            i,
+          );
+          // A hanging hyphen would paint into an exclusion, so a hard right
+          // edge takes the break only when the hyphen fits in front of it.
+          if (hasContent && (!hardEdge || lineW + hyphenWidth <= fitLimit)) {
             lineEndSegmentIndex = i + 1;
             lineEndGraphemeIndex = 0;
             if (i + 1 < chunk.endSegmentIndex) {
-              // The stored width carries the hyphen's own spacing on both
-              // sides; the gap before it belongs to the glyph before it.
-              const hyphenWidth =
-                prepared.discretionaryHyphenWidths[i] +
-                (getPrecedingLetterSpacing(prepared, lineStartSegmentIndex, i) -
-                  prepared.letterSpacings[i]);
               pendingBreakSegmentIndex = i + 1;
               pendingBreakFitWidth = lineW + hyphenWidth;
               pendingBreakPaintWidth = lineW + hyphenWidth;
-              pendingBreakKind = kind;
+              pendingBreakFitLimit = fitLimit;
             }
           }
           continue;
         }
 
+        const endsChunk = i + 1 === chunk.endSegmentIndex;
         if (!hasContent) {
           if (startGraphemeIndex > 0) {
-            const line = appendBreakableSegmentFrom(i, startGraphemeIndex);
+            const line = appendBreakableSegmentFrom(
+              i,
+              startGraphemeIndex,
+              endsChunk,
+              overflowRule,
+            );
             if (line !== null) {
               lineWidth = line;
               break lineLoop;
             }
           } else if (
             fitAdvance > fitLimit &&
-            breakableFitAdvances[i] !== null
+            breakableFitAdvances[i] !== null &&
+            mayBreakInside(i, i + 1)
           ) {
-            const line = appendBreakableSegmentFrom(i, 0);
+            const line = appendBreakableSegmentFrom(
+              i,
+              0,
+              endsChunk,
+              overflowRule,
+            );
             if (line !== null) {
               lineWidth = line;
               break lineLoop;
@@ -1183,7 +1527,7 @@ function walkPreparedComplexLines(
         }
 
         const newFitW = lineW + fitAdvance;
-        if (newFitW > fitLimit) {
+        if (newFitW > fitLimit && !runsOn()) {
           const currentBreakFitWidth =
             lineW +
             getBreakOpportunityFitContribution(
@@ -1196,20 +1540,32 @@ function walkPreparedComplexLines(
             lineW +
             getLineEndPaintContribution(prepared, kind, i, leadingSpacing, w);
 
-          if (breakAfter && currentBreakFitWidth <= fitLimit) {
+          if (
+            breakAfter &&
+            (currentBreakFitWidth <= fitLimit || hangsPastRunOn(kind))
+          ) {
             appendWholeSegment(i, advance);
             lineWidth = finishLine(i + 1, 0, currentBreakPaintWidth);
             break lineLoop;
           }
 
-          if (
-            pendingBreakSegmentIndex >= 0 &&
-            pendingBreakFitWidth <= fitLimit
-          ) {
+          const inside = stepInternalBreak(
+            i,
+            i + 1,
+            startGraphemeIndex,
+            endsChunk,
+          );
+          if (inside !== null) {
+            lineWidth = inside;
+            break lineLoop;
+          }
+
+          if (pendingBreakFits()) {
             if (
-              lineEndSegmentIndex > pendingBreakSegmentIndex ||
-              (lineEndSegmentIndex === pendingBreakSegmentIndex &&
-                lineEndGraphemeIndex > 0)
+              prefersLineEnd() &&
+              (lineEndSegmentIndex > pendingBreakSegmentIndex ||
+                (lineEndSegmentIndex === pendingBreakSegmentIndex &&
+                  lineEndGraphemeIndex > 0))
             ) {
               lineWidth = finishLine();
               break lineLoop;
@@ -1419,17 +1775,25 @@ function stepPreparedSimpleLineGeometry(
   return lineW;
 }
 
+/** The fast path holds one width per line and upstream's break rules only. */
 export function stepPreparedLineGeometryFromChunk(
   prepared: ParagraphItems,
   cursor: LineBreakCursor,
   chunkIndex: number,
   maxWidth: number,
+  options?: LineBreakOptions,
 ): number | null {
-  if (prepared.simpleLineWalkFastPath) {
+  if (prepared.simpleLineWalkFastPath && options === undefined) {
     return stepPreparedSimpleLineGeometry(prepared, cursor, maxWidth);
   }
 
-  return stepPreparedChunkLineGeometry(prepared, cursor, chunkIndex, maxWidth);
+  return stepPreparedChunkLineGeometry(
+    prepared,
+    cursor,
+    chunkIndex,
+    maxWidth,
+    options,
+  );
 }
 
 export function stepPreparedLineGeometry(

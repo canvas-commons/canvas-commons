@@ -1992,6 +1992,12 @@ export class Txt extends Shape {
     return result;
   }
 
+  protected override applyText(context: CanvasRenderingContext2D) {
+    super.applyText(context);
+    // Every paint is given a left edge; `'start'` anchors rtl on the right.
+    context.textAlign = 'left';
+  }
+
   protected override draw(context: CanvasRenderingContext2D) {
     if (this.parentTxt()) {
       // The root Txt paints all text; a nested Txt only renders its own
@@ -2180,7 +2186,6 @@ export class Txt extends Shape {
     context.save();
     this.applyStyle(context);
     this.applyText(context);
-    context.textAlign = 'left';
     context.textBaseline = 'alphabetic';
 
     // `walkUnits` is cumulative, so `unit.x`/`unit.width` are kerned — arc

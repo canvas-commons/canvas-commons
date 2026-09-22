@@ -11,3 +11,12 @@ export function lineTexts(txt: Txt): string[] {
     .textLines()
     .lines.map(line => line.fragments.map(fragment => fragment.text).join(''));
 }
+
+export const CHAR_WIDTH = 10;
+const KERN = 2;
+
+/** `AV` measures narrower than `A` and `V` do on their own. */
+export function kernedWidth(text: string): number {
+  const pairs = text.split('AV').length - 1;
+  return text.length * CHAR_WIDTH - pairs * KERN;
+}

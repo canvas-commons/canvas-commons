@@ -1,7 +1,261 @@
 ---
 slug: public-release
-title: Canvas Commons is now Open Source!
+title: Introducing Canvas Commons
 authors: hhenrichsen
 ---
 
-<!-- truncate -->
+Howdy, I'm Hunter. I've been working on Motion Canvas for a few years now, and
+as many of you have seen, Jacob has taken a step back from the project. In that
+time I've been on the Discord helping as much as I can with issues and answering
+questions, while still using the library myself.
+
+{/* truncate */}
+
+I've began to find things that are missing from the library, and fixes that I
+know how to make but can't make back to the original without write access. And
+ultimately, Motion Canvas was his vision for the library. I have a slightly
+different one. So I'm forking the library to see my vision through.
+
+Some changes I want to make:
+
+- Fix some longstanding issues with the library. There aren't many, but the
+  `Camera` component has some issues, packages have gone a little bit out of
+  date (especially chroma.js which gives us some cool new color things), and the
+  documentation could use a bit more love.
+- Add some new features that I've thought about, or that Jacob and I had
+  discussed but never got to implement. These are things like using Yoga for
+  layout, so we don't depend as much on the browser, and overhauling the `Txt`
+  component to make it more featureful.
+
+I'm doing my best to support both libraries; feel free to join either of the
+Discord servers if you have any questions:
+
+- [Motion Canvas](https://discord.gg/bB9N8atafu)
+- [Canvas Commons](https://discord.gg/qgfN9t4X5u)
+
+New here? Looking to migrate from Motion Canvas? Read the
+[migration guide](/docs/migration/from-motion-canvas).
+
+## New Features
+
+### Colors
+
+Chroma.js has been updated to v3, which brings new color spaces (`lab`, `lch`,
+`oklab`, and `oklch`), and `color.css()` now returns CSS Level 4 colors
+(`rgb(255, 255, 255)` have been replaced with `rgb(255 255 255)`).
+
+```tsx editor mode=preview
+import {Rect, makeScene2D} from '@canvas-commons/2d';
+import {createRef, Color, linear} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const v = useScene().variables;
+
+  const rect = createRef<Rect>();
+
+  view.add(<Rect ref={rect} size={100} fill={v.get('--cc-red', '#f38ba8')} />);
+
+  yield* rect()
+    .fill(v.get('--cc-green', '#a6e3a1'), 1, linear, Color.createLerp('oklab'))
+    .back(1);
+});
+```
+
+### Origin Transforms
+
+Origin transforms let you place shapes in spaces other than their parent's
+space, which is much more ergonomic than trying to unwrap transform matrices.
+
+```tsx editor mode=preview
+import {Rect, makeScene2D} from '@canvas-commons/2d';
+import {createRef, Vector2, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const v = useScene().variables;
+
+  const parentRect = createRef<Rect>();
+  const childRect = createRef<Rect>();
+  const otherRect = createRef<Rect>();
+
+  view.add(
+    <>
+      <Rect
+        ref={parentRect}
+        size={200}
+        fill={v.get('--cc-blue', '#89b4fa')}
+        position={[100, 50]}
+      >
+        <Rect
+          ref={childRect}
+          size={100}
+          fill={v.get('--cc-red', '#f38ba8')}
+          position={[50, 25]}
+        />
+      </Rect>
+      <Rect
+        ref={otherRect}
+        size={100}
+        fill={v.get('--cc-green', '#a6e3a1')}
+        position={[-200, 100]}
+      />
+    </>,
+  );
+
+  yield* waitFor(1);
+  yield* childRect().position.relativeTo(otherRect())([100, 100], 1);
+  yield* waitFor(1);
+  yield* childRect().position.abs([50, 25], 1);
+  yield* waitFor(1);
+  yield* childRect().position.local([50, 25], 1);
+});
+```
+
+### Rough
+
+Rough.js support has been added, allowing Path-based shapes to be rendered with
+a cross-hatching, sketchy style.
+
+```tsx editor mode=preview
+import {Circle, makeScene2D, Rect} from '@canvas-commons/2d';
+import {all, createRef, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const v = useScene().variables;
+
+  const rect = createRef<Rect>();
+  const circle = createRef<Circle>();
+
+  view.add(
+    <>
+      <Rect
+        ref={rect}
+        x={-180}
+        size={200}
+        radius={16}
+        fill={v.get('--cc-peach', '#fab387')}
+        stroke={v.get('--cc-text', '#cdd6f4')}
+        lineWidth={4}
+        rough
+        roughness={2}
+        roughFillStyle={'cross-hatch'}
+        roughHachureGap={8}
+      />
+      <Circle
+        ref={circle}
+        x={180}
+        size={200}
+        fill={v.get('--cc-mauve', '#cba6f7')}
+        stroke={v.get('--cc-text', '#cdd6f4')}
+        lineWidth={4}
+        rough
+        roughness={1.5}
+        roughFillStyle={'zigzag'}
+        end={0}
+      />
+    </>,
+  );
+
+  yield* waitFor(0.3);
+  yield* all(
+    rect().roughness(5, 1).to(2, 1),
+    circle().roughness(4, 1).to(1.5, 1),
+  );
+  yield* rect().rotation(8, 0.5).to(-8, 0.6).to(0, 0.4);
+  yield* waitFor(0.4);
+});
+```
+
+### Image src Tween
+
+Tweening the `src` of an `Img` now fades out and then back in with the new
+image, which is what most people were expecting when tweening the `src` (rather)
+than garbled string tweening the `src` URL.
+
+```tsx editor mode=preview ratio=16/9
+import {Img, Layout, makeScene2D, Txt} from '@canvas-commons/2d';
+import {createRef, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const v = useScene().variables;
+
+  const img = createRef<Img>();
+  const txt = createRef<Txt>();
+
+  yield view.add(
+    <Layout
+      layout
+      direction={'column'}
+      gap={16}
+      justifyContent={'center'}
+      alignItems={'center'}
+    >
+      <Img
+        ref={img}
+        width={500}
+        radius={8}
+        clip
+        src={'https://images.unsplash.com/photo-1504252060324-1c76e2e09939'}
+      />
+      <Txt
+        fill={v.get('--cc-text', '#cdd6f4')}
+        textAlign={'center'}
+        fontSize={16}
+        ref={txt}
+        text={'"mountain surrounded with fog" by Vincent Guth on Unsplash'}
+      ></Txt>
+    </Layout>,
+  );
+
+  yield* waitFor(1);
+  yield img()
+    .src('https://images.unsplash.com/photo-1552394459-917cbbffbc84', 1)
+    .wait(2)
+    .back(1);
+  yield* txt()
+    .text(
+      '"silhouette of mountain ranges during daytime" by Fabrizio Conti on Unsplash',
+      1,
+    )
+    .wait(2)
+    .back(1);
+});
+```
+
+### SVG, Path, and Latex Morphing
+
+Building off of a Latex feature, you can now morph path data on a variety of
+shapes.
+
+```tsx editor mode=preview
+import {Latex, manimMorpher, makeScene2D} from '@canvas-commons/2d';
+import {createRef, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const v = useScene().variables;
+
+  const latex = createRef<Latex>();
+  yield view.add(
+    <Latex
+      ref={latex}
+      fill={v.get('--cc-text', '#cdd6f4')}
+      tex={'\\frac{1}{2}'}
+    />,
+  );
+
+  yield* latex().tex('\\frac{1}{3}', 1);
+  yield* waitFor(0.5);
+  yield* latex().tex('\\frac{1}{4}', 1);
+  yield* waitFor(0.5);
+  yield* latex().tex('\\frac{1}{5}', 1);
+  yield* waitFor(0.5);
+  yield* latex().tex('\\frac{1}{2}', 1);
+  yield* waitFor(0.5);
+});
+```
+
+### More to come...
+
+I'm sure I've already missed some features, and I'm working on many more. Feel
+free to [file an issue](https://github.com/canvas-commons/canvas-commons/issues)
+or join the [Discord](https://discord.gg/qgfN9t4X5u) if you have any ideas or
+feedback.

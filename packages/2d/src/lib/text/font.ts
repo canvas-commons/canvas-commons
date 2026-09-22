@@ -23,10 +23,29 @@ export function buildCanvasFontString(
   return parts.join(' ');
 }
 
+const FONT_SIZE = /(^|\D)(\d+(?:\.\d+)?)\s*px/;
+
 /** Pixel size of a canvas font shorthand; 16 when it names none. */
 export function canvasFontSize(font: string): number {
-  const match = font.match(/(?:^|\D)(\d+(?:\.\d+)?)\s*px/);
-  return match === null ? 16 : parseFloat(match[1]);
+  const match = font.match(FONT_SIZE);
+  return match === null ? 16 : parseFloat(match[2]);
+}
+
+/**
+ * The same font shorthand at a multiple of its size. A shorthand that names no
+ * size comes back unchanged.
+ *
+ * @example
+ * ```ts
+ * scaleCanvasFont('700 32px Inter', 0.5); // '700 16px Inter'
+ * ```
+ */
+export function scaleCanvasFont(font: string, scale: number): string {
+  return font.replace(
+    FONT_SIZE,
+    (_match, lead: string, size: string) =>
+      `${lead}${parseFloat(size) * scale}px`,
+  );
 }
 
 /**

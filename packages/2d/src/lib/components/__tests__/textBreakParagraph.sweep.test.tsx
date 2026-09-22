@@ -130,8 +130,9 @@ function constraintsOf(
   exclusions: readonly TextShapeExclusion[] = [],
   overflowWrap: OverflowWrapMode = 'anywhere',
   textWrap = true,
+  inkFit = false,
 ): BreakConstraints {
-  return {maxWidth, textWrap, overflowWrap, exclusions, vertical};
+  return {maxWidth, textWrap, overflowWrap, exclusions, vertical, inkFit};
 }
 
 type SweepCase = {
@@ -1117,6 +1118,39 @@ describe('paragraph break pass', () => {
     // The one break of this fork upstream leaves: pretext ends the first
     // line at the space although `a www.abc-` fits the box exactly.
     expect(theirs).toEqual([10, 80, 70]);
+  });
+
+  it('fits a line end on the ink its last glyph paints', () => {
+    const metrics = metricsOf('normal', -1);
+    const prepared = prepareParagraph('abcdef', metrics);
+    const vertical = verticalOf(prepared.items, [metrics]);
+    const broken = breakParagraph(
+      prepared.items,
+      constraintsOf(vertical, 27, [], 'anywhere', true, true),
+    );
+    expect(broken.lines.map(line => line.width)).toEqual([18, 18, 18]);
+
+    const theirs: number[] = [];
+    walkLineRanges(prepared.handle, 27, line => theirs.push(line.width));
+    // The gap behind a line's last glyph is negative here, so pretext fits
+    // `abc` in 27 although its ink reaches 28.
+    expect(theirs).toEqual([27, 27]);
+  });
+
+  it('fits a hyphen on the ink it paints', () => {
+    const metrics = metricsOf('normal', -1);
+    const prepared = prepareParagraph('ab­cd', metrics);
+    const vertical = verticalOf(prepared.items, [metrics]);
+    const inked = breakParagraph(
+      prepared.items,
+      constraintsOf(vertical, 27, [], 'normal', true, true),
+    );
+    expect(inked.lines.length).toBe(1);
+
+    const theirs: number[] = [];
+    walkLineRanges(prepared.handle, 27, line => theirs.push(line.width));
+    // `ab-` reaches 28 in a box of 27; pretext takes the hyphen anyway.
+    expect(theirs).toEqual([27, 18]);
   });
 
   it('reads the line heights a line at a time', () => {

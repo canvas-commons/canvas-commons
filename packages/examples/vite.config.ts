@@ -40,6 +40,7 @@ export default defineConfig({
         './src/home-reel.ts',
         './src/logo.ts',
         './src/social-card.ts',
+        './src/text-layout.ts',
       ],
     }),
   ],

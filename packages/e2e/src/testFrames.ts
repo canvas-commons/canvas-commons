@@ -165,6 +165,11 @@ export const testFrames: Record<string, TestFrame[]> = {
     {frame: 0, label: 'initial'},
     {frame: -1, label: 'final'},
   ],
+  'text-layout': [
+    {frame: 0, label: 'initial'},
+    {frame: 45, label: 'grown'},
+    {frame: -1, label: 'final'},
+  ],
   'text-path': [
     {frame: 0, label: 'initial'},
     {frame: 60, label: 'mid'},

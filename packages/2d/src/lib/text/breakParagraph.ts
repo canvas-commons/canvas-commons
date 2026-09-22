@@ -15,6 +15,7 @@ import {
 } from './lineBands';
 import type {ItemRange, ParagraphVerticalMetrics} from './lineMetrics';
 import {lineBoxHeight} from './lineMetrics';
+import {lineSpanItemRange, measureLineSpan} from './lineSpan';
 import type {
   ParagraphChunk,
   ParagraphCursor,
@@ -81,11 +82,6 @@ export type BrokenParagraph = {
   /** Bottom of the last line, skipped bands included. */
   readonly height: number;
 };
-
-function itemRangeOf(start: ParagraphCursor, end: ParagraphCursor): ItemRange {
-  const last = end.graphemeIndex > 0 ? end.segmentIndex + 1 : end.segmentIndex;
-  return {start: start.segmentIndex, end: Math.max(last, start.segmentIndex)};
-}
 
 /**
  * Break one paragraph into lines.
@@ -175,20 +171,22 @@ export function breakParagraph(
       ? undefined
       : {bandAt, emergencyBreaks, originLeft: segment.left, internalBreaks};
 
-    const paint = stepPreparedLineGeometryFromChunk(
+    const walked = stepPreparedLineGeometryFromChunk(
       items,
       cursor,
       chunkIndex,
       limit,
       options,
     );
-    if (paint === null) break;
+    if (walked === null) break;
 
     const end: ParagraphCursor = {
       segmentIndex: cursor.segmentIndex,
       graphemeIndex: cursor.graphemeIndex,
     };
-    const range = itemRangeOf(start, end);
+    const span = {start, end};
+    const range = lineSpanItemRange(span);
+    const paint = measureLineSpan(items, span, segment.left);
     const height = lineBoxHeight(items, vertical, range);
     const placed = placeIn(height);
     lines.push({

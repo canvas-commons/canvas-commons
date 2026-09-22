@@ -11,6 +11,7 @@ import type {
 import {breakParagraph} from '../../text/breakParagraph';
 import type {ParagraphVerticalMetrics} from '../../text/lineMetrics';
 import {readVerticalMetrics} from '../../text/lineMetrics';
+import {measureLineSpan, measureLineSpanFit} from '../../text/lineSpan';
 import {prepareMixedParagraph} from '../../text/mixedParagraph';
 import type {ContentRun, RunMetrics} from '../../text/paragraphContent';
 import {buildParagraphContent} from '../../text/paragraphContent';
@@ -25,8 +26,10 @@ import {
 } from '../../text/preparedParagraph';
 import {getEngineProfile} from '../../text/pretext-derived/engineProfile';
 import {
+  getPartialPaintCorrection,
   normalizePreparedLineStart,
   offersInternalBreak,
+  walkPreparedLinesRaw,
 } from '../../text/pretext-derived/lineBreak';
 import {mockTextContext} from './mockTextContext';
 import {mockFontBounds, mockFontWidth, TEXTS} from './textInvariants';
@@ -53,8 +56,9 @@ const LETTER_SPACINGS = [0, 2];
 
 /** The sweep may only grow: a shrunken sweep is a weaker gate. */
 const PARITY_COMPARISONS = 1758;
-const SEGMENT_COMPARISONS = 3951;
+const SEGMENT_COMPARISONS = 3853;
 const BAND_COMPARISONS = 2013;
+const MEASURE_COMPARISONS = 10717;
 
 const EPSILON = getEngineProfile().lineFitEpsilon;
 
@@ -230,6 +234,59 @@ function takesAnInternalBreak(
   );
 }
 
+/**
+ * Whether the line holds part of an item that paints something other than the
+ * grapheme advances of that part: the slice is shaped on its own, so a kern
+ * inside it counts and a kern to the text it was cut from does not. The walk
+ * charges the advances; the span measures the ink.
+ */
+function shapesASlice(
+  items: ParagraphItems,
+  line: {start: Cursor; end: Cursor},
+): boolean {
+  const last =
+    line.end.graphemeIndex > 0
+      ? line.end.segmentIndex
+      : line.end.segmentIndex - 1;
+  if (last < line.start.segmentIndex) return false;
+  const to =
+    last === line.start.segmentIndex && line.end.graphemeIndex > 0
+      ? line.end.graphemeIndex
+      : -1;
+  if (
+    getPartialPaintCorrection(
+      items,
+      line.start.segmentIndex,
+      line.start.graphemeIndex,
+      to,
+    ) !== 0
+  ) {
+    return true;
+  }
+  return (
+    last > line.start.segmentIndex &&
+    line.end.graphemeIndex > 0 &&
+    getPartialPaintCorrection(items, last, 0, line.end.graphemeIndex) !== 0
+  );
+}
+
+/**
+ * Whether pretext ends a line on a hyphen it hangs past the free width. The
+ * owned pass refuses that break: a hyphen it paints stands inside the segment.
+ */
+function hangsAHyphen(
+  items: ParagraphItems,
+  lines: readonly LayoutLineRange[],
+  maxWidth: number,
+): boolean {
+  return lines.some(
+    line =>
+      line.end.graphemeIndex === 0 &&
+      items.kinds[line.end.segmentIndex - 1] === 'soft-hyphen' &&
+      line.width > maxWidth,
+  );
+}
+
 function available(line: BrokenLine): number {
   return line.segment.right - line.segment.left;
 }
@@ -379,15 +436,30 @@ function inkEnd(items: ParagraphItems, end: Cursor): Cursor {
   return {segmentIndex, graphemeIndex: 0};
 }
 
-/** Whether a line could have ended anywhere but at its two ends. */
-function holdsOneUnit(
-  items: ParagraphItems,
-  line: BrokenLine,
-  hyphenFits: boolean,
-): boolean {
+/**
+ * Whether a line could have ended anywhere but at its two ends. A soft hyphen
+ * offers a break only where the hyphen it paints fits the free segment, so a
+ * word whose hyphen has no room stays one unit.
+ */
+function holdsOneUnit(items: ParagraphItems, line: BrokenLine): boolean {
+  const room = line.segment.right - line.segment.left + EPSILON;
   const end = inkEnd(items, line.end);
-  for (const cursor of legalBreaks(items, line.items, hyphenFits)) {
-    if (before(line.start, cursor) && before(cursor, end)) return false;
+  for (const cursor of legalBreaks(items, line.items, true)) {
+    if (!before(line.start, cursor) || !before(cursor, end)) continue;
+    const paintsAHyphen =
+      cursor.graphemeIndex === 0 &&
+      items.kinds[cursor.segmentIndex - 1] === 'soft-hyphen';
+    if (
+      paintsAHyphen &&
+      measureLineSpanFit(
+        items,
+        {start: line.start, end: cursor},
+        line.segment.left,
+      ) > room
+    ) {
+      continue;
+    }
+    return false;
   }
   return true;
 }
@@ -532,7 +604,11 @@ describe('paragraph break pass', () => {
         const upstream = theirs.map(line => settledKey(items, line));
         if (mine.join('|') === upstream.join('|')) continue;
         const at = mine.findIndex((one, index) => one !== upstream[index]);
-        if (takesAnInternalBreak(items, broken.lines[at], theirs[at])) {
+        if (
+          takesAnInternalBreak(items, broken.lines[at], theirs[at]) ||
+          broken.lines.some(line => shapesASlice(items, line)) ||
+          hangsAHyphen(items, theirs, width)
+        ) {
           excepted++;
           continue;
         }
@@ -544,6 +620,42 @@ describe('paragraph break pass', () => {
     expect(findings).toEqual([]);
     expect(comparisons).toBeGreaterThanOrEqual(PARITY_COMPARISONS);
     expect(excepted).toBeGreaterThan(0);
+  });
+
+  it('measures a line span the way the walk measured it', () => {
+    const findings: string[] = [];
+    let compared = 0;
+    const cases: {name: string; items: ParagraphItems}[] = [
+      ...sweepCases().map(one => ({name: one.name, items: one.items})),
+      {
+        name: 'two-fonts',
+        items: mixedCase([
+          textRun(0, REGULAR, 'liquor jugs and '),
+          textRun(1, WIDE, 'bold ex­tra\tspan'),
+        ]).items,
+      },
+      {name: 'tall', items: tallCase().items},
+    ];
+    for (const {name, items} of cases) {
+      for (const width of probeWidths(items)) {
+        walkPreparedLinesRaw(items, width, (walked, start, sg, end, eg) => {
+          compared++;
+          const span = {
+            start: {segmentIndex: start, graphemeIndex: sg},
+            end: {segmentIndex: end, graphemeIndex: eg},
+          };
+          const measured = measureLineSpan(items, span);
+          if (shapesASlice(items, span)) return;
+          if (Math.abs(measured - walked) > 1e-9) {
+            findings.push(
+              `${name}@${width}#${start}: ${measured} != ${walked}`,
+            );
+          }
+        });
+      }
+    }
+    expect(findings).toEqual([]);
+    expect(compared).toBeGreaterThanOrEqual(MEASURE_COMPARISONS);
   });
 
   it('stacks the lines it broke', () => {
@@ -577,7 +689,7 @@ describe('paragraph break pass', () => {
               compared++;
               if (!overflows(items, line, width)) return;
               // Only a unit that fits no band may pass its segment, alone.
-              if (!holdsOneUnit(items, line, line.segment.right >= width)) {
+              if (!holdsOneUnit(items, line)) {
                 findings.push(
                   `${name}/${set.name}/${wrap}@${width}: ` +
                     `${line.width} over ${available(line)}, shared`,
@@ -759,7 +871,7 @@ describe('paragraph break pass', () => {
           }
           if (!overflows(items, line, width)) continue;
           isolated++;
-          if (!holdsOneUnit(items, line, true)) {
+          if (!holdsOneUnit(items, line)) {
             findings.push(`${name}@${width}: an over-wide unit shares a line`);
           }
         }

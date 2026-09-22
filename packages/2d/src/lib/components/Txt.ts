@@ -12,6 +12,7 @@ import {
   createSignal,
   threadable,
   tween,
+  unwrap,
 } from '@canvas-commons/core';
 import {
   LayoutCursor,
@@ -57,6 +58,20 @@ import {TxtLeaf} from './TxtLeaf';
 import {ComponentChildren} from './types';
 
 type TxtChildren = string | Node | (string | Node)[];
+
+/** A {@link TextExclusion} in block space, with `node` sampled to a polygon. */
+type BlockExclusion = Extract<TextExclusion, {kind: 'rect' | 'polygon'}>;
+
+/** Compose `localToParent` from `node` up to, not including, `ancestor`. */
+function composeLocalToAncestor(node: Node, ancestor: Node | null): DOMMatrix {
+  let matrix = new DOMMatrix();
+  let current: Node | null = node;
+  while (current && current !== ancestor) {
+    matrix = current.localToParent().multiply(matrix);
+    current = current.parent();
+  }
+  return matrix;
+}
 
 export type TxtWrapMode = 'greedy' | 'knuth-plass';
 
@@ -470,18 +485,22 @@ export class Txt extends Shape {
   /**
    * Shapes that text should flow around (CSS `shape-outside`-style obstacles).
    *
+   * Coordinates are Txt-local and center-origin, so a rect's `x`/`y` is its
+   * center. A `node` exclusion reads its shape from a live {@link Node} and
+   * follows the node's position, rotation, and scale.
+   *
    * @remarks
-   * Coordinates are in pretext-space: `(0, 0)` is the top-left of the text
-   * block (which corresponds to Txt-local `(-width/2, -height/2)` in canvas
-   * coordinates). Rects are axis-aligned; polygons are closed point lists.
+   * A `node` exclusion needs this node's position and every shared ancestor's
+   * size to be independent of this text. Knuth-Plass wrapping falls back to
+   * greedy under exclusions. Rich text and inline children ignore exclusions.
    *
-   * When any exclusions are present, the line-walking loop switches from
-   * pretext's single-`maxWidth` greedy pass to a per-band loop that carves
-   * the available width on every line. `wrapMode === 'knuth-plass'` falls back
-   * to greedy under exclusions (KP over non-uniform widths is non-trivial).
-   *
-   * Exclusions currently apply only to single-style text without inline
-   * children; rich (nested styled) or inline content ignores them.
+   * @example
+   * ```tsx
+   * <Rect ref={badge} size={[200, 140]} position={[200, -70]} />
+   * <Txt width={800} exclusions={[{kind: 'node', node: badge}]}>
+   *   {paragraph}
+   * </Txt>
+   * ```
    */
   @initial([])
   @signal()
@@ -995,11 +1014,12 @@ export class Txt extends Shape {
     // change to any measurement input has to bust the cache.
     const prepared = this.preparedLayout();
     const wrapMode = this.wrapMode();
+    const exclusions = this.exclusions();
     const key: unknown[] = [
       prepared,
       this.resolvedLineHeight(),
       wrapMode,
-      this.exclusions(),
+      exclusions,
       // Knuth-Plass line breaking depends on whether the line will be
       // justified; other wrap modes only use textAlign to render, not break.
       wrapMode === 'knuth-plass' ? this.textAlign() : null,
@@ -1008,6 +1028,16 @@ export class Txt extends Shape {
       for (const inline of prepared.inlines) {
         if (inline) key.push(inline.size.y());
       }
+    }
+    // A node exclusion's polygon depends on its shape and its transform
+    // relative to this node's anchor.
+    for (const exclusion of exclusions) {
+      if (exclusion.kind !== 'node') continue;
+      const matrix = this.relativeAnchorFrame(unwrap(exclusion.node));
+      key.push(matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f);
+      const box = unwrap(exclusion.node).cacheBBox();
+      key.push(box.x, box.y, box.width, box.height);
+      key.push(this.anchor.x(), this.anchor.y());
     }
     const last = this.lastMeasureKey;
     if (
@@ -1255,10 +1285,122 @@ export class Txt extends Shape {
     };
   }
 
+  /** {@link Layout.localToParent} without the size-dependent anchor shift. */
+  private anchorFreeLocalToParent(): DOMMatrix {
+    const matrix = new DOMMatrix();
+    matrix.translateSelf(this.x(), this.y());
+    matrix.rotateSelf(0, 0, this.rotation());
+    matrix.scaleSelf(this.scale.x(), this.scale.y());
+    matrix.skewXSelf(this.skew.x());
+    matrix.skewYSelf(this.skew.y());
+    const translate = this.translate();
+    if (!translate.exactlyEquals(Vector2.zero)) {
+      matrix.translateSelf(translate.x, translate.y);
+    }
+    return matrix;
+  }
+
   /**
-   * Band-by-band greedy layout that wraps around `exclusions`. Used when one
-   * or more `exclusions` are present; falls back to pretext's single-width
-   * walker otherwise.
+   * Map `node`-local coordinates into this node's anchor frame through their
+   * lowest common ancestor, reading nothing at or above it.
+   */
+  private relativeAnchorFrame(node: Node): DOMMatrix {
+    const ancestors = new Set<Node>([this]);
+    for (let n = this.parent(); n; n = n.parent()) ancestors.add(n);
+    let lca: Node | null = node;
+    while (lca && !ancestors.has(lca)) lca = lca.parent();
+
+    let txtToLca = this.anchorFreeLocalToParent();
+    for (
+      let current = this.parent();
+      current && current !== lca;
+      current = current.parent()
+    ) {
+      txtToLca = current.localToParent().multiply(txtToLca);
+    }
+
+    return txtToLca.inverse().multiply(composeLocalToAncestor(node, lca));
+  }
+
+  /**
+   * Sample a `node` exclusion's shape into a polygon in Txt-local
+   * (center-origin) coordinates: a {@link Curve} walks its profile, roughly
+   * every 8px of arc length; any other node uses its {@link Node.cacheBBox}
+   * corners, so a rotated node still clips correctly.
+   */
+  private sampleNodeExclusion(node: Node, size: Vector2): Vector2[] {
+    const nodeToAnchorRelative = this.relativeAnchorFrame(node);
+    const anchorOffset = this.anchor().mul(size).scale(0.5);
+    const mapPoint = (point: Vector2) =>
+      point.transformAsPoint(nodeToAnchorRelative).add(anchorOffset);
+
+    if (node instanceof Curve) {
+      const profile = node.profile();
+      const points: Vector2[] = [];
+      profile.segments.forEach((segment, index) => {
+        const steps = clamp(1, 128, Math.ceil(segment.arcLength / 8));
+        for (let i = index === 0 ? 0 : 1; i <= steps; i++) {
+          points.push(mapPoint(segment.getPoint(i / steps).position));
+        }
+      });
+      return points;
+    }
+
+    return node.cacheBBox().corners.map(mapPoint);
+  }
+
+  /** Resolve every exclusion into block-space rects and polygons. */
+  private resolveExclusionsToBlockSpace(
+    exclusions: TextExclusion[],
+    size: Vector2,
+  ): BlockExclusion[] {
+    const half = size.scale(0.5);
+    const toBlock = (point: Vector2) => point.add(half);
+    const resolved: BlockExclusion[] = [];
+
+    for (const exclusion of exclusions) {
+      if (exclusion.kind === 'rect') {
+        const topLeft = toBlock(
+          new Vector2(
+            exclusion.x - exclusion.width / 2,
+            exclusion.y - exclusion.height / 2,
+          ),
+        );
+        resolved.push({
+          kind: 'rect',
+          x: topLeft.x,
+          y: topLeft.y,
+          width: exclusion.width,
+          height: exclusion.height,
+          horizontalPadding: exclusion.horizontalPadding,
+          verticalPadding: exclusion.verticalPadding,
+        });
+      } else if (exclusion.kind === 'polygon') {
+        resolved.push({
+          kind: 'polygon',
+          points: exclusion.points.map(p => toBlock(new Vector2(p))),
+          horizontalPadding: exclusion.horizontalPadding,
+          verticalPadding: exclusion.verticalPadding,
+        });
+      } else {
+        const points = this.sampleNodeExclusion(unwrap(exclusion.node), size);
+        if (points.length === 0) continue;
+        resolved.push({
+          kind: 'polygon',
+          points: points.map(toBlock),
+          horizontalPadding: exclusion.horizontalPadding,
+          verticalPadding: exclusion.verticalPadding,
+        });
+      }
+    }
+
+    return resolved;
+  }
+
+  /**
+   * Band-by-band greedy layout that wraps around `exclusions`, already
+   * resolved to block space. Used when one or more `exclusions` are present;
+   * falls back to pretext's single-width walker otherwise.
    *
    * @returns one entry per laid-out line, with `x` being the slot's left
    *   offset (in Txt-local pretext-space, where 0 = block left).
@@ -1266,7 +1408,7 @@ export class Txt extends Shape {
   private layoutWithExclusions(
     prepared: PreparedTextWithSegments,
     maxWidth: number,
-    exclusions: TextExclusion[],
+    exclusions: BlockExclusion[],
   ): {
     text: string;
     x: number;
@@ -1349,6 +1491,60 @@ export class Txt extends Shape {
     }
 
     return lines;
+  }
+
+  /** Lay out around exclusions, converging on this node's own height. */
+  private layoutWithExclusionsConverged(
+    prepared: PreparedTextWithSegments,
+    maxWidth: number,
+    exclusions: TextExclusion[],
+  ): {
+    text: string;
+    x: number;
+    width: number;
+    lineTop: number;
+    end: LayoutCursor;
+  }[] {
+    const lh = this.resolvedLineHeight();
+    const fixedHeight = this.height.context.getter();
+    const attempts = typeof fixedHeight === 'number' ? 1 : 4;
+
+    const minHeightRaw = this.minHeight.context.getter();
+    const maxHeightRaw = this.maxHeight.context.getter();
+    const minHeight =
+      typeof minHeightRaw === 'number' ? minHeightRaw : -Infinity;
+    const maxHeight =
+      typeof maxHeightRaw === 'number' ? maxHeightRaw : Infinity;
+
+    let height =
+      typeof fixedHeight === 'number'
+        ? fixedHeight
+        : clamp(minHeight, maxHeight, lh);
+
+    let bestLines: ReturnType<Txt['layoutWithExclusions']> = [];
+    let bestDiff = Infinity;
+    for (let i = 0; i < attempts; i++) {
+      const blockExclusions = this.resolveExclusionsToBlockSpace(
+        exclusions,
+        new Vector2(maxWidth, height),
+      );
+      const lines = this.layoutWithExclusions(
+        prepared,
+        maxWidth,
+        blockExclusions,
+      );
+      const last = lines[lines.length - 1];
+      const measuredHeight = last ? last.lineTop + lh : 0;
+      const diff = Math.abs(measuredHeight - height);
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        bestLines = lines;
+      }
+      if (diff < 0.5) break;
+      height = measuredHeight;
+    }
+
+    return bestLines;
   }
 
   /**
@@ -1484,7 +1680,7 @@ export class Txt extends Shape {
 
     const exclusions = this.exclusions();
     if (exclusions.length > 0 && Number.isFinite(maxWidth)) {
-      const bandLines = this.layoutWithExclusions(
+      const bandLines = this.layoutWithExclusionsConverged(
         prepared,
         maxWidth,
         exclusions,

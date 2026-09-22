@@ -1,9 +1,13 @@
+import {createRef} from '@canvas-commons/core';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
+import type {TextExclusion} from '../../partials/types';
 import {
   carveTextLineSlots,
   getPolygonIntervalForBand,
   getRectIntervalsForBand,
 } from '../../text/wrapGeometry';
+import {Layout} from '../Layout';
+import {Rect} from '../Rect';
 import {Txt} from '../Txt';
 import {mockScene2D} from './mockScene2D';
 
@@ -207,9 +211,10 @@ describe('Txt exclusion line geometry', () => {
     const txt = (
       <Txt
         width={400}
+        height={100}
         fontSize={10}
         lineHeight={20}
-        exclusions={[{kind: 'rect', x: 0, y: 2, width: 400, height: 16}]}
+        exclusions={[{kind: 'rect', x: 0, y: -40, width: 400, height: 16}]}
       >
         alpha beta gamma delta epsilon zeta eta theta iota kappa
       </Txt>
@@ -231,5 +236,308 @@ describe('Txt exclusion line geometry', () => {
 
     const last = layout.lines[layout.lines.length - 1];
     expect(layout.height).toBeCloseTo(last.top + last.height, 5);
+  });
+
+  /** Text and geometry only, for comparing layouts across two `Txt`s. */
+  const shapeOf = (txt: Txt) =>
+    txt.textLines().lines.map(line => ({
+      top: line.top,
+      fragments: line.fragments.map(f => ({text: f.text, x: f.x})),
+    }));
+
+  it('a rect given by its center blocks the expected band', () => {
+    const txt = (
+      <Txt
+        width={400}
+        height={100}
+        fontSize={10}
+        lineHeight={20}
+        exclusions={[{kind: 'rect', x: -150, y: -40, width: 100, height: 20}]}
+      >
+        cccccc
+      </Txt>
+    ) as Txt;
+
+    const layout = txt.textLines();
+    expect(layout.lines).toHaveLength(1);
+    // The exclusion covers block x [0, 100]; the line starts past it.
+    expect(layout.lines[0].fragments[0].x).toBe(100);
+  });
+
+  it('a node exclusion resolves to the same layout as the equivalent numeric rect', () => {
+    const numeric = (
+      <Txt
+        width={400}
+        height={100}
+        fontSize={10}
+        lineHeight={20}
+        exclusions={[{kind: 'rect', x: -150, y: -40, width: 100, height: 20}]}
+      >
+        cccccc
+      </Txt>
+    ) as Txt;
+
+    const blocker = new Rect({size: [100, 20], position: [-150, -40]});
+    const viaNode = (
+      <Txt
+        width={400}
+        height={100}
+        fontSize={10}
+        lineHeight={20}
+        exclusions={[{kind: 'node', node: blocker}]}
+      >
+        cccccc
+      </Txt>
+    ) as Txt;
+
+    expect(shapeOf(viaNode)).toEqual(shapeOf(numeric));
+  });
+
+  it('accepts a bare reference as the node', () => {
+    const blocker = createRef<Rect>();
+    void (<Rect ref={blocker} size={[100, 20]} position={[-150, -40]} />);
+    const txt = (
+      <Txt
+        width={400}
+        height={100}
+        fontSize={10}
+        lineHeight={20}
+        exclusions={[{kind: 'node', node: blocker}]}
+      >
+        cccccc
+      </Txt>
+    ) as Txt;
+    expect(txt.textLines().lines[0].fragments[0].x).toBe(100);
+  });
+
+  it('a rotated node exclusion pokes a corner into a band its axis-aligned box misses', () => {
+    // Long enough text to fill every 20px band across the 200px block.
+    const longText = Array.from({length: 200}, () => 'c').join(' ');
+    const xAtTop = (txt: Txt, top: number) =>
+      txt.textLines().lines.find(l => l.top === top)?.fragments[0]?.x;
+
+    const axisAligned = new Rect({size: [100, 100], position: [-150, 0]});
+    const straight = (
+      <Txt
+        width={400}
+        height={200}
+        fontSize={10}
+        lineHeight={20}
+        exclusions={[{kind: 'node', node: axisAligned}]}
+      >
+        {longText}
+      </Txt>
+    ) as Txt;
+
+    const rotated = new Rect({
+      size: [100, 100],
+      position: [-150, 0],
+      rotation: 45,
+    });
+    const turned = (
+      <Txt
+        width={400}
+        height={200}
+        fontSize={10}
+        lineHeight={20}
+        exclusions={[{kind: 'node', node: rotated}]}
+      >
+        {longText}
+      </Txt>
+    ) as Txt;
+
+    // The square's edge sits at block y = 50, so the band at top 20 is
+    // outside its reach; the diamond's corner reaches past y = 29.3 into it.
+    expect(xAtTop(straight, 20)).toBe(0);
+    expect(xAtTop(turned, 20)).toBeGreaterThan(1);
+
+    // Neither shape reaches all the way up to the very first band.
+    expect(xAtTop(straight, 0)).toBe(0);
+    expect(xAtTop(turned, 0)).toBe(0);
+  });
+
+  it('a bbox-fallback node exclusion resolves to the same layout as the equivalent numeric rect', () => {
+    const numeric = (
+      <Txt
+        width={400}
+        height={100}
+        fontSize={10}
+        lineHeight={20}
+        exclusions={[{kind: 'rect', x: -150, y: -40, width: 100, height: 20}]}
+      >
+        cccccc
+      </Txt>
+    ) as Txt;
+
+    const blocker = new Layout({size: [100, 20], position: [-150, -40]});
+    const viaNode = (
+      <Txt
+        width={400}
+        height={100}
+        fontSize={10}
+        lineHeight={20}
+        exclusions={[{kind: 'node', node: blocker}]}
+      >
+        cccccc
+      </Txt>
+    ) as Txt;
+
+    expect(shapeOf(viaNode)).toEqual(shapeOf(numeric));
+  });
+
+  it('an auto-height Txt with a non-zero anchor converges on a stable height', () => {
+    const exclusions: TextExclusion[] = [
+      {kind: 'rect', x: -150, y: 0, width: 100, height: 20},
+    ];
+
+    const auto = (
+      <Txt
+        width={400}
+        anchor={[0, 1]}
+        fontSize={10}
+        lineHeight={20}
+        exclusions={exclusions}
+      >
+        cccccc
+      </Txt>
+    ) as Txt;
+
+    const firstHeight = auto.textLines().height;
+    const secondHeight = auto.textLines().height;
+    expect(secondHeight).toBe(firstHeight);
+
+    const fixed = (
+      <Txt
+        width={400}
+        height={firstHeight}
+        anchor={[0, 1]}
+        fontSize={10}
+        lineHeight={20}
+        exclusions={exclusions}
+      >
+        cccccc
+      </Txt>
+    ) as Txt;
+
+    // The exclusion sits squarely in the single line's band either way, so a
+    // Txt that settles on this height should reproduce it exactly when fixed.
+    expect(fixed.textLines().height).toBeCloseTo(firstHeight, 5);
+    expect(shapeOf(fixed)).toEqual(shapeOf(auto));
+    expect(auto.textLines().lines[0].fragments[0].x).toBe(100);
+  });
+
+  it('a sibling under a transformed shared parent matches the standalone case', () => {
+    // The shared parent's own position and rotation must cancel out of the
+    // relative transform, same as when Txt and the node share no parent.
+    const parent = new Layout({
+      size: [800, 400],
+      position: [100, 50],
+      rotation: 10,
+    });
+    const blocker = new Rect({size: [100, 20], position: [-150, -40]});
+    const txt = new Txt({
+      width: 400,
+      height: 100,
+      fontSize: 10,
+      lineHeight: 20,
+      exclusions: [{kind: 'node', node: blocker}],
+      text: 'cccccc',
+    });
+    parent.add([txt, blocker]);
+
+    expect(txt.textLines().lines[0].fragments[0].x).toBe(100);
+  });
+
+  it('an excluded node that is itself a flex child of a fixed-size layout works', () => {
+    const blockerParent = new Layout({layout: true, width: 400, height: 100});
+    const blocker = new Rect({size: [100, 20]});
+    blockerParent.add([blocker]);
+
+    const txt = new Txt({
+      width: 400,
+      height: 100,
+      fontSize: 10,
+      lineHeight: 20,
+      exclusions: [{kind: 'node', node: blocker}],
+      text: 'cccccc',
+    });
+
+    expect(() => txt.textLines()).not.toThrow();
+    expect(txt.textLines().lines).toHaveLength(1);
+  });
+
+  it("resizing an excluded node's rect changes the layout", () => {
+    const blocker = new Rect({size: [300, 200], position: [-100, 0]});
+    const txt = (
+      <Txt
+        width={400}
+        height={200}
+        fontSize={10}
+        lineHeight={20}
+        exclusions={[{kind: 'node', node: blocker}]}
+      >
+        cccccc cccccc cccccc cccccc cccccc cccccc cccccc cccccc
+      </Txt>
+    ) as Txt;
+
+    const before = shapeOf(txt);
+    blocker.size([200, 300]);
+    const after = shapeOf(txt);
+
+    expect(after).not.toEqual(before);
+  });
+
+  it('a non-converging guess sequence still lays out past the band it blocked', () => {
+    // This exclusion's guesses cycle 20 -> 40 -> 60 -> 20 without settling
+    // (a full-width band exactly one line tall, centered on the block).
+    const exclusions: TextExclusion[] = [
+      {kind: 'rect', x: 0, y: 0, width: 400, height: 20},
+    ];
+    const txt = (
+      <Txt width={400} fontSize={10} lineHeight={20} exclusions={exclusions}>
+        cccccc
+      </Txt>
+    ) as Txt;
+
+    const layout = txt.textLines();
+    expect(layout.lines).toHaveLength(1);
+    // The chosen guess (20) fully blocked band [0, 20], so the line lands
+    // past it rather than inside it.
+    expect(layout.lines[0].top).toBe(20);
+    expect(layout.lines[0].fragments[0].x).toBe(0);
+  });
+
+  it('minHeight bounds the height guess to match an equivalent fixed height', () => {
+    const text = Array.from({length: 14}, () => 'cccccccccc').join(' ');
+    const exclusions: TextExclusion[] = [
+      {kind: 'rect', x: -150, y: 0, width: 10, height: 20},
+    ];
+
+    const withMinHeight = (
+      <Txt
+        width={400}
+        minHeight={100}
+        fontSize={10}
+        lineHeight={20}
+        exclusions={exclusions}
+      >
+        {text}
+      </Txt>
+    ) as Txt;
+
+    const fixed = (
+      <Txt
+        width={400}
+        height={100}
+        fontSize={10}
+        lineHeight={20}
+        exclusions={exclusions}
+      >
+        {text}
+      </Txt>
+    ) as Txt;
+
+    expect(withMinHeight.textLines().height).toBeCloseTo(100, 5);
+    expect(shapeOf(withMinHeight)).toEqual(shapeOf(fixed));
   });
 });

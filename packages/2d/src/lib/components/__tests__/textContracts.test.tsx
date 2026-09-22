@@ -1,6 +1,7 @@
 import {walkLineRanges} from '@chenglou/pretext';
-import {describe, expect, it} from 'vitest';
+import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import type {TextAlign, TextShapeExclusion} from '../../partials/types';
+import {clearPretextCache} from '../../text';
 import type {BrokenParagraph} from '../../text/breakParagraph';
 import {breakParagraph} from '../../text/breakParagraph';
 import {breakParagraphOptimally} from '../../text/knuthPlassParagraph';
@@ -16,10 +17,35 @@ import {
   prepareParagraph,
 } from '../../text/preparedParagraph';
 import {walkPreparedLinesRaw} from '../../text/pretext-derived/lineBreak';
-import {mockTextContext} from './mockTextContext';
-import {mockFontBounds, mockFontWidth} from './textInvariants';
+import {Txt, TxtProps} from '../Txt';
+import {failOnSceneErrors} from './failOnSceneErrors';
+import {mockScene2D} from './mockScene2D';
+import {TextState, mockTextContext} from './mockTextContext';
+import {add, fontSizeOf} from './sceneFixtures';
+import {
+  DrawProbe,
+  fillCalls,
+  glyphCount,
+  hintingFactor,
+  mockFontBounds,
+  mockFontWidth,
+} from './textInvariants';
 
-mockTextContext(mockFontWidth, mockFontBounds);
+/** True while the face snaps to whole pixels, so its advance steps with its size. */
+let Hinted = false;
+
+/**
+ * The fake font: at 20px 10px a glyph, bold at 41px 24.6px a glyph. Hinted,
+ * it paints {@link hintingFactor} of that.
+ */
+function faceWidth(text: string, state: TextState): number {
+  if (!Hinted) return mockFontWidth(text, state);
+  const size = fontSizeOf(state.font);
+  const spacing = parseFloat(state.letterSpacing) || 0;
+  return glyphCount(text) * (size * hintingFactor(size) * 0.5 + spacing);
+}
+
+mockTextContext(faceWidth, mockFontBounds);
 
 const REGULAR: RunMetrics = {font: '400 20px sans-serif', letterSpacing: 0};
 const WIDE: RunMetrics = {font: '700 41px sans-serif', letterSpacing: 0};
@@ -251,5 +277,50 @@ describe('text module contracts', () => {
       ['world', 350],
       ['\u05e9\u05dc\u05d5\u05dd', 240],
     ]);
+  });
+});
+
+describe('Txt autoSize contract', () => {
+  mockScene2D();
+  failOnSceneErrors();
+  beforeAll(() => {
+    Hinted = true;
+    clearPretextCache();
+  });
+  afterAll(() => {
+    Hinted = false;
+    clearPretextCache();
+  });
+
+  it('picks the size an exhaustive scan of a stepping face picks', () => {
+    // The face is 2% wide at the 41px cap and 2% narrow at 24px, so advances
+    // scaled from the cap reject 24px although its first line inks 188.16.
+    const box = {width: 190, height: 60};
+    const props: TxtProps = {
+      ...box,
+      text: 'pack my box with five dozen jugs',
+      lineHeight: '100%',
+    };
+    const fitted = new Txt({...props, fontSize: 41, autoSize: true});
+    add(fitted);
+    const probe = new DrawProbe({...props, fontSize: 41});
+    add(probe);
+    const fits = () =>
+      probe.textLines().height <= box.height &&
+      fillCalls(probe).every(
+        call =>
+          call.x >= -box.width / 2 &&
+          call.x +
+            faceWidth(call.text, {font: call.font, letterSpacing: '0px'}) <=
+            box.width / 2,
+      );
+    let largest = 0;
+    for (let size = 41; size >= 1 && largest === 0; size--) {
+      probe.fontSize(size);
+      if (fits()) largest = size;
+    }
+
+    expect(largest).toBe(24);
+    expect(fitted.effectiveFontSize()).toBe(largest);
   });
 });

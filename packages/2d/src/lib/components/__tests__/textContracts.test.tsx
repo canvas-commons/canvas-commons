@@ -1,6 +1,6 @@
 import {walkLineRanges} from '@chenglou/pretext';
 import {describe, expect, it} from 'vitest';
-import type {TextExclusion} from '../../partials/types';
+import type {TextAlign, TextExclusion} from '../../partials/types';
 import type {BrokenParagraph} from '../../text/breakParagraph';
 import {breakParagraph} from '../../text/breakParagraph';
 import {breakParagraphOptimally} from '../../text/knuthPlassParagraph';
@@ -8,6 +8,8 @@ import {readVerticalMetrics} from '../../text/lineMetrics';
 import {prepareMixedParagraph} from '../../text/mixedParagraph';
 import type {RunMetrics} from '../../text/paragraphContent';
 import {buildParagraphContent} from '../../text/paragraphContent';
+import type {TextDirection} from '../../text/placeParagraph';
+import {paintAnchorOf, placeParagraph} from '../../text/placeParagraph';
 import type {WhiteSpaceMode} from '../../text/preparedParagraph';
 import {
   canvasParagraphMeasurer,
@@ -81,6 +83,36 @@ function linesOf(paragraph: Paragraph, broken: BrokenParagraph): string[] {
       .slice(offset(line.start.segmentIndex), offset(line.end.segmentIndex))
       .trim(),
   );
+}
+
+/** Every run a placement paints and its pen, read from the placed data. */
+function placedRuns(
+  paragraph: Paragraph,
+  width: number,
+  textAlign: TextAlign,
+  direction: TextDirection,
+): [string, number][] {
+  const placed = placeParagraph(paragraph.items, greedy(paragraph, width), {
+    text: paragraph.text,
+    metrics: paragraph.metrics,
+    vertical: paragraph.vertical,
+    textAlign,
+    direction,
+    verticalAlign: 'top',
+    blockWidth: width,
+    blockHeight: 1000,
+    measurer: canvasParagraphMeasurer,
+  });
+  const runs: [string, number][] = [];
+  for (const line of placed.lines) {
+    for (const piece of line.pieces) {
+      const text = paragraph.text.slice(piece.sourceStart, piece.sourceEnd);
+      if (text.trim() === '' || piece.advance <= 0) continue;
+      const anchor = paintAnchorOf(piece, piece.sourceStart, piece.sourceEnd);
+      runs.push([anchor.text, anchor.penX]);
+    }
+  }
+  return runs;
 }
 
 describe('text module contracts', () => {
@@ -195,6 +227,29 @@ describe('text module contracts', () => {
       'aa bb cc',
       'dddd',
       'eeee',
+    ]);
+  });
+
+  it('gives the justification slack to the spaces of every line but the last', () => {
+    const paragraph = paragraphOf([[REGULAR, 'aa bb cc dd']]);
+
+    expect(placedRuns(paragraph, 100, 'justify', 'ltr')).toEqual([
+      ['aa', 0],
+      ['bb', 40],
+      ['cc', 80],
+      ['dd', 0],
+    ]);
+  });
+
+  it('puts an rtl run of an rtl block left of the Latin in front of it', () => {
+    const paragraph = paragraphOf([
+      [REGULAR, 'Hello world \u05e9\u05dc\u05d5\u05dd'],
+    ]);
+
+    expect(placedRuns(paragraph, 400, 'right', 'rtl')).toEqual([
+      ['Hello', 290],
+      ['world', 350],
+      ['\u05e9\u05dc\u05d5\u05dd', 240],
     ]);
   });
 });

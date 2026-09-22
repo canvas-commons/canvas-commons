@@ -60,6 +60,48 @@ import {ComponentChild, ComponentChildren} from './types';
 
 type TxtChildren = string | Node | (string | Node)[];
 
+/** A copy that keeps its geometry when the caller reuses the original. */
+function snapshotExclusion(exclusion: TextExclusion): TextExclusion {
+  return exclusion.kind === 'rect'
+    ? {...exclusion}
+    : {...exclusion, points: exclusion.points.map(point => ({...point}))};
+}
+
+function sameExclusion(a: TextExclusion, b: TextExclusion): boolean {
+  if (
+    a.horizontalPadding !== b.horizontalPadding ||
+    a.verticalPadding !== b.verticalPadding
+  ) {
+    return false;
+  }
+  if (a.kind === 'rect') {
+    return (
+      b.kind === 'rect' &&
+      a.x === b.x &&
+      a.y === b.y &&
+      a.width === b.width &&
+      a.height === b.height
+    );
+  }
+  return (
+    b.kind === 'polygon' &&
+    a.points.length === b.points.length &&
+    a.points.every(
+      (point, i) => point.x === b.points[i].x && point.y === b.points[i].y,
+    )
+  );
+}
+
+function sameExclusions(
+  a: readonly TextExclusion[],
+  b: readonly TextExclusion[],
+): boolean {
+  return (
+    a.length === b.length &&
+    a.every((exclusion, i) => sameExclusion(exclusion, b[i]))
+  );
+}
+
 export type TxtWrapMode = 'greedy' | 'knuth-plass';
 
 /**
@@ -998,7 +1040,10 @@ export class Txt extends Shape {
     return false;
   }
 
-  private lastMeasureKey: unknown[] | null = null;
+  private lastMeasureKey: {
+    values: unknown[];
+    exclusions: TextExclusion[];
+  } | null = null;
   private measureFuncReady = false;
 
   @computed()
@@ -1008,27 +1053,31 @@ export class Txt extends Shape {
     // change to any measurement input has to bust the cache.
     const prepared = this.preparedLayout();
     const wrapMode = this.wrapMode();
-    const key: unknown[] = [
+    const exclusions = this.exclusions();
+    const values: unknown[] = [
       prepared,
       this.resolvedLineHeight(),
       wrapMode,
-      this.exclusions(),
       // Knuth-Plass line breaking depends on whether the line will be
       // justified; other wrap modes only use textAlign to render, not break.
       wrapMode === 'knuth-plass' ? this.textAlign() : null,
     ];
     if (prepared?.kind === 'rich') {
       for (const inline of prepared.inlines) {
-        if (inline) key.push(inline.size.y());
+        if (inline) values.push(inline.size.y());
       }
     }
     const last = this.lastMeasureKey;
     if (
       !last ||
-      last.length !== key.length ||
-      key.some((value, i) => value !== last[i])
+      last.values.length !== values.length ||
+      values.some((value, i) => value !== last.values[i]) ||
+      !sameExclusions(exclusions, last.exclusions)
     ) {
-      this.lastMeasureKey = key;
+      this.lastMeasureKey = {
+        values,
+        exclusions: exclusions.map(snapshotExclusion),
+      };
       // The super constructor lays out before setMeasureFunc runs; markDirty
       // on a measure-less yoga node aborts, so defer until the func is set.
       if (this.measureFuncReady) {

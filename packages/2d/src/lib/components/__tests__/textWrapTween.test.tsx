@@ -88,7 +88,7 @@ describe('Txt textWrap during text tweens', () => {
       // textLerp's shrinking branch keeps the source head and writes target
       // characters behind it; the typed region must break at the target's
       // offset (10), not the source's (9).
-      expect(lineTexts(txt)).toEqual(['xx a bbbb ', 'ccccv']);
+      expect(lineTexts(txt)).toEqual(['xx a bbbb', 'ccccv']);
     }),
   );
 
@@ -104,7 +104,7 @@ describe('Txt textWrap during text tweens', () => {
 
       // The typed head wraps like the new text, the remaining tail keeps the
       // old text's breaks — 'gg hh' must not hop up a line mid-tween.
-      expect(lineTexts(txt)).toEqual(['aaaaaa bb ', 'c ee ff ', 'gg hh']);
+      expect(lineTexts(txt)).toEqual(['aaaaaa bb', 'c ee ff', 'gg hh']);
     }),
   );
 
@@ -130,7 +130,7 @@ describe('Txt textWrap during text tweens', () => {
       yield txt.text('aaaa\nff gg hh ii', 2, linear);
       yield* waitFor(1);
 
-      expect(lineTexts(txt)).toEqual(['aaaa', 'ff cc dd ', 'ee']);
+      expect(lineTexts(txt)).toEqual(['aaaa', 'ff cc dd', 'ee']);
     }),
   );
 
@@ -174,7 +174,7 @@ describe('Txt textWrap during text tweens', () => {
       );
       // Lines 1-2 sit beside the exclusion (x = 50, 10 chars wide), line 3
       // clears it — 'gg hh' must stay on its own line instead of refilling.
-      expect(texts).toEqual(['aaaaaa bb ', 'c ee ff ', 'gg hh']);
+      expect(texts).toEqual(['aaaaaa bb', 'c ee ff', 'gg hh']);
       expect(layout.lines.map(l => l.fragments[0].x)).toEqual([50, 50, 0]);
     }),
   );
@@ -230,14 +230,16 @@ describe('Txt textWrap during text tweens', () => {
       yield* waitFor(1);
 
       // Resolved width 100 matches the fixed-width morph case exactly.
-      expect(lineTexts(txt)).toEqual(['aaaaaa bb ', 'c ee ff ', 'gg hh']);
+      expect(lineTexts(txt)).toEqual(['aaaaaa bb', 'c ee ff', 'gg hh']);
     }),
   );
 
   it(
     'keeps wrapping a percent-width Txt resolved to a width of zero',
     generatorTest(function* (view) {
-      const txt = (<Txt textWrap width={'100%'} text={'abc'} />) as Txt;
+      const txt = (
+        <Txt textWrap overflowWrap={'anywhere'} width={'100%'} text={'abc'} />
+      ) as Txt;
       view.add(
         <Layout layout width={0} height={400}>
           {txt}
@@ -285,7 +287,7 @@ describe('Txt textWrap during text tweens', () => {
       yield txt.text('aaaaaa bb cc dd ee ff g', 2, linear);
       yield* waitFor(1);
       const frozen = lineTexts(txt);
-      expect(frozen).toEqual(['aaaaaa bb ', 'c ee ff ', 'gg hh']);
+      expect(frozen).toEqual(['aaaaaa bb', 'c ee ff', 'gg hh']);
 
       // A concurrent container resize does not re-break the running tween...
       parent.width(300);
@@ -314,11 +316,11 @@ describe('Txt textWrap during text tweens', () => {
 
       // The captured breaks describe the old target, so the rest of the tween
       // wraps at the box width; only a soft break's trailing space overhangs.
-      expect(lineTexts(txt)).toEqual(['zzzz yyyy ', 'xxee ff gg ', 'hhv']);
+      expect(lineTexts(txt)).toEqual(['zzzz yyyy', 'xxee ff gg', 'hhv']);
 
       yield* waitFor(1);
       expect(txt.text()).toBe('zzzz yyyy xxxx wwww vvvv');
-      expect(lineTexts(txt)).toEqual(['zzzz yyyy ', 'xxxx wwww ', 'vvvv']);
+      expect(lineTexts(txt)).toEqual(['zzzz yyyy', 'xxxx wwww', 'vvvv']);
     }),
   );
 
@@ -341,7 +343,7 @@ describe('Txt textWrap during text tweens', () => {
 
       yield* waitFor(1);
       expect(txt.text()).toBe('mmmm nnnn oooo pppp');
-      expect(lineTexts(txt)).toEqual(['mmmm nnnn ', 'oooo pppp']);
+      expect(lineTexts(txt)).toEqual(['mmmm nnnn', 'oooo pppp']);
     }),
   );
 
@@ -363,11 +365,11 @@ describe('Txt textWrap during text tweens', () => {
       // A dropped plan is never picked back up, so no captured break is
       // injected and the text soft-wraps at the box width instead.
       expect(txt.text()).toBe('aaaaaa bb c ee ff gg hh');
-      expect(lineTexts(txt)).toEqual(['aaaaaa bb ', 'c ee ff gg ', 'hh']);
+      expect(lineTexts(txt)).toEqual(['aaaaaa bb', 'c ee ff gg', 'hh']);
 
       yield* waitFor(1);
       expect(txt.text()).toBe('aaaaaa bb cc dd ee ff g');
-      expect(lineTexts(txt)).toEqual(['aaaaaa bb ', 'cc dd ee ', 'ff g']);
+      expect(lineTexts(txt)).toEqual(['aaaaaa bb', 'cc dd ee', 'ff g']);
     }),
   );
 
@@ -436,8 +438,29 @@ describe('Txt textWrap during text tweens', () => {
         />
       ) as Txt;
       expect(txt.text()).toBe('xxxx yyyy cc dd');
-      expect(lineTexts(txt)).toEqual(['xxxx yyyy ', 'cc dd']);
+      expect(lineTexts(txt)).toEqual(['xxxx yyyy', 'cc dd']);
       expect(wordPositions(txt)).toEqual(wordPositions(settled));
+    }),
+  );
+
+  it(
+    'keeps wrapping a Txt bounded by maxWidth mid-tween',
+    generatorTest(function* (view) {
+      const txt = (
+        <Txt maxWidth={100} textWrap textAlign={'center'}>
+          aaaa
+        </Txt>
+      ) as Txt;
+      view.add(txt);
+
+      yield txt.text('aaaa bbbb cccc dddd eeee ffff', 2, linear);
+      yield* waitFor(1);
+
+      expect(txt.textWrap()).toBe(true);
+      expect(lineTexts(txt).length).toBeGreaterThan(1);
+      for (const line of lineTexts(txt)) {
+        expect(line.trimEnd().length).toBeLessThanOrEqual(10);
+      }
     }),
   );
 
@@ -485,9 +508,9 @@ describe('Txt textWrap during text tweens', () => {
 
       expect(lineTexts(txt)).toEqual([
         'Water. Earth. Fire. A',
-        'balance between the Water ',
-        'Tribes, Earth Kingdom, ',
-        'Fire Nation, and Air ',
+        'balance between the Water',
+        'Tribes, Earth Kingdom,',
+        'Fire Nation, and Air',
         'Nomads.',
       ]);
     }),
@@ -506,7 +529,7 @@ describe('Txt textWrap during text tweens', () => {
         flat = txt.text().replace(/-?\n/g, '');
       }
 
-      expect(lineTexts(txt)).toEqual(['cccc cbb ', 'aaa']);
+      expect(lineTexts(txt)).toEqual(['cccc cbb', 'aaa']);
     }),
   );
 
@@ -538,7 +561,7 @@ describe('Txt textWrap during text tweens', () => {
       // The candidate line at the seam ('abbbab') fits the 60px box, but is
       // drawn with a trailing hyphen ('abbbab-') that would not — the break
       // must land at the seam instead of overhanging the box.
-      expect(lineTexts(txt)).toEqual(['bbbab-', 'abbb', 'ab-', 'bbbba ']);
+      expect(lineTexts(txt)).toEqual(['bbbab-', 'abbb', 'ab-', 'bbbba']);
     }),
   );
 });

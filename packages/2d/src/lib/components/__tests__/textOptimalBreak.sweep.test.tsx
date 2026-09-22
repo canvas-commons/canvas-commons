@@ -119,7 +119,7 @@ const AGREED_LINES = 1123;
 const SEARCHED_PLANS = 2552;
 const INTERIOR_BREAKS = 16;
 const SELECTED_LINES = 1105;
-const MEASURED_STOPS = 474;
+const MEASURED_STOPS = 388;
 const BANDED_PLANS = 11184;
 const BANDED_LINES = 554;
 const AGREED_BANDED_LINES = 464;
@@ -944,7 +944,7 @@ describe('optimal paragraph break pass', () => {
       items,
       constraintsOf(vertical, 88, true),
     );
-    expect(broken.lines.map(breakKey)).toEqual(['0.0-3.0', '3.0-5.0']);
+    expect(broken.lines.map(breakKey)).toEqual(['0.0-4.0', '4.0-5.0']);
   });
 
   it('charges letter spacing the way the measure pays it', () => {
@@ -1045,6 +1045,31 @@ describe('optimal paragraph break pass', () => {
     }
     expect(findings).toEqual([]);
     expect(checked).toBeGreaterThanOrEqual(SELECTED_LINES);
+  });
+
+  it('breaks around an over-wide unit as the greedy pass does', () => {
+    for (const whiteSpace of ['normal', 'pre-wrap'] as const) {
+      for (const text of [
+        'aa supercalifragilistic ok',
+        'aa www.example.com/abcdefghij ok',
+      ]) {
+        const metrics = metricsOf(whiteSpace, 0);
+        const {items} = prepareParagraph(text, metrics);
+        const vertical = verticalOf(items, [metrics]);
+        const greedy = breakParagraph(items, {
+          maxWidth: 100,
+          textWrap: true,
+          overflowWrap: 'normal',
+          exclusions: [],
+          vertical,
+        });
+        const optimal = breakParagraphOptimally(
+          items,
+          constraintsOf(vertical, 100),
+        );
+        expect(greedy.lines.map(breakKey)).toEqual(optimal.lines.map(breakKey));
+      }
+    }
   });
 
   it('refuses a hyphen the shared measure would not fit', () => {

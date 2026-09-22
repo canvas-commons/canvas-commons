@@ -22,6 +22,7 @@ describe('Txt in a flex row', () => {
   it('wraps at a resolved width of zero', () => {
     const probe = new Probe({
       text: 'abc',
+      overflowWrap: 'anywhere',
       fontSize: 10,
       lineHeight: 20,
       minWidth: 0,

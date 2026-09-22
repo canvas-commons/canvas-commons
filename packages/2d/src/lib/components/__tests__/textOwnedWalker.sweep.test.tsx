@@ -430,6 +430,9 @@ describe('owned line walker', () => {
     expect(hashed).toContain('src/analysis.ts:normalizeWhitespaceNormal');
     expect(hashed).toContain('src/analysis.ts:normalizeWhitespacePreWrap');
     expect(hashed).toContain('src/analysis.ts:SegmentBreakKind');
+    expect(hashed).toContain('src/bidi.ts:computeBidiLevels');
+    expect(hashed).toContain('src/bidi.ts:resolveParagraphLevels');
+    expect(hashed).toContain('src/generated/bidi-data.ts');
   });
 
   it('reads a paragraph into items the walker owns', () => {

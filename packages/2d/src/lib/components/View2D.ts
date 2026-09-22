@@ -53,7 +53,6 @@ export class View2D extends Rect {
 
   @computed()
   protected override requestLayoutUpdate() {
-    this.updateLayout();
     const size = this.desiredSize();
     this.calculateRootLayout(
       typeof size.x === 'number' ? size.x : undefined,

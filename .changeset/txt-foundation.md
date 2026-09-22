@@ -18,6 +18,11 @@ so a wrapped `<Txt>` shrink-wraps to its ink. Runs of different sizes on one
 line share one baseline, and a word that a colour or font change cuts keeps the
 kerning of the whole word.
 
+Flex items keep the automatic minimum size CSS gives them: a `<Txt>` in a row
+stays as wide as the widest word it lays out, a container keeps room for the
+text under it, and an unconstrained column item keeps its content height. Set
+`minWidth={0}` or `minHeight={0}` to shrink past that.
+
 A nested `<Txt>` no longer lays out its own text: its `size()` is the extent of
 the text it paints in the root paragraph, across every line it wraps onto, not
 the size of its text set alone on one line. It ignores `width`, `height` and

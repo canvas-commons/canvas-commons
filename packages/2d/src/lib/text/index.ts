@@ -6,6 +6,7 @@ export * from './font';
 export * from './knuthPlassParagraph';
 export * from './lineMetrics';
 export * from './lineSpan';
+export * from './minContentWidth';
 export * from './mixedParagraph';
 export * from './paragraphContent';
 export * from './paragraphItems';

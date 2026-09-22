@@ -81,6 +81,7 @@ import {
   toYogaJustifyContent,
   type YogaNode,
 } from '../utils/yoga';
+import {ContentFloors} from './contentFloors';
 import {transitionTo as runTransitionTo} from './layout/transitionTo';
 import {Node, NodeProps} from './Node';
 import type {LayoutSettler, SettledBox} from './settledLayout';
@@ -278,6 +279,10 @@ function sameBoxes(a: readonly SettledBox[], b: readonly SettledBox[]) {
   );
 }
 
+function isRowDirection(direction: FlexDirection): boolean {
+  return direction === 'row' || direction === 'row-reverse';
+}
+
 @nodeName('Layout')
 export class Layout extends Node {
   @initial(null)
@@ -309,6 +314,20 @@ export class Layout extends Node {
   @initial(null)
   @signal()
   declare public readonly maxHeight: SimpleSignal<LengthLimit, this>;
+  /**
+   * The smallest width flex may shrink this node to. Left unset, a flex item
+   * of a row keeps room for its narrowest content, capped by its own `width`
+   * and `maxWidth`; `0` lets it shrink past that, as CSS `min-width: 0` does.
+   *
+   * @example
+   * ```tsx
+   * <Layout layout width={420}>
+   *   <Layout minWidth={0}>
+   *     <Txt text={'Content'} />
+   *   </Layout>
+   * </Layout>
+   * ```
+   */
   @initial(null)
   @signal()
   declare public readonly minWidth: SimpleSignal<LengthLimit, this>;
@@ -1002,7 +1021,6 @@ export class Layout extends Node {
     const parent = this.parentTransform();
     if (this.isLayoutRoot()) {
       parent?.requestFontUpdate();
-      this.updateLayout();
       const {width, height} = this.resolveLayoutConstraint();
       this.calculateRootLayout(width, height);
     } else {
@@ -1011,9 +1029,9 @@ export class Layout extends Node {
   }
 
   /**
-   * Run yoga layout for this root, resolving a missing dimension from its
-   * aspect ratio and percent-sized children of auto-sized containers when
-   * needed.
+   * Apply the tree's layout inputs and run yoga for this root, resolving a
+   * missing dimension from its aspect ratio and percent-sized children of
+   * auto-sized containers when needed.
    */
   protected calculateRootLayout(
     width: number | undefined,
@@ -1021,6 +1039,7 @@ export class Layout extends Node {
   ) {
     const settling = this.settlingTree();
     if (settling) this.unsettle(settling);
+    this.updateLayout();
     this.yogaNode.calculateLayout(width, height);
     const aspectRatioConstraint = this.resolveAspectRatioConstraint(
       width,
@@ -1049,8 +1068,8 @@ export class Layout extends Node {
   }
 
   /**
-   * Forget the boxes of the last pass, so the first pass reads none and the
-   * result never depends on an earlier one.
+   * Forget the boxes of the last pass before the tree reads its inputs, so the
+   * first pass reads none and the result never depends on an earlier one.
    */
   private unsettle({nodes, settlers}: SettlingTree): void {
     for (const node of nodes) SettledBoxes.delete(node);
@@ -1238,7 +1257,7 @@ export class Layout extends Node {
   }
 
   @computed()
-  protected applyLayout(): Layout[] {
+  private participatingChildren(): Layout[] {
     const queue = [...this.children()];
     const result: Layout[] = [];
     while (queue.length) {
@@ -1251,6 +1270,12 @@ export class Layout extends Node {
         queue.unshift(...child.children());
       }
     }
+    return result;
+  }
+
+  @computed()
+  protected applyLayout(): Layout[] {
+    const result = this.participatingChildren();
 
     for (let i = this.yogaNode.getChildCount() - 1; i >= 0; i--) {
       this.yogaNode.removeChild(this.yogaNode.getChild(i));
@@ -1374,6 +1399,133 @@ export class Layout extends Node {
     this.position(this.position().add(newOffset).sub(oldOffset));
   }
 
+  /**
+   * Whether this node lays out text, directly or through its children. Only
+   * text gets an automatic minimum size; other content keeps flex defaults.
+   */
+  @computed()
+  private containsText(): boolean {
+    return (
+      ContentFloors.has(this) ||
+      (this.canLayoutChildren() &&
+        this.participatingChildren().some(child => child.containsText()))
+    );
+  }
+
+  /** Narrowest width this node's own content fits in, padding included. */
+  @computed()
+  private minContentWidth(): number {
+    const padding = this.padding.left() + this.padding.right();
+    const floor = ContentFloors.get(this);
+    if (floor !== undefined) {
+      return floor() + padding;
+    }
+    const children = this.canLayoutChildren()
+      ? this.participatingChildren()
+      : [];
+    if (children.length === 0) {
+      return padding;
+    }
+
+    let content = 0;
+    if (isRowDirection(this.direction()) && this.wrap() === 'nowrap') {
+      for (const child of children) {
+        content += child.minContentContribution();
+      }
+      const gap = this.gap.x();
+      if (typeof gap === 'number') {
+        content += gap * (children.length - 1);
+      }
+    } else {
+      for (const child of children) {
+        content = Math.max(content, child.minContentContribution());
+      }
+    }
+
+    return content + padding;
+  }
+
+  /** What this node adds to the content floor of the parent that lays it out. */
+  @computed()
+  private minContentContribution(): number {
+    const width = this.desiredSize().x;
+    let content = 0;
+    if (typeof width === 'number') {
+      content = width;
+    } else if (width === null) {
+      content = this.minContentWidth();
+    }
+
+    const max = this.maxWidth();
+    if (typeof max === 'number') {
+      content = Math.min(content, max);
+    }
+    const min = this.minWidth();
+    if (typeof min === 'number') {
+      content = Math.max(content, min);
+    }
+
+    return content + this.margin.left() + this.margin.right();
+  }
+
+  @computed()
+  private parentDirection(): FlexDirection | null {
+    if (this.isLayoutRoot()) {
+      return null;
+    }
+    return this.parentTransform()?.direction() ?? null;
+  }
+
+  /** The declared minimum width, or the content floor of a row item. */
+  private resolvedMinWidth(): LengthLimit {
+    const declared = this.minWidth();
+    if (declared !== null) {
+      return declared;
+    }
+
+    const direction = this.parentDirection();
+    if (direction === null || !isRowDirection(direction)) {
+      return null;
+    }
+    if (!this.containsText()) {
+      return null;
+    }
+
+    const width = this.desiredSize().x;
+    if (width !== null && typeof width !== 'number') {
+      return null;
+    }
+
+    let floor = this.minContentWidth();
+    if (typeof width === 'number') {
+      floor = Math.min(floor, width);
+    }
+    const max = this.maxWidth();
+    if (typeof max === 'number') {
+      floor = Math.min(floor, max);
+    }
+
+    return floor > 0 ? floor : null;
+  }
+
+  /** Flex shrink, which an unconstrained column item holding text opts out of. */
+  private resolvedShrink(): number {
+    const shrink = this.shrink();
+    if (!this.containsText()) {
+      return shrink;
+    }
+    if (
+      this.minHeight() !== null ||
+      this.desiredSize().y !== null ||
+      this.basis() !== null
+    ) {
+      return shrink;
+    }
+
+    const direction = this.parentDirection();
+    return direction === null || isRowDirection(direction) ? shrink : 0;
+  }
+
   @computed()
   protected applyFlex() {
     const node = this.yogaNode;
@@ -1386,7 +1538,7 @@ export class Layout extends Node {
     setYogaDimension(node, 'setWidth', size.x);
     setYogaDimension(node, 'setHeight', size.y);
     setYogaDimension(node, 'setMaxWidth', this.maxWidth());
-    setYogaDimension(node, 'setMinWidth', this.minWidth());
+    setYogaDimension(node, 'setMinWidth', this.resolvedMinWidth());
     setYogaDimension(node, 'setMaxHeight', this.maxHeight());
     setYogaDimension(node, 'setMinHeight', this.minHeight());
 
@@ -1430,7 +1582,7 @@ export class Layout extends Node {
       node.setFlexShrink(0);
     } else {
       node.setFlexGrow(this.grow());
-      node.setFlexShrink(this.shrink());
+      node.setFlexShrink(this.resolvedShrink());
     }
   }
 

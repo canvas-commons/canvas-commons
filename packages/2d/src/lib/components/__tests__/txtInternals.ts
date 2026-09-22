@@ -9,6 +9,11 @@ export function paragraphOf(txt: Txt) {
   return txt['paragraph']();
 }
 
+/** The narrowest width the paragraph's lines fit in. */
+export function contentFloorOf(txt: Txt) {
+  return txt['contentFloor']();
+}
+
 /** The placement at a width, as layout and paint read it. */
 export function naturalPlacementOf(txt: Txt, maxWidth: number) {
   return txt['naturalPlacement'](maxWidth);

@@ -15,7 +15,6 @@ import {
   TEXTS,
   WRAP_MODES,
   aHyphenLineIsAlignedShortOfItsInk,
-  aLineIsFitShortOfItsInk,
   buildForm,
   declaredIn,
   everyThirdHyphenator,
@@ -401,7 +400,6 @@ function overflowsOf(
         text,
         right - segment.right,
       ) &&
-      !aLineIsFitShortOfItsInk(line, right - segment.right) &&
       (left < segment.left - TOLERANCE || right > segment.right + TOLERANCE)
     ) {
       overflows.push({

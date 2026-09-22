@@ -12,6 +12,7 @@ import {
   breaksAfter,
   getBreakableFitAdvances,
   getBreakOpportunityFitContribution,
+  getDiscretionaryHyphenFitWidth,
   getDiscretionaryHyphenWidth,
   getLeadingLetterSpacing,
   getLineEndPaintContribution,
@@ -107,15 +108,17 @@ function endContribution(
   kind: ParagraphItemKind,
   index: number,
   leading: number,
+  inkFit: boolean,
 ): number {
   return breaksAfter(kind)
-    ? getBreakOpportunityFitContribution(items, kind, index, leading)
+    ? getBreakOpportunityFitContribution(items, kind, index, leading, inkFit)
     : getWholeSegmentFitContribution(
         items,
         kind,
         index,
         leading,
         items.widths[index],
+        inkFit,
       );
 }
 
@@ -153,6 +156,7 @@ function itemAdvance(
   to: number,
   role: ItemRole,
   originLeft: number,
+  inkFit: boolean,
 ): number {
   const kind = items.kinds[index];
   if (kind === 'soft-hyphen' || kind === 'hard-break') return state.width;
@@ -179,8 +183,14 @@ function itemAdvance(
     }
     // Inside an item every candidate carries the gap behind its last glyph,
     // which a whole item carries in its line-end advance.
+    const spacing = items.letterSpacings[index];
     const trailing =
-      role === 'fit-inner' || paints(role) ? 0 : items.letterSpacings[index];
+      role === 'fit-inner' || paints(role)
+        ? 0
+        : inkFit
+          ? Math.max(0, spacing)
+          : spacing;
+
     const shaped = paints(role)
       ? getPartialPaintCorrection(items, index, from, to)
       : 0;
@@ -201,6 +211,7 @@ function itemAdvance(
           index,
           leading,
           advance,
+          inkFit,
         );
         break;
       case 'fit-end':
@@ -209,6 +220,7 @@ function itemAdvance(
           kind,
           index,
           leading,
+          inkFit,
         );
         break;
       default:
@@ -226,10 +238,11 @@ function itemAdvance(
         index,
         leading,
         items.widths[index],
+        inkFit,
       );
       break;
     case 'fit-end':
-      contribution = endContribution(items, kind, index, leading);
+      contribution = endContribution(items, kind, index, leading, inkFit);
       break;
     case 'paint-end':
       contribution = getLineEndPaintContribution(
@@ -255,6 +268,7 @@ function advanceState(
   from: number,
   role: ItemRole,
   originLeft: number,
+  inkFit: boolean,
 ): void {
   const width = itemAdvance(
     items,
@@ -265,6 +279,7 @@ function advanceState(
     -1,
     role,
     originLeft,
+    inkFit,
   );
   state.hasContent = holdsContentAfter(items, state, index, from);
   state.width = width;
@@ -291,11 +306,15 @@ export type LineSpanMeasure = {
  * const measure = measureLineSpansFrom(items, chunkStart);
  * const fit = measure.fitTo({segmentIndex: 4, graphemeIndex: 0});
  * ```
+ *
+ * @param inkFit - True measures a fit against the ink a line paints; see
+ *   {@link LineBreakOptions.inkFit}.
  */
 export function measureLineSpansFrom(
   items: ParagraphItems,
   start: ParagraphCursor,
   originLeft = 0,
+  inkFit = false,
 ): LineSpanMeasure {
   // One running state each: a partly held item fits on what its graphemes
   // measure apart and paints what the item composes, so the two diverge. Each
@@ -326,6 +345,7 @@ export function measureLineSpansFrom(
             -1,
             'through',
             originLeft,
+            inkFit,
           ),
         );
         advanceState(
@@ -336,6 +356,7 @@ export function measureLineSpansFrom(
           from,
           'fit-inner',
           originLeft,
+          inkFit,
         );
       }
     } else {
@@ -348,12 +369,21 @@ export function measureLineSpansFrom(
           firstGrapheme(paintIndex),
           'paint-inner',
           originLeft,
+          inkFit,
         );
       }
     }
 
     const partialEnd = end.graphemeIndex > 0;
+    const discretionary = isDiscretionaryLineEnd(
+      items.kinds,
+      end.segmentIndex,
+      end.graphemeIndex,
+    );
     const state = fits ? fitState : paintState;
+    // A hyphen stands behind the item the line ends on, so that item is inner:
+    // the gap behind its last glyph belongs to the hyphen's own contribution.
+    const inkEnd = fits && inkFit && discretionary;
     let width = state.width;
     if (last >= start.segmentIndex) {
       width = itemAdvance(
@@ -363,19 +393,25 @@ export function measureLineSpansFrom(
         last,
         last === start.segmentIndex ? start.graphemeIndex : 0,
         partialEnd ? end.graphemeIndex : -1,
-        fits ? 'fit-end' : 'paint-end',
+        inkEnd ? 'fit-inner' : fits ? 'fit-end' : 'paint-end',
         originLeft,
+        inkFit,
       );
     }
 
-    if (
-      isDiscretionaryLineEnd(items.kinds, end.segmentIndex, end.graphemeIndex)
-    ) {
-      width += getDiscretionaryHyphenWidth(
-        items,
-        start.segmentIndex,
-        end.segmentIndex - 1,
-      );
+    if (discretionary) {
+      width += fits
+        ? getDiscretionaryHyphenFitWidth(
+            items,
+            start.segmentIndex,
+            end.segmentIndex - 1,
+            inkFit,
+          )
+        : getDiscretionaryHyphenWidth(
+            items,
+            start.segmentIndex,
+            end.segmentIndex - 1,
+          );
     }
 
     if (!fits) {
@@ -437,6 +473,9 @@ export function measureLineSpanFit(
   items: ParagraphItems,
   span: LineSpan,
   originLeft = 0,
+  inkFit = false,
 ): number {
-  return measureLineSpansFrom(items, span.start, originLeft).fitTo(span.end);
+  return measureLineSpansFrom(items, span.start, originLeft, inkFit).fitTo(
+    span.end,
+  );
 }

@@ -26,6 +26,7 @@ import type {
   LineBreakOptions,
 } from './pretext-derived/lineBreak';
 import {
+  needsInkFit,
   normalizePreparedLineStart,
   offersInternalBreaks,
   stepPreparedLineGeometryFromChunk,
@@ -44,6 +45,8 @@ export type BreakConstraints = {
   /** Shapes the text flows around, in the paragraph's own space. */
   readonly exclusions: readonly TextShapeExclusion[];
   readonly vertical: ParagraphVerticalMetrics;
+  /** True fits a line against its ink; see {@link LineBreakOptions.inkFit}. */
+  readonly inkFit?: boolean;
 };
 
 export type BrokenLine = {
@@ -108,6 +111,7 @@ export function breakParagraph(
   const bands = banded ? readParagraphBands(exclusions, base) : null;
   const emergencyBreaks = constraints.overflowWrap === 'anywhere';
   const internalBreaks = offersInternalBreaks(items);
+  const inkFit = (constraints.inkFit ?? false) && needsInkFit(items);
   const uniformHeights =
     !banded ||
     vertical.lineHeights.every(
@@ -164,10 +168,17 @@ export function breakParagraph(
       bandAt === undefined &&
       emergencyBreaks &&
       segment.left === 0 &&
-      !internalBreaks;
+      !internalBreaks &&
+      !inkFit;
     const options: LineBreakOptions | undefined = upstream
       ? undefined
-      : {bandAt, emergencyBreaks, originLeft: segment.left, internalBreaks};
+      : {
+          bandAt,
+          emergencyBreaks,
+          originLeft: segment.left,
+          internalBreaks,
+          inkFit,
+        };
 
     const walked = stepPreparedLineGeometryFromChunk(
       items,

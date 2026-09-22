@@ -60,6 +60,8 @@ export type OptimalBreakConstraints = {
   /** Shapes the text flows around, in the paragraph's own space. */
   readonly exclusions?: readonly TextShapeExclusion[];
   readonly vertical: ParagraphVerticalMetrics;
+  /** True fits a line against its ink; see {@link LineBreakOptions.inkFit}. */
+  readonly inkFit?: boolean;
 };
 
 /** Pixels a line passes its band, then how well the lines that fit are spaced. */
@@ -272,7 +274,7 @@ export function lineSpanCost(
   isLast: boolean,
 ): LineCost {
   return costOf(
-    measureLineSpanFit(items, span),
+    measureLineSpanFit(items, span, 0, constraints.inkFit ?? false),
     lineGlue(readGlueTotals(items), span),
     isDiscretionaryLineEnd(
       items.kinds,
@@ -488,7 +490,12 @@ function planChunk(
     for (const node of open) {
       if (!Number.isFinite(node.cost.overflow)) continue;
       const opened = placer.open(node.top, starts[at]);
-      const measure = measureLineSpansFrom(items, starts[at], opened.left);
+      const measure = measureLineSpansFrom(
+        items,
+        starts[at],
+        opened.left,
+        constraints.inkFit ?? false,
+      );
       let splitInside = false;
       let firstStop = -1;
 
@@ -593,6 +600,7 @@ function greedy(
     overflowWrap: constraints.overflowWrap,
     exclusions: constraints.exclusions ?? [],
     vertical: constraints.vertical,
+    inkFit: constraints.inkFit,
   };
   return breakParagraph(items, greedyConstraints);
 }

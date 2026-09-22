@@ -91,6 +91,25 @@ describe('Txt autoSize beside a node its layout places', () => {
     }
   });
 
+  it('sizes a squeezed text the same after its text changes', () => {
+    const squeezed = () => {
+      const {badge, txt, root} = build();
+      root.width(20);
+      badge.shrink(0);
+      place(badge, [60, 100]);
+      return txt;
+    };
+    const txt = squeezed();
+    expect(txt.size().x).toBeLessThan(BOX.width);
+    read(txt);
+    txt.text(TEXT.toUpperCase());
+    const changed = {...read(txt), width: txt.size().x};
+
+    const fresh = squeezed();
+    fresh.text(TEXT.toUpperCase());
+    expect(changed).toEqual({...read(fresh), width: fresh.size().x});
+  });
+
   it('fits the same whatever order its states are reached in', () => {
     const visit = (order: [number, number][]) => {
       const {badge, txt} = build();

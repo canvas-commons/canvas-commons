@@ -59,6 +59,7 @@ import {
   canvasFontSize,
   canvasParagraphMeasurer,
   leastLineCount,
+  measureMinContentWidth,
   paintAnchorOf,
   paintCalls,
   paintsText,
@@ -78,6 +79,7 @@ import {fontsVersion, is, requestFontLoad, resolveCanvasStyle} from '../utils';
 import {sharedMeasurementContext} from '../utils/measurement';
 import {MeasureMode} from '../utils/yoga';
 import {Circle} from './Circle';
+import {ContentFloors} from './contentFloors';
 import {Curve} from './Curve';
 import {Layout} from './Layout';
 import {Node} from './Node';
@@ -1050,6 +1052,7 @@ export class Txt extends Shape {
         overflowWrap: this.overflowWrap(),
         exclusions: [],
         vertical,
+        inkFit: true,
       }),
       {
         text: content.text,
@@ -1189,6 +1192,7 @@ export class Txt extends Shape {
       this.measureForYoga(width, widthMode),
     );
     this.measureFuncReady = true;
+    ContentFloors.set(this, () => this.contentFloor());
     LayoutSettlers.set(this, {
       reads: () => this.exclusions().some(({kind}) => kind === 'node'),
       settle: () => this.settleExclusions(),
@@ -1536,6 +1540,26 @@ export class Txt extends Shape {
     const box = this.fitBox();
     if (!box || !this.readsSettledBoxes()) return this.paragraph();
     return this.preparedWithScale(this.scaleOf(this.fitFontSize(box.x, box.y)));
+  }
+
+  /**
+   * Narrowest width the paragraph's lines fit in: the widest unit that cannot
+   * break under the current {@link overflowWrap}.
+   */
+  private contentFloorOf(textWrap: boolean): number {
+    const paragraph = this.passParagraph();
+    if (!paragraph) return 0;
+    return measureMinContentWidth(paragraph.items, {
+      textWrap,
+      overflowWrap: this.overflowWrap(),
+      inkFit: true,
+    });
+  }
+
+  /** {@link contentFloorOf} for the wrapping this node really does. */
+  @computed()
+  private contentFloor(): number {
+    return this.contentFloorOf(this.textWrap() !== false);
   }
 
   /**
@@ -1917,6 +1941,7 @@ export class Txt extends Shape {
         justify: this.textAlign() === 'justify',
         exclusions,
         vertical: paragraph.vertical,
+        inkFit: true,
       });
     }
     return breakParagraph(paragraph.items, {
@@ -1925,6 +1950,7 @@ export class Txt extends Shape {
       overflowWrap,
       exclusions,
       vertical: paragraph.vertical,
+      inkFit: true,
     });
   }
 
@@ -2437,9 +2463,9 @@ export class Txt extends Shape {
       this.textWrap() === false ? Number.POSITIVE_INFINITY : maxWidth;
     const placed = this.placeNaturally(effectiveMax, this.textWrap() !== false);
     this.measuredExclusionKey = this.exclusionKey();
-    return placed
-      ? {width: placed.width, height: placed.height}
-      : {width: 0, height: 0};
+    if (!placed) return {width: 0, height: 0};
+    const measured = widthMode === MeasureMode.Exactly ? width : placed.width;
+    return {width: measured, height: placed.height};
   }
 
   /**
@@ -3544,8 +3570,10 @@ export class Txt extends Shape {
     const target = targetLineCount ?? natural.lines.length;
     if (target <= 1) return natural.width;
 
-    let lo = 1;
+    let lo = Math.max(1, this.contentFloorOf(true));
     let hi = natural.width;
+    if (hi <= lo) return Math.ceil(hi);
+
     for (let i = 0; i < 20; i++) {
       const mid = (lo + hi) / 2;
       const lines = this.naturalPlacement(mid, true)?.lines.length ?? 0;

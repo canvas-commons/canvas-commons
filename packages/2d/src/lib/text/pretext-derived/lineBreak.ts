@@ -14,10 +14,7 @@ export type LineBreakCursor = {
 export type LineBreakBand = {
   /** Width the candidate has to fit. */
   readonly width: number;
-  /**
-   * True when an exclusion bounds the band on the right. A discretionary
-   * hyphen hangs past the box edge, as upstream has it, but not into a shape.
-   */
+  /** True when an exclusion, and not the content box, bounds the band. */
   readonly hardEdge: boolean;
 };
 
@@ -69,7 +66,6 @@ type LineWalkState = {
   lineEndSegmentIndex: number;
   lineEndGraphemeIndex: number;
   fitLimit: number;
-  hardEdge: boolean;
 };
 
 type InternalLineVisitor = (
@@ -102,7 +98,7 @@ function consumesAtLineStart(kind: ParagraphItemKind): boolean {
   );
 }
 
-function breaksAfter(kind: ParagraphItemKind): boolean {
+export function breaksAfter(kind: ParagraphItemKind): boolean {
   return (
     kind === 'space' ||
     kind === 'preserved-space' ||
@@ -136,7 +132,10 @@ function normalizeLineStartSegmentIndex(
   return segmentIndex;
 }
 
-function getTabAdvance(lineWidth: number, tabStopAdvance: number): number {
+export function getTabAdvance(
+  lineWidth: number,
+  tabStopAdvance: number,
+): number {
   if (tabStopAdvance <= 0) return 0;
 
   const remainder = lineWidth % tabStopAdvance;
@@ -184,7 +183,7 @@ function getPrecedingLetterSpacing(
  * glyph before it; upstream stores the width with the hyphen's own spacing on
  * both sides.
  */
-function getDiscretionaryHyphenWidth(
+export function getDiscretionaryHyphenWidth(
   prepared: ParagraphItems,
   lineStartSegmentIndex: number,
   segmentIndex: number,
@@ -203,7 +202,7 @@ function getDiscretionaryHyphenWidth(
 }
 
 /** Letter spacing of the gap before an item, owned by the glyph before it. */
-function getLeadingLetterSpacing(
+export function getLeadingLetterSpacing(
   prepared: ParagraphItems,
   hasContent: boolean,
   lineStartSegmentIndex: number,
@@ -231,7 +230,7 @@ function getTabTrailingLetterSpacing(
     : 0;
 }
 
-function getWholeSegmentFitContribution(
+export function getWholeSegmentFitContribution(
   prepared: ParagraphItems,
   kind: ParagraphItemKind,
   segmentIndex: number,
@@ -245,7 +244,7 @@ function getWholeSegmentFitContribution(
   return getLineEndContribution(leadingSpacing, segmentContribution);
 }
 
-function getBreakOpportunityFitContribution(
+export function getBreakOpportunityFitContribution(
   prepared: ParagraphItems,
   kind: ParagraphItemKind,
   segmentIndex: number,
@@ -256,7 +255,7 @@ function getBreakOpportunityFitContribution(
   return getLineEndContribution(leadingSpacing, segmentContribution);
 }
 
-function getLineEndPaintContribution(
+export function getLineEndPaintContribution(
   prepared: ParagraphItems,
   kind: ParagraphItemKind,
   segmentIndex: number,
@@ -288,7 +287,7 @@ function getBreakableCandidateFitWidth(
 }
 
 // A caller reaches a breakable item only after it reads the row as present.
-function getBreakableFitAdvances(
+export function getBreakableFitAdvances(
   prepared: ParagraphItems,
   segmentIndex: number,
 ): readonly number[] {
@@ -365,6 +364,40 @@ export function offersInternalBreak(
   return breaks.some(at => at < advances.length);
 }
 
+/** Whether a line that ends here ends on a break the item offers inside it. */
+function endsAtPreferredBreak(
+  prepared: ParagraphItems,
+  endSegmentIndex: number,
+  endGraphemeIndex: number,
+): boolean {
+  const index = endGraphemeIndex === 0 ? endSegmentIndex - 1 : endSegmentIndex;
+  const breaks = prepared.breakablePreferredBreaks[index] ?? null;
+  if (breaks === null) return false;
+  const at =
+    endGraphemeIndex === 0
+      ? (prepared.breakableFitAdvances[index]?.length ?? -1)
+      : endGraphemeIndex;
+  return breaks.includes(at);
+}
+
+/** Whether a line that ends at this cursor ends where a break is legal. */
+export function endsLineLegally(
+  prepared: ParagraphItems,
+  endSegmentIndex: number,
+  endGraphemeIndex: number,
+): boolean {
+  if (endSegmentIndex <= 0) return false;
+  if (endGraphemeIndex > 0) {
+    return endsAtPreferredBreak(prepared, endSegmentIndex, endGraphemeIndex);
+  }
+  if (breaksAfter(prepared.kinds[endSegmentIndex - 1])) return true;
+  if (endSegmentIndex >= prepared.kinds.length) return true;
+  return (
+    !prepared.joinsPrevious[endSegmentIndex] &&
+    beginsUnit(prepared.kinds[endSegmentIndex])
+  );
+}
+
 /** End of the run of items joined to the one at `index`, exclusive. */
 export function getJoinedGroupEnd(
   prepared: ParagraphItems,
@@ -376,7 +409,7 @@ export function getJoinedGroupEnd(
   return end;
 }
 
-function getTerminalLetterSpacing(
+export function getTerminalLetterSpacing(
   prepared: ParagraphItems,
   startSegmentIndex: number,
   startGraphemeIndex: number,
@@ -810,13 +843,8 @@ function walkPreparedComplexLines(
   lineLimit = Number.POSITIVE_INFINITY,
   options?: LineBreakOptions,
 ): {lineCount: number; lastLineWidth: number | null} {
-  const {
-    widths,
-    kinds,
-    joinsPrevious,
-    breakableFitAdvances,
-    breakablePreferredBreaks,
-  } = prepared;
+  const {widths, kinds, breakableFitAdvances, breakablePreferredBreaks} =
+    prepared;
   const engineProfile = getEngineProfile();
   const lineFitEpsilon = engineProfile.lineFitEpsilon;
   const bandAt = options?.bandAt;
@@ -825,7 +853,6 @@ function walkPreparedComplexLines(
   const internalBreaks = options?.internalBreaks ?? false;
   const overflowRule: OverflowRule = emergencyBreaks ? 'break' : 'run-on';
   let fitLimit = maxWidth + lineFitEpsilon;
-  let hardEdge = false;
 
   /**
    * Stand in the band of the candidate that holds every item through `index`,
@@ -837,7 +864,6 @@ function walkPreparedComplexLines(
     if (bandAt === undefined) return;
     const band = bandAt(index, consumesHardBreak);
     fitLimit = band.width + lineFitEpsilon;
-    hardEdge = band.hardEdge;
   }
 
   /** Whether this run of items offers a break strictly inside itself. */
@@ -1041,31 +1067,8 @@ function walkPreparedComplexLines(
     return null;
   }
 
-  /** Whether the line ends on a break the item list offers inside an item. */
-  function endsAtPreferredBreak(): boolean {
-    const index =
-      lineEndGraphemeIndex === 0
-        ? lineEndSegmentIndex - 1
-        : lineEndSegmentIndex;
-    const breaks = breakablePreferredBreaks[index] ?? null;
-    if (breaks === null) return false;
-    const at =
-      lineEndGraphemeIndex === 0
-        ? (breakableFitAdvances[index]?.length ?? -1)
-        : lineEndGraphemeIndex;
-    return breaks.includes(at);
-  }
-
-  /** Whether the line, as it stands, ends where a break is legal. */
   function endsAtLegalBreak(): boolean {
-    if (lineEndSegmentIndex <= 0) return false;
-    if (lineEndGraphemeIndex > 0) return endsAtPreferredBreak();
-    if (breaksAfter(kinds[lineEndSegmentIndex - 1])) return true;
-    if (lineEndSegmentIndex >= kinds.length) return true;
-    return (
-      !joinsPrevious[lineEndSegmentIndex] &&
-      beginsUnit(kinds[lineEndSegmentIndex])
-    );
+    return endsLineLegally(prepared, lineEndSegmentIndex, lineEndGraphemeIndex);
   }
 
   /** Upstream ends a full line at its line end; an illegal end may not. */
@@ -1098,7 +1101,6 @@ function walkPreparedComplexLines(
       lineEndSegmentIndex,
       lineEndGraphemeIndex,
       fitLimit,
-      hardEdge,
     };
   }
 
@@ -1108,7 +1110,6 @@ function walkPreparedComplexLines(
     lineEndSegmentIndex = saved.lineEndSegmentIndex;
     lineEndGraphemeIndex = saved.lineEndGraphemeIndex;
     fitLimit = saved.fitLimit;
-    hardEdge = saved.hardEdge;
   }
 
   /**
@@ -1469,9 +1470,9 @@ function walkPreparedComplexLines(
             lineStartSegmentIndex,
             i,
           );
-          // A hanging hyphen would paint into an exclusion, so a hard right
-          // edge takes the break only when the hyphen fits in front of it.
-          if (hasContent && (!hardEdge || lineW + hyphenWidth <= fitLimit)) {
+          // The hyphen is painted, so the break is only legal where the whole
+          // of it stands inside the free segment the line runs in.
+          if (hasContent && lineW + hyphenWidth <= fitLimit) {
             lineEndSegmentIndex = i + 1;
             lineEndGraphemeIndex = 0;
             if (i + 1 < chunk.endSegmentIndex) {

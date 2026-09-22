@@ -27,7 +27,7 @@ import type {
 } from './pretext-derived/lineBreak';
 import {
   normalizePreparedLineStart,
-  offersInternalBreak,
+  offersInternalBreaks,
   stepPreparedLineGeometryFromChunk,
 } from './pretext-derived/lineBreak';
 import type {Interval} from './wrapGeometry';
@@ -107,9 +107,7 @@ export function breakParagraph(
   const banded = wraps && exclusions.length > 0;
   const bands = banded ? readParagraphBands(exclusions, base) : null;
   const emergencyBreaks = constraints.overflowWrap === 'anywhere';
-  const internalBreaks = items.kinds.some((_, index) =>
-    offersInternalBreak(items, index),
-  );
+  const internalBreaks = offersInternalBreaks(items);
   const uniformHeights =
     !banded ||
     vertical.lineHeights.every(

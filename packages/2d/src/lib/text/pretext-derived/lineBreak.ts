@@ -358,10 +358,41 @@ export function offersInternalBreak(
   prepared: ParagraphItems,
   index: number,
 ): boolean {
+  return internalBreakGraphemes(prepared, index).length > 0;
+}
+
+/**
+ * Grapheme ends a line may stop at strictly inside an item, in order. A break
+ * at the item's own end is the boundary behind it and is not one of these.
+ *
+ * @example
+ * ```ts
+ * const inside = internalBreakGraphemes(items, 3);
+ * ```
+ */
+export function internalBreakGraphemes(
+  prepared: ParagraphItems,
+  index: number,
+): readonly number[] {
   const breaks = prepared.breakablePreferredBreaks[index];
   const advances = prepared.breakableFitAdvances[index];
-  if (breaks === null || advances === null) return false;
-  return breaks.some(at => at < advances.length);
+  if (breaks === null || advances === null) return [];
+  return breaks.filter(at => at > 0 && at < advances.length);
+}
+
+/**
+ * Whether any item of the paragraph offers a break inside itself, which is
+ * what turns {@link LineBreakOptions.internalBreaks} on for a pass.
+ *
+ * @example
+ * ```ts
+ * const internalBreaks = offersInternalBreaks(items);
+ * ```
+ */
+export function offersInternalBreaks(prepared: ParagraphItems): boolean {
+  return prepared.kinds.some((_, index) =>
+    offersInternalBreak(prepared, index),
+  );
 }
 
 /** Whether a line that ends here ends on a break the item offers inside it. */
@@ -386,10 +417,12 @@ export function endsLineLegally(
   endSegmentIndex: number,
   endGraphemeIndex: number,
 ): boolean {
-  if (endSegmentIndex <= 0) return false;
   if (endGraphemeIndex > 0) {
     return endsAtPreferredBreak(prepared, endSegmentIndex, endGraphemeIndex);
   }
+  if (endSegmentIndex <= 0) return false;
+  // Nothing follows a hard break on its line.
+  if (prepared.kinds[endSegmentIndex - 1] === 'hard-break') return true;
   if (breaksAfter(prepared.kinds[endSegmentIndex - 1])) return true;
   if (endSegmentIndex >= prepared.kinds.length) return true;
   return (

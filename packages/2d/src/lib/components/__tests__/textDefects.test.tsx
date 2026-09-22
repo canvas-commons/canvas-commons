@@ -101,12 +101,7 @@ describe('Txt letter spacing at line ends', () => {
   failOnSceneErrors();
   fakeFont();
 
-  /**
-   * Open defect: the break pass fits a line by an advance that counts the
-   * negative spacing of its last glyph, which its ink does not give back
-   * (`aLineIsFitShortOfItsInk`).
-   */
-  it.fails('breaks a line whose last glyph inks past the box', () => {
+  it('breaks a line whose last glyph inks past the box', () => {
     // `ab cd` advances 45 at -1px spacing, but its last glyph inks to 46.
     const at = (width: number) => {
       const probe = new DrawProbe({
@@ -140,8 +135,7 @@ describe('Txt letter spacing at line ends', () => {
     expect(at(108)).toEqual(['aaaa bbbb']);
   });
 
-  /** Open defect: a hyphen is fit by its advance, as a line is. */
-  it.fails('takes a hyphen only where the hyphen inks inside the box', () => {
+  it('takes a hyphen only where the hyphen inks inside the box', () => {
     const at = (width: number) => {
       const probe = new DrawProbe({
         text: 'ab\u00adcd',

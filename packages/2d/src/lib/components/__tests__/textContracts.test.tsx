@@ -17,11 +17,13 @@ import {
   prepareParagraph,
 } from '../../text/preparedParagraph';
 import {walkPreparedLinesRaw} from '../../text/pretext-derived/lineBreak';
+import {Layout} from '../Layout';
+import {Rect} from '../Rect';
 import {Txt, TxtProps} from '../Txt';
 import {failOnSceneErrors} from './failOnSceneErrors';
 import {mockScene2D} from './mockScene2D';
 import {TextState, mockTextContext} from './mockTextContext';
-import {add, fontSizeOf} from './sceneFixtures';
+import {add, fontSizeOf, lineTexts} from './sceneFixtures';
 import {
   DrawProbe,
   fillCalls,
@@ -322,5 +324,46 @@ describe('Txt autoSize contract', () => {
 
     expect(largest).toBe(24);
     expect(fitted.effectiveFontSize()).toBe(largest);
+  });
+});
+
+describe('Txt minimum content contract', () => {
+  mockScene2D();
+  failOnSceneErrors();
+
+  it('stops a squeezed row item at its widest word', () => {
+    const txt = new Txt({text: 'one two three', fontSize: 20, lineHeight: 20});
+    add(
+      new Layout({
+        layout: true,
+        width: 300,
+        children: [txt, new Rect({width: 1000, height: 20})],
+      }),
+    );
+
+    expect(txt.size().x).toBe(50);
+    expect(lineTexts(txt)).toEqual(['one', 'two', 'three']);
+  });
+
+  it('keeps three lines of a column item that the column cannot fit', () => {
+    const txt = new Txt({
+      text: 'one two three',
+      fontSize: 20,
+      lineHeight: 20,
+      width: 50,
+    });
+    const next = new Rect({width: 50, height: 20, shrink: 0});
+    add(
+      new Layout({
+        layout: true,
+        direction: 'column',
+        width: 200,
+        height: 40,
+        children: [txt, next],
+      }),
+    );
+
+    expect(txt.size().y).toBe(60);
+    expect(next.top().y).toBe(40);
   });
 });

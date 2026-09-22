@@ -1,7 +1,26 @@
-// Copied from @chenglou/pretext 0.0.9, src/line-break.ts, commit
+// A fork of src/line-break.ts from @chenglou/pretext 0.0.9, commit
 // 8460bf940c50d82be90a396fb0ea2c4e7a2dc6f3, under the MIT license in
-// ./LICENSE. Function names and upstream line ranges are in ./UPSTREAM.json,
-// which a unit test checks against the installed package.
+// ./LICENSE. The upstream functions it started from and their line ranges are
+// in ./UPSTREAM.json, which a unit test checks against the installed package.
+//
+// These rules are not upstream's:
+// - It walks `ParagraphItems`: items of several fonts, with a letter spacing,
+//   a soft hyphen width and a tab stop for each item, where upstream has one
+//   of each for the whole text.
+// - `inline-box`, a kind upstream has no item for, breaks on both sides.
+// - A soft hyphen's width is split at the gap of the glyph in front of it,
+//   rather than carrying its own spacing on both sides.
+// - The options of `LineBreakOptions`: `bandAt` (a width for each candidate
+//   line), `originLeft` (tab stops from the paragraph origin),
+//   `emergencyBreaks` (off keeps an over-wide unit whole, and the space behind
+//   it hangs on its line), `internalBreaks` (end a line inside the unit in
+//   front of it) and `inkFit` (fit a line against its ink).
+//
+// With every option at its default, the walk is byte-exact against pretext
+// except for the box kind and a text of mixed letter spacing at a soft hyphen.
+// `Txt` does not call it with the defaults: it passes `inkFit`, turns
+// `emergencyBreaks` off unless `overflowWrap` is `anywhere`, and turns
+// `internalBreaks` on when a unit offers one.
 import type {
   ParagraphCursor,
   ParagraphItemKind,
@@ -54,6 +73,12 @@ export type LineBreakOptions = {
    * alone on the line.
    */
   readonly internalBreaks?: boolean;
+  /**
+   * True fits a line against the ink it paints. Upstream charges the gap
+   * behind the last glyph whatever its sign, so a negative letter spacing
+   * pulls a line whose last glyph stands past the band inside it.
+   */
+  readonly inkFit?: boolean;
 };
 
 /**
@@ -201,6 +226,28 @@ export function getDiscretionaryHyphenWidth(
 }
 
 /**
+ * Width a soft hyphen adds to the line a break test measures. Under `inkFit`
+ * the hyphen keeps the gap behind it only when that gap is positive, so a
+ * negative letter spacing cannot fit a hyphen that stands past the band.
+ *
+ * @example
+ * ```ts
+ * const width = getDiscretionaryHyphenFitWidth(items, 0, 3, true);
+ * ```
+ */
+export function getDiscretionaryHyphenFitWidth(
+  prepared: ParagraphItems,
+  lineStartSegmentIndex: number,
+  segmentIndex: number,
+  inkFit: boolean,
+): number {
+  return (
+    getDiscretionaryHyphenWidth(prepared, lineStartSegmentIndex, segmentIndex) +
+    getInkGapRelief(prepared, segmentIndex, inkFit)
+  );
+}
+
+/**
  * The same width, split where it is painted: `leading` is the gap the glyph
  * before the hyphen owns, `hyphen` the hyphen's own platform advance. A pen
  * that paints the hyphen stands past the gap, not inside it.
@@ -258,17 +305,49 @@ function getTabTrailingLetterSpacing(
     : 0;
 }
 
+/**
+ * Gap the ink rule refuses to charge: the space behind a line's last glyph
+ * belongs to the line only where it stands in front of the glyph's ink.
+ */
+function getInkGapRelief(
+  prepared: ParagraphItems,
+  segmentIndex: number,
+  inkFit: boolean,
+): number {
+  return inkFit ? Math.max(0, -prepared.letterSpacings[segmentIndex]) : 0;
+}
+
+/**
+ * Advance an item contributes to the line it ends. A fit advance holds the gap
+ * behind the item's last glyph, which under `inkFit` a line is never fitted
+ * inside. An item that paints nothing hangs and contributes nothing.
+ *
+ * @example
+ * ```ts
+ * const advance = getLineEndFitAdvance(items, 3, true);
+ * ```
+ */
+export function getLineEndFitAdvance(
+  prepared: ParagraphItems,
+  segmentIndex: number,
+  inkFit: boolean,
+): number {
+  const fit = prepared.lineEndFitAdvances[segmentIndex];
+  return fit === 0 ? 0 : fit + getInkGapRelief(prepared, segmentIndex, inkFit);
+}
+
 export function getWholeSegmentFitContribution(
   prepared: ParagraphItems,
   kind: ParagraphItemKind,
   segmentIndex: number,
   leadingSpacing: number,
   segmentWidth: number,
+  inkFit = false,
 ): number {
   const segmentContribution =
     kind === 'tab'
       ? segmentWidth + getTabTrailingLetterSpacing(prepared, segmentIndex)
-      : prepared.lineEndFitAdvances[segmentIndex];
+      : getLineEndFitAdvance(prepared, segmentIndex, inkFit);
   return getLineEndContribution(leadingSpacing, segmentContribution);
 }
 
@@ -277,9 +356,10 @@ export function getBreakOpportunityFitContribution(
   kind: ParagraphItemKind,
   segmentIndex: number,
   leadingSpacing: number,
+  inkFit = false,
 ): number {
   const segmentContribution =
-    kind === 'tab' ? 0 : prepared.lineEndFitAdvances[segmentIndex];
+    kind === 'tab' ? 0 : getLineEndFitAdvance(prepared, segmentIndex, inkFit);
   return getLineEndContribution(leadingSpacing, segmentContribution);
 }
 
@@ -308,10 +388,12 @@ function getBreakableCandidateFitWidth(
   prepared: ParagraphItems,
   segmentIndex: number,
   candidatePaintWidth: number,
+  inkFit: boolean,
 ): number {
-  return prepared.letterSpacings[segmentIndex] === 0
-    ? candidatePaintWidth
-    : candidatePaintWidth + prepared.letterSpacings[segmentIndex];
+  const charged =
+    prepared.letterSpacings[segmentIndex] +
+    getInkGapRelief(prepared, segmentIndex, inkFit);
+  return charged === 0 ? candidatePaintWidth : candidatePaintWidth + charged;
 }
 
 // A caller reaches a breakable item only after it reads the row as present.
@@ -406,6 +488,20 @@ export function internalBreakGraphemes(
   const advances = prepared.breakableFitAdvances[index];
   if (breaks === null || advances === null) return [];
   return breaks.filter(at => at > 0 && at < advances.length);
+}
+
+/**
+ * Whether the ink rule can change an answer for this paragraph. Only a
+ * negative letter spacing pulls a line end inside a band its glyphs paint
+ * past, so anything else takes the same lines either way.
+ *
+ * @example
+ * ```ts
+ * const inkFit = wantsInk && needsInkFit(items);
+ * ```
+ */
+export function needsInkFit(prepared: ParagraphItems): boolean {
+  return prepared.letterSpacings.some(spacing => spacing < 0);
 }
 
 /**
@@ -912,6 +1008,11 @@ function walkPreparedComplexLines(
   const emergencyBreaks = options?.emergencyBreaks ?? true;
   const originLeft = options?.originLeft ?? 0;
   const internalBreaks = options?.internalBreaks ?? false;
+  const inkFit = options?.inkFit ?? false;
+  const fitAdvanceOf = (index: number): number =>
+    getLineEndFitAdvance(prepared, index, inkFit);
+  const paintAdvanceOf = (index: number): number =>
+    prepared.lineEndPaintAdvances[index];
   const overflowRule: OverflowRule = emergencyBreaks ? 'break' : 'run-on';
   let fitLimit = maxWidth + lineFitEpsilon;
 
@@ -1033,6 +1134,7 @@ function walkPreparedComplexLines(
       kind,
       segmentIndex,
       leadingSpacing,
+      inkFit,
     );
     const paintAdvance = getLineEndPaintContribution(
       prepared,
@@ -1083,6 +1185,7 @@ function walkPreparedComplexLines(
             prepared,
             segmentIndex,
             candidatePaintWidth,
+            inkFit,
           ) > fitLimit
         ) {
           if (
@@ -1226,9 +1329,9 @@ function walkPreparedComplexLines(
   function getJoinedGroupEndContribution(
     groupStart: number,
     end: number,
-    lineEndAdvances: readonly number[],
+    lineEndAdvanceOf: (index: number) => number,
   ): number {
-    const last = lineEndAdvances[end - 1];
+    const last = lineEndAdvanceOf(end - 1);
     if (last === 0) return 0;
     return (
       getJoinedGroupWidth(groupStart, end - 1) +
@@ -1279,8 +1382,12 @@ function walkPreparedComplexLines(
               : prepared.letterSpacings[i];
           const candidatePaintWidth = lineW + baseGw + gap;
           if (
-            getBreakableCandidateFitWidth(prepared, i, candidatePaintWidth) >
-            fitLimit
+            getBreakableCandidateFitWidth(
+              prepared,
+              i,
+              candidatePaintWidth,
+              inkFit,
+            ) > fitLimit
           ) {
             if (
               lastPreferredBreakEnd > 0 &&
@@ -1340,22 +1447,14 @@ function walkPreparedComplexLines(
       advance +
       getLineEndContribution(
         leadingSpacing,
-        getJoinedGroupEndContribution(
-          groupStart,
-          end,
-          prepared.lineEndFitAdvances,
-        ),
+        getJoinedGroupEndContribution(groupStart, end, fitAdvanceOf),
       );
     pendingBreakPaintWidth =
       lineW -
       advance +
       getLineEndContribution(
         leadingSpacing,
-        getJoinedGroupEndContribution(
-          groupStart,
-          end,
-          prepared.lineEndPaintAdvances,
-        ),
+        getJoinedGroupEndContribution(groupStart, end, paintAdvanceOf),
       );
     pendingBreakFitLimit = fitLimit;
   }
@@ -1382,11 +1481,7 @@ function walkPreparedComplexLines(
     const advance = leadingSpacing + width;
     const fitAdvance = getLineEndContribution(
       leadingSpacing,
-      getJoinedGroupEndContribution(
-        groupStart,
-        end,
-        prepared.lineEndFitAdvances,
-      ),
+      getJoinedGroupEndContribution(groupStart, end, fitAdvanceOf),
     );
 
     if (!hasContent) {
@@ -1523,23 +1618,27 @@ function walkPreparedComplexLines(
           i,
           leadingSpacing,
           w,
+          inkFit,
         );
 
         if (kind === 'soft-hyphen' && startGraphemeIndex === 0) {
-          const hyphenWidth = getDiscretionaryHyphenWidth(
+          const hyphenFitWidth = getDiscretionaryHyphenFitWidth(
             prepared,
             lineStartSegmentIndex,
             i,
+            inkFit,
           );
           // The hyphen is painted, so the break is only legal where the whole
           // of it stands inside the free segment the line runs in.
-          if (hasContent && lineW + hyphenWidth <= fitLimit) {
+          if (hasContent && lineW + hyphenFitWidth <= fitLimit) {
             lineEndSegmentIndex = i + 1;
             lineEndGraphemeIndex = 0;
             if (i + 1 < chunk.endSegmentIndex) {
               pendingBreakSegmentIndex = i + 1;
-              pendingBreakFitWidth = lineW + hyphenWidth;
-              pendingBreakPaintWidth = lineW + hyphenWidth;
+              pendingBreakFitWidth = lineW + hyphenFitWidth;
+              pendingBreakPaintWidth =
+                lineW +
+                getDiscretionaryHyphenWidth(prepared, lineStartSegmentIndex, i);
               pendingBreakFitLimit = fitLimit;
             }
           }
@@ -1597,6 +1696,7 @@ function walkPreparedComplexLines(
               kind,
               i,
               leadingSpacing,
+              inkFit,
             );
           const currentBreakPaintWidth =
             lineW +

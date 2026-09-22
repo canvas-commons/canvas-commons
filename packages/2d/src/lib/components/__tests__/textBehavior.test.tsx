@@ -29,6 +29,18 @@ function runsOnBaselines(txt: DrawProbe): [string, number, number][] {
   ]);
 }
 
+/** Put `txt` in a 100px row beside a sibling that will not shrink. */
+function squeezed(txt: Txt): Txt {
+  add(
+    new Layout({
+      layout: true,
+      width: 100,
+      children: [txt, new Rect({width: 1000, height: 20, shrink: 0})],
+    }),
+  );
+  return txt;
+}
+
 describe('Txt behavior', () => {
   mockScene2D();
   failOnSceneErrors();
@@ -87,6 +99,24 @@ describe('Txt behavior', () => {
     expect(probe.textWords().map(word => [word.text, word.width])).toEqual([
       ['AVB', 28],
     ]);
+  });
+
+  it('keeps a flex item as wide as its widest word unless minWidth is 0', () => {
+    const floored = squeezed(
+      new DrawProbe({text: 'one three fifteen', fontSize: 20, lineHeight: 20}),
+    );
+    const free = squeezed(
+      new DrawProbe({
+        text: 'one three fifteen',
+        fontSize: 20,
+        lineHeight: 20,
+        minWidth: 0,
+      }),
+    );
+
+    expect(floored.size().x).toBe(70);
+    expect(lineTexts(floored)).toEqual(['one', 'three', 'fifteen']);
+    expect(free.size().x).toBe(0);
   });
 
   it('justifies every line but the one a hard break ends and the last', () => {
@@ -243,6 +273,19 @@ describe('Txt in scenes people build', () => {
   fakeFont();
 
   const SENTENCE = 'pack my box with five dozen liquor jugs now';
+
+  it('floors a flex item at a bold word inside it', () => {
+    const probe = squeezed(
+      new DrawProbe({
+        fontSize: 20,
+        lineHeight: 20,
+        children: ['one ', new Txt({fontWeight: 700, text: 'three'}), ' four'],
+      }),
+    );
+
+    expect(probe.size().x).toBe(60);
+    expect(lineTexts(probe)).toEqual(['one', 'three', 'four']);
+  });
 
   it(
     'keeps a tweened bold span inside the box and settles as a fresh node',

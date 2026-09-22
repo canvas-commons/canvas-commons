@@ -564,22 +564,6 @@ export function aHyphenLineIsAlignedShortOfItsInk(
   );
 }
 
-/**
- * Whether a line overruns its space by no more than the negative letter
- * spacing of its last glyph. The break pass fits a line by its advance, which
- * counts that spacing, and the ink does not give it back: an open defect,
- * pinned by `it.fails` examples in `textDefects`. Its fix deletes this excuse
- * and those `fails`.
- */
-export function aLineIsFitShortOfItsInk(
-  line: {fragments: {style: {letterSpacing: number}}[]},
-  pastRight: number,
-): boolean {
-  const last = line.fragments[line.fragments.length - 1];
-  const spacing = last ? last.style.letterSpacing : 0;
-  return spacing < 0 && pastRight <= 0.05 - spacing;
-}
-
 /** A sweep passes when it measured no difference at all. */
 export function expectNoFindings(findings: readonly Finding[]): void {
   expect(findings.map(serializeFinding)).toEqual([]);

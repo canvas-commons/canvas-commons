@@ -62,6 +62,32 @@
       ]
     },
     {
+      "upstream": "src/bidi.ts",
+      "copiedInto": ["bidi.ts"],
+      "functions": [
+        {
+          "name": "classifyCodePoint",
+          "lines": "13-33",
+          "sha256": "3a59187c021f313c9c8e1b887862b15f93c36ca0d1b72c77177471d9f13701ab"
+        },
+        {
+          "name": "computeBidiLevels",
+          "lines": "35-87",
+          "sha256": "c007a85d53ce80cf3863bf9dc76a78404a5a48642148bb4568089dbbcd561c76"
+        },
+        {
+          "name": "resolveParagraphLevels",
+          "lines": "89-184",
+          "sha256": "9f5aa827d02bb918e9c783ce5418b1ece984ddb2682c830bb93a31d6b144cd17"
+        }
+      ]
+    },
+    {
+      "upstream": "src/generated/bidi-data.ts",
+      "sha256": "745211b804d907af78afb6c1ed87eff6d7454a5e85152a6129eb7b3bf0f6f262",
+      "copiedInto": ["bidiData.ts"]
+    },
+    {
       "upstream": "src/analysis.ts",
       "note": "Hashed by range: the file is 1583 lines and only these parts are copied.",
       "copiedInto": ["segmentBreakKind.ts", "normalizeWhitespace.ts"],

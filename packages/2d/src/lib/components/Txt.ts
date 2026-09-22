@@ -28,6 +28,7 @@ import {CanvasStyle, Gradient, Pattern} from '../partials';
 import type {TextExclusion, TextShapeExclusion} from '../partials/types';
 import {useScene2D} from '../scenes/useScene2D';
 import {
+  ADVANCE_SCALE_ERROR,
   AdvanceMeasurer,
   BrokenParagraph,
   ContentRun,
@@ -45,24 +46,31 @@ import {
   PlacedLine,
   PlacedParagraph,
   PlacedPiece,
+  ProbeVerdict,
   SOFT_HYPHEN,
   SegmentGranularity,
   TextDirection,
   WhiteSpaceMode,
+  advanceBoundHolds,
   breakParagraph,
   breakParagraphOptimally,
   buildCanvasFontString,
   buildParagraphContent,
+  canvasFontSize,
   canvasParagraphMeasurer,
+  leastLineCount,
   paintAnchorOf,
   paintCalls,
   paintsText,
   paragraphFitMiss,
+  paragraphInk,
   placeParagraph,
   prepareMixedParagraph,
   rangeExtentOf,
   readVerticalMetrics,
   resolveLineHeight,
+  scaledParagraphReader,
+  searchFitSize,
   segment,
   textLocaleVersion,
 } from '../text';
@@ -315,6 +323,13 @@ type RunPaint = {
   lineWidth: number;
   strokeFirst: boolean;
   opacity: number;
+};
+
+/** A paragraph autoSize prepared, and the fits read from it, newest first. */
+type Preparation = {
+  key: unknown[];
+  paragraph: OwnedParagraph;
+  fits: {key: unknown[]; size: number}[];
 };
 
 type PlaceRequest = {
@@ -1507,7 +1522,10 @@ export class Txt extends Shape {
   /** The prepared paragraph of the current state, before a width is known. */
   @computed()
   private paragraph(): OwnedParagraph | null {
-    return this.paragraphWithScale(this.effectiveScale());
+    const scale = this.effectiveScale();
+    return this.fitBox()
+      ? this.preparedWithScale(scale)
+      : this.paragraphWithScale(scale);
   }
 
   /**
@@ -1517,9 +1535,7 @@ export class Txt extends Shape {
   private passParagraph(): OwnedParagraph | null {
     const box = this.fitBox();
     if (!box || !this.readsSettledBoxes()) return this.paragraph();
-    return this.paragraphWithScale(
-      this.scaleOf(this.fitFontSize(box.x, box.y)),
-    );
+    return this.preparedWithScale(this.scaleOf(this.fitFontSize(box.x, box.y)));
   }
 
   /**
@@ -1528,8 +1544,12 @@ export class Txt extends Shape {
    */
   @computed()
   private paragraphLayoutKey(): unknown[] {
+    return [this.passParagraph(), ...this.layoutInputs()];
+  }
+
+  /** Every input of a break and a placement beside the paragraph and box. */
+  private layoutInputs(): unknown[] {
     return [
-      this.passParagraph(),
       this.wrapMode(),
       this.overflowWrap(),
       this.textWrap(),
@@ -3584,6 +3604,140 @@ export class Txt extends Shape {
     );
   }
 
+  /**
+   * Paragraphs autoSize prepared, newest first, with the fits read from each.
+   * The key holds every input of the preparation, the hyphenated text and the
+   * font load epoch among them, so a reuse can never answer for another state.
+   */
+  private preparations: Preparation[] = [];
+
+  private preparedWithScale(scale: number): OwnedParagraph | null {
+    return this.preparationWithScale(scale)?.paragraph ?? null;
+  }
+
+  private preparationWithScale(scale: number): Preparation | null {
+    if (!this.measurementContext()) return null;
+    const runs = this.runsWithScale(scale);
+    if (runs.length === 0) return null;
+
+    const key: unknown[] = [
+      fontsVersion(),
+      textLocaleVersion(),
+      this.whiteSpaceMode(),
+      this.wordBreak(),
+      this.lineHeight(),
+      runs.length,
+    ];
+    for (const run of runs) {
+      key.push(
+        run.kind,
+        run.metrics.font,
+        run.metrics.letterSpacing,
+        run.kind === 'text' ? run.text : run.width,
+        run.kind === 'text' ? '' : run.height,
+      );
+    }
+
+    for (const found of this.preparations) {
+      if (sameKey(found.key, key)) return found;
+    }
+    const prepared: Preparation = {
+      key,
+      paragraph: this.paragraphOfRuns(runs),
+      fits: [],
+    };
+    this.preparations.unshift(prepared);
+    this.preparations.length = Math.min(
+      this.preparations.length,
+      LAYOUT_CACHE_SIZE,
+    );
+    return prepared;
+  }
+
+  /**
+   * A probe that answers a size by arithmetic on the ceiling preparation. It
+   * runs the same break and placement passes against the same real box, with
+   * every advance multiplied instead of measured.
+   *
+   * @remarks
+   * A rejection is final only when the paragraph still misses at the narrowest
+   * advances {@link ADVANCE_SCALE_ERROR} allows, because a face that steps
+   * with its size can move a break and so change the line count. A paragraph
+   * the bound does not describe has every rejection checked instead. Every
+   * other verdict is handed to the real pipeline.
+   */
+  private scaledFitProbe(
+    prepared: OwnedParagraph,
+    ceiling: number,
+    maxWidth: number,
+    maxHeight: number,
+  ): (size: number) => ProbeVerdict {
+    const read = scaledParagraphReader({
+      items: prepared.items,
+      metrics: prepared.metrics,
+      vertical: prepared.vertical,
+      lineHeight: this.lineHeight(),
+      measurer: canvasParagraphMeasurer,
+    });
+    const missAt = (scale: number, slack: number) => {
+      const scaled = read(scale, slack);
+      return this.fitMissOf(
+        {
+          content: prepared.content,
+          seams: prepared.seams,
+          items: scaled.items,
+          metrics: scaled.metrics,
+          vertical: scaled.vertical,
+          broken: [],
+          placed: [],
+        },
+        scaled.measurer,
+        maxWidth,
+        maxHeight,
+      );
+    };
+
+    const bounded = advanceBoundHolds(prepared.items);
+    const tooTall = this.heightFloorProbe(prepared, maxWidth, maxHeight);
+    return size => {
+      const scale = size / ceiling;
+      if (tooTall(scale)) return {fits: false, final: true};
+      if (missAt(scale, 0) <= FIT_TOLERANCE) return {fits: true, final: false};
+      return {
+        fits: false,
+        final: bounded && missAt(scale, ADVANCE_SCALE_ERROR) > FIT_TOLERANCE,
+      };
+    };
+  }
+
+  /**
+   * Whether a scale leaves more ink than the box can hold, whatever the break
+   * pass does with it. The ink is read at the narrowest advances
+   * {@link ADVANCE_SCALE_ERROR} allows, so a face that steps with its size is
+   * covered too, and the answer needs no layout.
+   */
+  private heightFloorProbe(
+    prepared: OwnedParagraph,
+    maxWidth: number,
+    maxHeight: number,
+  ): (scale: number) => boolean {
+    const wraps = this.textWrap() !== false;
+    if (!wraps || !Number.isFinite(maxWidth) || !Number.isFinite(maxHeight)) {
+      return () => false;
+    }
+    const ink = paragraphInk(prepared.items);
+    const lineHeight = this.lineHeight();
+    const capSizes = prepared.metrics.map(one => canvasFontSize(one.font));
+    return scale => {
+      const narrowest = ink.scalable * scale * (1 - ADVANCE_SCALE_ERROR);
+      const lines = leastLineCount(narrowest + ink.fixed, maxWidth);
+      const shortest = Math.min(
+        ...capSizes.map(size => resolveLineHeight(lineHeight, size * scale)),
+      );
+      return lines * shortest > maxHeight + FIT_TOLERANCE;
+    };
+  }
+
   /** Largest size the box height alone allows, bounded by the declared cap. */
   private fitCeiling(maxHeight: number): number {
     const size = Math.floor(this.fontSize());
@@ -3601,8 +3755,8 @@ export class Txt extends Shape {
    * @remarks
    * Reads each leaf at its raw (unscaled) size, so this method is safe to
    * call from inside {@link effectiveFontSize} without creating a dependency
-   * cycle. Every probe is a real layout, so the answer depends only on the
-   * current state.
+   * cycle. The size returned is always one a real layout accepted, so the
+   * answer depends only on the current state.
    *
    * @example
    * ```ts
@@ -3613,10 +3767,32 @@ export class Txt extends Shape {
     this.assertRoot('fitFontSize');
     this.assertExclusionsIndependent();
     if (!this.measurementContext()) return this.fontSize();
-    for (let size = this.fitCeiling(maxHeight); size >= 1; size--) {
-      if (this.fitsAtSize(size, maxWidth, maxHeight)) return size;
+    const ceiling = this.fitCeiling(maxHeight);
+    if (ceiling < 1) return 1;
+    const real = (size: number) => this.fitsAtSize(size, maxWidth, maxHeight);
+    const prepared = this.preparationWithScale(this.scaleOf(ceiling));
+    if (!prepared) return searchFitSize(ceiling, null, real);
+
+    const key: unknown[] = [
+      ceiling,
+      maxWidth,
+      maxHeight,
+      this.height.context.getter(),
+      this.minHeight.context.getter(),
+      this.maxHeight.context.getter(),
+      ...this.layoutInputs(),
+    ];
+    for (const found of prepared.fits) {
+      if (sameKey(found.key, key)) return found.size;
     }
-    return 1;
+    const size = searchFitSize(
+      ceiling,
+      this.scaledFitProbe(prepared.paragraph, ceiling, maxWidth, maxHeight),
+      real,
+    );
+    prepared.fits.unshift({key, size});
+    prepared.fits.length = Math.min(prepared.fits.length, LAYOUT_CACHE_SIZE);
+    return size;
   }
 
   // Nested runs inherit fill / stroke / line settings from the parent Txt.

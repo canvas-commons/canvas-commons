@@ -1,6 +1,7 @@
 export {clearCache as clearPretextCache} from '@chenglou/pretext';
 export * from './breakParagraph';
 export * from './fitBox';
+export * from './fitSearch';
 export * from './font';
 export * from './knuthPlassParagraph';
 export * from './lineMetrics';
@@ -22,5 +23,6 @@ export type {
   PreparedParagraph,
   WordBreakMode,
 } from './preparedParagraph';
+export * from './scaledParagraph';
 export * from './segmenter';
 export * from './wrapGeometry';

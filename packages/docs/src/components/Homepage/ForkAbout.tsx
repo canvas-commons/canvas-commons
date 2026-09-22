@@ -57,7 +57,10 @@ export default function ForkAbout() {
             Check the migration guide for more.
           </p>
           <div className={styles.linkRow}>
-            <Link className={styles.ctaPrimary} to="/docs/updating">
+            <Link
+              className={styles.ctaPrimary}
+              to="/docs/migration/from-motion-canvas"
+            >
               Migration guide <span className={styles.ctaArrow}>→</span>
             </Link>
             <a

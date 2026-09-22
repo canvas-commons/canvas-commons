@@ -1,0 +1,23 @@
+---
+sidebar_position: 4
+slug: /migration/0.4.0
+---
+
+# Migrating to 0.4.0
+
+## Breaking Changes and Migration Guide
+
+Layouts and Text have changed underlying libraries and that means that some
+animations will have slight differences. Key changes:
+
+- `View2D.shadowRoot` and `Layout.element` / `Layout.styles` are removed; use
+  `Layout.yogaNode` and `getDomContainer()` (for SVG / arc measurement) instead.
+- `TxtLeaf` now extends `Node` instead of `Shape`.
+- Direct `<TxtLeaf>` styling no longer applies. Styles instead cascade from the
+  parent `<Txt>`.
+- `FlexBasis` drops `content`, `min-content`, `max-content`, and `fit-content`.
+- `LengthLimit` drops `max-content` and `min-content`.
+- `textWrap` now defaults to `true` so width-bounded `<Txt>` wraps by default.
+- `node.relativeTo(other)` now returns coordinates in the other node's
+  coordinate space. Use `node.position.abs().sub(b.position().abs())` to get the
+  old behavior.

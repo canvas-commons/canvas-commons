@@ -1,0 +1,117 @@
+---
+sidebar_position: 1
+slug: /migration/from-motion-canvas
+---
+
+# Migrating from Motion Canvas
+
+_(from Motion Canvas v3.17.0 or 3.18.0-alpha.0 to Canvas Commons v0.4.0)_
+
+This should mostly be a do-no-harm migration. If not, please file an issue or
+let us know on [Discord](https://discord.gg/qgfN9t4X5u).
+
+If you're already using Motion Canvas, you can migrate to Canvas Commons by
+running:
+
+```bash
+npm install @canvas-commons/core @canvas-commons/2d @canvas-commons/vite-plugin @canvas-commons/ffmpeg
+npm install -D @canvas-commons/editor
+npm remove @motion-canvas/ui @motion-canvas/core @motion-canvas/2d @motion-canvas/vite-plugin @motion-canvas/ffmpeg
+```
+
+and updating your `vite.config.ts` to use the new plugin:
+
+```ts
+import {defineConfig} from 'vite';
+import canvasCommons from '@canvas-commons/vite-plugin';
+
+export default defineConfig({
+  plugins: [canvasCommons()],
+});
+```
+
+You'll also need to update any other Motion Canvas imports from `motion-canvas`
+to `canvas-commons`, and update the `@motion-canvas/ui` package to
+`@canvas-commons/editor` if you're using it at all (usually in `package.json`).
+
+## Breaking Changes
+
+### `@motion-canvas/ui` is now `@canvas-commons/editor`
+
+The editor package was renamed. Update your `package.json`:
+
+```diff
+  "devDependencies": {
+-   "@motion-canvas/ui": "^3.17.0",
++   "@canvas-commons/editor": "^0.2.0",
+  }
+```
+
+And any imports:
+
+```diff
+- import {makeEditorPlugin} from '@canvas-commons/ui';
++ import {makeEditorPlugin} from '@canvas-commons/editor';
+```
+
+The exports map, `./style.css` subpath, and the editor's behaviour are
+unchanged.
+
+### Subpath imports are gone
+
+Each package now ships a single root entry plus only the subpaths that genuinely
+need to be separate (JSX runtimes on `2d`, the editor's optional subpath on
+`2d`, `client`/`server` on `ffmpeg`, file exports like
+`./tsconfig.project.json`).
+
+Previously available subpaths — `@canvas-commons/core/scenes`,
+`@canvas-commons/2d/components`, `@canvas-commons/core/lib/...`, and similar —
+are no longer accessible. Re-import the same symbols from the root entry:
+
+```diff
+- import {timeEvents} from '@motion-canvas/core/scenes';
+- import {Rect} from '@motion-canvas/2d/components';
++ import {timeEvents} from '@canvas-commons/core';
++ import {Rect} from '@canvas-commons/2d';
+```
+
+The packages are `sideEffects: false`, so tree-shaking should remove anything
+you don't use.
+
+## `LogPayload.remarks` is markdown source
+
+The editor used to pre-parse log remarks to HTML at build time. They're now
+shipped as markdown, and the editor renders them instead.
+
+If you consume `LogPayload.remarks` directly (for example, in a custom log panel
+or analytics hook), parse it with a markdown library:
+
+```ts
+import {marked} from 'marked';
+
+const html = marked.parse(payload.remarks);
+```
+
+If you only ever showed remarks through the canvas-commons editor itself, no
+change is needed.
+
+## `offset` is now `anchor`
+
+The `offset` prop has been renamed to `anchor`. Update your code:
+
+```diff
+- <Rect offset={[10, 10]} />
++ <Rect anchor={[10, 10]} />
+```
+
+## Node 20.19 or newer
+
+`engines.node` was bumped from 16/18-ish to `>=20.19.0` across all packages.
+Vite 8 requires it too. Bump your CI and local toolchain accordingly.
+
+## Vite plugin works on Vite 4, 5, 7, and 8
+
+`@canvas-commons/vite-plugin`'s peer dependency range broadened to
+`^4 || ^5 || ^7 || ^8`. New projects scaffolded with
+`pnpm create @canvas-commons` use Vite 8 by default; existing projects on Vite 4
+or 5 continue to work without changes.

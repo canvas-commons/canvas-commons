@@ -40,13 +40,21 @@ function hasExplicitBreak(text: string): boolean {
 
 const WRAPS = ['true', 'pre'];
 
+/**
+ * Forms the sweep generates over. An inline child is a REQUIRED case only: no
+ * surveyed project puts a non-`Txt` child inside a `Txt`.
+ */
 const FORMS: ContentForm[] = [
   'plain',
   'span-at-space',
   'span-bold',
+  'span-italic',
+  'span-family',
   'span-spaced',
-  'inline-child',
 ];
+
+/** Forms whose runs measure in two different fonts, so no kern spans them. */
+const METRIC_SEAM_FORMS: ContentForm[] = ['span-bold', 'span-family'];
 
 type Case = {
   text: string;
@@ -124,7 +132,43 @@ const REQUIRED: Case[] = [
     text: TEXTS[1].text,
   }),
   required({form: 'span-bold', exclusions: 'right'}),
+  required({form: 'span-bold', exclusions: 'middle', wrapMode: 'knuth-plass'}),
   required({form: 'inline-child', exclusions: 'left'}),
+  required({form: 'inline-child', align: 'justify'}),
+  required({form: 'inline-child', wrapMode: 'knuth-plass'}),
+  required({
+    form: 'inline-child',
+    direction: 'rtl',
+    align: 'justify',
+    letterSpacing: 2,
+    textName: 'long-word',
+    text: TEXTS[1].text,
+  }),
+  required({
+    form: 'inline-child',
+    direction: 'rtl',
+    align: 'right',
+    wrapMode: 'knuth-plass',
+    exclusions: 'middle',
+    letterSpacing: -1,
+    textName: 'long-word',
+    text: TEXTS[1].text,
+  }),
+  required({
+    form: 'span-italic',
+    exclusions: 'middle',
+    wrapMode: 'knuth-plass',
+  }),
+  required({form: 'span-italic', direction: 'rtl', align: 'justify'}),
+  required({
+    form: 'span-family',
+    exclusions: 'right',
+    hyphenated: true,
+    textName: 'long-word',
+    text: TEXTS[1].text,
+  }),
+  required({form: 'span-family', direction: 'rtl', align: 'justify'}),
+  required({form: 'span-family', wrapMode: 'knuth-plass'}),
   required({
     wrap: 'pre',
     align: 'right',
@@ -221,7 +265,8 @@ function segmentFor(segments: Span[], left: number): Span {
 function causeOf(one: Case, line: string, raw: string): string {
   if (line.endsWith('-')) return 'hyphen';
   if (one.wrap === 'pre' && /\s$/.test(raw)) return 'pre-space';
-  if (one.form === 'span-bold' || one.form === 'inline-child') return 'rich';
+  if (one.form === 'inline-child') return 'rich';
+  if (METRIC_SEAM_FORMS.includes(one.form)) return 'metric-seam';
   if (one.letterSpacing < 0 || one.form === 'span-spaced') {
     return 'tight-spacing';
   }

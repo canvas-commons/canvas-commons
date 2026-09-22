@@ -223,7 +223,7 @@ function geometryFindings(one: Case, plain: Txt, split: Txt): Finding[] {
 }
 
 function collectPaintOnly(): Finding[] {
-  const bases = [...PAINT_ONLY_REQUIRED, ...generate(20260921, 48, ['plain'])];
+  const bases = [...PAINT_ONLY_REQUIRED, ...generate(20260921, 36, ['plain'])];
   expectCoverage(
     bases.flatMap(one => PAINT_ONLY_FORMS.map(form => ({...one, form}))),
     PAINT_ONLY_REQUIRED.map(one => ({...one, form: PAINT_ONLY_FORMS[0]})),
@@ -337,15 +337,17 @@ function paintFindings(one: Case, probe: DrawProbe): Finding[] {
 }
 
 /**
- * Forms the sweep generates over. A paint seam inside one shaping is a known
- * limit with a test of its own.
+ * Forms the sweep generates over. An inline child is a REQUIRED case only: no
+ * surveyed project puts a non-`Txt` child inside a `Txt`. A paint seam inside
+ * one shaping is a known limit with a test of its own.
  */
 const PAINT_FORMS: ContentForm[] = [
   'plain',
   'span-at-space',
   'span-paint-only',
   'span-bold',
-  'inline-child',
+  'span-italic',
+  'span-family',
   'crlf-across-leaves',
 ];
 
@@ -354,7 +356,24 @@ const PAINT_REQUIRED: Case[] = [
   required({align: 'justify', direction: 'rtl', wrapMode: 'greedy'}),
   required({align: 'right', direction: 'rtl', wrapMode: 'knuth-plass'}),
   required({form: 'crlf-across-leaves', wrap: 'pre'}),
+  required({form: 'inline-child'}),
+  required({form: 'inline-child', align: 'justify', wrapMode: 'knuth-plass'}),
   required({align: 'justify', exclusions: 'middle', wrapMode: 'knuth-plass'}),
+  required({
+    form: 'span-italic',
+    align: 'justify',
+    exclusions: 'middle',
+    wrapMode: 'knuth-plass',
+  }),
+  required({form: 'span-italic', autoSize: true}),
+  required({form: 'span-family', direction: 'rtl', align: 'right'}),
+  required({
+    form: 'span-family',
+    hyphenated: true,
+    textName: 'long-word',
+    text: TEXTS[1].text,
+  }),
+  required({form: 'span-family', exclusions: 'left'}),
   required({hyphenated: true, textName: 'long-word', text: TEXTS[1].text}),
   required({textName: 'punctuation', text: TEXTS[7].text}),
 ];

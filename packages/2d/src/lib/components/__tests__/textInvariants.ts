@@ -187,6 +187,8 @@ export type ContentForm =
   | 'span-in-kern'
   | 'span-paint-only'
   | 'span-bold'
+  | 'span-italic'
+  | 'span-family'
   | 'span-spaced'
   | 'inline-child'
   | 'inline-tall'
@@ -326,6 +328,26 @@ export function buildForm(
         children: [
           new Txt({children: first}),
           new Txt({fontWeight: 700, children: second}),
+        ],
+      });
+    }
+    case 'span-italic': {
+      const [first, second] = splitAt(text, spaceOffset(text));
+      return new Txt({
+        ...props,
+        children: [
+          new Txt({children: first}),
+          new Txt({fontStyle: 'italic', children: second}),
+        ],
+      });
+    }
+    case 'span-family': {
+      const [first, second] = splitAt(text, spaceOffset(text));
+      return new Txt({
+        ...props,
+        children: [
+          new Txt({children: first}),
+          new Txt({fontFamily: 'monospace', children: second}),
         ],
       });
     }

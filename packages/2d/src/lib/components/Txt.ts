@@ -23,7 +23,11 @@ import {
   prepareWithSegments,
   walkLineRanges,
 } from '@chenglou/pretext';
-import {CurveProfile, createCurveSampler} from '../curves/CurveProfile';
+import {
+  CurveProfile,
+  createCurveSampler,
+  isClosedProfile,
+} from '../curves/CurveProfile';
 import {Segment} from '../curves/Segment';
 import {getPathProfile} from '../curves/getPathProfile';
 import {computed, initial, nodeName, signal} from '../decorators';
@@ -500,12 +504,13 @@ export class Txt extends Shape {
    *
    * Setting a path forces a single line (wrapping, `autoSize`, and embedded
    * newlines are ignored) and disables {@link split} / {@link textWords} and
-   * friends. Glyphs whose advance falls outside the path are clipped, not piled
-   * at the ends. {@link pathOffset} slides the run along the arc; `textAlign`
-   * anchors it. Reverse the path to flip the text onto the other side (the
-   * tangent reverses, so glyphs read upside down along it). Per-glyph rendering
-   * drops cross-glyph shaping — set {@link pathSplit} to `word` for scripts that
-   * need it.
+   * friends. On an open path, glyphs whose advance falls outside it are
+   * clipped, not piled at the ends. On a closed path (start and end meet), the
+   * text wraps around the loop. {@link pathOffset} slides the run along the
+   * arc. `textAlign` anchors it. Reverse the path to flip the text onto the
+   * other side (the tangent reverses, so glyphs read upside down along it).
+   * Per-glyph rendering drops cross-glyph shaping — set {@link pathSplit} to
+   * `word` for scripts that need it.
    *
    * Prefer smooth curves. Like SVG `<textPath>`, a sharp corner crowds glyphs on
    * the inside of the turn — each glyph orients to the chord across its advance,
@@ -529,6 +534,7 @@ export class Txt extends Shape {
   /**
    * Distance in pixels to slide the text along {@link textPath} from its
    * anchored start. Animate this for a marquee-style crawl along the curve.
+   * On a closed path the offset wraps around the loop.
    *
    * @example
    * ```tsx
@@ -2047,9 +2053,11 @@ export class Txt extends Shape {
 
   /**
    * Build the `pathAlign: 'smooth'` offset as a function of arc distance (in
-   * local pixels): `0` at the path ends and the signed turn at each interior
-   * vertex, interpolated linearly along every segment. The lerp keeps the lean
-   * continuous, so glyphs ramp between sides instead of jumping at a corner.
+   * local pixels): the signed turn at each interior vertex, interpolated
+   * linearly along every segment. The lerp keeps the lean continuous, so
+   * glyphs ramp between sides instead of jumping at a corner. On a closed
+   * path both ends use the turn across the seam, so the lean stays continuous
+   * there too.
    */
   private buildSmoothAnchor(
     profile: CurveProfile,
@@ -2060,25 +2068,38 @@ export class Txt extends Shape {
     const gain = this.pathSmoothness();
     const tangent = (segment: Segment, t: number) =>
       segment.getPoint(t).normal.flipped.perpendicular.transform(matrix);
+    const turnBetween = (incoming: Vector2, outgoing: Vector2) =>
+      clamp(
+        -1,
+        1,
+        gain *
+          Math.atan2(
+            incoming.x * outgoing.y - incoming.y * outgoing.x,
+            incoming.x * outgoing.x + incoming.y * outgoing.y,
+          ),
+      );
+
+    const endAnchor = isClosedProfile(profile)
+      ? turnBetween(
+          tangent(segments[segments.length - 1], 1),
+          tangent(segments[0], 0),
+        )
+      : 0;
 
     const distances = [0];
-    const anchors = [0];
+    const anchors = [endAnchor];
     let accumulated = 0;
     for (let i = 0; i < segments.length; i++) {
       if (i > 0) {
         const incoming = tangent(segments[i - 1], 1);
         const outgoing = tangent(segments[i], 0);
-        const turn = Math.atan2(
-          incoming.x * outgoing.y - incoming.y * outgoing.x,
-          incoming.x * outgoing.x + incoming.y * outgoing.y,
-        );
         distances.push(accumulated * scale);
-        anchors.push(clamp(-1, 1, gain * turn));
+        anchors.push(turnBetween(incoming, outgoing));
       }
       accumulated += segments[i].arcLength;
     }
     distances.push(accumulated * scale);
-    anchors.push(0);
+    anchors.push(endAnchor);
 
     return distance => {
       for (let i = 1; i < distances.length; i++) {
@@ -2107,6 +2128,9 @@ export class Txt extends Shape {
     const alignBase = this.pathAlignBase(arcLength, textWidth);
     const offset = this.pathOffset();
     const sample = createCurveSampler(profile);
+    const closed = isClosedProfile(profile);
+    const wrap = (distance: number) =>
+      ((distance % arcLength) + arcLength) % arcLength;
 
     // Cross-path anchor: -1 top, 0 middle, 1 bottom; null = alphabetic baseline.
     const align = this.pathAlign();
@@ -2136,16 +2160,23 @@ export class Txt extends Shape {
     // `walkUnits` is cumulative, so `unit.x`/`unit.width` are kerned — arc
     // spacing follows the real layout, not a sum of isolated advances.
     for (const {unit, style} of this.walkUnits(this.pathSplit(), true)) {
-      const center = unit.x + textWidth / 2 + alignBase + offset;
-      // Clip overflow rather than letting the sampler clamp glyphs onto the ends.
-      if (center < 0 || center > arcLength) {
+      const rawCenter = unit.x + textWidth / 2 + alignBase + offset;
+      if (!closed && (rawCenter < 0 || rawCenter > arcLength)) {
         continue;
       }
-      const half = unit.width / 2;
-      const dStart = clamp(0, arcLength, center - half);
-      const dEnd = clamp(0, arcLength, center + half);
+      const center = closed ? wrap(rawCenter) : rawCenter;
+      // A unit wider than the loop is capped so its chord cannot point backward.
+      const half = closed
+        ? Math.min(unit.width / 2, arcLength / 2)
+        : unit.width / 2;
+      const dStart = closed
+        ? wrap(center - half)
+        : clamp(0, arcLength, center - half);
+      const dEnd = closed
+        ? wrap(center + half)
+        : clamp(0, arcLength, center + half);
 
-      // Sample in increasing order so the forward-only cursor stays monotonic.
+      // Sample in increasing order so the sampler's cursor moves forward.
       const startSample = sample(dStart / scale);
       const midPoint = sample(center / scale);
       const endSample = sample(dEnd / scale);

@@ -3,6 +3,7 @@ import {describe, expect, it} from 'vitest';
 import type {TextExclusion} from '../../partials/types';
 import type {BrokenParagraph} from '../../text/breakParagraph';
 import {breakParagraph} from '../../text/breakParagraph';
+import {breakParagraphOptimally} from '../../text/knuthPlassParagraph';
 import {readVerticalMetrics} from '../../text/lineMetrics';
 import {prepareMixedParagraph} from '../../text/mixedParagraph';
 import type {RunMetrics} from '../../text/paragraphContent';
@@ -154,6 +155,46 @@ describe('text module contracts', () => {
       [60, 50, 40, 0, 60],
       [60, 20, 90, 0, 60],
       [50, 20, 110, 0, 60],
+    ]);
+  });
+
+  it('plans the cheapest lines an exhaustive search finds', () => {
+    const paragraph = paragraphOf([[REGULAR, 'aa bb cc dddd eeee']]);
+    const width = 80;
+    // A ragged line costs ten times its slack squared; the last line is free.
+    const words = paragraph.text.split(' ');
+    const widthOf = (line: string[]) => line.join(' ').length * 10;
+    let best: {cost: number; lines: string[][]} = {cost: Infinity, lines: []};
+    for (let cuts = 0; cuts < 2 ** (words.length - 1); cuts++) {
+      const lines: string[][] = [[words[0]]];
+      for (let at = 1; at < words.length; at++) {
+        if (cuts & (1 << (at - 1))) lines.push([words[at]]);
+        else lines[lines.length - 1].push(words[at]);
+      }
+      if (lines.some(line => widthOf(line) > width)) continue;
+      const cost = lines
+        .slice(0, -1)
+        .reduce((sum, line) => sum + 10 * (width - widthOf(line)) ** 2, 0);
+      if (cost < best.cost) best = {cost, lines};
+    }
+    const optimal = breakParagraphOptimally(paragraph.items, {
+      maxWidth: width,
+      textWrap: true,
+      overflowWrap: 'normal',
+      justify: false,
+      vertical: paragraph.vertical,
+    });
+
+    expect(best.lines.map(line => line.join(' '))).toEqual([
+      'aa bb',
+      'cc dddd',
+      'eeee',
+    ]);
+    expect(linesOf(paragraph, optimal)).toEqual(['aa bb', 'cc dddd', 'eeee']);
+    expect(linesOf(paragraph, greedy(paragraph, width))).toEqual([
+      'aa bb cc',
+      'dddd',
+      'eeee',
     ]);
   });
 });

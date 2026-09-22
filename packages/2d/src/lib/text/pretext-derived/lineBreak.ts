@@ -2,7 +2,11 @@
 // 8460bf940c50d82be90a396fb0ea2c4e7a2dc6f3, under the MIT license in
 // ./LICENSE. Function names and upstream line ranges are in ./UPSTREAM.json,
 // which a unit test checks against the installed package.
-import type {ParagraphItemKind, ParagraphItems} from '../paragraphItems';
+import type {
+  ParagraphCursor,
+  ParagraphItemKind,
+  ParagraphItems,
+} from '../paragraphItems';
 import {getEngineProfile} from './engineProfile';
 
 export type LineBreakCursor = {
@@ -188,6 +192,29 @@ export function getDiscretionaryHyphenWidth(
   lineStartSegmentIndex: number,
   segmentIndex: number,
 ): number {
+  const parts = getDiscretionaryHyphenParts(
+    prepared,
+    lineStartSegmentIndex,
+    segmentIndex,
+  );
+  return parts.leading + parts.hyphen;
+}
+
+/**
+ * The same width, split where it is painted: `leading` is the gap the glyph
+ * before the hyphen owns, `hyphen` the hyphen's own platform advance. A pen
+ * that paints the hyphen stands past the gap, not inside it.
+ *
+ * @example
+ * ```ts
+ * const {leading, hyphen} = getDiscretionaryHyphenParts(items, 0, 3);
+ * ```
+ */
+export function getDiscretionaryHyphenParts(
+  prepared: ParagraphItems,
+  lineStartSegmentIndex: number,
+  segmentIndex: number,
+): {leading: number; hyphen: number} {
   const preceding = getPrecedingRenderingIndex(
     prepared,
     lineStartSegmentIndex,
@@ -195,10 +222,11 @@ export function getDiscretionaryHyphenWidth(
   );
   const width = prepared.discretionaryHyphenWidths[segmentIndex];
   return preceding < 0
-    ? width
-    : width +
-        prepared.letterSpacings[preceding] -
-        prepared.letterSpacings[segmentIndex];
+    ? {leading: 0, hyphen: width}
+    : {
+        leading: prepared.letterSpacings[preceding],
+        hyphen: width - prepared.letterSpacings[segmentIndex],
+      };
 }
 
 /** Letter spacing of the gap before an item, owned by the glyph before it. */
@@ -1891,4 +1919,136 @@ export function measurePreparedLineGeometry(
     lineCount++;
     if (lineWidth > maxLineWidth) maxLineWidth = lineWidth;
   }
+}
+
+/** One item, or the part of one, that a chosen line holds. */
+export type LinePiece = {
+  readonly index: number;
+  readonly graphemeStart: number;
+  readonly graphemeEnd: number;
+  /** True when the piece holds the item's whole source range. */
+  readonly whole: boolean;
+  /** Gap in front of the piece, owned by the glyph before it. */
+  readonly leading: number;
+  /** Pen advance of the piece itself, its leading gap excluded. */
+  readonly advance: number;
+  /** Visible hyphen the piece paints at its right edge, else zero. */
+  readonly hyphen: number;
+};
+
+export type LinePieces = {
+  readonly pieces: readonly LinePiece[];
+  /** Gap after the last glyph of the line, which is spacing and not ink. */
+  readonly trailing: number;
+};
+
+/**
+ * Split a chosen line into the pieces it paints, with the advance of each.
+ * The rules are the ones the walk used to choose the line, so the pieces sum
+ * to the width it reported.
+ *
+ * @example
+ * ```ts
+ * const {pieces, trailing} = walkPreparedLinePieces(items, line.start, line.end);
+ * ```
+ */
+export function walkPreparedLinePieces(
+  prepared: ParagraphItems,
+  start: ParagraphCursor,
+  end: ParagraphCursor,
+  originLeft = 0,
+): LinePieces {
+  const pieces: LinePiece[] = [];
+  const last = end.graphemeIndex > 0 ? end.segmentIndex : end.segmentIndex - 1;
+  const discretionary = isDiscretionaryLineEnd(
+    prepared.kinds,
+    end.segmentIndex,
+    end.graphemeIndex,
+  );
+  let width = 0;
+  let hasContent = false;
+
+  for (let i = start.segmentIndex; i <= last; i++) {
+    const kind = prepared.kinds[i];
+    const row = prepared.breakableFitAdvances[i];
+    const rowLength = row === null ? 0 : row.length;
+    const graphemeStart = i === start.segmentIndex ? start.graphemeIndex : 0;
+    const graphemeEnd =
+      i === last && end.graphemeIndex > 0 ? end.graphemeIndex : rowLength;
+    const whole =
+      row === null || (graphemeStart === 0 && graphemeEnd === rowLength);
+
+    if (kind === 'soft-hyphen') {
+      const parts =
+        i === last && discretionary
+          ? getDiscretionaryHyphenParts(prepared, start.segmentIndex, i)
+          : {leading: 0, hyphen: 0};
+      pieces.push({
+        index: i,
+        graphemeStart,
+        graphemeEnd,
+        whole,
+        leading: parts.leading,
+        advance: 0,
+        hyphen: parts.hyphen,
+      });
+      width += parts.leading + parts.hyphen;
+      continue;
+    }
+
+    const leading = getLeadingLetterSpacing(
+      prepared,
+      hasContent,
+      start.segmentIndex,
+      i,
+    );
+    hasContent = true;
+
+    let advance: number;
+    if (row !== null && !whole) {
+      advance = getPartialPaintCorrection(
+        prepared,
+        i,
+        graphemeStart,
+        graphemeEnd,
+      );
+      for (let g = graphemeStart; g < graphemeEnd; g++) {
+        advance +=
+          g > graphemeStart
+            ? getBreakableGraphemeAdvance(prepared, i, row[g])
+            : row[g];
+      }
+    } else if (kind === 'tab') {
+      advance = getTabAdvance(
+        originLeft + width + leading,
+        prepared.tabStopAdvances[i],
+      );
+    } else {
+      advance =
+        i === last ? prepared.lineEndPaintAdvances[i] : prepared.widths[i];
+    }
+
+    const gap = advance === 0 ? 0 : leading;
+    pieces.push({
+      index: i,
+      graphemeStart,
+      graphemeEnd,
+      whole,
+      leading: gap,
+      advance,
+      hyphen: 0,
+    });
+    width += gap + advance;
+  }
+
+  return {
+    pieces,
+    trailing: getTerminalLetterSpacing(
+      prepared,
+      start.segmentIndex,
+      start.graphemeIndex,
+      end.segmentIndex,
+      end.graphemeIndex,
+    ),
+  };
 }

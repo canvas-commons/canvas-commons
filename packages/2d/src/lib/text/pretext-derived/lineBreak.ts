@@ -2,9 +2,8 @@
 // 8460bf940c50d82be90a396fb0ea2c4e7a2dc6f3, under the MIT license in
 // ./LICENSE. Function names and upstream line ranges are in ./UPSTREAM.json,
 // which a unit test checks against the installed package.
-import type {ParagraphItems} from '../paragraphItems';
+import type {ParagraphItemKind, ParagraphItems} from '../paragraphItems';
 import {getEngineProfile} from './engineProfile';
-import type {SegmentBreakKind} from './segmentBreakKind';
 
 export type LineBreakCursor = {
   segmentIndex: number;
@@ -23,7 +22,7 @@ type InternalLineVisitor = (
 // though it is the final consumed segment. Rendering derives that distinction
 // from the endpoint instead of treating every consumed SHY as visible.
 export function isDiscretionaryLineEnd(
-  kinds: readonly SegmentBreakKind[],
+  kinds: readonly ParagraphItemKind[],
   endSegmentIndex: number,
   endGraphemeIndex: number,
 ): boolean {
@@ -35,19 +34,20 @@ export function isDiscretionaryLineEnd(
   );
 }
 
-function consumesAtLineStart(kind: SegmentBreakKind): boolean {
+function consumesAtLineStart(kind: ParagraphItemKind): boolean {
   return (
     kind === 'space' || kind === 'zero-width-break' || kind === 'soft-hyphen'
   );
 }
 
-function breaksAfter(kind: SegmentBreakKind): boolean {
+function breaksAfter(kind: ParagraphItemKind): boolean {
   return (
     kind === 'space' ||
     kind === 'preserved-space' ||
     kind === 'tab' ||
     kind === 'zero-width-break' ||
-    kind === 'soft-hyphen'
+    kind === 'soft-hyphen' ||
+    kind === 'inline-box'
   );
 }
 
@@ -72,7 +72,7 @@ function getTabAdvance(lineWidth: number, tabStopAdvance: number): number {
   return tabStopAdvance - remainder;
 }
 
-function rendersGraphemes(kind: SegmentBreakKind): boolean {
+function rendersGraphemes(kind: ParagraphItemKind): boolean {
   return (
     kind !== 'zero-width-break' &&
     kind !== 'soft-hyphen' &&
@@ -125,7 +125,7 @@ function getTabTrailingLetterSpacing(
 
 function getWholeSegmentFitContribution(
   prepared: ParagraphItems,
-  kind: SegmentBreakKind,
+  kind: ParagraphItemKind,
   segmentIndex: number,
   leadingSpacing: number,
   segmentWidth: number,
@@ -139,7 +139,7 @@ function getWholeSegmentFitContribution(
 
 function getBreakOpportunityFitContribution(
   prepared: ParagraphItems,
-  kind: SegmentBreakKind,
+  kind: ParagraphItemKind,
   segmentIndex: number,
   leadingSpacing: number,
 ): number {
@@ -150,7 +150,7 @@ function getBreakOpportunityFitContribution(
 
 function getLineEndPaintContribution(
   prepared: ParagraphItems,
-  kind: SegmentBreakKind,
+  kind: ParagraphItemKind,
   segmentIndex: number,
   leadingSpacing: number,
   segmentWidth: number,
@@ -236,6 +236,17 @@ function getNextPreferredBreakIndex(
     else hi = mid;
   }
   return lo;
+}
+
+/** End of the run of items joined to the one at `index`, exclusive. */
+function getJoinedGroupEnd(
+  prepared: ParagraphItems,
+  index: number,
+  limit: number,
+): number {
+  let end = index + 1;
+  while (end < limit && prepared.joinsPrevious[end]) end++;
+  return end;
 }
 
 function getTerminalLetterSpacing(
@@ -684,7 +695,7 @@ function walkPreparedComplexLines(
   let pendingBreakSegmentIndex: number;
   let pendingBreakFitWidth: number;
   let pendingBreakPaintWidth: number;
-  let pendingBreakKind: SegmentBreakKind | null;
+  let pendingBreakKind: ParagraphItemKind | null;
 
   function getCurrentLinePaintWidth(): number {
     return pendingBreakKind === 'soft-hyphen' &&
@@ -741,7 +752,7 @@ function walkPreparedComplexLines(
   }
 
   function updatePendingBreakForWholeSegment(
-    kind: SegmentBreakKind,
+    kind: ParagraphItemKind,
     breakAfter: boolean,
     segmentIndex: number,
     segmentWidth: number,
@@ -840,6 +851,223 @@ function walkPreparedComplexLines(
     return null;
   }
 
+  function getInnerLeadingSpacing(groupStart: number, index: number): number {
+    return index === groupStart
+      ? 0
+      : getPrecedingLetterSpacing(prepared, lineStartSegmentIndex, index);
+  }
+
+  function getJoinedGroupWidth(groupStart: number, end: number): number {
+    let width = 0;
+    for (let i = groupStart; i < end; i++) {
+      width += getInnerLeadingSpacing(groupStart, i) + widths[i];
+    }
+    return width;
+  }
+
+  /** What a joined group contributes when the line ends on its last item. */
+  function getJoinedGroupEndContribution(
+    groupStart: number,
+    end: number,
+    lineEndAdvances: readonly number[],
+  ): number {
+    const last = lineEndAdvances[end - 1];
+    if (last === 0) return 0;
+    return (
+      getJoinedGroupWidth(groupStart, end - 1) +
+      getInnerLeadingSpacing(groupStart, end - 1) +
+      last
+    );
+  }
+
+  function appendJoinedGroupGraphemesFrom(
+    end: number,
+    startIndex: number,
+    startGraphemeIndex: number,
+  ): number | null {
+    let lastPreferredBreakItem = -1;
+    let lastPreferredBreakEnd = -1;
+    let lastPreferredBreakWidth = 0;
+
+    for (let i = startIndex; i < end; i++) {
+      const fitAdvances = getBreakableFitAdvances(prepared, i);
+      const preferredBreaks = breakablePreferredBreaks[i] ?? null;
+      const firstGraphemeIndex = i === startIndex ? startGraphemeIndex : 0;
+      let preferredBreakIndex =
+        preferredBreaks === null
+          ? -1
+          : getNextPreferredBreakIndex(
+              preferredBreaks,
+              0,
+              firstGraphemeIndex + 1,
+            );
+
+      for (let g = firstGraphemeIndex; g < fitAdvances.length; g++) {
+        const baseGw = fitAdvances[g];
+
+        if (!hasContent) {
+          startLineAtGrapheme(i, g, baseGw);
+        } else {
+          const gap =
+            g === 0 && i > startIndex
+              ? getPrecedingLetterSpacing(prepared, lineStartSegmentIndex, i)
+              : prepared.letterSpacings[i];
+          const candidatePaintWidth = lineW + baseGw + gap;
+          if (
+            getBreakableCandidateFitWidth(prepared, i, candidatePaintWidth) >
+            fitLimit
+          ) {
+            if (
+              lastPreferredBreakEnd > 0 &&
+              (lastPreferredBreakItem > startIndex ||
+                lastPreferredBreakEnd > startGraphemeIndex)
+            ) {
+              return finishLine(
+                lastPreferredBreakItem,
+                lastPreferredBreakEnd,
+                lastPreferredBreakWidth,
+              );
+            }
+            return finishLine();
+          }
+
+          lineW = candidatePaintWidth;
+          lineEndSegmentIndex = i;
+          lineEndGraphemeIndex = g + 1;
+        }
+
+        const graphemeEnd = g + 1;
+        if (
+          preferredBreaks !== null &&
+          preferredBreaks[preferredBreakIndex] === graphemeEnd
+        ) {
+          lastPreferredBreakItem = i;
+          lastPreferredBreakEnd = graphemeEnd;
+          lastPreferredBreakWidth = lineW;
+          preferredBreakIndex++;
+        }
+      }
+
+      if (
+        hasContent &&
+        lineEndSegmentIndex === i &&
+        lineEndGraphemeIndex === fitAdvances.length
+      ) {
+        lineEndSegmentIndex = i + 1;
+        lineEndGraphemeIndex = 0;
+      }
+    }
+    return null;
+  }
+
+  function updatePendingBreakForJoinedGroup(
+    kind: ParagraphItemKind,
+    groupStart: number,
+    end: number,
+    leadingSpacing: number,
+    advance: number,
+  ): void {
+    if (!breaksAfter(kind)) return;
+    pendingBreakSegmentIndex = end;
+    pendingBreakFitWidth =
+      lineW -
+      advance +
+      getLineEndContribution(
+        leadingSpacing,
+        getJoinedGroupEndContribution(
+          groupStart,
+          end,
+          prepared.lineEndFitAdvances,
+        ),
+      );
+    pendingBreakPaintWidth =
+      lineW -
+      advance +
+      getLineEndContribution(
+        leadingSpacing,
+        getJoinedGroupEndContribution(
+          groupStart,
+          end,
+          prepared.lineEndPaintAdvances,
+        ),
+      );
+    pendingBreakKind = kind;
+  }
+
+  /**
+   * Lay out a run of joined items as one unit: the seams inside it exist for
+   * measurement, so they offer no break, and the grapheme walk crosses them.
+   */
+  function stepJoinedGroup(groupStart: number, end: number): number | null {
+    const kind = kinds[groupStart];
+    const startGraphemeIndex =
+      groupStart === cursor.segmentIndex ? cursor.graphemeIndex : 0;
+    const leadingSpacing = getLeadingLetterSpacing(
+      prepared,
+      hasContent,
+      lineStartSegmentIndex,
+      groupStart,
+    );
+    const width = getJoinedGroupWidth(groupStart, end);
+    const advance = leadingSpacing + width;
+    const fitAdvance = getLineEndContribution(
+      leadingSpacing,
+      getJoinedGroupEndContribution(
+        groupStart,
+        end,
+        prepared.lineEndFitAdvances,
+      ),
+    );
+
+    if (!hasContent) {
+      if (
+        startGraphemeIndex > 0 ||
+        (fitAdvance > fitLimit && breakableFitAdvances[groupStart] !== null)
+      ) {
+        const line = appendJoinedGroupGraphemesFrom(
+          end,
+          groupStart,
+          startGraphemeIndex,
+        );
+        if (line !== null) return line;
+      } else {
+        startLineAtSegment(end - 1, width);
+      }
+      updatePendingBreakForJoinedGroup(
+        kind,
+        groupStart,
+        end,
+        leadingSpacing,
+        advance,
+      );
+      return null;
+    }
+
+    if (lineW + fitAdvance > fitLimit) {
+      if (pendingBreakSegmentIndex >= 0 && pendingBreakFitWidth <= fitLimit) {
+        if (
+          lineEndSegmentIndex > pendingBreakSegmentIndex ||
+          (lineEndSegmentIndex === pendingBreakSegmentIndex &&
+            lineEndGraphemeIndex > 0)
+        ) {
+          return finishLine();
+        }
+        return finishLine(pendingBreakSegmentIndex, 0, pendingBreakPaintWidth);
+      }
+      return finishLine();
+    }
+
+    appendWholeSegment(end - 1, advance);
+    updatePendingBreakForJoinedGroup(
+      kind,
+      groupStart,
+      end,
+      leadingSpacing,
+      advance,
+    );
+    return null;
+  }
+
   let lineCount = 0;
   let lastLineWidth: number | null = null;
   while (chunkIndex >= 0 && lineCount < lineLimit) {
@@ -866,6 +1094,21 @@ function walkPreparedComplexLines(
         i < chunk.endSegmentIndex;
         i++
       ) {
+        const joinedGroupEnd = getJoinedGroupEnd(
+          prepared,
+          i,
+          chunk.endSegmentIndex,
+        );
+        if (joinedGroupEnd > i + 1) {
+          const line = stepJoinedGroup(i, joinedGroupEnd);
+          if (line !== null) {
+            lineWidth = line;
+            break lineLoop;
+          }
+          i = joinedGroupEnd - 1;
+          continue;
+        }
+
         const kind = kinds[i];
         const breakAfter = breaksAfter(kind);
         const startGraphemeIndex =

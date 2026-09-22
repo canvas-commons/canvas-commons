@@ -1,5 +1,12 @@
 import type {SegmentBreakKind} from './pretext-derived/segmentBreakKind';
 
+/**
+ * Break behavior of an item. `inline-box` is ours: an atomic box of a given
+ * width and height, which breaks like a replaced element. A line may end on a
+ * box and a line may start on one, whatever the text it is glued to.
+ */
+export type ParagraphItemKind = SegmentBreakKind | 'inline-box';
+
 /** One hard-break chunk: the line walker restarts at every chunk. */
 export type ParagraphChunk = {
   readonly startSegmentIndex: number;
@@ -13,10 +20,18 @@ export type ParagraphCursor = {
   readonly graphemeIndex: number;
 };
 
-/** Half-open cursor range of one item inside the preparation that measured it. */
+/**
+ * Half-open cursor range of one item inside the preparation that measured it.
+ * A cursor addresses whole graphemes, so an item that starts or ends inside
+ * one names the UTF-16 units of that grapheme it does not hold.
+ */
 export type ItemHandleRange = {
   readonly start: ParagraphCursor;
   readonly end: ParagraphCursor;
+  /** UTF-16 units to drop from the front of the materialized range. */
+  readonly startTrim: number;
+  /** UTF-16 units to drop from the back of the materialized range. */
+  readonly endTrim: number;
 };
 
 /** Cursor range of a whole prepared segment. */
@@ -24,6 +39,8 @@ export function wholeSegmentRange(segmentIndex: number): ItemHandleRange {
   return {
     start: {segmentIndex, graphemeIndex: 0},
     end: {segmentIndex: segmentIndex + 1, graphemeIndex: 0},
+    startTrim: 0,
+    endTrim: 0,
   };
 }
 
@@ -34,7 +51,21 @@ export function wholeSegmentRange(segmentIndex: number): ItemHandleRange {
  */
 export type ParagraphItems = {
   /** Break behavior of each item. */
-  readonly kinds: readonly SegmentBreakKind[];
+  readonly kinds: readonly ParagraphItemKind[];
+
+  /**
+   * True when an item continues the one before it with no break between them.
+   * A seam that exists only because the metrics change is joined, so refining
+   * an item offers the line walker no new break. An inline box is never
+   * joined, on either side.
+   */
+  readonly joinsPrevious: readonly boolean[];
+
+  /** Index of the preparation each item was measured in. */
+  readonly owners: readonly number[];
+
+  /** Box height of an `inline-box` item, else zero. */
+  readonly boxHeights: readonly number[];
 
   /** Half-open range of each item in the normalized paragraph text. */
   readonly sourceStarts: readonly number[];

@@ -2,6 +2,7 @@ import {expect} from 'vitest';
 import {
   TextAlign,
   TextExclusion,
+  TextShapeExclusion,
   TextWrap,
   WordBreak,
 } from '../../partials/types';
@@ -229,10 +230,14 @@ export const WRAPS: TextWrap[] = [true, false, 'pre'];
 export const WORD_BREAKS: WordBreak[] = ['normal', 'keep-all'];
 export const LETTER_SPACINGS = [-1, 0, 2];
 
-/** Exclusions are box-relative, so one set suits every generated width. */
+/**
+ * The bands a sweep blocks, in block space, so the checkers can compare a
+ * line against the segment it was broken in. Pass them through
+ * {@link declaredIn} to reach `Txt.exclusions`.
+ */
 export const EXCLUSION_SETS: {
   name: string;
-  at: (width: number) => TextExclusion[];
+  at: (width: number) => TextShapeExclusion[];
 }[] = [
   {name: 'none', at: () => []},
   {
@@ -252,6 +257,32 @@ export const EXCLUSION_SETS: {
     ],
   },
 ];
+
+/**
+ * The same bands as `Txt.exclusions` takes them: Txt-local and center-origin
+ * inside a box of `size`.
+ */
+export function declaredIn(
+  size: {width: number; height: number},
+  blocked: readonly TextShapeExclusion[],
+): TextExclusion[] {
+  const half = {x: size.width / 2, y: size.height / 2};
+  return blocked.map(exclusion =>
+    exclusion.kind === 'rect'
+      ? {
+          ...exclusion,
+          x: exclusion.x + exclusion.width / 2 - half.x,
+          y: exclusion.y + exclusion.height / 2 - half.y,
+        }
+      : {
+          ...exclusion,
+          points: exclusion.points.map(point => ({
+            x: point.x - half.x,
+            y: point.y - half.y,
+          })),
+        },
+  );
+}
 
 /** Splits every word into three-letter parts, so a hyphen can be chosen. */
 export function everyThirdHyphenator(word: string): string[] {

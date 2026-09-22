@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import type {TextExclusion} from '../../partials/types';
+import type {TextShapeExclusion} from '../../partials/types';
 import type {BrokenLine, BrokenParagraph} from '../../text/breakParagraph';
 import {breakParagraph} from '../../text/breakParagraph';
 import type {
@@ -61,7 +61,7 @@ const WIDE: RunMetrics = {font: '700 41px sans-serif', letterSpacing: 0};
 const TALL: RunMetrics = {font: '400 50px sans-serif', letterSpacing: 0};
 const LINE_HEIGHT = '100%';
 
-const EXCLUSION_SETS: {name: string; exclusions: TextExclusion[]}[] = [
+const EXCLUSION_SETS: {name: string; exclusions: TextShapeExclusion[]}[] = [
   {name: 'none', exclusions: []},
   {
     name: 'left',
@@ -1396,7 +1396,7 @@ describe('optimal paragraph break pass', () => {
     const metrics = metricsOf('normal', 0);
     const {items} = prepareParagraph('un­break­able xy', metrics);
     const vertical = verticalOf(items, [metrics]);
-    const exclusions: TextExclusion[] = [
+    const exclusions: TextShapeExclusion[] = [
       {kind: 'rect', x: 60, y: 0, width: 40, height: 20},
     ];
     const constraints = {
@@ -1420,7 +1420,7 @@ describe('optimal paragraph break pass', () => {
       boxRun(1, 20, 48),
       textRun(2, REGULAR, ' cc dd'),
     ]);
-    const exclusions: TextExclusion[] = [
+    const exclusions: TextShapeExclusion[] = [
       {kind: 'rect', x: 80, y: 30, width: 60, height: 60},
     ];
     const constraints = {...constraintsOf(vertical, 140), exclusions};

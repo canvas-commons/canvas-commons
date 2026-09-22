@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {TextAlign, TextExclusion} from '../../partials/types';
+import {TextAlign, TextShapeExclusion} from '../../partials/types';
 import {TxtProps, TxtWrapMode} from '../Txt';
 import {failOnSceneErrors} from './failOnSceneErrors';
 import {mockScene2D} from './mockScene2D';
@@ -17,6 +17,7 @@ import {
   aHyphenLineIsAlignedShortOfItsInk,
   aLineIsFitShortOfItsInk,
   buildForm,
+  declaredIn,
   everyThirdHyphenator,
   expectNoFindings,
   fakeFont,
@@ -29,6 +30,7 @@ import {
 
 const TOLERANCE = 0.05;
 const BOX_WIDTH = 200;
+const BOX_HEIGHT = 400;
 const FONT_SIZE = 16;
 const LINE_HEIGHT = 20;
 const INLINE_SLOT = '\ufffc';
@@ -85,7 +87,7 @@ function key(one: Case): string {
   ].join('|');
 }
 
-function exclusionsOf(one: Case): TextExclusion[] {
+function exclusionsOf(one: Case): TextShapeExclusion[] {
   const set = EXCLUSION_SETS.find(each => each.name === one.exclusions);
   return set ? set.at(BOX_WIDTH) : [];
 }
@@ -95,12 +97,16 @@ function propsFor(one: Case): TxtProps {
     fontSize: FONT_SIZE,
     lineHeight: LINE_HEIGHT,
     width: BOX_WIDTH,
+    height: BOX_HEIGHT,
     textAlign: one.align,
     textDirection: one.direction,
     wrapMode: one.wrapMode,
     textWrap: one.wrap === 'pre' ? 'pre' : true,
     letterSpacing: one.letterSpacing,
-    exclusions: exclusionsOf(one),
+    exclusions: declaredIn(
+      {width: BOX_WIDTH, height: BOX_HEIGHT},
+      exclusionsOf(one),
+    ),
     ...(one.hyphenated ? {hyphenate: () => everyThirdHyphenator} : {}),
   };
 }
@@ -219,7 +225,7 @@ function generate(seed: number, count: number): Case[] {
 
 /** The free parts of a line's band, once the exclusions carve it up. */
 function freeSegments(
-  exclusions: TextExclusion[],
+  exclusions: TextShapeExclusion[],
   top: number,
   bottom: number,
 ): Span[] {

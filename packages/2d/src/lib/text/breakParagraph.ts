@@ -5,7 +5,7 @@
  * the height it will have, so an exclusion, an over-wide unit and a hyphen are
  * all inputs to the one choice. Nothing here corrects a break afterwards.
  */
-import type {TextExclusion} from '../partials/types';
+import type {TextShapeExclusion} from '../partials/types';
 import type {ChunkHeights} from './lineBands';
 import {
   heightsThrough,
@@ -42,7 +42,7 @@ export type BreakConstraints = {
   readonly textWrap: boolean;
   readonly overflowWrap: OverflowWrapMode;
   /** Shapes the text flows around, in the paragraph's own space. */
-  readonly exclusions: readonly TextExclusion[];
+  readonly exclusions: readonly TextShapeExclusion[];
   readonly vertical: ParagraphVerticalMetrics;
 };
 

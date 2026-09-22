@@ -7,7 +7,7 @@
  * Beside an exclusion a line is scored against the band its own height carves,
  * so the plan and the placement agree on where each line stands.
  */
-import type {TextExclusion} from '../partials/types';
+import type {TextShapeExclusion} from '../partials/types';
 import type {
   BreakConstraints,
   BrokenLine,
@@ -58,7 +58,7 @@ export type OptimalBreakConstraints = {
   /** True when the renderer justifies every line but the last of a chunk. */
   readonly justify: boolean;
   /** Shapes the text flows around, in the paragraph's own space. */
-  readonly exclusions?: readonly TextExclusion[];
+  readonly exclusions?: readonly TextShapeExclusion[];
   readonly vertical: ParagraphVerticalMetrics;
 };
 

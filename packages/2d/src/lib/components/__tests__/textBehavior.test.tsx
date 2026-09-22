@@ -7,6 +7,7 @@ import {failOnSceneErrors} from './failOnSceneErrors';
 import {generatorTest} from './generatorTest';
 import {mockScene2D} from './mockScene2D';
 import {add, lineTexts} from './sceneFixtures';
+import {linesOf} from './textExclusionFixtures';
 import {
   DrawProbe,
   fakeFont,
@@ -458,5 +459,35 @@ describe('Txt in scenes people build', () => {
     expect(paintedRuns(probe)).toEqual([['3.1', 16]]);
     value(123.456);
     expect(paintedRuns(probe)).toEqual([['123.5', 0]]);
+  });
+
+  it('flows around a badge the same row places', () => {
+    const badge = new Rect({
+      layout: false,
+      size: [80, 40],
+      position: [60, -30],
+    });
+    const probe = new DrawProbe({
+      fontSize: 10,
+      lineHeight: 20,
+      grow: 1,
+      text:
+        'text that flows around a badge placed beside it by the same ' +
+        'layout, line after line, until the badge is behind it',
+      exclusions: [{kind: 'node', node: badge}],
+    });
+    new Layout({
+      layout: true,
+      width: 300,
+      children: [new Rect({size: [40, 40]}), probe, badge],
+    });
+
+    expect([probe.size().x, probe.size().y]).toEqual([265, 80]);
+    expect(linesOf(probe)).toEqual([
+      '0.000:0.000/text that flows around a',
+      '20.000:0.000/badge placed beside it by',
+      '40.000:0.000/the same layout, line after line, until the badge is',
+      '60.000:0.000/behind it',
+    ]);
   });
 });

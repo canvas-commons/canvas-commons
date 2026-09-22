@@ -3,7 +3,7 @@
  * lookup asks for. Both break passes read this module, so a line either pass
  * plans stands in the same slot at the same height.
  */
-import type {TextExclusion} from '../partials/types';
+import type {TextShapeExclusion} from '../partials/types';
 import type {ParagraphVerticalMetrics} from './lineMetrics';
 import {lineBoxHeight} from './lineMetrics';
 import type {
@@ -20,7 +20,7 @@ import {
   getRectIntervalsForBand,
 } from './wrapGeometry';
 
-function paddedBottom(exclusion: TextExclusion): number {
+function paddedBottom(exclusion: TextShapeExclusion): number {
   const padding = exclusion.verticalPadding ?? 0;
   if (exclusion.kind === 'rect') {
     return exclusion.y + exclusion.height + padding;
@@ -33,7 +33,7 @@ function paddedBottom(exclusion: TextExclusion): number {
 }
 
 /** Below this no exclusion blocks a band, so a free segment always exists. */
-function exclusionsBottom(exclusions: readonly TextExclusion[]): number {
+function exclusionsBottom(exclusions: readonly TextShapeExclusion[]): number {
   let bottom = 0;
   for (const exclusion of exclusions) {
     bottom = Math.max(bottom, paddedBottom(exclusion));
@@ -42,7 +42,7 @@ function exclusionsBottom(exclusions: readonly TextExclusion[]): number {
 }
 
 function blockedIntervals(
-  exclusions: readonly TextExclusion[],
+  exclusions: readonly TextShapeExclusion[],
   top: number,
   bottom: number,
 ): Interval[] {
@@ -127,7 +127,7 @@ export type ParagraphBands = {
  * ```
  */
 export function readParagraphBands(
-  exclusions: readonly TextExclusion[],
+  exclusions: readonly TextShapeExclusion[],
   base: Interval,
 ): ParagraphBands {
   const bottom = exclusionsBottom(exclusions);

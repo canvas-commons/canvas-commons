@@ -83,6 +83,8 @@ import {
 } from '../utils/yoga';
 import {transitionTo as runTransitionTo} from './layout/transitionTo';
 import {Node, NodeProps} from './Node';
+import type {LayoutSettler, SettledBox} from './settledLayout';
+import {LayoutSettlers, SettledBoxes} from './settledLayout';
 import {ComponentChildren} from './types';
 
 /**
@@ -245,6 +247,35 @@ export interface LayoutProps extends NodeProps {
    */
   bottomRight?: SignalValue<PossibleVector2>;
   clip?: SignalValue<boolean>;
+}
+
+/**
+ * Passes a layout root takes, after the first, to find boxes a text that
+ * reads them agrees with.
+ */
+const SETTLE_PASSES = 6;
+
+/** The nodes of a layout root and those of them that read its settled boxes. */
+type SettlingTree = {
+  nodes: Layout[];
+  settlers: {node: number; settler: LayoutSettler}[];
+};
+
+function computedBoxes(nodes: readonly Layout[]): SettledBox[] {
+  return nodes.map(node => {
+    const {left, top, width, height} = node.yogaNode.getComputedLayout();
+    return {left, top, width, height};
+  });
+}
+
+function sameBoxes(a: readonly SettledBox[], b: readonly SettledBox[]) {
+  return a.every(
+    (box, i) =>
+      box.left === b[i].left &&
+      box.top === b[i].top &&
+      box.width === b[i].width &&
+      box.height === b[i].height,
+  );
 }
 
 @nodeName('Layout')
@@ -987,6 +1018,8 @@ export class Layout extends Node {
     width: number | undefined,
     height: number | undefined,
   ) {
+    const settling = this.settlingTree();
+    if (settling) this.unsettle(settling);
     this.yogaNode.calculateLayout(width, height);
     const aspectRatioConstraint = this.resolveAspectRatioConstraint(
       width,
@@ -1000,6 +1033,85 @@ export class Layout extends Node {
     if (this.resolvePercentageDimensions()) {
       this.yogaNode.calculateLayout(width, height);
     }
+    if (settling) this.settle(settling, width, height);
+  }
+
+  private settlingTree(): SettlingTree | null {
+    const nodes: Layout[] = [this];
+    const settlers: SettlingTree['settlers'] = [];
+    this.walkFlexTree(child => {
+      const settler = LayoutSettlers.get(child);
+      if (settler?.reads()) settlers.push({node: nodes.length, settler});
+      nodes.push(child);
+    });
+    return settlers.length > 0 ? {nodes, settlers} : null;
+  }
+
+  /**
+   * Forget the boxes of the last pass, so the first pass reads none and the
+   * result never depends on an earlier one.
+   */
+  private unsettle({nodes, settlers}: SettlingTree): void {
+    for (const node of nodes) SettledBoxes.delete(node);
+    for (const {settler} of settlers) settler.settle();
+  }
+
+  /**
+   * Repeat the pass, each one reading the boxes of the pass before, until
+   * the boxes every settler reads stop moving. When they cycle instead, or
+   * the passes run out, keep the boxes seen whose pass gave the settlers the
+   * least total height, and of those the greatest total width; the first
+   * such boxes win a tie.
+   */
+  private settle(
+    {nodes, settlers}: SettlingTree,
+    width: number | undefined,
+    height: number | undefined,
+  ): void {
+    const seen: SettledBox[][] = [];
+    for (;;) {
+      const boxes = computedBoxes(nodes);
+      const repeat = seen.findIndex(earlier => sameBoxes(earlier, boxes));
+      if (repeat !== -1 || seen.length === SETTLE_PASSES) {
+        const cycle = seen.slice(Math.max(repeat, 0));
+        const after = (index: number, axis: 'width' | 'height') => {
+          const next = cycle[index + 1] ?? boxes;
+          return settlers.reduce((sum, {node}) => sum + next[node][axis], 0);
+        };
+        const better = (a: number, b: number) =>
+          after(a, 'height') < after(b, 'height') ||
+          (after(a, 'height') === after(b, 'height') &&
+            after(a, 'width') > after(b, 'width'));
+        let chosen = 0;
+        for (let i = 1; i < cycle.length; i++) {
+          if (better(i, chosen)) chosen = i;
+        }
+        if (this.readBoxes(nodes, settlers, cycle[chosen])) {
+          this.yogaNode.calculateLayout(width, height);
+        }
+        return;
+      }
+      seen.push(boxes);
+      if (!this.readBoxes(nodes, settlers, boxes)) return;
+      this.yogaNode.calculateLayout(width, height);
+    }
+  }
+
+  /**
+   * Settle the tree on `boxes` and answer whether a settler read boxes that
+   * have moved, so the next pass measures it again.
+   */
+  private readBoxes(
+    nodes: readonly Layout[],
+    settlers: SettlingTree['settlers'],
+    boxes: readonly SettledBox[],
+  ): boolean {
+    nodes.forEach((node, i) => SettledBoxes.set(node, boxes[i]));
+    let moved = false;
+    for (const {settler} of settlers) {
+      if (settler.settle()) moved = true;
+    }
+    return moved;
   }
 
   private resolveAspectRatioConstraint(

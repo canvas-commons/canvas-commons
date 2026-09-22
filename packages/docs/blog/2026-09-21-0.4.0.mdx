@@ -1,0 +1,945 @@
+---
+slug: v0.4.0
+title: Canvas Commons v0.4.0
+authors: hhenrichsen
+mdx:
+  format: mdx
+---
+
+import IssueGroup from '@site/src/components/Release/IssueGroup';
+import Issue from '@site/src/components/Release/Issue';
+
+Say hello to Canvas Commons v0.4.0, the LaTeXt update! This release brings
+improvements to the `Latex` component, adds Layout Animations, overhauls the
+`Txt` component, and adds a new MediaBunny exporter. It also fixes some bugs,
+resolves some issues with shaders, and deprecates the old ffmpeg exporter.
+
+{/* truncate */}
+
+This is a "major" release for the library, but because we're still in the
+`v0.x.x` range this is versioned as a minor release; issues may arise and things
+may still be unstable. Use at your own risk, and report any issues you find on
+[GitHub](https://github.com/canvas-commons/canvas-commons/issues) or
+[Discord](https://discord.gg/qgfN9t4X5u).
+
+Special thanks to [`@xiaoxiae`](https://github.com/xiaoxiae)'s help on the
+MediaBunny exporter, [`@hikarikoda`](https://github.com/hikarikoda)'s help with
+Shaders and Text Paths, and [`@0byte-coding`](https://github.com/0byte-coding)'s
+CORS proxy and mouse coordinate improvements.
+
+[`@TimerErTim`](https://github.com/TimerErTim),
+[`@hikarikoda`](https://github.com/hikarikoda),
+[`@0byte-coding`](https://github.com/0byte-coding), and
+[`@xiaoxiae`](https://github.com/xiaoxiae) all contributed for their first time
+on this release. Thank you for your help!
+
+## Breaking Changes and Migration Guide
+
+Layouts and Text have changed underlying libraries and that means that some
+animations will have slight differences. Key changes:
+
+- `View2D.shadowRoot` and `Layout.element` / `Layout.styles` are removed; use
+  `Layout.yogaNode` and `getDomContainer()` (for SVG / arc measurement) instead.
+- `TxtLeaf` now extends `Node` instead of `Shape`.
+- Direct `<TxtLeaf>` styling no longer applies. Styles instead cascade from the
+  parent `<Txt>`.
+- `FlexBasis` drops `content`, `min-content`, `max-content`, and `fit-content`.
+- `LengthLimit` drops `max-content` and `min-content`.
+- `textWrap` now defaults to `true` so width-bounded `<Txt>` wraps by default.
+- `node.relativeTo(other)` now returns coordinates in the other node's
+  coordinate space. Use `node.position.abs().sub(b.position().abs())` to get the
+  old behavior.
+
+## Major Features and Tweaks
+
+### Exporter
+
+The exporter has been replaced with a MediaBunny-backed webcodecs exporter. This
+means about a 2x speedup in export times, and saves us from needing to do
+complicated things to get ffmpeg installed on a system. It's a new option when
+creating a project with `npm create canvas-commons@latest`, and can be added to
+an existing project with `npm install @canvas-commons/webcodecs` and by adding
+it to your `vite.config.ts`:
+
+```ts
+import {defineConfig} from 'vite';
+import canvasCommons from '@canvas-commons/vite-plugin';
+import webcodecs from '@canvas-commons/webcodecs';
+
+export default defineConfig({
+  plugins: [canvasCommons(), webcodecs()],
+});
+```
+
+### Text
+
+The `Txt` component is now much more capable. It's backed by `pretext`, which
+helps us render and measure text without going through the DOM or a canvas
+element. There are still some kinks we're working out, but I've found it much
+more intuitive so far.
+
+#### Text Paths
+
+One of the most commonly requested `Txt` features is to draw text along a path.
+This is now possible:
+
+```tsx editor mode=preview
+import {Txt, Circle, makeScene2D} from '@canvas-commons/2d';
+import {createRef, waitFor, useScene} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const v = useScene().variables;
+
+  const txt = createRef<Txt>();
+  const circle = createRef<Circle>();
+
+  view.add(
+    <>
+      <Circle ref={circle} size={200} />,
+      <Txt
+        ref={txt}
+        text="Hello, world!"
+        textPath={circle()}
+        pathOffset={435}
+        fill={v.get('--cc-text', '#cdd6f4')}
+        fontSize={24}
+        size={200}
+        position={view.size().mul(0.5).add([0, 100])}
+        cachePadding={100}
+      />
+      ,
+    </>,
+  );
+
+  yield* txt().pathOffset(435 + Math.PI * 200, 2);
+});
+```
+
+#### Text Splitting
+
+Another common request is to be able to animate individual letters or words.
+`Txt.split` will explode a text node into standalone `Txt` nodes for each word,
+letter, or sentence.
+
+```tsx editor mode=preview
+import {Node, Txt, makeScene2D} from '@canvas-commons/2d';
+import {createRef, sequence, useScene, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const v = useScene().variables;
+  const label = createRef<Txt>();
+
+  view.add(
+    <Txt ref={label} fontSize={64} fill={v.get('--cc-text', '#cdd6f4')}>
+      Split me into words
+    </Txt>,
+  );
+
+  const pieces = label().split('word');
+  view.add(<Node position={label().position()}>{pieces}</Node>);
+  label().opacity(0);
+
+  yield* sequence(0.15, ...pieces.map(piece => piece.y(-40, 0.3).back(0.3)));
+  yield* waitFor(0.3);
+});
+```
+
+#### Justification, Hyphenation, and Knuth-Plass
+
+`textAlign={'justify'}` does what you might expect, balancing the whitespace
+between words on a line. `wrapMode={'knuth-plass'}` decides where to break the
+lines. `hyphenate` takes a word splitter and enables soft breaks mid-word.
+
+```tsx editor mode=preview
+import {Layout, Txt, makeScene2D} from '@canvas-commons/2d';
+import {useScene, waitFor} from '@canvas-commons/core';
+
+const text =
+  'This is some text, that evenly spreads its whitespace between words ' +
+  'while trying to avoid orphaned words and other badness when justified.';
+
+function hyphenate(word: string): string[] {
+  if (word.length <= 6) return [word];
+  const parts: string[] = [];
+  for (let i = 0; i < word.length; i += 4) parts.push(word.slice(i, i + 4));
+  return parts;
+}
+
+export default makeScene2D(function* (view) {
+  const v = useScene().variables;
+  const fill = v.get('--cc-text', '#cdd6f4');
+
+  view.add(
+    <Layout layout gap={40}>
+      <Txt width={340} fontSize={28} fill={fill}>
+        {text}
+      </Txt>
+      <Txt
+        width={340}
+        fontSize={28}
+        fill={fill}
+        wrapMode={'knuth-plass'}
+        textAlign={'justify'}
+        hyphenate={() => hyphenate}
+      >
+        {text}
+      </Txt>
+    </Layout>,
+  );
+
+  yield* waitFor(1);
+});
+```
+
+#### Exclusions
+
+`exclusions` lets you give areas that the text will avoid. Useful for embedding
+an image or other content in the text. Coordinates are measured from the
+top-left of the text block, so a sibling's corner can be read straight from its
+cardinal point signals.
+
+```tsx editor mode=preview
+import {Rect, Txt, makeScene2D} from '@canvas-commons/2d';
+import {createRef, useScene, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const v = useScene().variables;
+  const body = createRef<Txt>();
+  const box = createRef<Rect>();
+
+  view.add(
+    <>
+      <Rect
+        ref={box}
+        position={[200, -30]}
+        size={[200, 90]}
+        radius={12}
+        lineWidth={4}
+        stroke={v.get('--cc-mauve', '#cba6f7')}
+      />
+      <Txt
+        ref={body}
+        anchor={[-1, -1]}
+        position={[-400, -70]}
+        width={800}
+        fontSize={28}
+        fill={v.get('--cc-text', '#cdd6f4')}
+        textAlign={'left'}
+        exclusions={() => {
+          const corner = box().topLeft().sub(body().position());
+          return [
+            {
+              kind: 'rect',
+              x: corner.x,
+              y: corner.y,
+              width: box().width(),
+              height: box().height(),
+              horizontalPadding: 24,
+              verticalPadding: 12,
+            },
+          ];
+        }}
+      />
+    </>,
+  );
+
+  yield* body().text(
+    'This is some text. Instead of running into the purple box, it wraps ' +
+      'around it, just like wrapping around a picture in an encyclopedia. ' +
+      'If the text gets long enough, it might even wrap underneath the box.',
+    2.5,
+  );
+  yield* waitFor(0.5);
+});
+```
+
+#### Fixes
+
+In the process, we've also fixed a bunch of bugs and issues with text layout;
+RTL and CJK should work much better, and both Code and Txt should use far less
+memory and cause fewer GC pauses.
+
+### LaTeX
+
+`Latex` now has new `edit` and `replace` methods that describe a change as one
+raw template whose holes carry both states of the fragment that occupies them,
+with `morph`, `fade`, and `partialFade` choosing how each one animates.
+
+```tsx editor mode=preview
+import {Latex, fade, makeScene2D, morph} from '@canvas-commons/2d';
+import {createRef, useScene, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const v = useScene().variables;
+  const tex = createRef<Latex>();
+
+  view.add(
+    <Latex
+      ref={tex}
+      fontSize={52}
+      fill={v.get('--cc-text', '#cdd6f4')}
+      tex="1 + 2 + \cdots + n"
+    />,
+  );
+
+  yield* waitFor(0.4);
+  yield* tex().edit(0.9)`1 + 2 + \cdots + n${fade('', ' = \\frac{n(n+1)}{2}')}`;
+  yield* waitFor(0.3);
+  yield* tex().replace(
+    0.9,
+    fade('n', '100'),
+    fade('n', '100'),
+    morph('n', '100'),
+  );
+  yield* waitFor(0.5);
+});
+```
+
+### Layout
+
+Layout is now backed by Yoga instead of the DOM, one more step towards headless
+rendering.
+
+#### Layout Animations
+
+`Layout.add`, `insert`, and `remove` take an optional duration, animating any
+changes to the layout instead of performing them immediately.
+
+```tsx editor mode=preview
+import {Layout, Rect, makeScene2D} from '@canvas-commons/2d';
+import {createRef, waitFor, useScene} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const v = useScene().variables;
+  const row = createRef<Layout>();
+  const fourth = createRef<Rect>();
+  const COLORS = [
+    v.get('--cc-red', '#f38ba8'),
+    v.get('--cc-yellow', '#f9e2af'),
+    v.get('--cc-green', '#a6e3a1'),
+    v.get('--cc-blue', '#89b4fa'),
+    v.get('--cc-purple', '#cba6f7'),
+  ];
+
+  view.add(
+    <Layout ref={row} layout direction="row" gap={20}>
+      {COLORS.slice(0, 3).map(color => (
+        <Rect width={100} height={100} fill={color} radius={12} />
+      ))}
+    </Layout>,
+  );
+
+  yield* row().insert(
+    <Rect ref={fourth} width={100} height={100} fill={COLORS[3]} radius={12} />,
+    1,
+    0.6,
+  );
+  yield* row().add(
+    <Rect width={100} height={100} fill={COLORS[4]} radius={12} />,
+    0.6,
+  );
+  yield* waitFor(0.2);
+  yield* fourth().remove(0.6);
+
+  yield* row().editLayout(0.6, n => {
+    n.direction('column');
+    n.alignItems('end');
+  });
+  yield* waitFor(0.2);
+  yield* row().editLayout(0.6, n => {
+    n.direction('row');
+    n.alignItems('center');
+  });
+
+  row().freezeLayout();
+  yield* row().children()[0].position.x(-260, 0.5).back(0.5);
+  yield* row().thawLayout(0.3);
+});
+```
+
+`layout` on a `<Layout>` is now an alias for `layoutSelf` and `layoutChildren`,
+and a new `translate` signal offsets a node visually without moving its
+siblings.
+
+#### Expanded Origin Transforms
+
+The origin signals (`top`, `left`, `bottomRight`, and friends) and the
+components of `position` and `scale` now get origin transforms, and have had
+several issues fixed.
+
+```tsx editor mode=preview
+import {Circle, Layout, Rect, makeScene2D} from '@canvas-commons/2d';
+import {Vector2, createRef, useScene, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const v = useScene().variables;
+  const card = createRef<Rect>();
+  const marker = createRef<Circle>();
+
+  view.add(
+    <Layout position={[120, 40]} rotation={15}>
+      <Rect
+        ref={card}
+        size={[260, 160]}
+        radius={16}
+        fill={v.get('--cc-surface0', '#313244')}
+      />
+    </Layout>,
+  );
+  view.add(
+    <Circle ref={marker} size={24} fill={v.get('--cc-mauve', '#cba6f7')} />,
+  );
+
+  marker().position(card().topRight.view());
+
+  yield* card().topLeft.view([-300, -160], 1);
+  yield* card().x.abs(0, 1);
+  yield* waitFor(0.3);
+});
+```
+
+### Package Access
+
+Tired of Hunter taking forever to release changes to the main version? Now you
+can run `npm create @canvas-commons@next` to get the latest changes right away.
+Note that these may break without warning, so use at your own risk.
+
+## Full Changelog
+
+<IssueGroup type="feat">
+
+<Issue user={"hhenrichsen"} pr={165}>
+<strong>{"@canvas-commons/create"}</strong>
+
+Offer the WebCodecs video exporter in the render prompt, selected by default.
+The FFmpeg exporter is still available but is now deprecated.
+
+</Issue>
+
+<Issue user={"xiaoxiae"} pr={121}>
+<strong>{"@canvas-commons/core"}</strong>
+
+change the default color interpolation space from `lch` to `oklab`
+
+Closes [#120](https://github.com/canvas-commons/canvas-commons/issues/120)
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={183}>
+<strong>{"@canvas-commons/fiddle"}</strong>
+
+Add `@canvas-commons/fiddle`, a browser playground runtime. It compiles a scene
+in a worker, runs it in a sandboxed iframe against vendored copies of `core` and
+`2d`, and edits it in CodeMirror with TypeScript completions and diagnostics.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={157}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Add `Latex.edit`, which describes a change as one raw template whose holes carry
+both states of the fragment that occupies them, with `morph`, `fade` and
+`partialFade` choosing how each one animates.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={157}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Tween `<Latex>` fragment by fragment, matching fragments by their sub-tex and
+their shapes by the glyph each renders, instead of pairing every shape in the
+formula by position. Adds `fragmentTransition` to choose how a changed fragment
+animates and `debugFragments` to outline and label each one.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={157}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Add `Latex.replace`, which matches edit fragments against the current formula so
+only the parts that change have to be written out.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={110}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+`Layout.add` / `insert` / `remove` accept an optional `duration`. Without it
+they behave as before; with it they return a `ThreadGenerator` that scales the
+child into or out of its slot while the surrounding flex layout reflows.
+
+```tsx
+yield * row().insert(<Rect width={100} height={100} fill="red" />, 1, 0.6);
+yield * row().children()[0].remove(0.6);
+```
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={110}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Add `Layout.editLayout(duration, mutator)` to animate a batch of layout
+properties (`direction`, `wrap`, `alignItems`, `padding`, `gap`, …) as one
+tween. Children glide from their pre-mutation positions to wherever the
+post-mutation layout places them.
+
+```tsx
+yield *
+  row().editLayout(0.3, n => {
+    n.direction('column');
+    n.alignItems('end');
+  });
+```
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={110}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Add `Layout.freezeLayout` / `thawLayout`. `freezeLayout` snaps children to their
+current visual positions and turns `layoutChildren` off so they can be animated
+by hand; `thawLayout` turns it back on and tweens children to their flex slots.
+
+```tsx
+row().freezeLayout();
+yield * row().children()[0].position.x(-200, 1).back(1);
+yield * row().thawLayout(0.3);
+```
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={185}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Components of position, scale, and layout origin signals reach the coordinate
+spaces: `node.x.abs(value, 1)`, `node.right.x.view(value, 1)`.
+`relativeTo(node)` on layout origin signals (`left`, `right`, ...) returns the
+curried signal that its type declares. Layout origin `abs` and `view` give the
+correct point for nodes that are not at the origin of their parent.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={110}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Split `layout` on `<Layout>` into `layoutSelf` (does this node participate in
+its parent's flex) and `layoutChildren` (does this node lay out its own
+children). Both default to `null` and fall back to `layout`, so existing code is
+unaffected. `Layout.applyLayout` and `Layout.requestLayoutUpdate` are now
+public.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={110}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Add `Node.transitionTo(newParent, [index,] duration)` and
+`Node.morphTo(other, duration)`. `transitionTo` reparents a node while tweening
+its world position, rotation, and opacity from the old slot to the new one.
+`morphTo` cross-fades into a separate destination node.
+
+```tsx
+yield * card.transitionTo(grid, 0, 0.6);
+yield * button.morphTo(modal, 0.4);
+```
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={110}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Add `translate` to `<Layout>` — a `Vector2Signal` (with `translateX` /
+`translateY` props) that visually offsets the node without disturbing siblings,
+analogous to CSS `transform: translate()`.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={171}>
+<strong>{"@canvas-commons/player"}</strong>
+
+Add a `paused` attribute to pause embedded animations, including autoplay.
+
+</Issue>
+
+<Issue user={"0byte-coding"} pr={150}>
+<strong>{"@canvas-commons/editor"}</strong>
+
+feat: Display mouse coordinates local to the selected node within the preview
+window.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={123}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Add `autoSize` to `<Txt>` — when enabled with a fixed `width` and `height`, the
+text takes the largest whole-pixel size at or below `fontSize` whose layout fits
+the box. A line beside an exclusion has to fit the band the exclusion leaves, so
+there the size can be smaller than one that fits the box alone.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={123}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Add `exclusions` to `<Txt>` — rect, polygon and node regions that text flows
+around, CSS `shape-outside`-style. Coordinates are Txt-local and center-origin;
+a rect's `x`/`y` is its center. A `{kind: 'node', node}` entry reads its shape
+from a live node. A flex layout may place the text, the node, or both. A node
+that this text's own flow places throws.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={108}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Replace DOM-based layout and text with Yoga and Pretext.
+
+**Breaking:** `View2D.shadowRoot` and `Layout.element` / `Layout.styles` are
+removed; use `Layout.yogaNode` and `getDomContainer()` (for SVG / arc
+measurement) instead. `TxtLeaf` now extends `Node`, not `Shape` — direct
+`<TxtLeaf>` styling no longer applies; styles cascade from the enclosing
+`<Txt>`. `FlexBasis` / `LengthLimit` drop the unsupported content-keyword
+variants, `FlexContent` adds `'normal'`, `FlexItems` adds `'auto'`, and
+`textWrap` now defaults to `true` so width-bounded `<Txt>` wraps without opt-in.
+
+Text breaks and spaces as CSS does: a CRLF is one line break, a space or tab
+next to a line break is dropped, and a space at a soft wrap hangs past the line,
+so a wrapped `<Txt>` shrink-wraps to its ink. Runs of different sizes on one
+line share one baseline, and a word that a colour or font change cuts keeps the
+kerning of the whole word.
+
+Flex items keep the automatic minimum size CSS gives them: a `<Txt>` in a row
+stays as wide as the widest word it lays out, a container keeps room for the
+text under it, and an unconstrained column item keeps its content height. Set
+`minWidth={0}` or `minHeight={0}` to shrink past that.
+
+A nested `<Txt>` no longer lays out its own text: its `size()` is the extent of
+the text it paints in the root paragraph, across every line it wraps onto, not
+the size of its text set alone on one line. It ignores `width`, `height` and
+`padding`, and its `textLines()`, `textWords()` and `split()` read the root's
+layout.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={123}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Add support for inline non-text children inside `<Txt>` — direct `Layout`
+children are placed in the text flow as atomic slots sized by their own `width`
+/ `height`, and a line may break on either side of one, as beside a replaced
+element in CSS.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={123}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Add `textAlign={'justify'}` and a `verticalAlign` signal to `<Txt>` — justify
+distributes line slack across word gaps and leaves a line that ends on a manual
+newline at its natural width, as CSS does; `verticalAlign` lines text up to the
+top, middle, or bottom of its box. A line wider than its box starts at its start
+edge and overflows past the other, whatever the alignment, as in CSS.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={123}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Add text-on-a-path to `<Txt>`: `textPath` lays a single line along SVG path
+data, a `CurveProfile`, or a live `Curve` node, with `pathOffset`, `pathAlign`,
+`pathSmoothness`, and `pathSplit` controlling placement, cross-path alignment,
+and shaping.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={187}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+`Txt` wraps text around a closed `textPath` when `pathOffset` loops around the
+end. Open paths still clip.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={123}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Add `textWords` / `textGlyphs` / `textSentences` query accessors to `<Txt>` that
+return per-unit text and positions in Txt-local coordinates.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={123}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Add `Txt.split(granularity)` — explode a text node into one standalone,
+style-matched `Txt` per grapheme, word, or sentence, each positioned to
+reproduce the source render exactly (kerning included) so the pieces can be
+animated independently.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={123}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Add `wrapMode`, `hyphenate` and `overflowWrap` to `<Txt>` — opt into Knuth-Plass
+line breaking and bring-your-own soft-hyphen insertion.
+`overflowWrap={'anywhere'}` breaks a word wider than the line at any grapheme;
+the default `'normal'` keeps it whole, as CSS `overflow-wrap` does.
+
+</Issue>
+
+<Issue user={"xiaoxiae"} pr={119}>
+<strong>{"@canvas-commons/webcodecs"}</strong>
+
+Add `@canvas-commons/webcodecs`, a self-contained in-browser video exporter. It
+encodes video and audio entirely in the browser via Mediabunny and the Web Audio
+API.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={108}>
+<strong>{"@canvas-commons/vite-plugin"}</strong>
+
+Pre-bundle `yoga-layout` and `@chenglou/pretext` so the dev-time dep optimizer
+doesn't discover them mid-session and force a page reload.
+
+</Issue>
+
+</IssueGroup>
+
+<IssueGroup type="fix">
+
+<Issue user={"hhenrichsen"} pr={167}>
+<strong>{"@canvas-commons/core"}</strong>
+
+The audio preview gain uses the amplitude formula (`10^(db/20)`), matching the
+exporters.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={173}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Wait for a web font that a text node requests before the scene draws, so the
+first frame no longer uses fallback metrics.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={190}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Cancelling a `Code.code` `replace`, `append`, or `prepend` tween holds the code
+at its current progress and avoids memory growth.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={190}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Creating many `Code` nodes uses less memory.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={179}>
+<strong>{"@canvas-commons/core"}</strong>
+
+Add Intl.Segmenter types to the shared tsconfig so projects extending it
+typecheck.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={182}>
+<strong>{"@canvas-commons/core"}</strong>
+
+Stop webpack from resolving the dynamic plugin import, which removes its
+critical dependency warning.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={115}>
+<strong>{"@canvas-commons/create"}</strong>
+
+declare kleur as a direct dependency so scaffolding works under pnpm's strict
+node_modules layout instead of relying on npm hoisting it from prompts.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={168}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Respect aspect ratios on standalone nodes when only width or height is set.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={177}>
+<strong>{"@canvas-commons/2d, @canvas-commons/core"}</strong>
+
+Collect a yielded node's asynchronous resources inside its scene, so an icon
+that finishes loading while the scene waits for it renders.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={158}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Knuth-Plass wrapping treats manual newlines as mandatory breaks instead of
+optional break candidates.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={175}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Knuth-Plass wrapping no longer plans a last line, or any line of text that is
+not justified, wider than the node. A word wider than the node now gets its own
+line instead of collapsing the whole paragraph onto one line.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={179}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+`Latex` no longer takes its size from the x-height of the page font. `fontSize`
+now equals the size of the math font itself, so existing `Latex` nodes render
+about 10-15% smaller in the editor.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={157}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Fix `<Latex>` fragments claiming glyphs that belong to a neighbouring fragment
+when MathJax does not emit their own contiguously, and repair fragments that a
+split leaves without the argument or the `\end` their commands need instead of
+reporting them as invalid MathJax.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={110}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Concurrent-tween fixes for `<Latex>`, `<Txt>`, and `<Layout>`. `padding`,
+`margin`, and `gap` tweens now compose with `size` tweens on the same node;
+`Latex.tweenTex` tweens the container size alongside the fragment morph; `Txt`
+text tweens stay smooth when `fontSize` animates at the same time.
+
+`Layout.lockLayout` / `releaseLayout` replace `lockSize` / `releaseSize`.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={192}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+A percent size on a node outside of a layout resolves against the nearest
+ancestor that has a size or a layout.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={191}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Shaders receive the `frame` uniform.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={190}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Text-heavy scenes avoid memory growth from disposed nodes and repeated
+measurements.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={169}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Keep the shear of an SVG matrix transform, and read SVG presentation properties
+from the `style` attribute as well as the matching attribute.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={190}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+A `Txt` reuses its text leaves when reactive string children change.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={190}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+`Txt` renders the string representation of non-string `text` values supplied by
+untyped code.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={190}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+`Txt` renders empty text when its value resolves to `null` or `undefined`.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={190}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+`Txt` retains its text leaf when a reactive `text` value changes.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={190}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Right-to-left text renders at the positions reported by its layout.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={174}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+A `<Txt>` text tween whose target changes while it runs now re-wraps at the box
+width instead of laying the rest of the tween out on one line.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={158}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Keep `textWrap` active during text tweens on `Txt` nodes with a fixed width, a
+percent width or a `maxWidth`.
+
+</Issue>
+
+<Issue user={"hhenrichsen"} pr={190}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+`Txt` wraps at a resolved layout width of zero instead of painting one line.
+
+</Issue>
+
+<Issue user={"0byte-coding"} pr={155}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+`<Video>` sources are now routed through the CORS proxy, the same as `<Img>`
+sources. Remote videos no longer taint the canvas when the proxy is enabled.
+
+</Issue>
+
+</IssueGroup>
+
+<IssueGroup type="change">
+
+<Issue user={"hhenrichsen"} pr={157}>
+<strong>{"@canvas-commons/2d"}</strong>
+
+Honor a caller-supplied interpolation function when tweening `<Path>` data, and
+use it for the path morphs in `<SVG>` and `<Latex>` so they tween through their
+signals.
+
+</Issue>
+
+</IssueGroup>
+
+Check out the [Update Guide](/docs/updating) for information on how to update
+your existing projects.

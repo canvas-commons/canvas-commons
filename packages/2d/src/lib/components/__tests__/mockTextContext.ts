@@ -1,3 +1,4 @@
+import {clearCache} from '@chenglou/pretext';
 import {afterAll, beforeAll} from 'vitest';
 
 /** The context state a measurement depends on. */
@@ -84,5 +85,31 @@ export function mockTextContext(
   });
   afterAll(() => {
     HTMLCanvasElement.prototype.getContext = original;
+  });
+}
+
+/**
+ * Answer a DOM measurement of an element for the suite. An emoji advance is
+ * corrected by how far the canvas measurement stands from the DOM one, and
+ * jsdom lays nothing out, so a suite that measures an emoji has to say what
+ * the DOM reports.
+ *
+ * @param width - Width reported for the text of an element, in its own font.
+ */
+export function mockDomTextWidth(
+  width: (text: string, font: string) => number,
+): void {
+  let original: typeof Element.prototype.getBoundingClientRect;
+  beforeAll(() => {
+    original = Element.prototype.getBoundingClientRect;
+    Element.prototype.getBoundingClientRect = function (this: Element) {
+      const font = this instanceof HTMLElement ? this.style.font : '';
+      return new DOMRect(0, 0, width(this.textContent ?? '', font), 0);
+    };
+    clearCache();
+  });
+  afterAll(() => {
+    Element.prototype.getBoundingClientRect = original;
+    clearCache();
   });
 }

@@ -143,6 +143,49 @@ describe('carveTextLineSlots', () => {
     ]);
     expect(slots).toEqual([]);
   });
+
+  it('keeps a base narrower than the minimum slot width', () => {
+    expect(carveTextLineSlots({left: 0, right: 20}, [])).toEqual([
+      {left: 0, right: 20},
+    ]);
+    expect(
+      carveTextLineSlots({left: 0, right: 20}, [{left: 1000, right: 1010}]),
+    ).toEqual([{left: 0, right: 20}]);
+  });
+});
+
+describe('signed padding', () => {
+  // Right angle at the origin, hypotenuse from (100, 0) to (0, 100).
+  const triangle = [
+    {x: 100, y: 0},
+    {x: 0, y: 100},
+    {x: 0, y: 0},
+  ];
+
+  function freeWidth(bandBottom: number): number {
+    const interval = getPolygonIntervalForBand(
+      triangle,
+      0,
+      bandBottom,
+      -20,
+      -20,
+    );
+    const slots = carveTextLineSlots(
+      {left: 0, right: 200},
+      interval === null ? [] : [interval],
+    );
+    return Math.max(0, ...slots.map(slot => slot.right - slot.left));
+  }
+
+  it('leaves the free width of a band non-increasing in its height', () => {
+    expect(freeWidth(35)).toBeLessThanOrEqual(freeWidth(25));
+    expect(freeWidth(45)).toBeLessThanOrEqual(freeWidth(35));
+  });
+
+  it('removes a rect its padding shrank away', () => {
+    const rect = {x: 0, y: 0, width: 10, height: 10};
+    expect(getRectIntervalsForBand([rect], 0, 20, -20, -20)).toEqual([]);
+  });
 });
 
 describe('Txt.exclusions', () => {

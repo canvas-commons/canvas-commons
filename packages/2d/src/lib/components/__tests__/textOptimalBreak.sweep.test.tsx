@@ -1,4 +1,5 @@
 import {describe, expect, it} from 'vitest';
+import type {TextExclusion} from '../../partials/types';
 import type {BrokenLine, BrokenParagraph} from '../../text/breakParagraph';
 import {breakParagraph} from '../../text/breakParagraph';
 import type {
@@ -10,11 +11,19 @@ import {
   breakParagraphOptimally,
   lineStops,
 } from '../../text/knuthPlassParagraph';
+import type {ParagraphBands} from '../../text/lineBands';
+import {
+  heightsThrough,
+  openingHeight,
+  readChunkHeights,
+  readParagraphBands,
+} from '../../text/lineBands';
 import type {ParagraphVerticalMetrics} from '../../text/lineMetrics';
-import {readVerticalMetrics} from '../../text/lineMetrics';
+import {lineBoxHeight, readVerticalMetrics} from '../../text/lineMetrics';
 import type {LineSpan} from '../../text/lineSpan';
 import {
   isJustificationGlue,
+  lineSpanItemRange,
   measureLineSpan,
   measureLineSpanFit,
 } from '../../text/lineSpan';
@@ -35,7 +44,11 @@ import {
   prepareParagraph,
 } from '../../text/preparedParagraph';
 import {getEngineProfile} from '../../text/pretext-derived/engineProfile';
-import {endsLineLegally} from '../../text/pretext-derived/lineBreak';
+import {
+  endsLineLegally,
+  isDiscretionaryLineEnd,
+} from '../../text/pretext-derived/lineBreak';
+import type {Interval} from '../../text/wrapGeometry';
 import {mockTextContext} from './mockTextContext';
 import {mockFontBounds, mockFontWidth, TEXTS} from './textInvariants';
 
@@ -44,7 +57,46 @@ const FONT = '400 20px sans-serif';
 const REGULAR: RunMetrics = {font: FONT, letterSpacing: 0};
 /** 20.5px glyphs. */
 const WIDE: RunMetrics = {font: '700 41px sans-serif', letterSpacing: 0};
+/** 25px glyphs, 50px line boxes. */
+const TALL: RunMetrics = {font: '400 50px sans-serif', letterSpacing: 0};
 const LINE_HEIGHT = '100%';
+
+const EXCLUSION_SETS: {name: string; exclusions: TextExclusion[]}[] = [
+  {name: 'none', exclusions: []},
+  {
+    name: 'left',
+    exclusions: [{kind: 'rect', x: 0, y: 0, width: 40, height: 60}],
+  },
+  {
+    name: 'right',
+    exclusions: [{kind: 'rect', x: 90, y: 0, width: 60, height: 70}],
+  },
+  {
+    name: 'middle',
+    exclusions: [{kind: 'rect', x: 45, y: 10, width: 40, height: 40}],
+  },
+  {
+    name: 'polygon',
+    exclusions: [
+      {
+        kind: 'polygon',
+        points: [
+          {x: 0, y: 0},
+          {x: 50, y: 0},
+          {x: 0, y: 80},
+        ],
+      },
+    ],
+  },
+  {
+    name: 'two',
+    exclusions: [
+      {kind: 'rect', x: 0, y: 0, width: 30, height: 45},
+      {kind: 'rect', x: 100, y: 30, width: 50, height: 60},
+    ],
+  },
+];
+const BAND_WIDTHS = [65, 90, 140];
 
 const EXTRA_TEXTS = [
   {name: 'soft-hyphens', text: 'un­break­able ex­tra words'},
@@ -68,6 +120,9 @@ const SEARCHED_PLANS = 2552;
 const INTERIOR_BREAKS = 16;
 const SELECTED_LINES = 1105;
 const MEASURED_STOPS = 474;
+const BANDED_PLANS = 11184;
+const BANDED_LINES = 554;
+const AGREED_BANDED_LINES = 464;
 
 const EPSILON = getEngineProfile().lineFitEpsilon;
 
@@ -191,6 +246,14 @@ function textRun(
   return {kind: 'text', owner, paint: owner, metrics, text};
 }
 
+function boxRun(
+  owner: number,
+  width: number,
+  height: number,
+): ContentRun<number, number> {
+  return {kind: 'object', owner, paint: owner, metrics: REGULAR, width, height};
+}
+
 function constraintsOf(
   vertical: ParagraphVerticalMetrics,
   maxWidth: number,
@@ -203,6 +266,45 @@ function constraintsOf(
     justify,
     vertical,
   };
+}
+
+const BANDED_MEMO: SweepCase[] = [];
+
+/** Paragraphs of one chunk, so a banded plan starts at the top of the box. */
+function bandedCases(): SweepCase[] {
+  if (BANDED_MEMO.length > 0) return BANDED_MEMO;
+  const single = [
+    {name: 'words', text: 'alpha beta gamma delta epsilon zeta eta'},
+    {name: 'soft-hyphens', text: 'un­break­able ex­tra words here'},
+    {name: 'long-word', text: 'a supercalifragilisticexpialidocious word'},
+    {name: 'dashed', text: 'a well-known-but-very-long-compound end'},
+  ];
+  for (const {name, text} of single) {
+    const metrics = metricsOf('normal', 0);
+    const prepared = prepareParagraph(text, metrics);
+    BANDED_MEMO.push({
+      name,
+      items: prepared.items,
+      vertical: verticalOf(prepared.items, [metrics]),
+    });
+  }
+  BANDED_MEMO.push({
+    ...mixedCase([
+      textRun(0, REGULAR, 'alpha beta '),
+      boxRun(1, 30, 48),
+      textRun(2, REGULAR, ' gamma delta epsilon'),
+    ]),
+    name: 'tall-box',
+  });
+  BANDED_MEMO.push({
+    ...mixedCase([
+      textRun(0, REGULAR, 'alpha beta '),
+      textRun(1, TALL, 'tall '),
+      textRun(2, REGULAR, 'gamma delta epsilon'),
+    ]),
+    name: 'tall-run',
+  });
+  return BANDED_MEMO;
 }
 
 function spanOf(line: BrokenLine): LineSpan {
@@ -314,6 +416,17 @@ function isolatesOneUnit(
   );
 }
 
+/** What a broken line shows: its paint width, box height and free segment. */
+function shapeOf(line: BrokenLine): string {
+  return [
+    line.width,
+    line.height,
+    line.top,
+    line.segment.left,
+    line.segment.right,
+  ].join('/');
+}
+
 /** Last item the line holds, whole or in part. */
 function lastItem(line: BrokenLine): number {
   return line.end.graphemeIndex > 0
@@ -352,6 +465,121 @@ function costKey(cost: LineCost): string {
   return `${cost.overflow.toFixed(6)}/${cost.badness.toFixed(6)}`;
 }
 
+/** Chunk a line that opens at this cursor runs in. */
+function chunkOf(
+  items: ParagraphItems,
+  cursor: ParagraphCursor,
+): ParagraphChunk {
+  for (const chunk of items.chunks) {
+    if (cursor.segmentIndex < chunk.consumedEndSegmentIndex) return chunk;
+  }
+  return items.chunks[items.chunks.length - 1];
+}
+
+/** Where one line of a plan stands, and the free width it is scored against. */
+type PlacedLine = {
+  top: number;
+  height: number;
+  left: number;
+  segment: Interval;
+  limit: number;
+  hardEdge: boolean;
+  fit: number;
+  /** False when a hyphen of this line would paint into a shape. */
+  legal: boolean;
+  /** True when no legal candidate of this line's start stops earlier. */
+  first: boolean;
+};
+
+/**
+ * Where one candidate line stands: it opens at the bottom of the line in front
+ * of it, skips a band with no slot, and keeps the slot its own height leaves.
+ */
+function standAt(
+  items: ParagraphItems,
+  constraints: OptimalBreakConstraints,
+  bands: ParagraphBands | null,
+  base: Interval,
+  top: number,
+  span: LineSpan,
+): Omit<PlacedLine, 'first'> {
+  const chunk = chunkOf(items, span.start);
+  const opening = openingHeight(
+    items,
+    chunk,
+    span.start,
+    constraints.overflowWrap === 'anywhere',
+    heightsThrough(
+      readChunkHeights(items, constraints.vertical, chunk),
+      span.start.segmentIndex,
+    ),
+  );
+  const opened =
+    bands === null ? {top, segment: base} : bands.openAt(top, opening);
+  const height = lineBoxHeight(
+    items,
+    constraints.vertical,
+    lineSpanItemRange(span),
+  );
+  const left = opened.segment.left;
+  const segment =
+    bands === null ? base : bands.slotAt(opened.top, left, height);
+  const limit = segment.right - left;
+  const hardEdge = segment.right < base.right;
+  const fit = measureLineSpanFit(items, span, left);
+  const hyphenated = isDiscretionaryLineEnd(
+    items.kinds,
+    span.end.segmentIndex,
+    span.end.graphemeIndex,
+  );
+  return {
+    top: opened.top,
+    height,
+    left,
+    segment,
+    limit,
+    hardEdge,
+    fit,
+    legal: !hyphenated || fit <= limit + EPSILON,
+  };
+}
+
+/**
+ * Where the lines of a plan stand. `null` when the plan paints a hyphen into a
+ * shape, which no legal plan does.
+ */
+function placePlan(
+  items: ParagraphItems,
+  constraints: OptimalBreakConstraints,
+  spans: readonly LineSpan[],
+): PlacedLine[] | null {
+  const base: Interval = {left: 0, right: constraints.maxWidth};
+  const exclusions = constraints.exclusions ?? [];
+  const bands =
+    exclusions.length > 0 ? readParagraphBands(exclusions, base) : null;
+  const placed: PlacedLine[] = [];
+  let top = 0;
+
+  for (const span of spans) {
+    const stand = standAt(items, constraints, bands, base, top, span);
+    if (!stand.legal) return null;
+    let first = true;
+    for (const stop of stopsAt(items, span.start)) {
+      if (!before(span.start, stop.end)) continue;
+      const other = standAt(items, constraints, bands, base, top, {
+        start: span.start,
+        end: stop.end,
+      });
+      if (!other.legal) continue;
+      first = cursorKey(stop.end) === cursorKey(span.end);
+      break;
+    }
+    placed.push({...stand, first});
+    top = stand.top + stand.height;
+  }
+  return placed;
+}
+
 /**
  * What a line costs, read from the items alone: the glue of a line is the
  * width of each `space` item it holds, not a count of one space width.
@@ -361,9 +589,11 @@ function oracleLineCost(
   span: LineSpan,
   constraints: OptimalBreakConstraints,
   isLast: boolean,
+  placed: PlacedLine,
 ): LineCost {
-  const {maxWidth, justify} = constraints;
-  const natural = measureLineSpanFit(items, span);
+  const {justify} = constraints;
+  const maxWidth = placed.limit;
+  const natural = placed.fit;
   const last =
     span.end.graphemeIndex > 0
       ? span.end.segmentIndex
@@ -402,17 +632,27 @@ function oracleLineCost(
   return {overflow: 0, badness: badness + (hyphenated ? 50 : 0)};
 }
 
+const INFEASIBLE: LineCost = {overflow: Infinity, badness: Infinity};
+
 function planCost(
   items: ParagraphItems,
   spans: readonly LineSpan[],
   constraints: OptimalBreakConstraints,
 ): LineCost {
+  const placed = placePlan(items, constraints, spans);
+  if (placed === null) return INFEASIBLE;
   let total: LineCost = {overflow: 0, badness: 0};
-  for (const span of spans) {
-    total = addCost(
-      total,
-      oracleLineCost(items, span, constraints, endsChunk(items, span)),
+  for (let index = 0; index < spans.length; index++) {
+    const span = spans[index];
+    const cost = oracleLineCost(
+      items,
+      span,
+      constraints,
+      endsChunk(items, span),
+      placed[index],
     );
+    if (cost.overflow > 0 && !placed[index].first) return INFEASIBLE;
+    total = addCost(total, cost);
   }
   return total;
 }
@@ -438,7 +678,7 @@ function bestPlanCost(
     const start = chunkStartCursor(items, chunk);
     if (start.segmentIndex >= chunk.endSegmentIndex) continue;
     const stops = lineStops(items, chunk);
-    let best: LineCost = {overflow: Infinity, badness: Infinity};
+    let best: LineCost = INFEASIBLE;
 
     const walk = (
       from: ParagraphCursor,
@@ -1007,6 +1247,166 @@ describe('optimal paragraph break pass', () => {
     expect(
       planCost(items, broken.lines.map(spanOf), constraints).badness,
     ).toBeCloseTo(12254.62963, 5);
+  });
+
+  it('finds the cheapest banded plan an exhaustive search finds', () => {
+    const findings: string[] = [];
+    let searched = 0;
+    for (const {name, items, vertical} of bandedCases()) {
+      for (const shape of EXCLUSION_SETS) {
+        for (const width of BAND_WIDTHS) {
+          for (const justify of [false, true]) {
+            const constraints = {
+              ...constraintsOf(vertical, width, justify),
+              exclusions: shape.exclusions,
+            };
+            const broken = breakParagraphOptimally(items, constraints);
+            const mine = planCost(items, broken.lines.map(spanOf), constraints);
+            const best = bestPlanCost(items, constraints);
+            searched += best.plans;
+            if (costKey(mine) === costKey(best.cost)) continue;
+            findings.push(
+              `${name}/${shape.name}@${width}: ` +
+                `${costKey(mine)} != ${costKey(best.cost)}`,
+            );
+          }
+        }
+      }
+    }
+    expect(findings).toEqual([]);
+    expect(searched).toBeGreaterThanOrEqual(BANDED_PLANS);
+  });
+
+  it('stands each planned line in the band its own height carves', () => {
+    const findings: string[] = [];
+    let contained = 0;
+    let isolated = 0;
+    for (const {name, items, vertical} of bandedCases()) {
+      for (const shape of EXCLUSION_SETS) {
+        for (const width of BAND_WIDTHS) {
+          const constraints = {
+            ...constraintsOf(vertical, width),
+            exclusions: shape.exclusions,
+          };
+          const broken = breakParagraphOptimally(items, constraints);
+          const spans = broken.lines.map(spanOf);
+          const placed = placePlan(items, constraints, spans);
+          const at = `${name}/${shape.name}@${width}`;
+          if (placed === null) {
+            findings.push(`${at}: a hyphen paints into a shape`);
+            continue;
+          }
+          broken.lines.forEach((line, index) => {
+            const stand = placed[index];
+            const where = `${at} line ${index}`;
+            if (
+              line.top !== stand.top ||
+              line.height !== stand.height ||
+              line.segment.left !== stand.segment.left ||
+              line.segment.right !== stand.segment.right
+            ) {
+              findings.push(`${where}: stands elsewhere`);
+              return;
+            }
+            contained++;
+            if (stand.fit <= stand.limit + EPSILON) return;
+            if (stand.first) {
+              isolated++;
+              return;
+            }
+            findings.push(`${where}: ${stand.fit} in ${stand.limit}`);
+          });
+        }
+      }
+    }
+    expect(findings).toEqual([]);
+    expect(contained).toBeGreaterThanOrEqual(BANDED_LINES);
+    expect(isolated).toBeGreaterThan(0);
+  });
+
+  it('plans the greedy line beside an exclusion wherever both agree', () => {
+    const findings: string[] = [];
+    let agreed = 0;
+    for (const {name, items, vertical} of bandedCases()) {
+      for (const shape of EXCLUSION_SETS) {
+        for (const width of BAND_WIDTHS) {
+          const constraints = {
+            ...constraintsOf(vertical, width),
+            exclusions: shape.exclusions,
+          };
+          const optimal = breakParagraphOptimally(items, constraints);
+          const greedy = breakParagraph(items, {
+            maxWidth: width,
+            textWrap: true,
+            overflowWrap: 'normal',
+            exclusions: shape.exclusions,
+            vertical,
+          });
+          const theirs = new Map<string, BrokenLine>();
+          for (const line of greedy.lines) theirs.set(breakKey(line), line);
+          for (const line of optimal.lines) {
+            const same = theirs.get(breakKey(line));
+            if (same === undefined || same.top !== line.top) continue;
+            agreed++;
+            if (
+              same.width === line.width &&
+              same.segment.left === line.segment.left &&
+              same.segment.right === line.segment.right
+            ) {
+              continue;
+            }
+            findings.push(
+              `${name}/${shape.name}@${width}: ` +
+                `${shapeOf(line)} != ${shapeOf(same)}`,
+            );
+          }
+        }
+      }
+    }
+    expect(findings).toEqual([]);
+    expect(agreed).toBeGreaterThanOrEqual(AGREED_BANDED_LINES);
+  });
+
+  it('refuses a hyphen that would paint into an exclusion', () => {
+    const metrics = metricsOf('normal', 0);
+    const {items} = prepareParagraph('un­break­able xy', metrics);
+    const vertical = verticalOf(items, [metrics]);
+    const exclusions: TextExclusion[] = [
+      {kind: 'rect', x: 60, y: 0, width: 40, height: 20},
+    ];
+    const constraints = {
+      ...constraintsOf(vertical, 100),
+      exclusions,
+    };
+    const broken = breakParagraphOptimally(items, constraints);
+    const placed = placePlan(items, constraints, broken.lines.map(spanOf));
+    expect(placed).not.toBeNull();
+    // The first band is 60 wide and its right edge is the shape. `unbreak-`
+    // measures 90 there, so the plan stops at `un-`.
+    expect(placed?.[0].limit).toBe(60);
+    expect(placed?.[0].hardEdge).toBe(true);
+    expect(broken.lines[0].end).toEqual({segmentIndex: 2, graphemeIndex: 0});
+    expect(broken.lines[0].width).toBe(30);
+  });
+
+  it('plans a taller line into the band that line stands in', () => {
+    const {items, vertical} = mixedCase([
+      textRun(0, REGULAR, 'aa bb '),
+      boxRun(1, 20, 48),
+      textRun(2, REGULAR, ' cc dd'),
+    ]);
+    const exclusions: TextExclusion[] = [
+      {kind: 'rect', x: 80, y: 30, width: 60, height: 60},
+    ];
+    const constraints = {...constraintsOf(vertical, 140), exclusions};
+    const broken = breakParagraphOptimally(items, constraints);
+    const placed = placePlan(items, constraints, broken.lines.map(spanOf));
+    expect(placed).not.toBeNull();
+    // The 48px box reaches the shape, so its line keeps the 80px slot.
+    const tall = broken.lines.findIndex(line => line.height === 48);
+    expect(tall).toBeGreaterThanOrEqual(0);
+    expect(broken.lines[tall].segment.right).toBe(80);
+    expect(placed?.[tall].fit).toBeLessThanOrEqual(80 + EPSILON);
   });
 
   it('gives a paragraph with no wrapping one line for each chunk', () => {

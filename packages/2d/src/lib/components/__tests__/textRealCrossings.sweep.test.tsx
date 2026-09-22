@@ -3,6 +3,7 @@ import {describe, expect, it} from 'vitest';
 import {TextAlign} from '../../partials/types';
 import {segment} from '../../text';
 import {Layout} from '../Layout';
+import {Rect} from '../Rect';
 import {Txt, TxtProps} from '../Txt';
 import {failOnSceneErrors} from './failOnSceneErrors';
 import {generatorTest} from './generatorTest';
@@ -30,6 +31,7 @@ const TOLERANCE = 0.05;
 const FONT_SIZE = 16;
 const LINE_HEIGHT = 20;
 const ROW_WIDTH = 400;
+const FAKE_FONT = `500 ${FONT_SIZE}px Roboto`;
 
 /**
  * Sentences the surveyed scenes reveal, wrap and tween. Every crossing below
@@ -202,6 +204,88 @@ function collectFlexPercent(): Finding[] {
             evidence: [round(lineInk(line) - expected), text.trim()],
           });
         }
+      }
+    }
+  }
+  return findings;
+}
+
+/* 4. A `Txt` squeezed in a row beside a sibling that will not shrink.
+      `mattgrogan-mc/old/scenes/boxcars/reportCard.tsx` puts a label column
+      beside a wide block. */
+
+const SQUEEZED_ROW = 300;
+
+type FloorCase = {
+  name: string;
+  props: TxtProps;
+  /** Narrowest width the text can be laid out in. */
+  floor: number;
+  /** False where the case opts out of the floor and means to overflow. */
+  contained?: boolean;
+};
+
+function widestWord(text: string): number {
+  return Math.max(
+    ...text
+      .split(/\s+/)
+      .map(word =>
+        mockFontWidth(word, {font: FAKE_FONT, letterSpacing: '0px'}),
+      ),
+  );
+}
+
+const FLOOR_CASES: FloorCase[] = [
+  {name: 'plain', props: {}, floor: widestWord(SENTENCE)},
+  {
+    name: 'anywhere',
+    props: {overflowWrap: 'anywhere'},
+    floor: mockFontWidth('w', {font: FAKE_FONT, letterSpacing: '0px'}),
+  },
+  {
+    name: 'no-wrap',
+    props: {textWrap: false},
+    floor: mockFontWidth(SENTENCE, {font: FAKE_FONT, letterSpacing: '0px'}),
+  },
+  {name: 'min-width-zero', props: {minWidth: 0}, floor: 0, contained: false},
+];
+
+function collectFlexFloor(): Finding[] {
+  const findings: Finding[] = [];
+  for (const one of FLOOR_CASES) {
+    const probe = new DrawProbe({
+      fontSize: FONT_SIZE,
+      lineHeight: LINE_HEIGHT,
+      textWrap: true,
+      text: SENTENCE,
+      ...one.props,
+    });
+    add(
+      new Layout({
+        layout: true,
+        direction: 'row',
+        width: SQUEEZED_ROW,
+        height: 200,
+        children: [probe, new Rect({width: 1000, height: 20, shrink: 0})],
+      }),
+    );
+    const width = probe.size().x;
+    if (Math.abs(width - one.floor) > TOLERANCE) {
+      findings.push({
+        kind: 'squeezed-width',
+        key: one.name,
+        evidence: [round(one.floor), round(width)],
+      });
+    }
+    if (one.contained === false) continue;
+    for (const [index, ink] of paintedLineInk(probe).entries()) {
+      const past = ink.right - width / 2;
+      if (past > TOLERANCE) {
+        findings.push({
+          kind: 'squeezed-overflow',
+          key: one.name,
+          evidence: [`${index}`, round(past)],
+        });
       }
     }
   }
@@ -553,6 +637,10 @@ describe('Txt crossings real scenes hit', () => {
       expect(seen).toEqual([]);
     }),
   );
+
+  it('keeps a squeezed flex child as wide as its widest unit', () => {
+    expectNoFindings(collectFlexFloor());
+  });
 
   it('aligns both sides of a hard break to the end edge', () => {
     expectNoFindings(collectHardBreakEnd());

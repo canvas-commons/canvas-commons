@@ -1,0 +1,734 @@
+import {all, createRef} from '@canvas-commons/core';
+import {describe, expect, it} from 'vitest';
+import {Layout, LayoutProps} from '../Layout';
+import {Rect} from '../Rect';
+import {Txt, TxtProps} from '../Txt';
+import {failOnSceneErrors} from './failOnSceneErrors';
+import {generatorTest} from './generatorTest';
+import {mockScene2D} from './mockScene2D';
+import {mockTextContext} from './mockTextContext';
+import {add, lineTexts} from './sceneFixtures';
+
+const Syllables = (word: string) => word.match(/.{1,4}/g) ?? [word];
+
+/** Force flex shrink by exceeding the parent width. */
+function squeezed(props: TxtProps, sibling = 1000): Txt {
+  const txt = createRef<Txt>();
+  add(
+    <Layout layout width={300}>
+      <Txt ref={txt} fontSize={10} lineHeight={20} {...props} />
+      <Rect width={sibling} height={20} />
+    </Layout>,
+  );
+  return txt();
+}
+
+function inRow(props: TxtProps): Txt {
+  const txt = createRef<Txt>();
+  add(
+    <Layout layout width={300}>
+      <Txt ref={txt} fontSize={10} lineHeight={20} {...props} />
+    </Layout>,
+  );
+  return txt();
+}
+
+/** Prevent sibling shrink so the item reaches its automatic minimum. */
+function squeezedIn<TNode extends Layout>(node: TNode): TNode {
+  add(
+    <Layout layout width={300}>
+      {node}
+      <Rect width={1000} height={20} shrink={0} />
+    </Layout>,
+  );
+  return node;
+}
+
+function makeText(text: string, props: TxtProps = {}): Txt {
+  return new Txt({fontSize: 10, lineHeight: 20, text, ...props});
+}
+
+type Row = {
+  name: string;
+  build: () => Txt;
+  width: number;
+  lines: string[];
+};
+
+type WidthRow = {
+  name: string;
+  build: () => Layout;
+  width: number;
+};
+
+type HeightRow = {
+  name: string;
+  build: () => {item: Layout; next: Layout};
+  height: number;
+  nextTop: number;
+};
+
+// Ten-unit glyphs make expected widths exact.
+const Rows: Row[] = [
+  {
+    name: 'a squeezed short word keeps its whole width',
+    build: () => squeezed({text: 'hi'}),
+    width: 20,
+    lines: ['hi'],
+  },
+  {
+    name: 'a squeezed overlong word overflows instead of splitting',
+    build: () => squeezed({text: 'supercalifragilistic'}),
+    width: 200,
+    lines: ['supercalifragilistic'],
+  },
+  {
+    name: 'overflowWrap anywhere splits the overlong word',
+    build: () =>
+      squeezed({text: 'supercalifragilistic', overflowWrap: 'anywhere'}),
+    width: 50,
+    lines: ['super', 'calif', 'ragil', 'istic'],
+  },
+  {
+    name: 'overflowWrap anywhere keeps an inline child unbreakable',
+    build: () => {
+      const txt = createRef<Txt>();
+      add(
+        <Layout layout width={300}>
+          <Txt
+            ref={txt}
+            fontSize={10}
+            lineHeight={20}
+            overflowWrap={'anywhere'}
+          >
+            hi
+            <Rect width={80} height={10} />
+          </Txt>
+          <Rect width={1000} height={20} shrink={0} />
+        </Layout>,
+      );
+      return txt();
+    },
+    width: 80,
+    lines: ['hi', ''],
+  },
+  {
+    name: 'overflowWrap anywhere keeps an unwrapped line whole',
+    build: () =>
+      squeezed({
+        text: 'one two three',
+        textWrap: false,
+        overflowWrap: 'anywhere',
+      }),
+    width: 130,
+    lines: ['one two three'],
+  },
+  {
+    name: 'a newline makes the longest line the floor',
+    build: () => squeezed({text: 'aa\nbbbb'}),
+    width: 40,
+    lines: ['aa', 'bbbb'],
+  },
+  {
+    name: 'textWrap false keeps the whole line',
+    build: () => squeezed({text: 'one two three', textWrap: false}),
+    width: 130,
+    lines: ['one two three'],
+  },
+  {
+    name: 'textWrap pre keeps its widest word and its spaces',
+    build: () => squeezed({text: '  ab  ', textWrap: 'pre'}),
+    width: 20,
+    lines: ['  ', 'ab'],
+  },
+  {
+    name: 'a declared minWidth wins over the content floor',
+    build: () => squeezed({text: 'one two three', minWidth: 100}),
+    width: 100,
+    lines: ['one two', 'three'],
+  },
+  {
+    name: 'a declared width caps the floor and no word splits',
+    build: () => squeezed({text: 'one two three', width: 45}),
+    width: 45,
+    lines: ['one', 'two', 'three'],
+  },
+  {
+    name: 'a percentage width resolves against the row',
+    build: () => inRow({text: 'one two three', width: '20%'}),
+    width: 60,
+    lines: ['one', 'two', 'three'],
+  },
+  {
+    name: 'a percentage width caps the floor',
+    build: () => {
+      const txt = createRef<Txt>();
+      add(
+        <Layout layout width={100}>
+          <Txt
+            ref={txt}
+            fontSize={10}
+            lineHeight={20}
+            width={'20%'}
+            text={'abcdefghij'}
+          />
+        </Layout>,
+      );
+      return txt();
+    },
+    width: 20,
+    lines: ['abcdefghij'],
+  },
+  {
+    name: 'maxWidth caps an unsqueezed text',
+    build: () => inRow({text: 'one two three', maxWidth: 80}),
+    width: 70,
+    lines: ['one two', 'three'],
+  },
+  {
+    name: 'shrink 0 keeps the natural width',
+    build: () => squeezed({text: 'one two three', shrink: 0}),
+    width: 130,
+    lines: ['one two three'],
+  },
+  {
+    name: 'grow fills the row',
+    build: () => squeezed({text: 'hi', grow: 1}, 100),
+    width: 200,
+    lines: ['hi'],
+  },
+  {
+    name: 'a narrow column parent keeps its width and overflows',
+    build: () => {
+      const txt = createRef<Txt>();
+      add(
+        <Layout layout direction={'column'} width={40}>
+          <Txt ref={txt} fontSize={10} lineHeight={20}>
+            one two three
+          </Txt>
+        </Layout>,
+      );
+      return txt();
+    },
+    width: 40,
+    lines: ['one', 'two', 'three'],
+  },
+  {
+    name: 'a layout root keeps its natural width',
+    build: () => {
+      const txt = createRef<Txt>();
+      add(
+        <Txt ref={txt} fontSize={10} lineHeight={20} text={'one two three'} />,
+      );
+      return txt();
+    },
+    width: 130,
+    lines: ['one two three'],
+  },
+  {
+    name: 'hyphenation makes a syllable the floor',
+    build: () => squeezed({text: 'abcdefghij', hyphenate: () => Syllables}),
+    width: 50,
+    lines: ['abcd-', 'efgh-', 'ij'],
+  },
+  {
+    name: 'letterSpacing widens the floor',
+    build: () => squeezed({text: 'one two three', letterSpacing: 2}),
+    width: 60,
+    lines: ['one', 'two', 'three'],
+  },
+  {
+    name: 'a CJK run breaks between characters',
+    build: () => {
+      const txt = createRef<Txt>();
+      add(
+        <Layout layout width={30}>
+          <Txt
+            ref={txt}
+            fontSize={10}
+            lineHeight={20}
+            text={'中文文字中文文字'}
+          />
+        </Layout>,
+      );
+      return txt();
+    },
+    width: 30,
+    lines: ['中文文', '字中文', '文字'],
+  },
+  {
+    name: 'wordBreak keep-all holds a CJK run together',
+    build: () => squeezed({text: '中文文字 排版', wordBreak: 'keep-all'}),
+    width: 40,
+    lines: ['中文文字', '排版'],
+  },
+  {
+    name: 'a nested styled Txt contributes its own widest word',
+    build: () => {
+      const txt = createRef<Txt>();
+      add(
+        <Layout layout width={300}>
+          <Txt ref={txt} fontSize={10} lineHeight={20}>
+            <Txt fontWeight={700}>bold</Txt> tail
+          </Txt>
+          <Rect width={1000} height={20} />
+        </Layout>,
+      );
+      return txt();
+    },
+    width: 40,
+    lines: ['bold', 'tail'],
+  },
+  {
+    name: 'an inline Layout child is an unbreakable run',
+    build: () => {
+      const txt = createRef<Txt>();
+      add(
+        <Layout layout width={300}>
+          <Txt ref={txt} fontSize={10} lineHeight={20}>
+            hi
+            <Rect width={60} height={10} />
+          </Txt>
+          <Rect width={1000} height={20} />
+        </Layout>,
+      );
+      return txt();
+    },
+    width: 60,
+    lines: ['hi', ''],
+  },
+];
+
+const ContainerRows: WidthRow[] = [
+  {
+    name: 'a nested container keeps the width of its deepest row',
+    build: () =>
+      squeezedIn(
+        new Layout({
+          direction: 'column',
+          children: [new Layout({children: [makeText('ab'), makeText('cde')]})],
+        }),
+      ),
+    width: 50,
+  },
+  {
+    name: 'a row container counts its gaps and padding',
+    build: () =>
+      squeezedIn(
+        new Layout({
+          gap: 8,
+          paddingLeft: 5,
+          paddingRight: 5,
+          children: [makeText('ab'), makeText('cde')],
+        }),
+      ),
+    width: 68,
+  },
+  {
+    name: 'a wrapping row container takes its widest child',
+    build: () =>
+      squeezedIn(
+        new Layout({
+          wrap: 'wrap',
+          children: [makeText('ab'), makeText('cde')],
+        }),
+      ),
+    width: 30,
+  },
+  {
+    name: 'a declared child width replaces its content',
+    build: () =>
+      squeezedIn(
+        new Layout({
+          direction: 'column',
+          children: [makeText('ab', {width: 70})],
+        }),
+      ),
+    width: 70,
+  },
+  {
+    name: 'a percentage child width contributes nothing',
+    build: () =>
+      squeezedIn(
+        new Layout({
+          direction: 'column',
+          children: [makeText('ab', {width: '50%'}), makeText('cde')],
+        }),
+      ),
+    width: 30,
+  },
+  {
+    name: 'a child minWidth raises its share',
+    build: () =>
+      squeezedIn(
+        new Layout({
+          direction: 'column',
+          children: [makeText('ab', {minWidth: 70})],
+        }),
+      ),
+    width: 70,
+  },
+  {
+    name: 'a container with its own layout off contributes nothing',
+    build: () => {
+      const middle = new Layout({
+        grow: 1,
+        layoutChildren: false,
+        children: [makeText('abcdefghij')],
+      });
+      add(
+        <Layout layout width={100}>
+          {middle}
+          <Rect width={1000} height={20} shrink={0} />
+        </Layout>,
+      );
+      return middle;
+    },
+    width: 0,
+  },
+  {
+    name: 'a child outside the layout contributes nothing',
+    build: () =>
+      squeezedIn(
+        new Layout({
+          direction: 'column',
+          children: [
+            makeText('ab'),
+            new Rect({layout: false, width: 500, height: 10}),
+          ],
+        }),
+      ),
+    width: 20,
+  },
+  {
+    name: 'a row-reverse parent gives the same floor',
+    build: () => {
+      const column = new Layout({
+        direction: 'column',
+        children: [makeText('ab'), makeText('cde')],
+      });
+      add(
+        <Layout layout direction={'row-reverse'} width={300}>
+          {column}
+          <Rect width={1000} height={20} shrink={0} />
+        </Layout>,
+      );
+      return column;
+    },
+    width: 30,
+  },
+  {
+    name: 'a column parent gives its child no floor',
+    build: () => {
+      const inner = new Layout({children: [makeText('cde')]});
+      add(
+        <Layout layout direction={'column'} width={20}>
+          {inner}
+        </Layout>,
+      );
+      return inner;
+    },
+    width: 20,
+  },
+  {
+    name: 'maxWidth caps the floor',
+    build: () =>
+      squeezedIn(
+        new Layout({
+          direction: 'column',
+          maxWidth: 25,
+          children: [makeText('cde')],
+        }),
+      ),
+    width: 25,
+  },
+  {
+    name: 'a row keeps room for the shapes beside its text',
+    build: () =>
+      squeezedIn(
+        new Layout({
+          children: [
+            makeText('ab'),
+            new Rect({width: 30, height: 10}),
+            new Rect({width: 30, height: 10}),
+          ],
+        }),
+      ),
+    width: 80,
+  },
+  {
+    name: 'a row without text squeezes to nothing',
+    build: () =>
+      squeezedIn(
+        new Layout({
+          children: [
+            new Rect({width: 30, height: 10}),
+            new Rect({width: 30, height: 10}),
+            new Rect({width: 30, height: 10}),
+          ],
+        }),
+      ),
+    width: 0,
+  },
+  {
+    name: 'a minWidth of zero lets a container squeeze again',
+    build: () =>
+      squeezedIn(
+        new Layout({
+          minWidth: 0,
+          children: [makeText('ab'), new Rect({width: 30, height: 10})],
+        }),
+      ),
+    width: 0,
+  },
+  {
+    name: 'overflowWrap anywhere lowers the floor to one grapheme',
+    build: () =>
+      squeezedIn(
+        new Layout({
+          direction: 'column',
+          children: [
+            makeText('abcdefgh', {overflowWrap: 'anywhere'}),
+            makeText('ab'),
+          ],
+        }),
+      ),
+    width: 20,
+  },
+];
+
+const Lines = (props: TxtProps = {}) =>
+  (
+    <Txt
+      fontSize={10}
+      lineHeight={20}
+      width={50}
+      text={'one two three'}
+      {...props}
+    />
+  ) as Txt;
+
+/**
+ * Put `item` above a rigid `Rect` in a column half as tall as the two of them,
+ * so every row below shows what the column does to an item it cannot fit.
+ */
+function shortColumn(
+  item: Layout,
+  props: LayoutProps = {},
+): {item: Layout; next: Layout} {
+  const next = createRef<Rect>();
+  add(
+    <Layout layout direction={'column'} width={200} height={40} {...props}>
+      {item}
+      <Rect ref={next} width={50} height={20} shrink={0} />
+    </Layout>,
+  );
+  return {item, next: next()};
+}
+
+// The column spans -20 to 20, so a first item that keeps its 60 units of text
+// ends at 40 and pushes the rigid sibling out of the column.
+const HeightRows: HeightRow[] = [
+  {
+    name: 'a minHeight of zero lets the column squeeze the text',
+    build: () => shortColumn(Lines({minHeight: 0})),
+    height: 20,
+    nextTop: 0,
+  },
+  {
+    name: 'a declared shrink does not opt out',
+    build: () => shortColumn(Lines({shrink: 1})),
+    height: 60,
+    nextTop: 40,
+  },
+  {
+    name: 'a declared height keeps shrinking',
+    build: () => shortColumn(Lines({height: 60})),
+    height: 20,
+    nextTop: 0,
+  },
+  {
+    name: 'a declared basis keeps shrinking',
+    build: () => shortColumn(Lines({basis: 60})),
+    height: 20,
+    nextTop: 0,
+  },
+  {
+    name: 'a shape keeps shrinking',
+    build: () => shortColumn(new Rect({width: 50, basis: 200, shrink: 1})),
+    height: 20,
+    nextTop: 0,
+  },
+  {
+    name: 'a row container keeps the height of the text it wraps',
+    build: () => shortColumn((<Layout>{Lines()}</Layout>) as Layout),
+    height: 60,
+    nextTop: 40,
+  },
+  {
+    name: 'a column-reverse parent keeps the text below the sibling',
+    build: () => shortColumn(Lines(), {direction: 'column-reverse'}),
+    height: 60,
+    nextTop: -20,
+  },
+  {
+    name: 'a row parent leaves the vertical axis alone',
+    build: () => shortColumn(Lines(), {direction: 'row'}),
+    height: 40,
+    nextTop: -20,
+  },
+  {
+    name: 'a tall column still gives free space to a growing sibling',
+    build: () => {
+      const next = createRef<Rect>();
+      const item = Lines();
+      add(
+        <Layout layout direction={'column'} width={200} height={200}>
+          {item}
+          <Rect ref={next} width={50} height={20} shrink={0} grow={1} />
+        </Layout>,
+      );
+      return {item, next: next()};
+    },
+    height: 60,
+    nextTop: -40,
+  },
+  {
+    name: 'justifyContent center splits the overflow',
+    build: () => shortColumn(Lines(), {justifyContent: 'center'}),
+    height: 60,
+    nextTop: 20,
+  },
+  {
+    name: 'justifyContent end pushes the overflow above the column',
+    build: () => shortColumn(Lines(), {justifyContent: 'end'}),
+    height: 60,
+    nextTop: 0,
+  },
+  {
+    name: 'gap and padding add to the overflow',
+    build: () => shortColumn(Lines(), {gap: 10, padding: 5}),
+    height: 60,
+    nextTop: 55,
+  },
+  {
+    name: 'a layout root is not an item of the column',
+    build: () =>
+      shortColumn(
+        (
+          <Layout layoutSelf={false} direction={'column'}>
+            {Lines()}
+          </Layout>
+        ) as Layout,
+      ),
+    height: 60,
+    nextTop: -20,
+  },
+];
+
+describe('column items at content height', () => {
+  mockScene2D();
+  failOnSceneErrors();
+  mockTextContext(10);
+
+  for (const row of HeightRows) {
+    it(row.name, () => {
+      const {item, next} = row.build();
+      expect(item.size.y()).toBeCloseTo(row.height);
+      expect(next.top().y).toBeCloseTo(row.nextTop);
+    });
+  }
+});
+
+describe('Txt minimum content width', () => {
+  mockScene2D();
+  failOnSceneErrors();
+  mockTextContext(10);
+
+  it('lets a text-free row shrink with its children', () => {
+    const inner = createRef<Layout>();
+    const first = createRef<Rect>();
+    const second = createRef<Rect>();
+    add(
+      <Layout layout width={100}>
+        <Layout ref={inner}>
+          <Rect ref={first} width={100} height={20} />
+          <Rect ref={second} width={100} height={20} />
+        </Layout>
+      </Layout>,
+    );
+
+    expect(inner().size.x()).toBeCloseTo(100);
+    expect(first().size.x()).toBeCloseTo(50);
+    expect(second().size.x()).toBeCloseTo(50);
+  });
+
+  it('never balances below the width of an unbreakable word', () => {
+    const txt = (
+      <Txt fontSize={10} lineHeight={20} text={'abcdefghij'} />
+    ) as Txt;
+    add(txt);
+
+    expect(txt.balancedWidth(2)).toBeCloseTo(100);
+  });
+
+  it('keeps a line-number column beside an overflowing block', () => {
+    const column = createRef<Layout>();
+    const nine = createRef<Txt>();
+    const ten = createRef<Txt>();
+    const block = createRef<Rect>();
+    add(
+      <Layout layout width={420} gap={16}>
+        <Layout ref={column} direction={'column'}>
+          <Txt ref={nine} fontSize={10} lineHeight={20} text={'9'} />
+          <Txt ref={ten} fontSize={10} lineHeight={20} text={'10'} />
+        </Layout>
+        <Rect ref={block} width={600} height={20} />
+      </Layout>,
+    );
+
+    expect(column().size.x()).toBeCloseTo(20);
+    expect(nine().size.x()).toBeCloseTo(20);
+    expect(ten().size.x()).toBeCloseTo(20);
+    expect(block().left().x - column().right().x).toBeCloseTo(16);
+  });
+
+  for (const row of Rows) {
+    it(row.name, () => {
+      const txt = row.build();
+      expect(txt.size.x()).toBeCloseTo(row.width);
+      expect(lineTexts(txt)).toEqual(row.lines);
+    });
+  }
+
+  for (const row of ContainerRows) {
+    it(row.name, () => {
+      expect(row.build().size.x()).toBeCloseTo(row.width);
+    });
+  }
+
+  it(
+    'never splits a word while the text tweens in a squeezed row',
+    generatorTest(function* () {
+      const txt = squeezed({text: 'one two three', width: 45});
+
+      const words = (source: string) => source.split(/\s+/).filter(Boolean);
+      const split: string[][] = [];
+      let wrapped = 0;
+      const sample = function* () {
+        for (let frame = 0; frame < 60; frame++) {
+          const lines = lineTexts(txt);
+          if (lines.length > 1) wrapped++;
+          const laid = lines.flatMap(words);
+          if (laid.join(' ') !== words(txt.text()).join(' ')) split.push(laid);
+          yield;
+        }
+      };
+
+      yield* all(txt.text('longer words here', 1), sample());
+
+      expect(wrapped).toBeGreaterThan(0);
+      expect(split).toEqual([]);
+    }),
+  );
+});

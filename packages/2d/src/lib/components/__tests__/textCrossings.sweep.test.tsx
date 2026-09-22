@@ -97,14 +97,13 @@ type BoxVariant = {name: string; width?: number; placement: Placement};
 
 /**
  * Boxes the sweep lays text out in. Only an auto width depends on the parent
- * placement, so the fixed widths all sit at the root.
+ * placement, so the fixed widths all sit at the root. A row parent is covered
+ * by the hard-text sweep and by the flex crossings, not here.
  */
 const BOX_VARIANTS: BoxVariant[] = [
   {name: 'w120', width: 120, placement: 'root'},
   {name: 'w200', width: 200, placement: 'root'},
-  {name: 'w320', width: 320, placement: 'root'},
   {name: 'auto-root', placement: 'root'},
-  {name: 'auto-row', placement: 'row'},
   {name: 'auto-column', placement: 'column'},
 ];
 

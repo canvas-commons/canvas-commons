@@ -1,6 +1,6 @@
 import {linear, waitFor} from '@canvas-commons/core';
 import {describe, expect, it} from 'vitest';
-import {TextAlign, TextExclusion, TextWrap} from '../../partials/types';
+import {TextAlign, TextShapeExclusion, TextWrap} from '../../partials/types';
 import {segment} from '../../text';
 import {Layout} from '../Layout';
 import {Rect} from '../Rect';
@@ -14,6 +14,7 @@ import {add, lineTexts} from './sceneFixtures';
 import {
   Finding,
   WordRecord,
+  declaredIn,
   describeWord,
   expectNoFindings,
   matchedUnits,
@@ -802,15 +803,15 @@ function collectAutoSizeSweep(): Finding[] {
 }
 
 function collectExclusionSweep(): Finding[] {
-  const exclusions: TextExclusion[] = [
-    {kind: 'rect', x: 0, y: 0, width: 80, height: 400},
-  ];
+  const box = {width: 200, height: 400};
   const props: TxtProps = {
     fontSize: 16,
     lineHeight: 20,
-    width: 200,
+    ...box,
     textWrap: true,
-    exclusions,
+    exclusions: declaredIn(box, [
+      {kind: 'rect', x: 0, y: 0, width: 80, height: 400},
+    ]),
   };
   const nodes: [Crossing['content'], Txt][] = CONTENTS.map(content => [
     content,
@@ -992,10 +993,11 @@ const HARD_TEXTS: {name: string; text: string}[] = [
 
 const DIRECTIONS: CanvasDirection[] = ['ltr', 'rtl'];
 const HARD_WRAPS: TextWrap[] = [true, 'pre'];
-const HARD_EXCLUSIONS: {name: string; value: TextExclusion[]}[] = [
+const HARD_EXCLUSIONS: {name: string; value: TextShapeExclusion[]}[] = [
   {name: 'none', value: []},
   {name: 'left', value: [{kind: 'rect', x: 0, y: 0, width: 60, height: 400}]},
 ];
+const HARD_BOX = {width: 200, height: 400};
 const HARD_PLACEMENTS: Placement[] = ['root', 'row'];
 const HARD_CONTENTS: ContentKind[] = [
   'string-children',
@@ -1093,12 +1095,12 @@ function collectHardTextSweep(): Finding[] {
     const props: TxtProps = {
       fontSize: 16,
       lineHeight: 20,
-      width: 200,
+      ...HARD_BOX,
       textAlign: one.align,
       textDirection: one.direction,
       textWrap: one.wrap,
       wrapMode: one.wrapMode,
-      exclusions,
+      exclusions: declaredIn(HARD_BOX, exclusions),
       ...(one.hyphenated ? {hyphenate: () => everyThird} : {}),
     };
     const box: BoxVariant = {

@@ -157,10 +157,11 @@ describe('Txt textWrap during text tweens', () => {
       const txt = (
         <Txt
           width={150}
+          height={60}
           textWrap
           fontSize={20}
           lineHeight={20}
-          exclusions={[{kind: 'rect', x: 0, y: 0, width: 50, height: 30}]}
+          exclusions={[{kind: 'rect', x: -50, y: -15, width: 50, height: 30}]}
           text={'aa bb cc dd ee ff gg hh'}
         />
       ) as Txt;

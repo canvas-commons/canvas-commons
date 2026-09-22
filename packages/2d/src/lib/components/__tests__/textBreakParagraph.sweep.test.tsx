@@ -1,7 +1,7 @@
 import type {LayoutLineRange} from '@chenglou/pretext';
 import {layoutNextLineRange, walkLineRanges} from '@chenglou/pretext';
 import {describe, expect, it} from 'vitest';
-import type {TextExclusion} from '../../partials/types';
+import type {TextShapeExclusion} from '../../partials/types';
 import type {
   BreakConstraints,
   BrokenLine,
@@ -62,7 +62,7 @@ const MEASURE_COMPARISONS = 10717;
 
 const EPSILON = getEngineProfile().lineFitEpsilon;
 
-const EXCLUSION_SETS: {name: string; exclusions: TextExclusion[]}[] = [
+const EXCLUSION_SETS: {name: string; exclusions: TextShapeExclusion[]}[] = [
   {name: 'none', exclusions: []},
   {
     name: 'left',
@@ -127,7 +127,7 @@ function verticalOf(
 function constraintsOf(
   vertical: ParagraphVerticalMetrics,
   maxWidth: number,
-  exclusions: readonly TextExclusion[] = [],
+  exclusions: readonly TextShapeExclusion[] = [],
   overflowWrap: OverflowWrapMode = 'anywhere',
   textWrap = true,
 ): BreakConstraints {
@@ -465,7 +465,7 @@ function holdsOneUnit(items: ParagraphItems, line: BrokenLine): boolean {
 }
 
 function paddedRects(
-  exclusions: readonly TextExclusion[],
+  exclusions: readonly TextShapeExclusion[],
 ): {left: number; right: number; top: number; bottom: number}[] {
   const rects = [];
   for (const exclusion of exclusions) {
@@ -827,7 +827,7 @@ describe('paragraph break pass', () => {
 
   it('grows the band a taller line has to fit', () => {
     const tall = tallCase();
-    const exclusions: TextExclusion[] = [
+    const exclusions: TextShapeExclusion[] = [
       {kind: 'rect', x: 70, y: 30, width: 60, height: 40},
     ];
     const broken = breakParagraph(
@@ -1120,7 +1120,10 @@ describe('paragraph break pass', () => {
   });
 
   it('reads the line heights a line at a time', () => {
-    const counted = (lines: number, exclusions: TextExclusion[]): number => {
+    const counted = (
+      lines: number,
+      exclusions: TextShapeExclusion[],
+    ): number => {
       const runs: ContentRun<number, number>[] = [];
       for (let i = 0; i < lines; i++) runs.push(textRun(i, REGULAR, 'aa '));
       const {items, vertical} = mixedCase(runs);
@@ -1141,7 +1144,7 @@ describe('paragraph break pass', () => {
       expect(broken.lines.length).toBe(lines);
       return reads;
     };
-    const wall: TextExclusion[] = [
+    const wall: TextShapeExclusion[] = [
       {kind: 'rect', x: 20, y: 0, width: 5, height: 1e6},
     ];
     // Preparing a height for every line of the rest of the chunk would square
@@ -1201,7 +1204,7 @@ describe('paragraph break pass', () => {
   });
 
   it('hangs a preserved space and a tab past a hard edge', () => {
-    const edge: TextExclusion[] = [
+    const edge: TextShapeExclusion[] = [
       {kind: 'rect', x: 25, y: 0, width: 75, height: 100},
     ];
     const spaces = mixedCase([textRun(0, REGULAR, 'ab    cd')], 'pre-wrap');

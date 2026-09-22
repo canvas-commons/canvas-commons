@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import type {TextAlign, TextExclusion} from '../../partials/types';
+import type {TextAlign, TextShapeExclusion} from '../../partials/types';
 import type {
   BreakConstraints,
   BrokenParagraph,
@@ -130,7 +130,7 @@ function build(
 function constraintsOf(
   vertical: ParagraphVerticalMetrics,
   maxWidth: number,
-  exclusions: readonly TextExclusion[],
+  exclusions: readonly TextShapeExclusion[],
 ): BreakConstraints {
   return {
     maxWidth,
@@ -141,7 +141,7 @@ function constraintsOf(
   };
 }
 
-const EXCLUSION_SETS: {name: string; exclusions: TextExclusion[]}[] = [
+const EXCLUSION_SETS: {name: string; exclusions: TextShapeExclusion[]}[] = [
   {name: 'none', exclusions: []},
   {
     name: 'left',
@@ -177,7 +177,7 @@ function place(
   width: number,
   textAlign: TextAlign,
   direction: TextDirection,
-  exclusions: readonly TextExclusion[] = [],
+  exclusions: readonly TextShapeExclusion[] = [],
 ): {broken: BrokenParagraph; placed: PlacedParagraph} {
   const broken = breakParagraph(
     built.items,

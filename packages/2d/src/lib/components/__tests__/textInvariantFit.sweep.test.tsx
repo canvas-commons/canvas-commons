@@ -15,6 +15,7 @@ import {
   WRAPS,
   WRAP_MODES,
   buildForm,
+  declaredIn,
   everyThirdHyphenator,
   expectNoFindings,
   fakeFont,
@@ -102,7 +103,10 @@ function propsFor(one: Case): TxtProps {
     textDirection: one.direction,
     wrapMode: one.wrapMode,
     textWrap: one.wrap === 'pre' ? 'pre' : one.wrap === 'true',
-    exclusions: set ? set.at(one.width) : [],
+    exclusions: declaredIn(
+      {width: one.width, height: one.height},
+      set ? set.at(one.width) : [],
+    ),
     ...(one.hyphenated ? {hyphenate: () => everyThirdHyphenator} : {}),
   };
 }

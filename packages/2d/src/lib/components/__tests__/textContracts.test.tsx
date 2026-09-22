@@ -1,6 +1,6 @@
 import {walkLineRanges} from '@chenglou/pretext';
 import {describe, expect, it} from 'vitest';
-import type {TextAlign, TextExclusion} from '../../partials/types';
+import type {TextAlign, TextShapeExclusion} from '../../partials/types';
 import type {BrokenParagraph} from '../../text/breakParagraph';
 import {breakParagraph} from '../../text/breakParagraph';
 import {breakParagraphOptimally} from '../../text/knuthPlassParagraph';
@@ -60,7 +60,7 @@ type Paragraph = ReturnType<typeof paragraphOf>;
 function greedy(
   paragraph: Paragraph,
   maxWidth: number,
-  exclusions: readonly TextExclusion[] = [],
+  exclusions: readonly TextShapeExclusion[] = [],
 ): BrokenParagraph {
   return breakParagraph(paragraph.items, {
     maxWidth,

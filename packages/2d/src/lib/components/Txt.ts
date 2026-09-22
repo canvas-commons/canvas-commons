@@ -10,8 +10,10 @@ import {
   all,
   clamp,
   createSignal,
+  isReactive,
   threadable,
   tween,
+  unwrap,
   useLogger,
 } from '@canvas-commons/core';
 import {
@@ -19,11 +21,11 @@ import {
   createCurveSampler,
   isClosedProfile,
 } from '../curves/CurveProfile';
-import {Segment} from '../curves/Segment';
 import {getPathProfile} from '../curves/getPathProfile';
+import {Segment} from '../curves/Segment';
 import {computed, initial, nodeName, signal} from '../decorators';
 import {CanvasStyle, Gradient, Pattern} from '../partials';
-import type {TextExclusion} from '../partials/types';
+import type {TextExclusion, TextShapeExclusion} from '../partials/types';
 import {useScene2D} from '../scenes/useScene2D';
 import {
   BrokenParagraph,
@@ -61,12 +63,14 @@ import {
   segment,
   textLocaleVersion,
 } from '../text';
-import {fontsVersion, requestFontLoad, resolveCanvasStyle} from '../utils';
+import {fontsVersion, is, requestFontLoad, resolveCanvasStyle} from '../utils';
 import {sharedMeasurementContext} from '../utils/measurement';
 import {MeasureMode} from '../utils/yoga';
+import {Circle} from './Circle';
 import {Curve} from './Curve';
 import {Layout} from './Layout';
 import {Node} from './Node';
+import {LayoutSettlers, SettledBoxes} from './settledLayout';
 import {Shape, ShapeProps} from './Shape';
 import {TxtLeaf} from './TxtLeaf';
 import {ComponentChild, ComponentChildren} from './types';
@@ -334,28 +338,79 @@ type LineBreakOffset = {
 const LAYOUT_CACHE_SIZE = 6;
 const FIT_TOLERANCE = 1e-6;
 
+/**
+ * Breaks an exclusion layout may take to agree with the box height it was
+ * broken against; a layout that has not settled keeps the lowest box it saw.
+ */
+const EXCLUSION_HEIGHT_PASSES = 4;
+
 /** Untyped callers pass values a `string` signal cannot hold. */
 function textValue(value: string): string {
   return value === null || value === undefined ? '' : String(value);
 }
 
-/** The exclusion set as plain numbers, so a memo key compares by value. */
-function exclusionKey(exclusions: readonly TextExclusion[]): unknown[] {
-  const key: unknown[] = [exclusions.length];
-  for (const exclusion of exclusions) {
-    key.push(
-      exclusion.kind,
-      exclusion.horizontalPadding ?? 0,
-      exclusion.verticalPadding ?? 0,
-    );
-    if (exclusion.kind === 'rect') {
-      key.push(exclusion.x, exclusion.y, exclusion.width, exclusion.height);
-    } else {
-      key.push(exclusion.points.length);
-      for (const point of exclusion.points) key.push(point.x, point.y);
-    }
+/** The layout root whose yoga pass places `node`. */
+function layoutRootOf(node: Layout): Layout {
+  let root = node;
+  while (!root.isLayoutRoot()) {
+    const parent = root.findAncestor(is(Layout));
+    if (parent === null) break;
+    root = parent;
   }
-  return key;
+  return root;
+}
+
+const NO_BOX = {left: 0, top: 0, width: 0, height: 0};
+
+/**
+ * Center-origin box of a node yoga places, and its position in its parent, as
+ * its layout root's last finished pass left them. Reading them subscribes to
+ * nothing, so a pass that is still computing can ask.
+ */
+function settledGeometry(node: Layout): {position: Vector2; size: Vector2} {
+  const box = SettledBoxes.get(node) ?? NO_BOX;
+  const ancestor = node.findAncestor(is(Layout));
+  const parent = ancestor ? SettledBoxes.get(ancestor) : undefined;
+  const anchor = node.anchor();
+  return {
+    size: new Vector2(box.width, box.height),
+    position: new Vector2(
+      box.left + (box.width / 2) * (1 + anchor.x) - (parent?.width ?? 0) / 2,
+      box.top + (box.height / 2) * (1 + anchor.y) - (parent?.height ?? 0) / 2,
+    ),
+  };
+}
+
+/** {@link Layout.localToParent} of a node yoga places, from its settled box. */
+function settledLocalToParent(node: Layout): DOMMatrix {
+  const {position, size} = settledGeometry(node);
+  const matrix = new DOMMatrix();
+  matrix.translateSelf(position.x, position.y);
+  matrix.rotateSelf(0, 0, node.rotation());
+  matrix.scaleSelf(node.scale.x(), node.scale.y());
+  matrix.skewXSelf(node.skew.x());
+  matrix.skewYSelf(node.skew.y());
+  const translate = node.translate();
+  matrix.translateSelf(translate.x, translate.y);
+  const anchor = size.mul(node.anchor()).scale(-0.5);
+  matrix.translateSelf(anchor.x, anchor.y);
+  return matrix;
+}
+
+/** Points of an ellipse inside a centered box, no more than 8px apart. */
+function ellipseOutline(size: Vector2): Vector2[] {
+  const steps = Math.max(8, Math.ceil((Math.PI * (size.x + size.y)) / 2 / 8));
+  const points: Vector2[] = [];
+  for (let i = 0; i < steps; i++) {
+    const angle = (i / steps) * Math.PI * 2;
+    points.push(
+      new Vector2(
+        (Math.cos(angle) * size.x) / 2,
+        (Math.sin(angle) * size.y) / 2,
+      ),
+    );
+  }
+  return points;
 }
 
 /** Nested nodes already warned that their sizing props do nothing. */
@@ -492,15 +547,33 @@ export class Txt extends Shape {
   declare public readonly hyphenate: SimpleSignal<HyphenateFn | null, this>;
 
   /**
-   * Shapes that text should flow around (CSS `shape-outside`-style obstacles).
+   * Shapes that text should flow around (CSS `shape-outside`-style obstacles),
+   * in Txt-local center-origin coordinates. A `node` exclusion reads its shape
+   * from a live {@link Node} and follows that node's transform and size.
    *
    * @remarks
-   * Coordinates are in block space: `(0, 0)` is the top-left of the text block
-   * (which corresponds to Txt-local `(-width/2, -height/2)` in canvas
-   * coordinates). Rects are axis-aligned; polygons are closed point lists.
-   *
    * Each line is broken against the free segment its own line box leaves, so a
    * taller run or a tall inline element flows around the same shape correctly.
+   * A flex layout may place the text, the node, or both: the layout repeats
+   * its pass until the text agrees with the boxes it placed. A node the same
+   * pass places blocks its box, or the ellipse in it for a full {@link Circle}.
+   * When the text's size moves the node (a flex sibling after a text that
+   * shrinks, a root that grows around its center), the passes may find no
+   * such boxes; the layout then keeps the boxes that give the text the least
+   * height, and of those the widest: the text flows around the node where
+   * those boxes put it, and the node paints where the text's size then moves
+   * it. A tween through such states can jitter, because each frame keeps the
+   * best boxes its own passes reach. {@link autoSize} fits the text to the
+   * boxes the layout keeps. A node this text's own flow places throws,
+   * because its place needs the lines it would shape.
+   *
+   * @example
+   * ```tsx
+   * <Rect ref={badge} size={[200, 140]} position={[200, -70]} />
+   * <Txt width={800} exclusions={[{kind: 'node', node: badge}]}>
+   *   {paragraph}
+   * </Txt>
+   * ```
    */
   @initial([])
   @signal()
@@ -1099,6 +1172,10 @@ export class Txt extends Shape {
       this.measureForYoga(width, widthMode),
     );
     this.measureFuncReady = true;
+    LayoutSettlers.set(this, {
+      reads: () => this.exclusions().some(({kind}) => kind === 'node'),
+      settle: () => this.settleExclusions(),
+    });
   }
 
   @computed()
@@ -1116,6 +1193,8 @@ export class Txt extends Shape {
   }
 
   private lastMeasureKey: unknown[] | null = null;
+  /** Exclusion key the last yoga measurement read, until it is settled. */
+  private measuredExclusionKey: unknown[] | null = null;
   private measureFuncReady = false;
 
   @computed()
@@ -1182,22 +1261,31 @@ export class Txt extends Shape {
    */
   @computed()
   public effectiveFontSize(): number {
-    if (this.parentTxt() || this.pathProfile() || !this.autoSize()) {
-      return this.fontSize();
-    }
-    const w = this.width.context.getter();
-    const h = this.height.context.getter();
-    if (typeof w !== 'number' || typeof h !== 'number') {
-      return this.fontSize();
-    }
-    return this.fitFontSize(w, h);
+    const box = this.fitBox();
+    if (!box) return this.fontSize();
+    this.readSettledPass();
+    return this.fitFontSize(box.x, box.y);
+  }
+
+  /** The box {@link autoSize} fits the text to, or `null` when it does not. */
+  private fitBox(): Vector2 | null {
+    if (this.parentTxt() || this.pathProfile() || !this.autoSize()) return null;
+    const width = this.width.context.getter();
+    const height = this.height.context.getter();
+    if (typeof width !== 'number' || typeof height !== 'number') return null;
+    return new Vector2(width, height);
   }
 
   /** How much every font size of the tree is scaled by {@link autoSize}. */
   @computed()
   private effectiveScale(): number {
+    return this.scaleOf(this.effectiveFontSize());
+  }
+
+  /** How much a root size of `size` scales every font size of the tree. */
+  private scaleOf(size: number): number {
     const raw = this.fontSize();
-    return raw > 0 ? this.effectiveFontSize() / raw : 1;
+    return raw > 0 ? size / raw : 1;
   }
 
   private static runStyleOf(owner: Txt, scale: number): TxtRunStyle {
@@ -1419,21 +1507,334 @@ export class Txt extends Shape {
   }
 
   /**
-   * Every input a break and a placement depend on, so one key decides whether
-   * a cached layout may be reused and when yoga has to measure again.
+   * {@link paragraph} for a reader inside the layout pass. Its autoSize fit
+   * reads the boxes the pass has settled so far, not the finished pass.
+   */
+  private passParagraph(): OwnedParagraph | null {
+    const box = this.fitBox();
+    if (!box || !this.readsSettledBoxes()) return this.paragraph();
+    return this.paragraphWithScale(
+      this.scaleOf(this.fitFontSize(box.x, box.y)),
+    );
+  }
+
+  /**
+   * Every input a break and a placement depend on, so a change marks the node
+   * for yoga to measure again.
    */
   @computed()
   private paragraphLayoutKey(): unknown[] {
     return [
-      this.paragraph(),
+      this.passParagraph(),
       this.wrapMode(),
       this.overflowWrap(),
       this.textWrap(),
       this.textAlign(),
       this.textDirection(),
       this.verticalAlign(),
-      ...exclusionKey(this.exclusions()),
+      ...this.exclusionKey(),
     ];
+  }
+
+  /**
+   * Why the shape of `node` cannot be read without this node's own layout,
+   * and what to do instead, or `null` when it can.
+   */
+  private exclusionDependency(node: Node): string | null {
+    for (
+      let current: Node | null = node;
+      current !== null && current !== this;
+      current = current.parent()
+    ) {
+      if (
+        current instanceof Layout &&
+        !(current instanceof Txt) &&
+        !(current instanceof TxtLeaf) &&
+        current.parent() instanceof Txt &&
+        isReactive(current.position.x.context.raw())
+      ) {
+        return (
+          `${current.key} is placed by the text flow. Move ${current.key} ` +
+          "out of the text's children"
+        );
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Reject a `node` exclusion this node's own layout would have to produce
+   * before it can be read. Every public reader checks before it enters a
+   * computed, so the error reaches the caller instead of leaving the layout
+   * without an answer.
+   */
+  private assertExclusionsIndependent(): void {
+    const exclusions = this.exclusions();
+    if (exclusions.length === 0) return;
+    // Parsing the children is what binds an inline node to its slot.
+    this.children();
+    for (const exclusion of exclusions) {
+      if (exclusion.kind !== 'node') continue;
+      const reason = this.exclusionDependency(unwrap(exclusion.node));
+      if (reason !== null) {
+        throw new Error(
+          `A node exclusion of ${this.key} cannot be resolved: ${reason}, ` +
+            'or use a rect or polygon exclusion.',
+        );
+      }
+    }
+  }
+
+  /**
+   * The exclusion set as plain values, so a memo key compares by value. A
+   * `node` entry compares by identity and by the frame, outline, and anchor
+   * its sampled polygon is built from.
+   */
+  private exclusionKey(): unknown[] {
+    const exclusions = this.readableExclusions();
+    this.assertExclusionsIndependent();
+    const key: unknown[] = [exclusions.length];
+    for (const exclusion of exclusions) {
+      key.push(
+        exclusion.kind,
+        exclusion.horizontalPadding ?? 0,
+        exclusion.verticalPadding ?? 0,
+      );
+      if (exclusion.kind === 'rect') {
+        key.push(exclusion.x, exclusion.y, exclusion.width, exclusion.height);
+      } else if (exclusion.kind === 'polygon') {
+        key.push(exclusion.points.length);
+        for (const point of exclusion.points) key.push(point.x, point.y);
+      } else {
+        const node = unwrap(exclusion.node);
+        const frame = this.relativeAnchorFrame(node);
+        key.push(
+          node,
+          frame.a,
+          frame.b,
+          frame.c,
+          frame.d,
+          frame.e,
+          frame.f,
+          this.anchor.x(),
+          this.anchor.y(),
+          ...this.anchorShift(node, Vector2.zero),
+        );
+        for (const point of this.nodeOutline(node)) key.push(point.x, point.y);
+      }
+    }
+    return key;
+  }
+
+  /**
+   * The exclusions a break reads now. Until the first pass of its layout
+   * settles, the nodes that pass places have no box, so no `node` exclusion
+   * applies.
+   */
+  private readableExclusions(): readonly TextExclusion[] {
+    const exclusions = this.exclusions();
+    if (!this.placedBySameLayout(this) || SettledBoxes.has(this)) {
+      return exclusions;
+    }
+    return exclusions.filter(({kind}) => kind !== 'node');
+  }
+
+  /**
+   * Run the layout pass that settles the boxes a `node` exclusion reads, so a
+   * reader outside the pass reads its result and depends on it.
+   */
+  private readSettledPass(): void {
+    if (this.readsSettledBoxes()) this.computedSize();
+  }
+
+  /** Whether a `node` exclusion reads the boxes of a pass that places this. */
+  private readsSettledBoxes(): boolean {
+    return (
+      !this.isLayoutRoot() &&
+      this.exclusions().some(({kind}) => kind === 'node')
+    );
+  }
+
+  /** {@link Layout.localToParent} without the size-dependent anchor shift. */
+  private anchorFreeLocalToParent(): DOMMatrix {
+    const position = this.placedBySameLayout(this)
+      ? settledGeometry(this).position
+      : this.position();
+    const matrix = new DOMMatrix();
+    matrix.translateSelf(position.x, position.y);
+    matrix.rotateSelf(0, 0, this.rotation());
+    matrix.scaleSelf(this.scale.x(), this.scale.y());
+    matrix.skewXSelf(this.skew.x());
+    matrix.skewYSelf(this.skew.y());
+    const translate = this.translate();
+    if (!translate.exactlyEquals(Vector2.zero)) {
+      matrix.translateSelf(translate.x, translate.y);
+    }
+    return matrix;
+  }
+
+  /** Whether `node` sits under this one in the scene graph. */
+  private contains(node: Node): boolean {
+    for (let current = node.parent(); current; current = current.parent()) {
+      if (current === this) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Whether the yoga pass that lays this node out also places `node`. Such a
+   * node is read from the geometry that pass settled on, because asking its
+   * signals while the pass measures this text would read the pass itself.
+   */
+  private placedBySameLayout(node: Layout): boolean {
+    return !node.isLayoutRoot() && layoutRootOf(node) === layoutRootOf(this);
+  }
+
+  private frameInParent(node: Node): DOMMatrix {
+    return node instanceof Layout && this.placedBySameLayout(node)
+      ? settledLocalToParent(node)
+      : node.localToParent();
+  }
+
+  /** Compose the frames from `node` up to, but not including, `ancestor`. */
+  private composeToAncestor(node: Node, ancestor: Node | null): DOMMatrix {
+    let matrix = new DOMMatrix();
+    let current: Node | null = node;
+    while (current && current !== ancestor) {
+      matrix = this.frameInParent(current).multiply(matrix);
+      current = current.parent();
+    }
+    return matrix;
+  }
+
+  /**
+   * Map `node`-local coordinates into this node's anchor frame through their
+   * lowest common ancestor, reading nothing at or above it. A descendant
+   * composes straight into Txt-local coordinates instead.
+   */
+  private relativeAnchorFrame(node: Node): DOMMatrix {
+    if (this.contains(node)) return this.composeToAncestor(node, this);
+
+    const ancestors = new Set<Node>([this]);
+    for (let current = this.parent(); current; current = current.parent()) {
+      ancestors.add(current);
+    }
+    let lca: Node | null = node;
+    while (lca && !ancestors.has(lca)) lca = lca.parent();
+
+    let txtToLca = this.anchorFreeLocalToParent();
+    for (
+      let current = this.parent();
+      current && current !== lca;
+      current = current.parent()
+    ) {
+      txtToLca = this.frameInParent(current).multiply(txtToLca);
+    }
+
+    return txtToLca.inverse().multiply(this.composeToAncestor(node, lca));
+  }
+
+  /**
+   * The outline a `node` exclusion blocks, in the node's own coordinates: a
+   * {@link Curve} walks its profile, no more than 8px of arc length apart, and
+   * any other node blocks its {@link Node.cacheBBox}. A node the same yoga pass
+   * places has no settled profile yet, so it blocks its settled box, or the
+   * ellipse in it for a full circle.
+   */
+  private nodeOutline(node: Node): Vector2[] {
+    if (node instanceof Layout && this.placedBySameLayout(node)) {
+      const {size} = settledGeometry(node);
+      if (
+        node instanceof Circle &&
+        Math.abs(node.endAngle() - node.startAngle()) >= 360
+      ) {
+        return ellipseOutline(size);
+      }
+      return BBox.fromSizeCentered(size).corners;
+    }
+    if (node instanceof Curve) {
+      const points: Vector2[] = [];
+      node.profile().segments.forEach((segment, index) => {
+        const steps = Math.max(1, Math.ceil(segment.arcLength / 8));
+        for (let i = index === 0 ? 0 : 1; i <= steps; i++) {
+          points.push(segment.getPoint(i / steps).position);
+        }
+      });
+      return points;
+    }
+    return node.cacheBBox().corners;
+  }
+
+  /**
+   * Sample a `node` exclusion's outline into a polygon in the center-origin
+   * coordinates of a block of `size`, so a rotated node still clips
+   * correctly.
+   */
+  private sampleNodeExclusion(node: Node, size: Vector2): Vector2[] {
+    const frame = this.relativeAnchorFrame(node);
+    return this.nodeOutline(node).map(point =>
+      point.transformAsPoint(frame).add(this.anchorShift(node, size)),
+    );
+  }
+
+  /**
+   * What takes an anchor-free point to the center-origin coordinates of a
+   * block of `size`. A descendant frame already lands there. A node yoga
+   * places keeps its settled top-left edge while the block grows, so the
+   * shift holds that edge in place for any `size`.
+   */
+  private anchorShift(node: Node, size: Vector2): Vector2 {
+    if (this.contains(node)) return Vector2.zero;
+    const anchor = this.anchor();
+    if (!this.placedBySameLayout(this)) return anchor.mul(size).scale(0.5);
+    const settled = settledGeometry(this).size;
+    return settled.mul(anchor.add(Vector2.one)).sub(size).scale(0.5);
+  }
+
+  /**
+   * The one conversion from declared, center-origin exclusions into the block
+   * space the break pass reads, where `(0, 0)` is the top-left of a text block
+   * of `size`. Padding rides along and applies after it.
+   */
+  private blockExclusions(
+    exclusions: readonly TextExclusion[],
+    size: Vector2,
+  ): TextShapeExclusion[] {
+    const half = size.scale(0.5);
+    const toBlock = (point: Vector2) => point.add(half);
+    const resolved: TextShapeExclusion[] = [];
+
+    for (const exclusion of exclusions) {
+      const padding = {
+        horizontalPadding: exclusion.horizontalPadding,
+        verticalPadding: exclusion.verticalPadding,
+      };
+      if (exclusion.kind === 'rect') {
+        const topLeft = toBlock(
+          new Vector2(
+            exclusion.x - exclusion.width / 2,
+            exclusion.y - exclusion.height / 2,
+          ),
+        );
+        resolved.push({
+          kind: 'rect',
+          x: topLeft.x,
+          y: topLeft.y,
+          width: exclusion.width,
+          height: exclusion.height,
+          ...padding,
+        });
+        continue;
+      }
+      const points =
+        exclusion.kind === 'polygon'
+          ? exclusion.points.map(point => new Vector2(point))
+          : this.sampleNodeExclusion(unwrap(exclusion.node), size);
+      if (points.length === 0) continue;
+      resolved.push({kind: 'polygon', points: points.map(toBlock), ...padding});
+    }
+
+    return resolved;
   }
 
   /**
@@ -1445,43 +1846,117 @@ export class Txt extends Shape {
     maxWidth: number,
     textWrap = this.textWrap() !== false,
   ): BrokenParagraph {
-    const exclusions = this.exclusions();
+    const exclusions = this.readableExclusions();
     const key: unknown[] = [
       maxWidth,
       textWrap,
       this.wrapMode(),
       this.overflowWrap(),
       this.textAlign() === 'justify',
-      ...exclusionKey(exclusions),
+      ...this.exclusionKey(),
     ];
+    const converge = exclusions.length > 0 && Number.isFinite(maxWidth);
+    if (converge) {
+      key.push(
+        this.height.context.getter(),
+        this.minHeight.context.getter(),
+        this.maxHeight.context.getter(),
+      );
+    }
     for (const found of paragraph.broken) {
       if (sameKey(found.key, key)) return found.broken;
     }
 
-    const overflowWrap = this.overflowWrap();
-    const broken =
-      this.wrapMode() === 'knuth-plass' && Number.isFinite(maxWidth)
-        ? breakParagraphOptimally(paragraph.items, {
-            maxWidth,
-            textWrap,
-            overflowWrap,
-            justify: this.textAlign() === 'justify',
-            exclusions,
-            vertical: paragraph.vertical,
-          })
-        : breakParagraph(paragraph.items, {
-            maxWidth,
-            textWrap,
-            overflowWrap,
-            exclusions,
-            vertical: paragraph.vertical,
-          });
+    const broken = converge
+      ? this.breakConverged(paragraph, maxWidth, exclusions, textWrap)
+      : this.breakAround(paragraph, maxWidth, [], textWrap);
     paragraph.broken.unshift({key, broken});
     paragraph.broken.length = Math.min(
       paragraph.broken.length,
       LAYOUT_CACHE_SIZE,
     );
     return broken;
+  }
+
+  private breakAround(
+    paragraph: OwnedParagraph,
+    maxWidth: number,
+    exclusions: readonly TextShapeExclusion[],
+    textWrap: boolean,
+  ): BrokenParagraph {
+    const overflowWrap = this.overflowWrap();
+    if (this.wrapMode() === 'knuth-plass' && Number.isFinite(maxWidth)) {
+      return breakParagraphOptimally(paragraph.items, {
+        maxWidth,
+        textWrap,
+        overflowWrap,
+        justify: this.textAlign() === 'justify',
+        exclusions,
+        vertical: paragraph.vertical,
+      });
+    }
+    return breakParagraph(paragraph.items, {
+      maxWidth,
+      textWrap,
+      overflowWrap,
+      exclusions,
+      vertical: paragraph.vertical,
+    });
+  }
+
+  /**
+   * Break around exclusions placed against this node's own box. A box that
+   * takes its height from the text answers with a height the next pass
+   * assumes, so the pass repeats until the content fits the box it was broken
+   * against. That box is the height the node keeps, so the shapes stay where
+   * the text flowed around them.
+   */
+  private breakConverged(
+    paragraph: OwnedParagraph,
+    maxWidth: number,
+    exclusions: readonly TextExclusion[],
+    textWrap: boolean,
+  ): BrokenParagraph {
+    const declaredHeight = this.height.context.getter();
+    const declaredMin = this.minHeight.context.getter();
+    const declaredMax = this.maxHeight.context.getter();
+
+    const attempt = (at: number) =>
+      this.breakAround(
+        paragraph,
+        maxWidth,
+        this.blockExclusions(exclusions, new Vector2(maxWidth, at)),
+        textWrap,
+      );
+
+    if (typeof declaredHeight === 'number') {
+      return attempt(declaredHeight);
+    }
+
+    const bound = (at: number) =>
+      clamp(
+        typeof declaredMin === 'number' ? declaredMin : -Infinity,
+        typeof declaredMax === 'number' ? declaredMax : Infinity,
+        at,
+      );
+
+    let height = bound(paragraph.vertical.lineHeight);
+    let broken = attempt(height);
+    if (broken.lines.length === 0) return broken;
+    let best = broken;
+    let bestHeight = Math.max(height, broken.height);
+    for (let pass = 1; pass < EXCLUSION_HEIGHT_PASSES; pass++) {
+      if (broken.height <= height + 0.5) return {...broken, height};
+      height = bound(broken.height);
+      broken = attempt(height);
+      if (Math.max(height, broken.height) < bestHeight) {
+        bestHeight = Math.max(height, broken.height);
+        best = broken;
+      }
+    }
+    return broken.height <= height + 0.5
+      ? {...broken, height}
+      : {...best, height: bestHeight};
   }
 
   /** The edge an alignment really picks, once the direction resolves it. */
@@ -1494,8 +1969,10 @@ export class Txt extends Shape {
     return align;
   }
 
-  private placeWith(request: PlaceRequest): PlacedParagraph | null {
-    const paragraph = this.paragraph();
+  private placeWith(
+    paragraph: OwnedParagraph | null,
+    request: PlaceRequest,
+  ): PlacedParagraph | null {
     if (!paragraph) return null;
 
     const broken = this.breakAt(paragraph, request.maxWidth, request.textWrap);
@@ -1541,7 +2018,16 @@ export class Txt extends Shape {
     maxWidth: number,
     textWrap = this.textWrap() !== false,
   ): PlacedParagraph | null {
-    return this.placeWith({
+    this.readSettledPass();
+    return this.placeNaturally(maxWidth, textWrap);
+  }
+
+  /** {@link naturalPlacement} inside the layout pass, which settles nothing. */
+  private placeNaturally(
+    maxWidth: number,
+    textWrap: boolean,
+  ): PlacedParagraph | null {
+    return this.placeWith(this.passParagraph(), {
       maxWidth,
       textWrap,
       blockWidth: Number.POSITIVE_INFINITY,
@@ -1563,7 +2049,7 @@ export class Txt extends Shape {
   @computed()
   private placement(): PlacedParagraph | null {
     const {x: blockWidth, y: blockHeight} = this.size();
-    return this.placeWith({
+    return this.placeWith(this.paragraph(), {
       maxWidth: this.effectiveMaxWidth(),
       textWrap: this.textWrap() !== false,
       blockWidth,
@@ -1925,10 +2411,25 @@ export class Txt extends Shape {
       widthMode === MeasureMode.Undefined ? Number.POSITIVE_INFINITY : width;
     const effectiveMax =
       this.textWrap() === false ? Number.POSITIVE_INFINITY : maxWidth;
-    const placed = this.naturalPlacement(effectiveMax);
+    const placed = this.placeNaturally(effectiveMax, this.textWrap() !== false);
+    this.measuredExclusionKey = this.exclusionKey();
     return placed
       ? {width: placed.width, height: placed.height}
       : {width: 0, height: 0};
+  }
+
+  /**
+   * Mark this node for yoga to measure again when the geometry its last
+   * measurement read from the yoga pass has moved since.
+   */
+  private settleExclusions(): boolean {
+    const measured = this.measuredExclusionKey;
+    if (measured === null || sameKey(measured, this.exclusionKey())) {
+      return false;
+    }
+    this.measuredExclusionKey = null;
+    this.yogaNode.markDirty();
+    return true;
   }
 
   private ownedLeaves: TxtLeaf[] = [];
@@ -2077,6 +2578,7 @@ export class Txt extends Shape {
       return;
     }
 
+    this.assertExclusionsIndependent();
     this.requestFontUpdate();
     const profile = this.pathProfile();
     if (profile) {
@@ -2455,14 +2957,6 @@ export class Txt extends Shape {
     return this.rootTxt().ownedExtents().get(this) ?? null;
   }
 
-  /** Whether `node` sits under this one in the scene graph. */
-  private contains(node: Node): boolean {
-    for (let current = node.parent(); current; current = current.parent()) {
-      if (current === this) return true;
-    }
-    return false;
-  }
-
   /** Whether this node or a node under it owns `span`. */
   private ownsSpan(span: TxtOwnerSpan): boolean {
     const node = span.paint.node;
@@ -2534,6 +3028,7 @@ export class Txt extends Shape {
    */
   private unitsRoot(): Txt {
     const root = this.rootTxt();
+    root.assertExclusionsIndependent();
     if (root !== this) this.offsetInRoot();
     return root;
   }
@@ -2620,6 +3115,7 @@ export class Txt extends Shape {
    * Useful for querying word positions, line counts, and other layout data.
    */
   public textLines(): TextLayoutResult {
+    this.rootTxt().assertExclusionsIndependent();
     return this.textLayout();
   }
 
@@ -2627,7 +3123,7 @@ export class Txt extends Shape {
    * Get the number of lines in the current text layout.
    */
   public lineCount(): number {
-    return this.textLayout().lines.length;
+    return this.textLines().lines.length;
   }
 
   /**
@@ -2999,6 +3495,7 @@ export class Txt extends Shape {
    */
   public shrinkWrapWidth(): number {
     this.assertRoot('shrinkWrapWidth');
+    this.assertExclusionsIndependent();
     return this.naturalPlacement(Number.POSITIVE_INFINITY)?.width ?? 0;
   }
 
@@ -3015,6 +3512,7 @@ export class Txt extends Shape {
    */
   public balancedWidth(targetLineCount?: number): number {
     this.assertRoot('balancedWidth');
+    this.assertExclusionsIndependent();
     // The probes ask what a wrapping layout would do, whatever `textWrap` is.
     const natural = this.naturalPlacement(Number.POSITIVE_INFINITY, true);
     if (!natural) return 0;
@@ -3051,8 +3549,7 @@ export class Txt extends Shape {
     maxWidth: number,
     maxHeight: number,
   ): boolean {
-    const raw = this.fontSize();
-    const paragraph = this.paragraphWithScale(raw > 0 ? size / raw : 1);
+    const paragraph = this.paragraphWithScale(this.scaleOf(size));
     if (!paragraph) return true;
     const broken = this.breakAt(paragraph, maxWidth);
     const placed = placeParagraph(paragraph.items, broken, {
@@ -3099,6 +3596,7 @@ export class Txt extends Shape {
    */
   public fitFontSize(maxWidth: number, maxHeight: number): number {
     this.assertRoot('fitFontSize');
+    this.assertExclusionsIndependent();
     const cap = this.fontSize();
     if (!this.measurementContext()) return cap;
 

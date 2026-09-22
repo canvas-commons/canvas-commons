@@ -1,4 +1,5 @@
-import {Color, PossibleColor} from '@canvas-commons/core';
+import {Color, PossibleColor, SignalValue} from '@canvas-commons/core';
+import type {Node} from '../components/Node';
 import type {Gradient} from './Gradient';
 import type {Pattern} from './Pattern';
 
@@ -41,11 +42,11 @@ export type TextAlign = CanvasTextAlign | 'justify';
 export type VerticalAlign = 'top' | 'middle' | 'bottom';
 
 /**
- * A region of a `<Txt>` block that text wraps around. Coordinates are in the
- * `Txt`'s local pretext layout space, where `(0, 0)` is the top-left of the
- * text content area.
+ * A region of a `<Txt>` block that text wraps around, given by its own
+ * geometry. A `rect`'s `x`/`y` is its center and `polygon` `points` sit in
+ * the same space.
  */
-export type TextExclusion =
+export type TextShapeExclusion =
   | {
       kind: 'rect';
       x: number;
@@ -58,6 +59,20 @@ export type TextExclusion =
   | {
       kind: 'polygon';
       points: {x: number; y: number}[];
+      horizontalPadding?: number;
+      verticalPadding?: number;
+    };
+
+/**
+ * A region of a `<Txt>` block that text wraps around. Coordinates are
+ * Txt-local and center-origin, the same space every other node uses. A `node`
+ * exclusion instead reads its shape from a live {@link Node}.
+ */
+export type TextExclusion =
+  | TextShapeExclusion
+  | {
+      kind: 'node';
+      node: SignalValue<Node>;
       horizontalPadding?: number;
       verticalPadding?: number;
     };

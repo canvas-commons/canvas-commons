@@ -1,5 +1,5 @@
 import {Layout, Rect, SVG, Txt, makeScene2D} from '@canvas-commons/2d';
-import {waitFor} from '@canvas-commons/core';
+import {createRef, waitFor} from '@canvas-commons/core';
 
 const CELL_BG = '#1e2024';
 const PANEL_TITLE = '#9aa0a6';
@@ -39,6 +39,7 @@ function Cell(props: {
 }
 
 export default makeScene2D(function* (view) {
+  const wrapImage = createRef<Rect>();
   const cellWidth = 560;
   const cellHeight = 460;
   const contentWidth = cellWidth - 48;
@@ -97,6 +98,7 @@ export default makeScene2D(function* (view) {
         <Cell title={'Wrap around image'} width={cellWidth} height={cellHeight}>
           <Layout layout width={contentWidth} height={contentHeight}>
             <Rect
+              ref={wrapImage}
               layout={false}
               width={140}
               height={140}
@@ -105,21 +107,12 @@ export default makeScene2D(function* (view) {
               topLeft={[-contentWidth / 2, -contentHeight / 2]}
             />
             <Txt
-              layout={false}
               fontSize={22}
               fill={BODY}
               width={contentWidth}
               textAlign={'left'}
-              topLeft={[-contentWidth / 2, -contentHeight / 2]}
               exclusions={[
-                {
-                  kind: 'rect',
-                  x: 0,
-                  y: 0,
-                  width: 140,
-                  height: 140,
-                  horizontalPadding: 16,
-                },
+                {kind: 'node', node: wrapImage, horizontalPadding: 16},
               ]}
             >
               Text flows around an exclusion rectangle anchored at the top-left.

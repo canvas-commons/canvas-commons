@@ -21,6 +21,7 @@ import {
   WordRecord,
   baselineOffset,
   buildForm,
+  declaredIn,
   describeWord,
   everyThirdHyphenator,
   expectNoFindings,
@@ -40,6 +41,8 @@ import {
 const TOLERANCE = 0.05;
 const SOFT_HYPHEN = '­';
 const BOX_WIDTH = 200;
+const BOX_HEIGHT = 400;
+const AUTOSIZE_HEIGHT = 120;
 const FONT_SIZE = 16;
 
 type Case = {
@@ -77,13 +80,20 @@ function propsFor(one: Case): TxtProps {
     fontSize: FONT_SIZE,
     lineHeight: 20,
     width: BOX_WIDTH,
-    ...(one.autoSize ? {autoSize: true, height: 120} : {}),
+    height: one.autoSize ? AUTOSIZE_HEIGHT : BOX_HEIGHT,
+    ...(one.autoSize ? {autoSize: true} : {}),
     textAlign: one.align,
     textDirection: one.direction,
     wrapMode: one.wrapMode,
     textWrap: one.wrap === 'pre' ? 'pre' : one.wrap === 'true',
     letterSpacing: one.letterSpacing,
-    exclusions: set ? set.at(BOX_WIDTH) : [],
+    exclusions: declaredIn(
+      {
+        width: BOX_WIDTH,
+        height: one.autoSize ? AUTOSIZE_HEIGHT : BOX_HEIGHT,
+      },
+      set ? set.at(BOX_WIDTH) : [],
+    ),
     ...(one.hyphenated ? {hyphenate: () => everyThirdHyphenator} : {}),
   };
 }

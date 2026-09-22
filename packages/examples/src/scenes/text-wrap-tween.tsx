@@ -113,15 +113,7 @@ export default makeScene2D(function* (view) {
   dialog().wrapMode('greedy');
   yield* sigil().opacity(1, 0.5);
   dialog().exclusions([
-    {
-      kind: 'rect',
-      x: 560,
-      y: 0,
-      width: 200,
-      height: 140,
-      horizontalPadding: 24,
-      verticalPadding: 12,
-    },
+    {kind: 'node', node: sigil, horizontalPadding: 24, verticalPadding: 12},
   ]);
   yield* dialog().text(
     'The route pours itself around the warding sigil, band by band, and ' +

@@ -3,4 +3,6 @@
 ---
 
 Add `autoSize` to `<Txt>` — when enabled with a fixed `width` and `height`, the
-font shrinks to fit the box, capped at the configured `fontSize`.
+text takes the largest whole-pixel size at or below `fontSize` whose layout fits
+the box. A line beside an exclusion has to fit the band the exclusion leaves, so
+there the size can be smaller than one that fits the box alone.

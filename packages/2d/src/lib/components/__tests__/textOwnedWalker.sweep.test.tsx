@@ -251,6 +251,9 @@ function nextLineRange(
 function seamItems(): ParagraphItems {
   return {
     kinds: ['text', 'zero-width-break', 'text'],
+    joinsPrevious: [false, false, false],
+    owners: [0, 0, 0],
+    boxHeights: [0, 0, 0],
     sourceStarts: [0, 1, 2],
     sourceEnds: [1, 2, 3],
     handleRangeOf: wholeSegmentRange,

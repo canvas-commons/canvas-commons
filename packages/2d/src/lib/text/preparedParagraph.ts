@@ -307,6 +307,9 @@ export function readParagraphItems(
     text: segments.join(''),
     items: {
       kinds: checkKinds(handle.kinds, length),
+      joinsPrevious: new Array<boolean>(length).fill(false),
+      owners: new Array<number>(length).fill(0),
+      boxHeights: new Array<number>(length).fill(0),
       sourceStarts,
       sourceEnds,
       handleRangeOf: wholeSegmentRange,

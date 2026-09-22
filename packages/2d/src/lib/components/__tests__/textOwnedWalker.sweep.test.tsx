@@ -18,7 +18,10 @@ import {
   prepareParagraph,
   readParagraphItems,
 } from '../../text/preparedParagraph';
-import type {LineBreakCursor} from '../../text/pretext-derived/lineBreak';
+import type {
+  LineBreakCursor,
+  LineBreakOptions,
+} from '../../text/pretext-derived/lineBreak';
 import {
   isDiscretionaryLineEnd,
   measurePreparedLineGeometry,
@@ -67,6 +70,7 @@ const LETTER_SPACINGS = [0, -1, 2, -20];
 /** The sweep may only grow: a shrunken sweep is a weaker gate. */
 const BATCH_COMPARISONS = 36172;
 const STEP_COMPARISONS = 514721;
+const CHUNKED_COMPARISONS = 18599;
 
 type WalkerCase = {name: string; prepared: PreparedParagraph};
 
@@ -215,6 +219,7 @@ function nextLineRange(
   items: ParagraphItems,
   start: LayoutCursor,
   maxWidth: number,
+  options?: LineBreakOptions,
 ): LayoutLineRange | null {
   const end: LineBreakCursor = {
     segmentIndex: start.segmentIndex,
@@ -230,6 +235,7 @@ function nextLineRange(
     end,
     chunkIndex,
     maxWidth,
+    options,
   );
   if (width === null) return null;
 
@@ -541,6 +547,82 @@ describe('owned line walker', () => {
     expect(comparisons).toBeGreaterThanOrEqual(STEP_COMPARISONS);
     // Every continuation walk ends of its own accord, inside the cap.
     expect(capped).toBe(0);
+  });
+
+  it('walks a chunk the way the fast path walks a paragraph', () => {
+    // A line end that a following line start would move over is the same
+    // line: the two walks put the cursor on either side of a dropped space.
+    const canonical = (
+      items: ParagraphItems,
+      line: LayoutLineRange,
+    ): string => {
+      const end: LineBreakCursor = {
+        segmentIndex: line.end.segmentIndex,
+        graphemeIndex: line.end.graphemeIndex,
+      };
+      normalizePreparedLineStart(items, end);
+      return [
+        line.start.segmentIndex,
+        line.start.graphemeIndex,
+        end.segmentIndex,
+        end.graphemeIndex,
+        line.width.toFixed(9),
+      ].join(':');
+    };
+    // Options take the chunked walk, whatever the fast-path flag says, so a
+    // paragraph beside an exclusion must get the same lines there.
+    const findings: string[] = [];
+    let compared = 0;
+    for (const {name, prepared} of walkerCases()) {
+      if (!prepared.items.simpleLineWalkFastPath) continue;
+      const widths = probeWidths(prepared.items);
+      for (let w = 0; w < widths.length; w++) {
+        const width = widths[w];
+        // Below one glyph the two walks put the cursor on either side of the
+        // space they both drop, which no line text can tell apart.
+        if (!(width >= 1)) continue;
+        let cursor: LayoutCursor = {segmentIndex: 0, graphemeIndex: 0};
+        for (let line = 0; line < CONTINUATION_CAP; line++) {
+          const mine = nextLineRange(prepared.items, cursor, width, {
+            emergencyBreaks: true,
+          });
+          const theirs = layoutNextLineRange(prepared.handle, cursor, width);
+          if (mine === null || theirs === null) {
+            if ((mine === null) !== (theirs === null)) {
+              findings.push(`${name}@${width}#${line}: one is null`);
+            }
+            break;
+          }
+          const ours = canonical(prepared.items, mine);
+          if (ours !== canonical(prepared.items, theirs)) {
+            findings.push(
+              `${name}@${width}#${line}: ${ours} != ` +
+                `${canonical(prepared.items, theirs)}`,
+            );
+            break;
+          }
+          compared++;
+          cursor = mine.end;
+        }
+      }
+    }
+    expect(findings).toEqual([]);
+    expect(compared).toBeGreaterThanOrEqual(CHUNKED_COMPARISONS);
+  });
+
+  it('drops the trailing space of a tabbed line in both walks', () => {
+    const prepared = prepareParagraph(
+      'one\ttwo\tthree four AV five',
+      metricsOf(FONT, 'normal', 'normal', 0),
+    );
+    const start: LayoutCursor = {segmentIndex: 0, graphemeIndex: 0};
+    const mine = nextLineRange(prepared.items, start, 249.595, {
+      emergencyBreaks: true,
+    });
+    const theirs = layoutNextLineRange(prepared.handle, start, 249.595);
+    // The dropped space is 12 wide: a line that kept it would paint 261.6.
+    expect(mine?.width).toBeCloseTo(249.6, 9);
+    expect(theirs?.width).toBeCloseTo(249.6, 9);
   });
 
   it('gives the same items in every font, apart from the advances', () => {

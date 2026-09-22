@@ -56,6 +56,20 @@ export function mockFontBounds(state: TextState): {
   return {ascent: size * ASCENT_RATIO, descent: size * DESCENT_RATIO};
 }
 
+const HINTING_STEP = 0.02;
+
+/**
+ * Share of its proportional advance the face paints at `size`. A hinted face
+ * snaps its stems to whole pixels, so it steps with the size instead of
+ * scaling with it, and a size between two pixels paints narrower still. The
+ * steps go both ways, so a probe reading one size off another is sometimes
+ * too wide and sometimes too narrow.
+ */
+export function hintingFactor(size: number): number {
+  const whole = Math.floor(size);
+  return 1 + ((whole % 3) - 1) * HINTING_STEP - (size - whole) * HINTING_STEP;
+}
+
 /** Install the fake font for a suite. */
 export function fakeFont(): void {
   mockTextContext(mockFontWidth, mockFontBounds);

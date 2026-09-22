@@ -1,4 +1,7 @@
-import {TextState} from './mockTextContext';
+import type {PlacedLine} from '../../text';
+import {Txt} from '../Txt';
+import {TextState, mockTextContext} from './mockTextContext';
+import {PaintCall, recordingTextContext} from './recordingTextContext';
 import {fontSizeOf} from './sceneFixtures';
 
 const REGULAR_RATIO = 0.5;
@@ -40,6 +43,29 @@ export function mockFontBounds(state: TextState): {
 } {
   const size = fontSizeOf(state.font);
   return {ascent: size * ASCENT_RATIO, descent: size * DESCENT_RATIO};
+}
+
+/** Install the fake font for a suite. */
+export function fakeFont(): void {
+  mockTextContext(mockFontWidth, mockFontBounds);
+}
+
+export class DrawProbe extends Txt {
+  public probeDraw(context: CanvasRenderingContext2D) {
+    this.draw(context);
+  }
+
+  /** The placed lines, so a sweep can read the free segment of each one. */
+  public probeLines(): readonly PlacedLine[] {
+    return this.positionedLines();
+  }
+}
+
+/** Every text fill a node paints, in draw order. */
+export function fillCalls(txt: DrawProbe): PaintCall[] {
+  const {calls, context} = recordingTextContext();
+  txt.probeDraw(context);
+  return calls.filter(call => call.kind === 'fill');
 }
 
 export const TEXTS: {name: string; text: string}[] = [

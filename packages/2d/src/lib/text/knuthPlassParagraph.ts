@@ -113,6 +113,25 @@ function skipLineStart(
   return index;
 }
 
+/**
+ * First item of a line that opens after a soft wrap. The whitespace at the
+ * wrap belongs to the line before it, which drops it or hangs it past the box,
+ * so no line may open on it.
+ */
+function skipWrappedWhiteSpace(
+  items: ParagraphItems,
+  segmentIndex: number,
+  end: number,
+): number {
+  let index = skipLineStart(items, segmentIndex, end);
+  while (index < end) {
+    const kind = items.kinds[index];
+    if (kind !== 'preserved-space' && kind !== 'tab') break;
+    index = skipLineStart(items, index + 1, end);
+  }
+  return index;
+}
+
 function chunkStart(
   items: ParagraphItems,
   chunk: ParagraphChunk,
@@ -150,7 +169,11 @@ export function lineStops(
     candidates.push({
       end: {segmentIndex: i + 1, graphemeIndex: 0},
       next: {
-        segmentIndex: skipLineStart(items, i + 1, chunk.endSegmentIndex),
+        segmentIndex: skipWrappedWhiteSpace(
+          items,
+          i + 1,
+          chunk.endSegmentIndex,
+        ),
         graphemeIndex: 0,
       },
       hyphenated: isDiscretionaryLineEnd(items.kinds, i + 1, 0),

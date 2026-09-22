@@ -2,7 +2,16 @@ import {DependencyContext, createSignal} from '@canvas-commons/core';
 import {clearCache} from '@chenglou/pretext';
 
 const FontsVersion = createSignal(0);
-const RequestedFonts = new Set<string>();
+const RequestedFaces = new Set<string>();
+
+/**
+ * The face a canvas font shorthand names, without its size. An animated font
+ * size walks through thousands of shorthands of one face, and the face is what
+ * the browser loads.
+ */
+function faceOf(font: string): string {
+  return font.replace(/(?:^|\s)\d+(?:\.\d+)?px(?:\s*\/\s*\S+)?\s/, ' ');
+}
 
 function invalidateMeasurements() {
   // Pretext caches measured widths per (segment, font) internally; widths
@@ -40,8 +49,9 @@ export function fontsVersion(): number {
  */
 export function requestFontLoad(font: string) {
   if (typeof document === 'undefined' || !('fonts' in document)) return;
-  if (RequestedFonts.has(font)) return;
-  RequestedFonts.add(font);
+  const face = faceOf(font);
+  if (RequestedFaces.has(face)) return;
+  RequestedFaces.add(face);
   try {
     if (document.fonts.check(font)) return;
   } catch {

@@ -60,10 +60,10 @@ describe('hyphenated tween completion boundary', () => {
         yield;
       }
 
-      // 'Her uncharacteristic' measures exactly the wrap width, so this break
-      // only fits via hyphen overhang — it must hold across the boundary.
+      // 'Her uncharacteristic' measures exactly the wrap width, so the hyphen
+      // after it would paint outside the line and the break falls earlier.
       const settled = frames[frames.length - 1];
-      expect(settled[0]).toBe('Her uncharacteristic-');
+      expect(settled[0]).toBe('Her uncharacteri-');
       for (const lines of frames) {
         expect(lines).toEqual(settled);
       }

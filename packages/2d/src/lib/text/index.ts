@@ -1,25 +1,24 @@
-export {
-  clearCache as clearPretextCache,
-  setLocale as setPretextLocale,
-} from '@chenglou/pretext';
-export {
-  layoutNextRichInlineLineRange,
-  materializeRichInlineLineRange,
-  measureRichInlineStats,
-  prepareRichInline,
-  walkRichInlineLineRanges,
-} from '@chenglou/pretext/rich-inline';
-export type {
-  PreparedRichInline,
-  RichInlineCursor,
-  RichInlineFragment,
-  RichInlineFragmentRange,
-  RichInlineItem,
-  RichInlineLine,
-  RichInlineLineRange,
-  RichInlineStats,
-} from '@chenglou/pretext/rich-inline';
+export {clearCache as clearPretextCache} from '@chenglou/pretext';
+export * from './breakParagraph';
 export * from './font';
-export * from './knuthPlass';
+export * from './knuthPlassParagraph';
+export * from './lineMetrics';
+export * from './lineSpan';
+export * from './mixedParagraph';
+export * from './paragraphContent';
+export * from './paragraphItems';
+export * from './placeParagraph';
+export {
+  canvasParagraphMeasurer,
+  prepareParagraph,
+  readParagraphItems,
+} from './preparedParagraph';
+export type {
+  ParagraphMeasurer,
+  ParagraphMetrics,
+  PreparedFields,
+  PreparedParagraph,
+  WordBreakMode,
+} from './preparedParagraph';
 export * from './segmenter';
 export * from './wrapGeometry';

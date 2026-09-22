@@ -160,6 +160,40 @@ describe('Txt inline slot geometry', () => {
     expect(layout.height).toBeLessThan(layout.lines.length * second.height);
   });
 
+  it('keeps the words on either side of an inline slot apart', () => {
+    const inline = (<Rect width={80} height={20} />) as Rect;
+    const txt = (
+      <Txt fontSize={10} lineHeight={20} width={400} textAlign={'left'}>
+        {'hello'}
+        {inline}
+        {'world.'}
+      </Txt>
+    ) as Txt;
+
+    expect(txt.textWords().map(word => word.text)).toEqual(['hello', 'world']);
+  });
+
+  it('splits a sentence across an inline slot without closing the gap', () => {
+    const inline = (<Rect width={80} height={20} />) as Rect;
+    const txt = (
+      <Txt fontSize={10} lineHeight={20} width={400} textAlign={'left'}>
+        {'hello'}
+        {inline}
+        {'world.'}
+      </Txt>
+    ) as Txt;
+
+    const [sentence] = txt.split('sentence');
+    const rebuilt = sentence
+      .textWords()
+      .map(word => word.x + sentence.position().x);
+
+    expect(rebuilt).toHaveLength(2);
+    txt.textWords().forEach((word, index) => {
+      expect(rebuilt[index]).toBeCloseTo(word.x, 3);
+    });
+  });
+
   it('positions an inline child at its slot center before any draw', () => {
     const inline = (<Rect width={30} height={50} />) as Rect;
     const txt = (

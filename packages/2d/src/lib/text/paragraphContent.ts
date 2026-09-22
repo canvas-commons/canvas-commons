@@ -19,6 +19,9 @@ export type {WhiteSpaceMode};
 /** The character an inline object holds in the paragraph text. */
 export const OBJECT_MARKER = '￼';
 
+/** The optional break a hyphenator writes into a word (U+00AD). */
+export const SOFT_HYPHEN = '­';
+
 /** What a measurement of a run depends on. */
 export type RunMetrics = {
   font: string;

@@ -2,5 +2,5 @@
 '@canvas-commons/2d': patch
 ---
 
-Keep `textWrap` active during text tweens on fixed- and percent-width `Txt`
-nodes.
+Keep `textWrap` active during text tweens on `Txt` nodes with a fixed width, a
+percent width or a `maxWidth`.

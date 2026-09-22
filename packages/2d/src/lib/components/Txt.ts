@@ -12,17 +12,8 @@ import {
   createSignal,
   threadable,
   tween,
+  useLogger,
 } from '@canvas-commons/core';
-import {
-  LayoutCursor,
-  PreparedTextWithSegments,
-  layoutNextLine,
-  materializeLineRange,
-  measureLineStats,
-  measureNaturalWidth,
-  prepareWithSegments,
-  walkLineRanges,
-} from '@chenglou/pretext';
 import {
   CurveProfile,
   createCurveSampler,
@@ -31,26 +22,44 @@ import {
 import {Segment} from '../curves/Segment';
 import {getPathProfile} from '../curves/getPathProfile';
 import {computed, initial, nodeName, signal} from '../decorators';
-import {CanvasStyle} from '../partials';
+import {CanvasStyle, Gradient, Pattern} from '../partials';
 import type {TextExclusion} from '../partials/types';
 import {useScene2D} from '../scenes/useScene2D';
 import {
-  Interval,
-  PreparedRichInline,
-  RichInlineItem,
+  BrokenParagraph,
+  ContentRun,
+  FontBox,
+  OBJECT_MARKER,
+  OverflowWrapMode,
+  OwnerSpan,
+  PaintCall,
+  ParagraphContent,
+  ParagraphCursor,
+  ParagraphItems,
+  ParagraphMetrics,
+  ParagraphVerticalMetrics,
+  PlacedLine,
+  PlacedParagraph,
+  PlacedPiece,
   SOFT_HYPHEN,
   SegmentGranularity,
+  TextDirection,
+  WhiteSpaceMode,
+  breakParagraph,
+  breakParagraphOptimally,
   buildCanvasFontString,
-  carveTextLineSlots,
-  getPolygonIntervalForBand,
-  getRectIntervalsForBand,
-  knuthPlass,
-  materializeRichInlineLineRange,
-  measureRichInlineStats,
-  prepareRichInline,
+  buildParagraphContent,
+  canvasParagraphMeasurer,
+  paintAnchorOf,
+  paintCalls,
+  paintsText,
+  placeParagraph,
+  prepareMixedParagraph,
+  rangeExtentOf,
+  readVerticalMetrics,
   resolveLineHeight,
   segment,
-  walkRichInlineLineRanges,
+  textLocaleVersion,
 } from '../text';
 import {fontsVersion, requestFontLoad, resolveCanvasStyle} from '../utils';
 import {sharedMeasurementContext} from '../utils/measurement';
@@ -66,10 +75,12 @@ type TxtChildren = string | Node | (string | Node)[];
 
 export type TxtWrapMode = 'greedy' | 'knuth-plass';
 
+export type {OverflowWrapMode};
+
 /**
  * Function that splits a single word into syllable-like pieces. Pieces are
- * joined with U+00AD (soft hyphen) and passed to pretext, which uses them as
- * optional break points.
+ * joined with U+00AD (soft hyphen), which the line breaker uses as optional
+ * break points.
  */
 export type HyphenateFn = (word: string) => string[];
 
@@ -125,6 +136,7 @@ export interface TxtProps extends ShapeProps {
   text?: SignalValue<string>;
   autoSize?: SignalValue<boolean>;
   wrapMode?: SignalValue<TxtWrapMode>;
+  overflowWrap?: SignalValue<OverflowWrapMode>;
   hyphenate?: SignalValue<HyphenateFn | null>;
   exclusions?: SignalValue<TextExclusion[]>;
   textPath?: SignalValue<TxtPath | null>;
@@ -141,23 +153,29 @@ type FontComponents = {
   family: string;
 };
 
-type FragmentStyle = {
+/** What a run measures with; no paint value may reach it. */
+type RunTypeface = {
+  font: string;
+  fontComponents: FontComponents;
+  letterSpacing: number;
+};
+
+type FragmentStyle = RunTypeface & {
   fill: CanvasStyle;
   stroke: CanvasStyle;
   lineWidth: number;
   strokeFirst: boolean;
-  font: string;
-  fontComponents: FontComponents;
-  letterSpacing: number;
+  /** Opacity of the owning node relative to the root `Txt`. */
+  opacity: number;
 };
 
 /**
  * A single styled slice of laid-out text on one line of a {@link Txt}.
  *
  * @remarks
- * `x` is the fragment's left edge in pretext-space (`0` is the left edge of
- * the text block, before the `Txt`'s own anchor is applied). `style` mirrors
- * the owning `Txt` node's text properties at layout time.
+ * `x` is the fragment's left edge in block space (`0` is the left edge of the
+ * text block, before the `Txt`'s own anchor is applied). `style` mirrors the
+ * owning `Txt` node's text properties at layout time.
  */
 export type StyledFragment = {
   text: string;
@@ -170,7 +188,7 @@ export type StyledFragment = {
   inline?: Layout;
   /**
    * Slot width allocated to an inline element. Only set when `inline` is
-   * present; matches the slot width pretext used for layout.
+   * present.
    */
   inlineWidth?: number;
 };
@@ -179,10 +197,9 @@ export type StyledFragment = {
  * A single laid-out line of a {@link Txt} block.
  *
  * @remarks
- * `top` is the line box's top edge in pretext-space (`0` is the top of the
- * text block). `height` is the line box height — the base line height unless
- * an inline element on this line is taller, or an exclusion band pushed the
- * line down (in which case `top` reflects the skipped bands).
+ * `top` is the line box's top edge in block space (`0` is the top of the text
+ * block). `height` is the line box height — the tallest line height the runs on
+ * it ask for, grown by a taller inline element.
  */
 export type TextLine = {
   fragments: StyledFragment[];
@@ -223,139 +240,85 @@ export type TextUnit = {
   indexInLine: number;
 };
 
-const HORIZONTAL_WHITESPACE_RE = /[ \t\f\r]+/g;
-const MAX_BAND_ITERATIONS = 2048;
-
-/** Untyped callers pass values a `string` signal cannot hold. */
-function textValue(value: string): string {
-  return value === null || value === undefined ? '' : String(value);
-}
-
-/**
- * Normalize runs of horizontal whitespace to a single space while preserving
- * literal newlines. Matches CSS `white-space: pre-line` semantics when the
- * result is fed to pretext under `pre-wrap`.
- */
-function collapseInlineWhitespace(text: string): string {
-  return text.replace(HORIZONTAL_WHITESPACE_RE, ' ');
-}
-
-/**
- * Map a `textWrap` value to the text+whiteSpace pair that pretext's simple
- * path expects.
- */
-function prepareTextForWrapMode(
-  text: string,
-  wrap: boolean | 'pre',
-): {text: string; whiteSpace: 'normal' | 'pre-wrap'} {
-  if (wrap === 'pre') return {text, whiteSpace: 'pre-wrap'};
-  if (wrap === false) return {text, whiteSpace: 'normal'};
-  return {text: collapseInlineWhitespace(text), whiteSpace: 'pre-wrap'};
-}
-
-type RichGroup = {
-  // `null` is a blank line — no items to feed to pretext.
-  prepared: PreparedRichInline | null;
-  itemMap: number[];
+/** The endpoint layouts a stabilized text tween reads every frame. */
+type TextTweenPlan = {
+  from: LineBreakOffset[] | null;
+  to: LineBreakOffset[] | null;
+  fits: (line: string) => boolean;
+  sizes: [Vector2, Vector2];
 };
 
-/**
- * Split rich items at explicit newline boundaries into per-line groups.
- *
- * @remarks
- * Pretext's `prepareRichInline` always normalizes whitespace, so a literal
- * `\n` inside an item is collapsed into a space. To preserve newlines under
- * `wrap === true` or `'pre'`, the caller emits each line as its own
- * `prepareRichInline` group and stacks the resulting lines vertically. Empty
- * groups (from `'\\n\\n'`, leading `'\\n'`, or trailing `'\\n'`) survive as
- * blank-line entries so the rendered output matches CSS `pre-wrap`.
- * `wrap === false` ignores newlines (one group with the items as-is).
- */
-export function buildRichGroups(
-  items: RichInlineItem[],
-  wrap: boolean | 'pre',
-): Array<{items: RichInlineItem[]; itemMap: number[]}> {
-  if (wrap === false) {
-    return [{items: items.slice(), itemMap: items.map((_, i) => i)}];
-  }
-
-  const groups: Array<{items: RichInlineItem[]; itemMap: number[]}> = [
-    {items: [], itemMap: []},
-  ];
-
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i];
-    if (!item.text.includes('\n')) {
-      const cur = groups[groups.length - 1];
-      cur.items.push(item);
-      cur.itemMap.push(i);
-      continue;
-    }
-    const lines = item.text.split('\n');
-    for (let j = 0; j < lines.length; j++) {
-      if (lines[j].length > 0) {
-        const cur = groups[groups.length - 1];
-        cur.items.push({...item, text: lines[j]});
-        cur.itemMap.push(i);
-      }
-      if (j < lines.length - 1) {
-        groups.push({items: [], itemMap: []});
-      }
-    }
-  }
-
-  return groups;
-}
-
-/**
- * Fold line statistics over per-line rich groups. `null` entries are blank
- * lines — one line of height, no width.
- */
-function measureGroupStats(
-  groups: Array<PreparedRichInline | null>,
-  maxWidth: number,
-): {lineCount: number; maxLineWidth: number} {
-  let lineCount = 0;
-  let maxLineWidth = 0;
-  for (const prepared of groups) {
-    if (prepared === null) {
-      lineCount++;
-      continue;
-    }
-    const stats = measureRichInlineStats(prepared, maxWidth);
-    lineCount += stats.lineCount;
-    if (stats.maxLineWidth > maxLineWidth) {
-      maxLineWidth = stats.maxLineWidth;
-    }
-  }
-  return {lineCount, maxLineWidth};
-}
-
-type JustifiedSegment = {
+/** One paint of a unit: a range of one piece, under one owner. */
+type UnitPart = {
   text: string;
+  run: TxtRunStyle;
+  /** Pen the part is painted from, relative to the unit's own center. */
+  penOffset: number;
+  /** Advance the part paints over, so a gap between parts is readable. */
   advance: number;
-  whitespace: boolean;
 };
 
-/**
- * A {@link TextLine} with alignment fully resolved: `top` includes the
- * vertical-align offset, `alignOffset` is the horizontal shift for the
- * current `textAlign`, and `justified` carries pre-measured word segments
- * (one list per fragment) when the line is justified.
- */
-type PositionedLine = {
-  fragments: StyledFragment[];
-  top: number;
-  height: number;
-  alignOffset: number;
-  extraPerSpace: number;
-  justified: JustifiedSegment[][] | null;
-  /**
-   * Offset from the line-box top to each fragment's alphabetic baseline,
-   * computed from real font metrics so glyphs land where CSS inline layout
-   * would put them. `0` for inline-element fragments.
-   */
-  baselineOffsets: number[];
+/** A unit of the placed layout, with every paint that covers it. */
+type PlacedUnit = {
+  unit: TextUnit;
+  /** Baseline the unit sits on, in Txt-local coordinates. */
+  baseline: number;
+  /** Font box of the run the unit begins in, as the preparation read it. */
+  box: FontBox;
+  parts: UnitPart[];
+};
+
+/** A painted stretch of one line: part of one piece, under one owner. */
+type PaintedSlice = {
+  piece: PlacedPiece;
+  span: TxtOwnerSpan;
+  start: number;
+  end: number;
+};
+
+/** A run's typeface and the node whose paint it takes, read at paint time. */
+type TxtRunStyle = RunTypeface & {node: Txt};
+type TxtRun = ContentRun<Layout | null, TxtRunStyle>;
+type TxtOwnerSpan = OwnerSpan<Layout | null, TxtRunStyle>;
+
+/** Everything one paragraph of text needs before a width is known. */
+type OwnedParagraph = {
+  content: ParagraphContent<Layout | null, TxtRunStyle>;
+  items: ParagraphItems;
+  metrics: readonly ParagraphMetrics[];
+  vertical: ParagraphVerticalMetrics;
+  /** Offsets a paint change begins at, which split a piece into paint calls. */
+  seams: readonly number[];
+  /** Breaks and placements of this paragraph, newest first. */
+  broken: {key: unknown[]; broken: BrokenParagraph}[];
+  placed: {
+    key: unknown[];
+    placed: PlacedParagraph;
+    paint: PlannedPaint[] | null;
+  }[];
+};
+
+/** A paint call, the owner span whose paint it takes, and its spacing. */
+type PlannedPaint = {call: PaintCall; owner: number; letterSpacing: string};
+
+/** An owner's paint as the canvas takes it: a colour is serialized once. */
+type RunPaint = {
+  fill: string | Gradient | Pattern;
+  stroke: string | Gradient | Pattern;
+  lineWidth: number;
+  strokeFirst: boolean;
+  opacity: number;
+};
+
+type PlaceRequest = {
+  maxWidth: number;
+  /** Whether the break pass may wrap, which a probe asks for on its own. */
+  textWrap: boolean;
+  blockWidth: number;
+  blockHeight: number;
+  textAlign: CanvasTextAlign | 'justify';
+  direction: TextDirection;
+  verticalAlign: 'top' | 'middle' | 'bottom';
 };
 
 type LineBreakOffset = {
@@ -368,19 +331,53 @@ type LineBreakOffset = {
   hyphen: boolean;
 };
 
-type PreparedLayout =
-  | {
-      kind: 'rich';
-      groups: RichGroup[];
-      styles: FragmentStyle[];
-      inlines: (Layout | null)[];
-    }
-  | {
-      kind: 'simple';
-      prepared: PreparedTextWithSegments;
-      style: FragmentStyle;
-    };
+const LAYOUT_CACHE_SIZE = 6;
+const FIT_TOLERANCE = 1e-6;
 
+/** Untyped callers pass values a `string` signal cannot hold. */
+function textValue(value: string): string {
+  return value === null || value === undefined ? '' : String(value);
+}
+
+/** The exclusion set as plain numbers, so a memo key compares by value. */
+function exclusionKey(exclusions: readonly TextExclusion[]): unknown[] {
+  const key: unknown[] = [exclusions.length];
+  for (const exclusion of exclusions) {
+    key.push(
+      exclusion.kind,
+      exclusion.horizontalPadding ?? 0,
+      exclusion.verticalPadding ?? 0,
+    );
+    if (exclusion.kind === 'rect') {
+      key.push(exclusion.x, exclusion.y, exclusion.width, exclusion.height);
+    } else {
+      key.push(exclusion.points.length);
+      for (const point of exclusion.points) key.push(point.x, point.y);
+    }
+  }
+  return key;
+}
+
+/** Nested nodes already warned that their sizing props do nothing. */
+const WarnedSizing = new WeakSet<Txt>();
+
+function sameKey(a: readonly unknown[], b: readonly unknown[]): boolean {
+  return a.length === b.length && a.every((value, i) => value === b[i]);
+}
+
+/**
+ * A paragraph of text. A nested `Txt` is a span of its root's paragraph.
+ *
+ * @remarks
+ * A nested `Txt` does not lay itself out, and ignores its `width`, `height`
+ * and `padding`. Its `size()` is the extent of the pieces it owns in the
+ * root's placement, from the first line's top to the last line's bottom, in
+ * its own space, and its `cacheBBox()` is that box around its text. Its
+ * `position()` is the offset its own `x` and `y` give from its parent's
+ * center, as for any node outside a flex layout. Its text queries read the
+ * root's placement: `textLines()` from the top left of its extent, and the
+ * units of `textWords()` and `split()` in its own space.
+ */
 @nodeName('Txt')
 export class Txt extends Shape {
   /**
@@ -421,11 +418,10 @@ export class Txt extends Shape {
    * Automatically shrink the font to fit the configured `width` and `height`.
    *
    * @remarks
-   * When `true`, the rendered font size is computed by {@link fitFontSize}
-   * against the configured `width` and `height`, clamped to the user's
-   * `fontSize` (which acts as an upper bound). Requires both `width` and
-   * `height` to resolve to concrete pixel numbers; falls back to the raw
-   * `fontSize` otherwise.
+   * When `true`, the rendered font size is the largest whole pixel size at or
+   * below `fontSize` whose layout fits the configured box. Requires both
+   * `width` and `height` to resolve to concrete pixel numbers; falls back to
+   * the raw `fontSize` otherwise.
    *
    * @example
    * ```tsx
@@ -442,11 +438,11 @@ export class Txt extends Shape {
    * Line-breaking algorithm.
    *
    * @remarks
-   * - `'greedy'` (default) — pretext's first-fit pass. Fast.
+   * - `'greedy'` (default) — first-fit, one line at a time. Fast.
    * - `'knuth-plass'` — dynamic-programming search for an optimal break
    *   sequence that minimizes a badness score (justification ratio, rivers,
-   *   tight lines, soft-hyphen breaks). Only takes effect when the text is a
-   *   single-style run; mixed-style `<Txt>` falls back to greedy.
+   *   tight lines, soft-hyphen breaks). Each line is scored against the free
+   *   segment its own {@link exclusions} bands leave.
    *
    * Named `wrapMode` rather than `wrap` to avoid clashing with the
    * `wrap: FlexWrap` flex signal inherited from {@link Layout}.
@@ -461,9 +457,26 @@ export class Txt extends Shape {
   declare public readonly wrapMode: SimpleSignal<TxtWrapMode, this>;
 
   /**
+   * What a word wider than the line may do, as CSS `overflow-wrap`.
+   *
+   * @remarks
+   * - `'normal'` (default) — the word stays whole and overflows the box. A
+   *   break the word offers of its own (a dash, a soft hyphen) is still taken.
+   * - `'anywhere'` — the word breaks at a grapheme so the line fits.
+   *
+   * @example
+   * ```tsx
+   * <Txt width={80} overflowWrap={'anywhere'}>indistinguishable</Txt>
+   * ```
+   */
+  @initial('normal')
+  @signal()
+  declare public readonly overflowWrap: SimpleSignal<OverflowWrapMode, this>;
+
+  /**
    * Word-level hyphenator. Receives a single word and returns an array of
-   * syllable-like pieces; pieces are rejoined with U+00AD (soft hyphen) and
-   * fed to pretext, which treats soft hyphens as optional break points.
+   * syllable-like pieces; pieces are rejoined with U+00AD (soft hyphen), which
+   * the line breaker treats as optional break points.
    *
    * @remarks
    * No bundled dictionary — wire in your own (Hyphenopoly, hypher, etc.) or
@@ -482,17 +495,12 @@ export class Txt extends Shape {
    * Shapes that text should flow around (CSS `shape-outside`-style obstacles).
    *
    * @remarks
-   * Coordinates are in pretext-space: `(0, 0)` is the top-left of the text
-   * block (which corresponds to Txt-local `(-width/2, -height/2)` in canvas
+   * Coordinates are in block space: `(0, 0)` is the top-left of the text block
+   * (which corresponds to Txt-local `(-width/2, -height/2)` in canvas
    * coordinates). Rects are axis-aligned; polygons are closed point lists.
    *
-   * When any exclusions are present, the line-walking loop switches from
-   * pretext's single-`maxWidth` greedy pass to a per-band loop that carves
-   * the available width on every line. `wrapMode === 'knuth-plass'` falls back
-   * to greedy under exclusions (KP over non-uniform widths is non-trivial).
-   *
-   * Exclusions currently apply only to single-style text without inline
-   * children; rich (nested styled) or inline content ignores them.
+   * Each line is broken against the free segment its own line box leaves, so a
+   * taller run or a tall inline element flows around the same shape correctly.
    */
   @initial([])
   @signal()
@@ -655,13 +663,16 @@ export class Txt extends Shape {
 
     const oldWrap = this.textWrap.context.raw();
     const desiredWidth = this.width.context.getter();
-    const explicitWidth = typeof desiredWidth === 'number';
-    let wrapWidth: number | null = explicitWidth ? desiredWidth : null;
-    if (
-      wrapWidth === null &&
-      desiredWidth !== null &&
-      this.textWrap() !== false
-    ) {
+    const desiredMaxWidth = this.maxWidth.context.getter();
+    const containerWidth =
+      desiredWidth !== null && typeof desiredWidth !== 'number';
+    let wrapWidth: number | null =
+      typeof desiredWidth === 'number'
+        ? desiredWidth
+        : desiredWidth === null && typeof desiredMaxWidth === 'number'
+          ? desiredMaxWidth
+          : null;
+    if (wrapWidth === null && containerWidth && this.textWrap() !== false) {
       const computedWidth = this.computedSize().x;
       if (Number.isFinite(computedWidth)) {
         // The +0.5 absorbs yoga's pixel rounding, mirroring effectiveMaxWidth.
@@ -676,59 +687,98 @@ export class Txt extends Shape {
     const oldText = leaf.text.context.raw();
     const fromText = leaf.text();
     const oldSizeRaw = this.size.context.raw();
-    const oldSize = new Vector2(this.size());
-
-    // Pre-measure both endpoint layouts so the in-flight string can reuse
-    // their line breaks instead of re-wrapping every frame. A path never
-    // wraps, surrogate pairs would desync the code-unit offsets from
-    // textLerp's code-point composition, and lineBreakOffsets bails on
-    // layouts whose offsets cannot be mapped back to the raw text.
-    const surrogates = /[\uD800-\uDFFF]/;
-    let fromBreaks: LineBreakOffset[] | null = null;
-    if (
-      keepWrap &&
-      wrapWidth !== null &&
-      !this.textPath() &&
-      !surrogates.test(fromText)
-    ) {
-      fromBreaks = this.lineBreakOffsets(fromText, wrapWidth);
-    }
 
     leaf.text(value);
     const toText = leaf.text();
-    let toBreaks: LineBreakOffset[] | null = null;
-    if (fromBreaks !== null && wrapWidth !== null && !surrogates.test(toText)) {
-      toBreaks = this.lineBreakOffsets(toText, wrapWidth);
-    }
-    const newSize = new Vector2(this.size());
     leaf.text(oldText ?? DEFAULT);
 
-    let fits: (line: string) => boolean = () => true;
-    if (fromBreaks !== null && toBreaks !== null && wrapWidth !== null) {
-      const prepared = this.preparedLayout();
-      if (prepared?.kind === 'simple') {
-        const style = prepared.style;
-        const maxWidth = wrapWidth;
-        fits = line =>
-          this.measureStyledText(line.trimEnd(), style) <= maxWidth;
+    // Both endpoint layouts are measured ahead, so the in-flight string can
+    // reuse their line breaks instead of re-wrapping every frame. A path
+    // never wraps, surrogate pairs would desync the code-unit offsets from
+    // textLerp's code-point composition, and lineBreakOffsets bails on
+    // layouts whose offsets cannot be mapped back to the raw text.
+    const surrogates = /[\uD800-\uDFFF]/;
+    const stable =
+      keepWrap &&
+      wrapWidth !== null &&
+      !this.textPath() &&
+      !surrogates.test(fromText) &&
+      !surrogates.test(toText);
+
+    /** Both endpoints, read at the metrics, box and fonts of right now. */
+    const measurePlan = (): TextTweenPlan => {
+      const saved = leaf.text.context.raw();
+      const forced = this.forcedBreaksOnly();
+      this.forcedBreaksOnly(false);
+      this.size(oldSizeRaw);
+
+      const measure = (text: string) => {
+        leaf.text(text);
+        return {
+          breaks:
+            stable && wrapWidth !== null
+              ? this.lineBreakOffsets(text, wrapWidth)
+              : null,
+          size: new Vector2(this.size()),
+        };
+      };
+      const from = measure(fromText);
+      const to = measure(toText);
+      const fits =
+        from.breaks !== null && to.breaks !== null && wrapWidth !== null
+          ? this.lineFitsSegment(wrapWidth)
+          : () => true;
+
+      leaf.text(saved ?? DEFAULT);
+      this.forcedBreaksOnly(forced);
+      // An endpoint with no text of its own keeps the box of the other one.
+      if (from.size.y === 0) {
+        from.size.y = to.size.y;
+      } else if (to.size.y === 0) {
+        to.size.y = from.size.y;
       }
-    }
+      return {
+        from: from.breaks,
+        to: to.breaks,
+        fits,
+        sizes: [from.size, to.size],
+      };
+    };
+
+    const planKey = () => [
+      fontsVersion(),
+      textLocaleVersion(),
+      wrapWidth,
+      this.canvasFont(),
+      this.letterSpacing(),
+      this.lineHeight(),
+    ];
+    let key = planKey();
+    let plan = measurePlan();
+    const stabilized = plan.from !== null && plan.to !== null;
+
+    /** The plan of the current state, measured again when that state moves. */
+    const currentPlan = (): TextTweenPlan => {
+      const next = planKey();
+      if (!sameKey(key, next)) {
+        key = next;
+        plan = measurePlan();
+      }
+      return plan;
+    };
 
     let planDropped = false;
-    /** Give up the measured breaks, justify targets, and endpoint sizes. */
+    /** Give up the measured breaks and the endpoint sizes. */
     const dropPlan = () => {
       if (planDropped) return;
       planDropped = true;
       this.forcedBreaksOnly(false);
-      this.tweenTargetLines(null);
       this.size(oldSizeRaw);
     };
 
     let interpolate: InterpolationFunction<string> = interpolationFunction;
     let lastRaw: string | null = null;
-    if (fromBreaks !== null && toBreaks !== null) {
-      const stableFrom = fromBreaks;
-      const stableTo = toBreaks;
+    if (stabilized) {
       interpolate = (from, to, t) => {
         const raw = interpolationFunction(from, to, t);
         lastRaw = raw;
@@ -739,37 +789,22 @@ export class Txt extends Shape {
           dropPlan();
           return raw;
         }
-        return Txt.stabilizeBreaks(raw, from, to, stableFrom, stableTo, fits);
+        const live = currentPlan();
+        if (live.from === null || live.to === null) return raw;
+        return Txt.stabilizeBreaks(
+          raw,
+          from,
+          to,
+          live.from,
+          live.to,
+          live.fits,
+        );
       };
     }
 
-    if (oldSize.y === 0) {
-      this.height(newSize.y);
-      oldSize.y = newSize.y;
-    } else if (newSize.y === 0) {
-      newSize.y = oldSize.y;
-    }
-
-    const startingFontSize = this.fontSize();
-    const sizeAt = (base: Vector2): Vector2 => {
-      if (startingFontSize === 0) return base;
-      const scale = this.fontSize() / startingFontSize;
-      return new Vector2(base.x * scale, base.y * scale);
-    };
-
     this.lockLayout();
-    if (fromBreaks !== null && toBreaks !== null) {
+    if (stabilized) {
       this.forcedBreaksOnly(true);
-      this.tweenTargetLines(
-        Txt.stabilizeBreaks(
-          toText,
-          fromText,
-          toText,
-          fromBreaks,
-          toBreaks,
-          fits,
-        ).split('\n'),
-      );
     }
 
     let completed = false;
@@ -778,10 +813,11 @@ export class Txt extends Shape {
         tween(time, t => {
           if (planDropped) return;
           const progress = timingFunction(t);
-          const size = Vector2.lerp(sizeAt(oldSize), sizeAt(newSize), progress);
+          const [from, to] = currentPlan().sizes;
+          const size = Vector2.lerp(from, to, progress);
           // A wrapped percent width stays container-driven, so only the
           // height animates; otherwise the box lerps between text sizes.
-          if (keepWrap && !explicitWidth) {
+          if (keepWrap && containerWidth) {
             this.height(size.y);
           } else {
             this.size(size);
@@ -807,65 +843,141 @@ export class Txt extends Shape {
     return true;
   }
 
+  /**
+   * Offset in the normalized paragraph text a break cursor points at.
+   */
   private static cursorOffset(
-    segments: readonly string[],
-    cursor: LayoutCursor,
+    items: ParagraphItems,
+    text: string,
+    cursor: ParagraphCursor,
   ): number {
-    let offset = 0;
-    for (let i = 0; i < cursor.segmentIndex; i++) {
-      offset += segments[i].length;
-    }
-    if (cursor.graphemeIndex > 0) {
-      let remaining = cursor.graphemeIndex;
-      for (const g of segment(segments[cursor.segmentIndex], 'grapheme')) {
-        if (remaining === 0) break;
-        offset += g.segment.length;
-        remaining--;
-      }
-    }
-    return offset;
+    if (cursor.segmentIndex >= items.kinds.length) return text.length;
+    const start = items.sourceStarts[cursor.segmentIndex];
+    if (cursor.graphemeIndex <= 0) return start;
+    const inside = text.slice(start, items.sourceEnds[cursor.segmentIndex]);
+    const boundaries = segment(inside, 'grapheme');
+    return cursor.graphemeIndex >= boundaries.length
+      ? items.sourceEnds[cursor.segmentIndex]
+      : start + boundaries[cursor.graphemeIndex].index;
   }
 
   private lineBreakOffsets(
     source: string,
     maxWidth: number,
   ): LineBreakOffset[] | null {
-    const prepared = this.preparedLayout();
-    if (!prepared || prepared.kind !== 'simple') return null;
-    const segments = prepared.prepared.segments;
-    const preparedSource = segments.join('');
+    const paragraph = this.paragraph();
+    if (!paragraph || paragraph.content.ownerSpans.length !== 1) return null;
+    if (paragraph.content.objects.length > 0) return null;
+    const text = paragraph.content.text;
 
     const hyphenated = this.hyphenate() !== null;
     if (hyphenated) {
-      if (preparedSource.replaceAll(SOFT_HYPHEN, '') !== source) return null;
-    } else if (preparedSource !== source) {
+      if (text.replaceAll(SOFT_HYPHEN, '') !== source) return null;
+    } else if (text !== source) {
       return null;
     }
 
-    const {ends} = this.layoutSimple(
-      prepared.prepared,
-      prepared.style,
-      maxWidth,
-    );
-
+    const placed = this.naturalPlacement(maxWidth);
+    if (!placed) return null;
     const breaks: LineBreakOffset[] = [];
-    for (let i = 0; i < ends.length - 1; i++) {
-      const cursor = ends[i];
-      let offset = Txt.cursorOffset(segments, cursor);
+    for (let i = 0; i < placed.lines.length - 1; i++) {
+      const cursor = placed.lines[i].end;
+      let offset = Txt.cursorOffset(paragraph.items, text, cursor);
       const hyphen =
         cursor.graphemeIndex === 0 &&
         cursor.segmentIndex > 0 &&
-        segments[cursor.segmentIndex - 1] === SOFT_HYPHEN;
+        paragraph.items.kinds[cursor.segmentIndex - 1] === 'soft-hyphen';
       if (hyphenated) {
         let shyCount = 0;
         for (let j = 0; j < offset; j++) {
-          if (preparedSource[j] === SOFT_HYPHEN) shyCount++;
+          if (text[j] === SOFT_HYPHEN) shyCount++;
         }
         offset -= shyCount;
       }
       breaks.push({offset, hyphen});
     }
     return breaks;
+  }
+
+  /**
+   * Whether a line the tween joined from its two endpoint layouts still fits.
+   * The candidate is placed on its own and every paint call it makes is
+   * measured against the tightest free segment the current layout was broken
+   * in, so an exclusion narrows the test as it narrows the text.
+   */
+  private lineFitsSegment(wrapWidth: number): (line: string) => boolean {
+    const paragraph = this.paragraph();
+    const metrics = paragraph?.metrics[0];
+    if (!paragraph || !metrics) return () => true;
+
+    const placed = this.naturalPlacement(wrapWidth);
+    let available = wrapWidth;
+    for (const line of placed?.lines ?? []) {
+      const {left, right} = line.segment;
+      if (Number.isFinite(right)) available = Math.min(available, right - left);
+    }
+
+    const run = Txt.ownerSpanAt(paragraph.content.ownerSpans, 0).paint;
+    const measured = new Map<string, number>();
+    return line => {
+      const text = line.trimEnd();
+      let width = measured.get(text);
+      if (width === undefined) {
+        width = this.paintedExtentOf(text, run, metrics);
+        measured.set(text, width);
+      }
+      return width <= available + FIT_TOLERANCE;
+    };
+  }
+
+  /** Right edge the paint calls of one unwrapped line reach. */
+  private paintedExtentOf(
+    text: string,
+    run: TxtRunStyle,
+    metrics: ParagraphMetrics,
+  ): number {
+    const content = buildParagraphContent(
+      [{kind: 'text', owner: null, paint: run, metrics, text}],
+      'pre-wrap',
+    );
+    const mixed = prepareMixedParagraph(
+      content,
+      {whiteSpace: 'pre-wrap', wordBreak: this.wordBreak(), metrics},
+      canvasParagraphMeasurer,
+    );
+    const owned = mixed.preparations.map(one => one.metrics);
+    const vertical = readVerticalMetrics(
+      mixed.items,
+      owned,
+      this.lineHeight(),
+      canvasParagraphMeasurer,
+    );
+    const placed = placeParagraph(
+      mixed.items,
+      breakParagraph(mixed.items, {
+        maxWidth: Number.POSITIVE_INFINITY,
+        textWrap: false,
+        overflowWrap: this.overflowWrap(),
+        exclusions: [],
+        vertical,
+      }),
+      {
+        text: content.text,
+        metrics: owned,
+        vertical,
+        textAlign: 'left',
+        direction: 'ltr',
+        verticalAlign: 'top',
+        blockWidth: Number.POSITIVE_INFINITY,
+        blockHeight: 0,
+        measurer: canvasParagraphMeasurer,
+      },
+    );
+    let right = 0;
+    for (const call of paintCalls(mixed.items, placed, owned, [])) {
+      right = Math.max(right, call.anchor.penX + call.anchor.advance);
+    }
+    return right;
   }
 
   private static commonPrefixLength(a: string, b: string): number {
@@ -1000,7 +1112,6 @@ export class Txt extends Shape {
 
   @computed()
   public override canLayoutChildren(): boolean {
-    // Txt is a yoga leaf: children render through pretext, not yoga placement.
     return false;
   }
 
@@ -1010,24 +1121,11 @@ export class Txt extends Shape {
   @computed()
   protected override updateLayout() {
     super.updateLayout();
+    // The root lays out a nested Txt's text.
+    if (this.parentTxt()) return;
     // Yoga caches measure-func results until the node is marked dirty, so a
     // change to any measurement input has to bust the cache.
-    const prepared = this.preparedLayout();
-    const wrapMode = this.wrapMode();
-    const key: unknown[] = [
-      prepared,
-      this.resolvedLineHeight(),
-      wrapMode,
-      this.exclusions(),
-      // Knuth-Plass line breaking depends on whether the line will be
-      // justified; other wrap modes only use textAlign to render, not break.
-      wrapMode === 'knuth-plass' ? this.textAlign() : null,
-    ];
-    if (prepared?.kind === 'rich') {
-      for (const inline of prepared.inlines) {
-        if (inline) key.push(inline.size.y());
-      }
-    }
+    const key = this.paragraphLayoutKey();
     const last = this.lastMeasureKey;
     if (
       !last ||
@@ -1080,11 +1178,13 @@ export class Txt extends Shape {
    *
    * @remarks
    * Equals {@link fontSize} unless {@link autoSize} is enabled with concrete
-   * `width` and `height` — in which case it is `fitFontSize(width, height)`.
+   * `width` and `height` — in which case it is {@link fitFontSize}.
    */
   @computed()
   public effectiveFontSize(): number {
-    if (this.pathProfile() || !this.autoSize()) return this.fontSize();
+    if (this.parentTxt() || this.pathProfile() || !this.autoSize()) {
+      return this.fontSize();
+    }
     const w = this.width.context.getter();
     const h = this.height.context.getter();
     if (typeof w !== 'number' || typeof h !== 'number') {
@@ -1093,92 +1193,103 @@ export class Txt extends Shape {
     return this.fitFontSize(w, h);
   }
 
-  private collectItemsWithScale(scale: number): {
-    items: RichInlineItem[];
-    styles: FragmentStyle[];
-    inlines: (Layout | null)[];
-  } {
-    // Re-collect when a web font finishes loading; it has no signal to track.
-    fontsVersion();
-    const items: RichInlineItem[] = [];
-    const styles: FragmentStyle[] = [];
-    const inlines: (Layout | null)[] = [];
+  /** How much every font size of the tree is scaled by {@link autoSize}. */
+  @computed()
+  private effectiveScale(): number {
+    const raw = this.fontSize();
+    return raw > 0 ? this.effectiveFontSize() / raw : 1;
+  }
 
-    const collect = (node: Node, ownerTxt: Txt) => {
+  private static runStyleOf(owner: Txt, scale: number): TxtRunStyle {
+    const fontComponents: FontComponents = {
+      style: owner.fontStyle(),
+      weight: owner.fontWeight(),
+      size: owner.fontSize() * scale,
+      family: owner.fontFamily(),
+    };
+    const font = buildCanvasFontString(
+      fontComponents.style,
+      fontComponents.weight,
+      fontComponents.size,
+      fontComponents.family,
+    );
+    requestFontLoad(font);
+    return {
+      node: owner,
+      font,
+      fontComponents,
+      letterSpacing: owner.letterSpacing() * scale,
+    };
+  }
+
+  /** Opacity of a run's owner relative to this one, which paints them all. */
+  private relativeOpacity(owner: Txt): number {
+    let value = 1;
+    for (
+      let node: Txt | null = owner;
+      node !== null && node !== this;
+      node = node.parentTxt()
+    ) {
+      value *= node.opacity();
+    }
+    return value;
+  }
+
+  /** The full style of a run: its typeface and its owner's paint. */
+  private styleOf(run: TxtRunStyle): FragmentStyle {
+    const {node} = run;
+    return {
+      font: run.font,
+      fontComponents: run.fontComponents,
+      letterSpacing: run.letterSpacing,
+      fill: node.fill(),
+      stroke: node.stroke(),
+      lineWidth: node.lineWidth(),
+      strokeFirst: node.strokeFirst(),
+      opacity: this.relativeOpacity(node),
+    };
+  }
+
+  /**
+   * Every styled run this text block paints, in reading order. A `TxtLeaf` is
+   * a text run of its owning `Txt`'s style; any other `Layout` child is one
+   * object run of its own size.
+   */
+  private runsWithScale(scale: number): TxtRun[] {
+    // Neither a finished web font load nor a locale change has a signal of
+    // its own, and both change what this collects.
+    fontsVersion();
+    textLocaleVersion();
+    const onPath = this.textPath() !== null;
+    const runs: TxtRun[] = [];
+
+    const collect = (node: Node, owner: Txt) => {
       if (node instanceof TxtLeaf) {
-        const txt = ownerTxt;
-        const fontComponents: FontComponents = {
-          style: txt.fontStyle(),
-          weight: txt.fontWeight(),
-          size: txt.fontSize() * scale,
-          family: txt.fontFamily(),
-        };
-        const font = buildCanvasFontString(
-          fontComponents.style,
-          fontComponents.weight,
-          fontComponents.size,
-          fontComponents.family,
-        );
-        requestFontLoad(font);
-        const letterSpacing = txt.letterSpacing() * scale;
+        const style = Txt.runStyleOf(owner, scale);
         const source = textValue(node.text());
         // A path forces a single line, so newlines collapse to spaces.
-        const text =
-          this.textPath() === null ? source : source.replace(/\n/g, ' ');
-        items.push({
-          text,
-          font,
-          letterSpacing: letterSpacing || undefined,
+        const raw = onPath ? source.replace(/\n/g, ' ') : source;
+        runs.push({
+          kind: 'text',
+          owner: null,
+          paint: style,
+          metrics: {font: style.font, letterSpacing: style.letterSpacing},
+          text: raw,
         });
-        styles.push({
-          fill: txt.fill(),
-          stroke: txt.stroke(),
-          lineWidth: txt.lineWidth(),
-          strokeFirst: txt.strokeFirst(),
-          font,
-          fontComponents,
-          letterSpacing,
-        });
-        inlines.push(null);
       } else if (node instanceof Txt && node !== this) {
         for (const child of node.children()) {
           collect(child, node);
         }
       } else if (node instanceof Layout) {
-        // Inline children render at native size, not scaled by autoSize.
-        const childWidth = node.size.x();
-        const fontComponents: FontComponents = {
-          style: ownerTxt.fontStyle(),
-          weight: ownerTxt.fontWeight(),
-          size: ownerTxt.fontSize() * scale,
-          family: ownerTxt.fontFamily(),
-        };
-        const font = buildCanvasFontString(
-          fontComponents.style,
-          fontComponents.weight,
-          fontComponents.size,
-          fontComponents.family,
-        );
-        requestFontLoad(font);
-        // Subtract the placeholder's own advance so the slot equals the
-        // child's width (pretext reserves measured + extraWidth).
-        const placeholderWidth = this.measurePlaceholderWidth(font);
-        items.push({
-          text: '￼',
-          font,
-          break: 'never',
-          extraWidth: Math.max(0, childWidth - placeholderWidth),
+        const style = Txt.runStyleOf(owner, scale);
+        runs.push({
+          kind: 'object',
+          owner: node,
+          paint: style,
+          metrics: {font: style.font, letterSpacing: style.letterSpacing},
+          width: node.size.x(),
+          height: node.size.y(),
         });
-        styles.push({
-          fill: null,
-          stroke: null,
-          lineWidth: 0,
-          strokeFirst: false,
-          font,
-          fontComponents,
-          letterSpacing: 0,
-        });
-        inlines.push(node);
       }
     };
 
@@ -1186,215 +1297,290 @@ export class Txt extends Shape {
       collect(child, this);
     }
 
-    return {items, styles, inlines};
-  }
-
-  /**
-   * Collect all descendant text runs as RichInlineItems with their styles.
-   *
-   * Walks `TxtLeaf` and nested `Txt` descendants; direct `Layout` children of
-   * a top-level `Txt` become atomic inline slots (`break: 'never'`) sized by
-   * the child's own `width`/`height` signals.
-   */
-  @computed()
-  protected collectInlineItems(): {
-    items: RichInlineItem[];
-    styles: FragmentStyle[];
-    inlines: (Layout | null)[];
-  } {
-    const raw = this.fontSize();
-    const scale = raw > 0 ? this.effectiveFontSize() / raw : 1;
-    return this.collectItemsWithScale(scale);
+    const hyphenate = this.hyphenate();
+    return hyphenate ? Txt.hyphenateRuns(runs, hyphenate) : runs;
   }
 
   protected override collectAsyncResources() {
     super.collectAsyncResources();
-    this.collectInlineItems();
+    this.runsWithScale(this.effectiveScale());
   }
 
   /**
-   * Apply the user-provided hyphenator to every word in `text`, joining the
-   * returned syllables with U+00AD so pretext can use them as soft breaks.
+   * Hyphenate every word of the paragraph and hand each character back to the
+   * run it came from. The hyphenator reads whole words, so a word a style
+   * change cuts in two still breaks where the hyphenator says it may.
    */
-  private applyHyphenation(text: string, hyphenate: HyphenateFn): string {
-    let result = '';
-    for (const seg of segment(text, 'word')) {
-      if (seg.isWordLike) {
-        const parts = hyphenate(seg.segment);
-        result += parts.length <= 1 ? seg.segment : parts.join('­');
-      } else {
-        result += seg.segment;
+  private static hyphenateRuns(
+    runs: readonly TxtRun[],
+    hyphenate: HyphenateFn,
+  ): TxtRun[] {
+    const texts = runs.map(run => (run.kind === 'text' ? run.text : ''));
+    const joined = texts.join('');
+    const ends: number[] = [];
+    let at = 0;
+    for (const text of texts) {
+      at += text.length;
+      ends.push(at);
+    }
+
+    const out = texts.map(() => '');
+    let run = 0;
+    let source = 0;
+    const place = (character: string) => {
+      while (run < ends.length - 1 && source >= ends[run]) run++;
+      out[run] += character;
+    };
+    for (const seg of segment(joined, 'word')) {
+      const parts = seg.isWordLike ? hyphenate(seg.segment) : [seg.segment];
+      const written = parts.length <= 1 ? seg.segment : parts.join(SOFT_HYPHEN);
+      for (const character of written) {
+        if (character === SOFT_HYPHEN && joined[source] !== SOFT_HYPHEN) {
+          place(character);
+          continue;
+        }
+        place(character);
+        source += character.length;
       }
     }
-    return result;
+
+    return runs.map((one, index) =>
+      one.kind === 'text' ? {...one, text: out[index]} : one,
+    );
   }
 
-  @computed()
-  protected preparedLayout(): PreparedLayout | null {
-    if (!this.measurementContext()) return null;
-    const {items, styles, inlines} = this.collectInlineItems();
-    if (items.length === 0) return null;
-
-    const hasInline = inlines.some(n => n !== null);
-    const hyphenate = this.hyphenate();
-    const wordBreak = this.wordBreak();
+  /** How whitespace and line breaks of the source text are treated. */
+  private whiteSpaceMode(): WhiteSpaceMode {
     const wrap = this.textWrap();
-    const useSimplePath = !hasInline && items.length === 1;
+    if (wrap === 'pre') return 'pre-wrap';
+    return wrap === false ? 'normal' : 'pre-line';
+  }
 
-    const prepItems =
-      hyphenate && !hasInline
-        ? items.map(item => ({
-            ...item,
-            text: this.applyHyphenation(item.text, hyphenate),
-          }))
-        : items;
+  private paragraphWithScale(scale: number): OwnedParagraph | null {
+    if (!this.measurementContext()) return null;
+    const runs = this.runsWithScale(scale);
+    if (runs.length === 0) return null;
 
-    if (useSimplePath) {
-      const {text: sourceText, whiteSpace} = prepareTextForWrapMode(
-        prepItems[0].text,
-        wrap,
-      );
-      const prepared = prepareWithSegments(sourceText, prepItems[0].font, {
-        whiteSpace,
-        wordBreak,
-        letterSpacing: styles[0].letterSpacing || undefined,
-      });
-      return {kind: 'simple', prepared, style: styles[0]};
-    }
-    const groups = buildRichGroups(prepItems, wrap);
+    const whiteSpace = this.whiteSpaceMode();
+    const content = buildParagraphContent(runs, whiteSpace);
+    const mixed = prepareMixedParagraph(
+      content,
+      {whiteSpace, wordBreak: this.wordBreak(), metrics: runs[0].metrics},
+      canvasParagraphMeasurer,
+    );
+    const metrics = mixed.preparations.map(one => one.metrics);
     return {
-      kind: 'rich',
-      groups: groups.map(g => ({
-        prepared: g.items.length > 0 ? prepareRichInline(g.items) : null,
-        itemMap: g.itemMap,
-      })),
-      styles,
-      inlines,
+      content,
+      items: mixed.items,
+      metrics,
+      vertical: readVerticalMetrics(
+        mixed.items,
+        metrics,
+        this.lineHeight(),
+        canvasParagraphMeasurer,
+      ),
+      seams: Txt.paintSeams(content),
+      broken: [],
+      placed: [],
     };
   }
 
   /**
-   * Band-by-band greedy layout that wraps around `exclusions`. Used when one
-   * or more `exclusions` are present; falls back to pretext's single-width
-   * walker otherwise.
-   *
-   * @returns one entry per laid-out line, with `x` being the slot's left
-   *   offset (in Txt-local pretext-space, where 0 = block left).
+   * Offsets a paint change begins at, each moved forward to a grapheme
+   * boundary. A cluster is one shaping run, so paint may not cut inside it.
    */
-  private layoutWithExclusions(
-    prepared: PreparedTextWithSegments,
-    maxWidth: number,
-    exclusions: TextExclusion[],
-  ): {
-    text: string;
-    x: number;
-    width: number;
-    lineTop: number;
-    end: LayoutCursor;
-  }[] {
-    const lh = this.resolvedLineHeight();
-    const lines: {
-      text: string;
-      x: number;
-      width: number;
-      lineTop: number;
-      end: LayoutCursor;
-    }[] = [];
-    let cursor = {segmentIndex: 0, graphemeIndex: 0};
-    let lineTop = 0;
-    const blocked: Interval[] = [];
-
-    for (let i = 0; i < MAX_BAND_ITERATIONS; i++) {
-      const bandTop = lineTop;
-      const bandBottom = lineTop + lh;
-      blocked.length = 0;
-      for (const ex of exclusions) {
-        const hp = ex.horizontalPadding ?? 0;
-        const vp = ex.verticalPadding ?? 0;
-        if (ex.kind === 'rect') {
-          for (const interval of getRectIntervalsForBand(
-            [
-              {
-                x: ex.x,
-                y: ex.y,
-                width: ex.width,
-                height: ex.height,
-              },
-            ],
-            bandTop,
-            bandBottom,
-            hp,
-            vp,
-          )) {
-            blocked.push(interval);
-          }
-        } else {
-          const interval = getPolygonIntervalForBand(
-            ex.points,
-            bandTop,
-            bandBottom,
-            hp,
-            vp,
-          );
-          if (interval) blocked.push(interval);
-        }
+  private static paintSeams(
+    content: ParagraphContent<Layout | null, TxtRunStyle>,
+  ): number[] {
+    if (content.ownerSpans.length < 2) return [];
+    const boundaries = new Set(
+      segment(content.text, 'grapheme').map(found => found.index),
+    );
+    boundaries.add(content.text.length);
+    const seams: number[] = [];
+    for (const span of content.ownerSpans.slice(1)) {
+      let at = span.start;
+      while (at < content.text.length && !boundaries.has(at)) at++;
+      if (
+        at > 0 &&
+        at < content.text.length &&
+        seams[seams.length - 1] !== at
+      ) {
+        seams.push(at);
       }
-
-      const slots = carveTextLineSlots({left: 0, right: maxWidth}, blocked);
-      if (slots.length === 0) {
-        lineTop += lh;
-        continue;
-      }
-
-      let slot = slots[0];
-      for (const candidate of slots) {
-        if (candidate.right - candidate.left > slot.right - slot.left) {
-          slot = candidate;
-        }
-      }
-
-      const line = layoutNextLine(prepared, cursor, slot.right - slot.left);
-      if (line === null) break;
-      lines.push({
-        text: line.text,
-        x: slot.left,
-        width: line.width,
-        lineTop,
-        end: line.end,
-      });
-      cursor = line.end;
-      lineTop += lh;
     }
+    return seams;
+  }
 
-    return lines;
+  /** The prepared paragraph of the current state, before a width is known. */
+  @computed()
+  private paragraph(): OwnedParagraph | null {
+    return this.paragraphWithScale(this.effectiveScale());
   }
 
   /**
-   * Measure widths for the layout-time constants (`' '`, `'-'`) used by the
-   * Knuth-Plass scorer.
+   * Every input a break and a placement depend on, so one key decides whether
+   * a cached layout may be reused and when yoga has to measure again.
    */
-  private measureFontConstants(font: string): {
-    normalSpaceWidth: number;
-    hyphenWidth: number;
-  } {
-    const ctx = this.measurementContext();
-    if (!ctx) {
-      return {normalSpaceWidth: 0, hyphenWidth: 0};
+  @computed()
+  private paragraphLayoutKey(): unknown[] {
+    return [
+      this.paragraph(),
+      this.wrapMode(),
+      this.overflowWrap(),
+      this.textWrap(),
+      this.textAlign(),
+      this.textDirection(),
+      this.verticalAlign(),
+      ...exclusionKey(this.exclusions()),
+    ];
+  }
+
+  /**
+   * Break the paragraph at `maxWidth`, memoized on the inputs the break pass
+   * reads. Placement, node size and the tween share one break per width.
+   */
+  private breakAt(
+    paragraph: OwnedParagraph,
+    maxWidth: number,
+    textWrap = this.textWrap() !== false,
+  ): BrokenParagraph {
+    const exclusions = this.exclusions();
+    const key: unknown[] = [
+      maxWidth,
+      textWrap,
+      this.wrapMode(),
+      this.overflowWrap(),
+      this.textAlign() === 'justify',
+      ...exclusionKey(exclusions),
+    ];
+    for (const found of paragraph.broken) {
+      if (sameKey(found.key, key)) return found.broken;
     }
-    ctx.save();
-    ctx.font = font;
-    if ('letterSpacing' in ctx) {
-      ctx.letterSpacing = '0px';
+
+    const overflowWrap = this.overflowWrap();
+    const broken =
+      this.wrapMode() === 'knuth-plass' && Number.isFinite(maxWidth)
+        ? breakParagraphOptimally(paragraph.items, {
+            maxWidth,
+            textWrap,
+            overflowWrap,
+            justify: this.textAlign() === 'justify',
+            exclusions,
+            vertical: paragraph.vertical,
+          })
+        : breakParagraph(paragraph.items, {
+            maxWidth,
+            textWrap,
+            overflowWrap,
+            exclusions,
+            vertical: paragraph.vertical,
+          });
+    paragraph.broken.unshift({key, broken});
+    paragraph.broken.length = Math.min(
+      paragraph.broken.length,
+      LAYOUT_CACHE_SIZE,
+    );
+    return broken;
+  }
+
+  /** The edge an alignment really picks, once the direction resolves it. */
+  private static resolvedAlign(
+    align: CanvasTextAlign | 'justify',
+    direction: TextDirection,
+  ): string {
+    if (align === 'start') return direction === 'rtl' ? 'right' : 'left';
+    if (align === 'end') return direction === 'rtl' ? 'left' : 'right';
+    return align;
+  }
+
+  private placeWith(request: PlaceRequest): PlacedParagraph | null {
+    const paragraph = this.paragraph();
+    if (!paragraph) return null;
+
+    const broken = this.breakAt(paragraph, request.maxWidth, request.textWrap);
+    const aligned = Txt.resolvedAlign(request.textAlign, request.direction);
+    // A leading-edge line ignores the block width, and a top-aligned block
+    // ignores its height, so the node size and the paint share one placement.
+    const key: unknown[] = [
+      broken,
+      aligned === 'left' ? 0 : request.blockWidth,
+      request.verticalAlign === 'top' ? 0 : request.blockHeight,
+      aligned,
+      request.direction,
+      request.verticalAlign,
+    ];
+    for (const found of paragraph.placed) {
+      if (sameKey(found.key, key)) return found.placed;
     }
-    const normalSpaceWidth = ctx.measureText(' ').width;
-    const hyphenWidth = ctx.measureText('-').width;
-    ctx.restore();
-    return {normalSpaceWidth, hyphenWidth};
+
+    const placed = placeParagraph(paragraph.items, broken, {
+      text: paragraph.content.text,
+      metrics: paragraph.metrics,
+      vertical: paragraph.vertical,
+      textAlign: request.textAlign,
+      direction: request.direction,
+      verticalAlign: request.verticalAlign,
+      blockWidth: request.blockWidth,
+      blockHeight: request.blockHeight,
+      measurer: canvasParagraphMeasurer,
+    });
+    paragraph.placed.unshift({key, placed, paint: null});
+    paragraph.placed.length = Math.min(
+      paragraph.placed.length,
+      LAYOUT_CACHE_SIZE,
+    );
+    return placed;
+  }
+
+  /**
+   * The layout at its natural size: every line at its own ink width, with no
+   * alignment applied. This is what the node measures itself by.
+   */
+  private naturalPlacement(
+    maxWidth: number,
+    textWrap = this.textWrap() !== false,
+  ): PlacedParagraph | null {
+    return this.placeWith({
+      maxWidth,
+      textWrap,
+      blockWidth: Number.POSITIVE_INFINITY,
+      blockHeight: 0,
+      textAlign: 'left',
+      direction: 'ltr',
+      verticalAlign: 'top',
+    });
+  }
+
+  private textDirectionValue(): TextDirection {
+    return this.textDirection() === 'rtl' ? 'rtl' : 'ltr';
+  }
+
+  /**
+   * The layout with alignment resolved against the node's own box. Paint,
+   * queries, `split` and inline children all read this.
+   */
+  @computed()
+  private placement(): PlacedParagraph | null {
+    const {x: blockWidth, y: blockHeight} = this.size();
+    return this.placeWith({
+      maxWidth: this.effectiveMaxWidth(),
+      textWrap: this.textWrap() !== false,
+      blockWidth,
+      blockHeight,
+      textAlign: this.textAlign(),
+      direction: this.textDirectionValue(),
+      verticalAlign: this.verticalAlign(),
+    });
+  }
+
+  protected positionedLines(): readonly PlacedLine[] {
+    return this.placement()?.lines ?? [];
   }
 
   /**
    * The shared measurement context, or `null` in headless environments
-   * without 2D canvas support (e.g. jsdom) where pretext cannot measure.
+   * without 2D canvas support (e.g. jsdom) where text cannot be measured.
    *
    * @remarks
    * This is the single availability gate for the text pipeline — callers
@@ -1405,75 +1591,6 @@ export class Txt extends Shape {
     return sharedMeasurementContext();
   }
 
-  /**
-   * Measure `text` with a fragment's font and letter spacing.
-   *
-   * @remarks
-   * Every measure site sets both `font` and `letterSpacing` before measuring —
-   * the cache canvas persists state between calls, so a stale letter spacing
-   * from a previous measurement would inflate every subsequent width.
-   *
-   * Returns `0` when no real 2D context is available (e.g. jsdom).
-   */
-  private measureStyledText(text: string, style: FragmentStyle): number {
-    const ctx = this.measurementContext();
-    if (!ctx) return 0;
-    ctx.font = style.font;
-    if ('letterSpacing' in ctx) {
-      ctx.letterSpacing = `${style.letterSpacing}px`;
-    }
-    return ctx.measureText(text).width;
-  }
-
-  /**
-   * Real font-box metrics for a fragment's font.
-   *
-   * @remarks
-   * CSS inline layout centers the font's content box (ascent + descent) in
-   * the line box, not the em square. Painting with these metrics keeps glyph
-   * positions identical to the DOM-based pipeline. Falls back to em-square
-   * metrics when the context is unavailable or doesn't report font bounds
-   * (e.g. jsdom shims).
-   */
-  private measureFontMetrics(style: FragmentStyle): {
-    ascent: number;
-    descent: number;
-  } {
-    const fallback = {ascent: style.fontComponents.size, descent: 0};
-    const ctx = this.measurementContext();
-    if (!ctx) return fallback;
-    ctx.font = style.font;
-    if ('letterSpacing' in ctx) {
-      ctx.letterSpacing = '0px';
-    }
-    const metrics = ctx.measureText('Mg');
-    const ascent = metrics.fontBoundingBoxAscent;
-    const descent = metrics.fontBoundingBoxDescent;
-    if (
-      typeof ascent !== 'number' ||
-      typeof descent !== 'number' ||
-      !isFinite(ascent + descent) ||
-      ascent + descent <= 0
-    ) {
-      return fallback;
-    }
-    return {ascent, descent};
-  }
-
-  /**
-   * Width of the U+FFFC placeholder glyph in the given font. Subtracted from
-   * an inline child's width when computing the slot's `extraWidth`.
-   */
-  private measurePlaceholderWidth(font: string): number {
-    const ctx = this.measurementContext();
-    if (!ctx) return 0;
-    ctx.font = font;
-    if ('letterSpacing' in ctx) {
-      ctx.letterSpacing = '0px';
-    }
-    return ctx.measureText('￼').width;
-  }
-
   private static readonly emptyLayout: TextLayoutResult = {
     lines: [],
     width: 0,
@@ -1482,153 +1599,189 @@ export class Txt extends Shape {
   };
 
   /**
-   * Lay out a simple (single-style) prepared text, dispatching between the
-   * three wrapping strategies: exclusion bands, Knuth-Plass, and pretext's
-   * greedy walker. Single source of truth for that dispatch — the per-line
-   * `ends` cursors feed {@link lineBreakOffsets}, so tween break
-   * stabilization always matches what {@link layoutFor} renders.
+   * The ink a paint call carries. Whitespace holds no ink of its own, so it
+   * takes the ink of the run it stands in front of.
    */
-  private layoutSimple(
-    prepared: PreparedTextWithSegments,
-    style: FragmentStyle,
-    maxWidth: number,
-  ): {lines: TextLine[]; ends: LayoutCursor[]; width: number} {
-    const lineHeight = this.resolvedLineHeight();
-    const lines: TextLine[] = [];
-    const ends: LayoutCursor[] = [];
-    let width = 0;
-
-    const exclusions = this.exclusions();
-    if (exclusions.length > 0 && Number.isFinite(maxWidth)) {
-      const bandLines = this.layoutWithExclusions(
-        prepared,
-        maxWidth,
-        exclusions,
-      );
-      for (const line of bandLines) {
-        lines.push({
-          fragments: [{text: line.text, x: line.x, style}],
-          top: line.lineTop,
-          height: lineHeight,
-        });
-        ends.push(line.end);
-        const fullRight = line.x + line.width;
-        if (fullRight > width) width = fullRight;
-      }
-    } else if (this.wrapMode() === 'knuth-plass') {
-      const {normalSpaceWidth, hyphenWidth} = this.measureFontConstants(
-        style.font,
-      );
-      const kpLines = knuthPlass(prepared, maxWidth, {
-        normalSpaceWidth,
-        hyphenWidth,
-        justified: this.textAlign() === 'justify',
-      });
-      for (const line of kpLines) {
-        lines.push({
-          fragments: [{text: line.text, x: 0, style}],
-          top: lines.length * lineHeight,
-          height: lineHeight,
-        });
-        ends.push({segmentIndex: line.endSegmentIndex, graphemeIndex: 0});
-        if (line.width > width) width = line.width;
-      }
-    } else {
-      walkLineRanges(prepared, maxWidth, range => {
-        const line = materializeLineRange(prepared, range);
-        lines.push({
-          fragments: [{text: line.text, x: 0, style}],
-          top: lines.length * lineHeight,
-          height: lineHeight,
-        });
-        ends.push(range.end);
-        if (line.width > width) width = line.width;
-      });
-    }
-
-    return {lines, ends, width};
+  private static paintOwnerOf(
+    paragraph: OwnedParagraph,
+    text: string,
+    start: number,
+  ): number {
+    const spans = paragraph.content.ownerSpans;
+    const at = text.trim() === '' ? start + text.length : start;
+    return Txt.ownerIndexAt(spans, Math.min(at, spans[spans.length - 1].start));
   }
 
   /**
-   * Compute the text layout for an explicit max-width. Used by the yoga
-   * measure function (which receives the constraint dynamically) and by
-   * draw() / public introspection methods (which read the resolved size).
+   * Style a reported fragment carries: the ink of {@link paintOwnerOf} and the
+   * font of the run that measured the slice, which whitespace at a run
+   * boundary takes from the run in front of it and is measured in the run
+   * behind it.
    */
-  protected layoutFor(maxWidth: number): TextLayoutResult {
-    const prepared = this.preparedLayout();
-    if (!prepared) return Txt.emptyLayout;
+  private fragmentStyleOf(
+    paragraph: OwnedParagraph,
+    text: string,
+    start: number,
+  ): FragmentStyle {
+    const spans = paragraph.content.ownerSpans;
+    const ink = this.styleOf(
+      spans[Txt.paintOwnerOf(paragraph, text, start)].paint,
+    );
+    const own = Txt.ownerSpanAt(spans, start).paint;
+    return {
+      ...ink,
+      font: own.font,
+      fontComponents: own.fontComponents,
+      letterSpacing: own.letterSpacing,
+    };
+  }
 
-    const baseLineHeight = this.resolvedLineHeight();
+  /** The owner span that paints the character at `offset`. */
+  private static ownerSpanAt(
+    spans: readonly TxtOwnerSpan[],
+    offset: number,
+  ): TxtOwnerSpan {
+    return spans[Txt.ownerIndexAt(spans, offset)];
+  }
 
-    if (prepared.kind === 'simple') {
-      const {lines, width} = this.layoutSimple(
-        prepared.prepared,
-        prepared.style,
-        maxWidth,
-      );
-      const lastLine = lines[lines.length - 1];
-      return {
-        lines,
-        width,
-        height: lastLine ? lastLine.top + lastLine.height : 0,
-        lineHeight: baseLineHeight,
-      };
+  private static ownerIndexAt(
+    spans: readonly TxtOwnerSpan[],
+    offset: number,
+  ): number {
+    let lo = 0;
+    let hi = spans.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (spans[mid].start <= offset) {
+        lo = mid;
+      } else {
+        hi = mid - 1;
+      }
     }
+    return lo;
+  }
 
-    const fragmentLines: StyledFragment[][] = [];
-    let totalWidth = 0;
-    for (const group of prepared.groups) {
-      if (group.prepared === null) {
-        fragmentLines.push([]);
+  /**
+   * Every painted stretch of one line, in reading order, cut where a piece
+   * ends and where a paint seam falls. These are the ranges the paint calls
+   * cover, so a consumer reading them paints what the node paints.
+   */
+  private static paintedSlices(
+    paragraph: OwnedParagraph,
+    piece: PlacedPiece,
+  ): PaintedSlice[] {
+    if (!paintsText(paragraph.items, piece)) return [];
+    const slices: PaintedSlice[] = [];
+    let from = piece.sourceStart;
+    const cuts = [
+      ...paragraph.seams.filter(at => at > from && at < piece.sourceEnd),
+      piece.sourceEnd,
+    ];
+    for (const to of cuts) {
+      slices.push({
+        piece,
+        span: Txt.ownerSpanAt(paragraph.content.ownerSpans, from),
+        start: from,
+        end: to,
+      });
+      from = to;
+    }
+    return slices;
+  }
+
+  /** Font box the preparation read for the run a placed piece belongs to. */
+  private static fontBoxOf(
+    paragraph: OwnedParagraph,
+    piece: PlacedPiece,
+  ): FontBox {
+    return {
+      ascent: paragraph.vertical.ascents[piece.item],
+      descent: paragraph.vertical.descents[piece.item],
+    };
+  }
+
+  /** One fragment per owner span of a placed line, as the line reads. */
+  private fragmentsOf(
+    paragraph: OwnedParagraph,
+    line: PlacedLine,
+  ): StyledFragment[] {
+    const {text, ownerSpans} = paragraph.content;
+    const fragments: StyledFragment[] = [];
+    let open: {
+      span: TxtOwnerSpan;
+      start: number;
+      text: string;
+      x: number;
+    } | null = null;
+    const flush = () => {
+      if (!open) return;
+      fragments.push({
+        text: open.text,
+        x: open.x,
+        style: this.fragmentStyleOf(paragraph, open.text, open.start),
+      });
+      open = null;
+    };
+
+    for (const piece of line.pieces) {
+      if (paragraph.items.kinds[piece.item] === 'inline-box') {
+        flush();
+        const span = Txt.ownerSpanAt(ownerSpans, piece.sourceStart);
+        if (!this.ownsSpan(span)) continue;
+        fragments.push({
+          text: '',
+          x: piece.x,
+          style: this.styleOf(span.paint),
+          inline: span.owner ?? undefined,
+          inlineWidth: piece.advance,
+        });
         continue;
       }
-      const groupPrepared = group.prepared;
-      walkRichInlineLineRanges(groupPrepared, maxWidth, range => {
-        const line = materializeRichInlineLineRange(groupPrepared, range);
-        const styledFragments: StyledFragment[] = [];
-        let x = 0;
-        for (const fragment of line.fragments) {
-          x += fragment.gapBefore;
-          const originalIndex = group.itemMap[fragment.itemIndex];
-          const style = prepared.styles[originalIndex];
-          const inline = prepared.inlines[originalIndex] ?? undefined;
-          if (style) {
-            styledFragments.push({
-              text: fragment.text,
-              x,
-              style,
-              inline,
-              inlineWidth: inline ? fragment.occupiedWidth : undefined,
-            });
-          }
-          x += fragment.occupiedWidth;
+      for (const slice of Txt.paintedSlices(paragraph, piece)) {
+        if (!this.ownsSpan(slice.span)) continue;
+        const x = paintAnchorOf(piece, slice.start, slice.end).penX;
+        if (open && open.span === slice.span) {
+          open.text += text.slice(slice.start, slice.end);
+          open.x = Math.min(open.x, x);
+          continue;
         }
-        fragmentLines.push(styledFragments);
-        if (line.width > totalWidth) {
-          totalWidth = line.width;
-        }
-      });
-    }
-
-    // A tall inline element grows only its own line's box, CSS-style.
-    const lines: TextLine[] = [];
-    let top = 0;
-    for (const fragments of fragmentLines) {
-      let height = baseLineHeight;
-      for (const frag of fragments) {
-        if (frag.inline) {
-          const inlineHeight = frag.inline.size.y();
-          if (inlineHeight > height) height = inlineHeight;
-        }
+        flush();
+        open = {
+          span: slice.span,
+          start: slice.start,
+          text: text.slice(slice.start, slice.end),
+          x,
+        };
       }
-      lines.push({fragments, top, height});
-      top += height;
+      const hyphenSpan = Txt.ownerSpanAt(
+        ownerSpans,
+        Math.max(piece.sourceStart - 1, 0),
+      );
+      if (piece.hyphen > 0 && this.ownsSpan(hyphenSpan)) {
+        flush();
+        fragments.push({
+          text: '-',
+          x: piece.hyphenX,
+          style: this.styleOf(hyphenSpan.paint),
+        });
+      }
     }
+    flush();
+    return fragments;
+  }
+
+  private layoutResultOf(placed: PlacedParagraph): TextLayoutResult {
+    const paragraph = this.paragraph();
+    if (!paragraph) return Txt.emptyLayout;
     return {
-      lines,
-      width: totalWidth,
-      height: top,
-      lineHeight: baseLineHeight,
+      lines: placed.lines.map(line => ({
+        fragments: this.fragmentsOf(paragraph, line),
+        top: line.top,
+        height: line.height,
+      })),
+      width: placed.width,
+      height: placed.height,
+      lineHeight: paragraph.vertical.lineHeight,
     };
   }
 
@@ -1720,18 +1873,11 @@ export class Txt extends Shape {
   /**
    * While a stabilized text tween is running, every line break is forced into
    * the leaf text, so soft wrapping has nothing left to do. Turning it off
-   * also keeps lines that rely on pretext's hyphen overhang (a discretionary
-   * hyphen is not counted against the wrap width) from being re-broken once
-   * the hyphen is materialized as a literal '-'.
+   * also keeps lines that rely on a hanging hyphen (a discretionary hyphen is
+   * not counted against the wrap width) from being re-broken once the hyphen
+   * is materialized as a literal '-'.
    */
   private readonly forcedBreaksOnly = createSignal(false);
-
-  /**
-   * Per-line target text of the stabilized tween in flight. Lets justify
-   * render the still-typing line with its final spacing instead of ragged
-   * natural width.
-   */
-  private readonly tweenTargetLines = createSignal<string[] | null>(null);
 
   /**
    * Effective wrap constraint when no explicit yoga measurement is in play
@@ -1761,27 +1907,28 @@ export class Txt extends Shape {
 
   @computed()
   protected textLayout(): TextLayoutResult {
-    return this.layoutFor(this.effectiveMaxWidth());
+    if (this.parentTxt()) return this.ownedLayout();
+    const placed = this.naturalPlacement(this.effectiveMaxWidth());
+    return placed ? this.layoutResultOf(placed) : Txt.emptyLayout;
   }
 
   private measureForYoga(
     width: number,
     widthMode: number,
   ): {width: number; height: number} {
+    if (this.parentTxt()) return {width: 0, height: 0};
     const pathBBox = this.pathBBox();
     if (pathBBox) {
       return {width: pathBBox.width, height: pathBBox.height};
     }
     const maxWidth =
       widthMode === MeasureMode.Undefined ? Number.POSITIVE_INFINITY : width;
-    const wrap = this.textWrap();
-    const effectiveMax = wrap === false ? Number.POSITIVE_INFINITY : maxWidth;
-    const desiredWidth = this.width.context.getter();
-    const reusable =
-      wrap === false ||
-      (typeof desiredWidth === 'number' && effectiveMax === desiredWidth);
-    const layout = reusable ? this.textLayout() : this.layoutFor(effectiveMax);
-    return {width: layout.width, height: layout.height};
+    const effectiveMax =
+      this.textWrap() === false ? Number.POSITIVE_INFINITY : maxWidth;
+    const placed = this.naturalPlacement(effectiveMax);
+    return placed
+      ? {width: placed.width, height: placed.height}
+      : {width: 0, height: 0};
   }
 
   private ownedLeaves: TxtLeaf[] = [];
@@ -1855,154 +2002,70 @@ export class Txt extends Shape {
    */
   protected inlinePositionOf(child: Layout): Vector2 {
     const root = this.rootTxt();
-    const lines = root.positionedLines();
+    const paragraph = root.paragraph();
+    if (!paragraph) return Vector2.zero;
+    const object = paragraph.content.objects.find(one => one.owner === child);
+    if (!object) return Vector2.zero;
+
     const {x: width, y: height} = root.size();
-    for (const line of lines) {
-      for (const fragment of line.fragments) {
-        if (fragment.inline === child) {
-          return new Vector2(
-            width / -2 +
-              fragment.x +
-              line.alignOffset +
-              (fragment.inlineWidth ?? 0) / 2,
-            height / -2 + line.top + line.height / 2,
-          );
-        }
+    for (const line of root.positionedLines()) {
+      for (const piece of line.pieces) {
+        if (piece.sourceStart !== object.at) continue;
+        return new Vector2(
+          width / -2 + piece.center,
+          height / -2 + line.middle,
+        );
       }
     }
     return Vector2.zero;
   }
 
   /**
-   * The current layout with alignment fully resolved per line: line widths
-   * measured (inline-aware), `textAlign` / `verticalAlign` offsets applied,
-   * and justify slack pre-measured. Single source of truth for `draw()`,
-   * {@link splitLayout}, and inline child positioning.
+   * Every draw the placed layout makes, kept with its placement. A paint-only
+   * change re-reads the styles and leaves this list alone.
    */
   @computed()
-  protected positionedLines(): PositionedLine[] {
-    const layout = this.textLayout();
-    if (layout.lines.length === 0) return [];
-    const {x: blockWidth, y: blockHeight} = this.size();
-    const align = this.textAlign();
-    const verticalAlign = this.verticalAlign();
-    const verticalOffset =
-      verticalAlign === 'middle'
-        ? (blockHeight - layout.height) / 2
-        : verticalAlign === 'bottom'
-          ? blockHeight - layout.height
-          : 0;
+  private paintPlan(): PlannedPaint[] {
+    const paragraph = this.paragraph();
+    const placed = this.placement();
+    if (!paragraph || !placed) return [];
+    const build = () =>
+      paintCalls(
+        paragraph.items,
+        placed,
+        paragraph.metrics,
+        paragraph.seams,
+      ).map(call => ({
+        call,
+        owner: Txt.paintOwnerOf(paragraph, call.anchor.text, call.start),
+        letterSpacing: `${call.anchor.metrics.letterSpacing}px`,
+      }));
+    const entry = paragraph.placed.find(one => one.placed === placed);
+    if (!entry) return build();
+    entry.paint ??= build();
+    return entry.paint;
+  }
 
-    const result: PositionedLine[] = [];
-    for (let i = 0; i < layout.lines.length; i++) {
-      const line = layout.lines[i];
-      const isLastLine = i === layout.lines.length - 1;
+  /** The paint of every owner span, indexed as the paint plan reads it. */
+  @computed()
+  private runPaints(): RunPaint[] {
+    const spans = this.paragraph()?.content.ownerSpans ?? [];
+    return spans.map(({paint: {node}}) => ({
+      fill: Txt.inkOf(node.fill()),
+      stroke: Txt.inkOf(node.stroke()),
+      lineWidth: node.lineWidth(),
+      strokeFirst: node.strokeFirst(),
+      opacity: this.relativeOpacity(node),
+    }));
+  }
 
-      let lineWidth = 0;
-      for (const frag of line.fragments) {
-        lineWidth = Math.max(
-          lineWidth,
-          frag.x +
-            (frag.inline
-              ? (frag.inlineWidth ?? 0)
-              : this.measureStyledText(frag.text, frag.style)),
-        );
-      }
-
-      // During a stabilized tween every line's final content is known, so
-      // the still-typing line can borrow its target's justify spacing —
-      // words land at their settled positions, and an overfull Knuth-Plass
-      // line never pokes past the block while incomplete.
-      let finalText: string | null = null;
-      if (align === 'justify' && isLastLine && line.fragments.length === 1) {
-        const targetLines = this.tweenTargetLines();
-        if (targetLines !== null && i < targetLines.length - 1) {
-          const target =
-            this.wrapMode() === 'knuth-plass'
-              ? targetLines[i].replace(/\s+$/, '')
-              : targetLines[i];
-          if (target.startsWith(line.fragments[0].text)) {
-            finalText = target;
-          }
-        }
-      }
-
-      // Knuth-Plass plans lines whose spaces compress below their natural
-      // width, so justify must also squeeze overfull lines there; greedy
-      // never plans compression (an overfull greedy line is hyphen overhang
-      // or an in-flight tween seam, both drawn at natural width).
-      const justifyLine =
-        align === 'justify' &&
-        (!isLastLine || finalText !== null) &&
-        (finalText !== null ||
-          lineWidth < blockWidth ||
-          (lineWidth > blockWidth && this.wrapMode() === 'knuth-plass'));
-      let extraPerSpace = 0;
-      let justified: JustifiedSegment[][] | null = null;
-      if (justifyLine) {
-        let spaceCount = 0;
-        justified = line.fragments.map(frag => {
-          if (frag.inline) return [];
-          const segments: JustifiedSegment[] = [];
-          for (const seg of segment(frag.text, 'word')) {
-            // Slack rides only whitespace runs, not punctuation.
-            const whitespace = !seg.isWordLike && /^\s+$/.test(seg.segment);
-            if (whitespace) spaceCount++;
-            segments.push({
-              text: seg.segment,
-              advance: this.measureStyledText(seg.segment, frag.style),
-              whitespace,
-            });
-          }
-          return segments;
-        });
-        if (finalText !== null) {
-          let finalSpaceCount = 0;
-          for (const seg of segment(finalText, 'word')) {
-            if (!seg.isWordLike && /^\s+$/.test(seg.segment)) {
-              finalSpaceCount++;
-            }
-          }
-          if (finalSpaceCount > 0) {
-            extraPerSpace =
-              (blockWidth -
-                this.measureStyledText(finalText, line.fragments[0].style)) /
-              finalSpaceCount;
-          } else {
-            justified = null;
-          }
-        } else if (spaceCount > 0) {
-          extraPerSpace = (blockWidth - lineWidth) / spaceCount;
-        } else {
-          justified = null;
-        }
-      }
-
-      const baselineOffsets = line.fragments.map(frag => {
-        if (frag.inline) return 0;
-        const {ascent, descent} = this.measureFontMetrics(frag.style);
-        return (line.height - (ascent + descent)) / 2 + ascent;
-      });
-
-      result.push({
-        fragments: line.fragments,
-        top: line.top + verticalOffset,
-        height: line.height,
-        alignOffset: justifyLine
-          ? 0
-          : this.computeAlignOffset(blockWidth, lineWidth),
-        extraPerSpace,
-        justified: extraPerSpace !== 0 ? justified : null,
-        baselineOffsets,
-      });
-    }
-
-    return result;
+  private static inkOf(style: CanvasStyle): string | Gradient | Pattern {
+    if (style instanceof Gradient || style instanceof Pattern) return style;
+    return style === null ? '' : style.serialize();
   }
 
   protected override applyText(context: CanvasRenderingContext2D) {
     super.applyText(context);
-    // Every paint is given a left edge; `'start'` anchors rtl on the right.
     context.textAlign = 'left';
   }
 
@@ -2022,62 +2085,73 @@ export class Txt extends Shape {
       return;
     }
 
-    const lines = this.positionedLines();
+    const plan = this.paintPlan();
+    if (plan.length === 0) {
+      this.drawChildren(context);
+      return;
+    }
+    const paints = this.runPaints();
+
     const {width, height} = this.size();
+    const originX = width / -2;
+    const originY = height / -2;
 
     context.save();
     this.applyStyle(context);
     this.applyText(context);
     context.textBaseline = 'alphabetic';
+    const alpha = context.globalAlpha;
+    const resolve = (ink: string | Gradient | Pattern) =>
+      typeof ink === 'string' ? ink : resolveCanvasStyle(ink, context);
+    // A canvas parses a font or a colour on each set, so an unchanged value
+    // is not set again.
+    let font: string | null = null;
+    let spacing: string | null = null;
+    let opacity: number | null = null;
+    let fill: ReturnType<typeof resolve> | null = null;
+    let stroke: ReturnType<typeof resolve> | null = null;
+    let lineWidth: number | null = null;
 
-    for (const line of lines) {
-      for (let fragIndex = 0; fragIndex < line.fragments.length; fragIndex++) {
-        const fragment = line.fragments[fragIndex];
-        if (fragment.inline) continue;
+    for (const {call, owner, letterSpacing} of plan) {
+      const style = paints[owner];
+      const x = originX + call.anchor.penX;
+      const y = originY + call.line.baseline;
 
-        const {style} = fragment;
-        const x = width / -2 + fragment.x + line.alignOffset;
-        // Alphabetic baseline with metric offsets matches CSS line-box
-        // centering (content box, not the em square).
-        const fragY = height / -2 + line.top + line.baselineOffsets[fragIndex];
+      if (font !== call.anchor.metrics.font) {
+        font = call.anchor.metrics.font;
+        context.font = font;
+      }
+      if (spacing !== letterSpacing) {
+        spacing = letterSpacing;
+        context.letterSpacing = spacing;
+      }
+      if (opacity !== style.opacity) {
+        opacity = style.opacity;
+        context.globalAlpha = alpha * opacity;
+      }
+      const nextFill = resolve(style.fill);
+      if (fill !== nextFill) {
+        fill = nextFill;
+        context.fillStyle = fill;
+      }
+      const nextStroke = resolve(style.stroke);
+      if (stroke !== nextStroke) {
+        stroke = nextStroke;
+        context.strokeStyle = stroke;
+      }
+      if (lineWidth !== style.lineWidth) {
+        lineWidth = style.lineWidth;
+        context.lineWidth = lineWidth;
+      }
 
-        context.font = style.font;
-        if ('letterSpacing' in context) {
-          context.letterSpacing = `${style.letterSpacing}px`;
-        }
-
-        context.fillStyle = resolveCanvasStyle(style.fill, context);
-        context.strokeStyle = resolveCanvasStyle(style.stroke, context);
-        context.lineWidth = style.lineWidth;
-
-        const justified = line.justified?.[fragIndex];
-        if (justified && line.extraPerSpace !== 0) {
-          let cursorX = x;
-          for (const seg of justified) {
-            if (!seg.whitespace) {
-              if (style.lineWidth <= 0) {
-                context.fillText(seg.text, cursorX, fragY);
-              } else if (style.strokeFirst) {
-                context.strokeText(seg.text, cursorX, fragY);
-                context.fillText(seg.text, cursorX, fragY);
-              } else {
-                context.fillText(seg.text, cursorX, fragY);
-                context.strokeText(seg.text, cursorX, fragY);
-              }
-              cursorX += seg.advance;
-            } else {
-              cursorX += seg.advance + line.extraPerSpace;
-            }
-          }
-        } else if (style.lineWidth <= 0) {
-          context.fillText(fragment.text, x, fragY);
-        } else if (style.strokeFirst) {
-          context.strokeText(fragment.text, x, fragY);
-          context.fillText(fragment.text, x, fragY);
-        } else {
-          context.fillText(fragment.text, x, fragY);
-          context.strokeText(fragment.text, x, fragY);
-        }
+      if (style.lineWidth <= 0) {
+        context.fillText(call.anchor.text, x, y);
+      } else if (style.strokeFirst) {
+        context.strokeText(call.anchor.text, x, y);
+        context.fillText(call.anchor.text, x, y);
+      } else {
+        context.fillText(call.anchor.text, x, y);
+        context.strokeText(call.anchor.text, x, y);
       }
     }
 
@@ -2087,8 +2161,8 @@ export class Txt extends Shape {
 
   /**
    * Distance along the path where the run begins, derived from `textAlign` and
-   * `textDirection` (mirroring {@link computeAlignOffset}). Justify is
-   * unsupported on a path and falls back to the start edge.
+   * `textDirection` (mirroring the placement pass). Justify is unsupported on a
+   * path and falls back to the start edge.
    */
   private pathAlignBase(arcLength: number, textWidth: number): number {
     const rtl = this.textDirection() === 'rtl';
@@ -2182,8 +2256,9 @@ export class Txt extends Shape {
     }
 
     const matrix = this.pathTransform();
-    const textWidth = this.textLayout().width;
-    const alignBase = this.pathAlignBase(arcLength, textWidth);
+    const lines = this.positionedLines();
+    const blockWidth = this.size().x;
+    const alignBase = this.pathAlignBase(arcLength, this.textLayout().width);
     const offset = this.pathOffset();
     const sample = createCurveSampler(profile);
     const closed = isClosedProfile(profile);
@@ -2197,15 +2272,9 @@ export class Txt extends Shape {
         ? this.buildSmoothAnchor(profile, matrix, scale)
         : null;
     const staticAnchor = resolvePathAnchor(align);
-    const metricsCache = new Map<string, {ascent: number; descent: number}>();
-    const glyphBaseline = (style: FragmentStyle, anchor: number | null) => {
+    const glyphBaseline = (box: FontBox, anchor: number | null) => {
       if (anchor === null) return 0;
-      let metrics = metricsCache.get(style.font);
-      if (!metrics) {
-        metrics = this.measureFontMetrics(style);
-        metricsCache.set(style.font, metrics);
-      }
-      const {ascent, descent} = metrics;
+      const {ascent, descent} = box;
       return (ascent - descent) / 2 - (anchor * (ascent + descent)) / 2;
     };
 
@@ -2213,11 +2282,14 @@ export class Txt extends Shape {
     this.applyStyle(context);
     this.applyText(context);
     context.textBaseline = 'alphabetic';
+    const alpha = context.globalAlpha;
 
-    // `walkUnits` is cumulative, so `unit.x`/`unit.width` are kerned — arc
-    // spacing follows the real layout, not a sum of isolated advances.
-    for (const {unit, style} of this.walkUnits(this.pathSplit(), true)) {
-      const rawCenter = unit.x + textWidth / 2 + alignBase + offset;
+    for (const {unit, box, parts} of this.walkUnits(this.pathSplit(), true)) {
+      // `unit.x` is aligned against the node's box; the run is aligned again
+      // along the arc, so measure the unit from its own line's left edge.
+      const lineLeft = (lines[unit.lineIndex]?.left ?? 0) - blockWidth / 2;
+      const rawCenter = unit.x - lineLeft + alignBase + offset;
+      // Clip overflow rather than letting the sampler clamp glyphs onto the ends.
       if (!closed && (rawCenter < 0 || rawCenter > arcLength)) {
         continue;
       }
@@ -2256,7 +2328,7 @@ export class Txt extends Shape {
       // offset rides the position, so the glyph paints at y = 0.
       const offsetFor = (distance: number) =>
         glyphBaseline(
-          style,
+          box,
           smoothAnchorAt ? smoothAnchorAt(distance) : staticAnchor,
         );
       const startP = startRaw.add(up.scale(offsetFor(dStart)));
@@ -2272,24 +2344,24 @@ export class Txt extends Shape {
       context.save();
       context.translate(position.x, position.y);
       context.rotate(angle);
-      context.font = style.font;
-      if ('letterSpacing' in context) {
-        context.letterSpacing = '0px';
-      }
-      context.fillStyle = resolveCanvasStyle(style.fill, context);
-      context.strokeStyle = resolveCanvasStyle(style.stroke, context);
-      context.lineWidth = style.lineWidth;
+      for (const {text, run, penOffset} of parts) {
+        const style = this.styleOf(run);
+        context.font = style.font;
+        context.letterSpacing = `${style.letterSpacing}px`;
+        context.globalAlpha = alpha * style.opacity;
+        context.fillStyle = resolveCanvasStyle(style.fill, context);
+        context.strokeStyle = resolveCanvasStyle(style.stroke, context);
+        context.lineWidth = style.lineWidth;
 
-      // Kern-invariant pen (shared with split()) so spacing matches a plain Txt.
-      const glyphX = this.glyphPenOffset(unit, style);
-      if (style.lineWidth <= 0) {
-        context.fillText(unit.text, glyphX, 0);
-      } else if (style.strokeFirst) {
-        context.strokeText(unit.text, glyphX, 0);
-        context.fillText(unit.text, glyphX, 0);
-      } else {
-        context.fillText(unit.text, glyphX, 0);
-        context.strokeText(unit.text, glyphX, 0);
+        if (style.lineWidth <= 0) {
+          context.fillText(text, penOffset, 0);
+        } else if (style.strokeFirst) {
+          context.strokeText(text, penOffset, 0);
+          context.fillText(text, penOffset, 0);
+        } else {
+          context.fillText(text, penOffset, 0);
+          context.strokeText(text, penOffset, 0);
+        }
       }
       context.restore();
     }
@@ -2310,32 +2382,235 @@ export class Txt extends Shape {
       return pathBBox.expand(this.fontSize() + stroke);
     }
 
+    const box = this.parentTxt()
+      ? this.ownedTextBox()
+      : BBox.fromSizeCentered(this.computedSize());
     // Pad vertically for glyphs that overshoot the line box.
-    return BBox.fromSizeCentered(this.computedSize())
-      .expand([0, this.fontSize() * 0.5])
-      .expand(stroke);
+    return box.expand([0, this.fontSize() * 0.5]).expand(stroke);
   }
 
-  private computeAlignOffset(
-    containerWidth: number,
-    lineWidth: number,
-  ): number {
-    const align = this.textAlign();
-    const rtl = this.textDirection() === 'rtl';
-    switch (align) {
-      case 'center':
-        return (containerWidth - lineWidth) / 2;
-      case 'right':
-        return containerWidth - lineWidth;
-      case 'end':
-        return rtl ? 0 : containerWidth - lineWidth;
-      case 'start':
-        return rtl ? containerWidth - lineWidth : 0;
-      case 'left':
-        return 0;
-      default:
-        return rtl ? containerWidth - lineWidth : 0;
+  @computed()
+  protected override computedSize(): Vector2 {
+    if (!this.parentTxt()) return super.computedSize();
+    this.warnIgnoredSizing();
+    const extent = this.ownedExtent();
+    if (!extent) return Vector2.zero;
+    // Translation does not change a size, and the anchor's depends on it.
+    const linear = new DOMMatrix()
+      .rotateSelf(0, 0, this.rotation())
+      .scaleSelf(this.scale.x(), this.scale.y())
+      .skewXSelf(this.skew.x())
+      .skewYSelf(this.skew.y());
+    return this.inOwnSpace(extent, linear).size;
+  }
+
+  /** {@link ownedExtent} in this node's space. */
+  @computed()
+  private ownedTextBox(): BBox {
+    const extent = this.ownedExtent();
+    return extent ? this.inOwnSpace(extent, this.localToParent()) : new BBox();
+  }
+
+  /** A box in the root's space, in this node's space when `own` places it. */
+  private inOwnSpace(box: BBox, own: DOMMatrix): BBox {
+    const toRoot = this.toRoot(own);
+    if (toRoot.isIdentity) return box;
+    return BBox.fromPoints(...box.transformCorners(toRoot.inverse()));
+  }
+
+  /** The matrix to the root's space, with `own` as this node's part. */
+  private toRoot(own: DOMMatrix): DOMMatrix {
+    const root = this.rootTxt();
+    let matrix = own;
+    for (
+      let node = this.parentTxt();
+      node && node !== root;
+      node = node.parentTxt()
+    ) {
+      matrix = node.localToParent().multiply(matrix);
     }
+    return matrix;
+  }
+
+  /** Warn once when a sizing prop is set on this nested node. */
+  private warnIgnoredSizing(): void {
+    const {x, y} = this.desiredSize();
+    const {top, right, bottom, left} = this.padding();
+    const sized =
+      x !== null || y !== null || [top, right, bottom, left].some(Boolean);
+    if (!sized || WarnedSizing.has(this)) return;
+    WarnedSizing.add(this);
+    useLogger().warn({
+      message: 'A nested Txt ignores width, height and padding.',
+      remarks: 'Its root Txt lays out its text. Size the root instead.',
+      inspect: this.key,
+    });
+  }
+
+  /**
+   * The box, in the root's space, of the pieces of the root's placement that
+   * hold text this node or a node under it owns. Hanging space is not ink.
+   */
+  private ownedExtent(): BBox | null {
+    return this.rootTxt().ownedExtents().get(this) ?? null;
+  }
+
+  /** Whether `node` sits under this one in the scene graph. */
+  private contains(node: Node): boolean {
+    for (let current = node.parent(); current; current = current.parent()) {
+      if (current === this) return true;
+    }
+    return false;
+  }
+
+  /** Whether this node or a node under it owns `span`. */
+  private ownsSpan(span: TxtOwnerSpan): boolean {
+    const node = span.paint.node;
+    return node === this || this.contains(node);
+  }
+
+  /** The root's placed lines that hold ink this node owns. */
+  private ownedLines(): readonly PlacedLine[] {
+    const root = this.rootTxt();
+    const lines = root.positionedLines();
+    const spans = root.paragraph()?.content.ownerSpans;
+    if (root === this || !spans) return lines;
+    return lines.filter(line =>
+      line.pieces.some(piece => {
+        if (piece.hanging) return false;
+        for (
+          let index = Txt.ownerIndexAt(spans, piece.sourceStart);
+          index < spans.length && spans[index].start < piece.sourceEnd;
+          index++
+        ) {
+          if (this.ownsSpan(spans[index])) return true;
+        }
+        return false;
+      }),
+    );
+  }
+
+  /** Where this nested node's origin sits in its root's space. */
+  private offsetInRoot(): Vector2 {
+    const {a, b, c, d, e, f} = this.toRoot(this.localToParent());
+    if (a !== 1 || b !== 0 || c !== 0 || d !== 1) {
+      throw new Error(
+        `A text query of ${this.key} cannot map the root's layout into it: ` +
+          'it is rotated, scaled or skewed against its root Txt.',
+      );
+    }
+    return new Vector2(e, f);
+  }
+
+  /**
+   * The lines of the root's placement that hold ink this nested node owns,
+   * with only that ink, from the top left of its {@link ownedExtent}.
+   */
+  private ownedLayout(): TextLayoutResult {
+    const root = this.rootTxt();
+    const paragraph = root.paragraph();
+    const extent = this.ownedExtent();
+    if (!paragraph || !extent) return Txt.emptyLayout;
+    const corner = extent.position.add(root.size().scale(0.5));
+    return {
+      lines: this.ownedLines().map(line => ({
+        fragments: this.fragmentsOf(paragraph, line).map(fragment => ({
+          ...fragment,
+          x: fragment.x - corner.x,
+        })),
+        top: line.top - corner.y,
+        height: line.height,
+      })),
+      width: extent.width,
+      height: extent.height,
+      lineHeight: paragraph.vertical.lineHeight,
+    };
+  }
+
+  /**
+   * The root whose placement a unit query reads, once it is known the query
+   * can be answered. Public readers check before they enter a computed, so
+   * the error reaches the caller.
+   */
+  private unitsRoot(): Txt {
+    const root = this.rootTxt();
+    if (root !== this) this.offsetInRoot();
+    return root;
+  }
+
+  /** Reject a query that only a root Txt, which lays out the text, answers. */
+  private assertRoot(query: string): void {
+    if (!this.parentTxt()) return;
+    throw new Error(
+      `${query}() of ${this.key} has no meaning for a nested Txt, whose ` +
+        'root Txt lays out its text. Call it on the root.',
+    );
+  }
+
+  /** {@link ownedExtent} of every nested node, from one pass on the root. */
+  @computed()
+  private ownedExtents(): Map<Txt, BBox> {
+    const extents = new Map<Txt, BBox>();
+    const paragraph = this.paragraph();
+    const placed = this.placement();
+    if (!paragraph || !placed) return extents;
+    const spans = paragraph.content.ownerSpans;
+
+    const edges = new Map<Txt, [number, number, number, number]>();
+    const credit = (owner: Txt, box: [number, number, number, number]) => {
+      for (
+        let node: Txt | null = owner;
+        node !== null && node !== this;
+        node = node.parentTxt()
+      ) {
+        const edge = edges.get(node);
+        if (!edge) {
+          edges.set(node, [...box]);
+          continue;
+        }
+        edge[0] = Math.min(edge[0], box[0]);
+        edge[1] = Math.max(edge[1], box[1]);
+        edge[2] = Math.min(edge[2], box[2]);
+        edge[3] = Math.max(edge[3], box[3]);
+      }
+    };
+
+    for (const line of placed.lines) {
+      for (const piece of line.pieces) {
+        if (piece.hanging) continue;
+        const box: [number, number, number, number] = [
+          piece.x,
+          piece.x + piece.advance,
+          line.top,
+          line.top + line.height,
+        ];
+        if (piece.hyphen > 0) {
+          box[0] = Math.min(box[0], piece.hyphenX);
+          box[1] = Math.max(box[1], piece.hyphenX + piece.hyphen);
+        }
+        for (
+          let index = Txt.ownerIndexAt(spans, piece.sourceStart);
+          index < spans.length && spans[index].start < piece.sourceEnd;
+          index++
+        ) {
+          credit(spans[index].paint.node, box);
+        }
+      }
+    }
+
+    const size = this.size();
+    for (const [node, [left, right, top, bottom]] of edges) {
+      extents.set(
+        node,
+        new BBox(
+          left - size.x / 2,
+          top - size.y / 2,
+          right - left,
+          bottom - top,
+        ),
+      );
+    }
+    return extents;
   }
 
   /**
@@ -2356,104 +2631,164 @@ export class Txt extends Shape {
   }
 
   /**
-   * Walk every line of the current layout, segmenting each line's text at the
-   * requested granularity and pairing each unit with its run's style.
+   * Walk every line of the placed layout, segmenting the line's whole text at
+   * the requested granularity and pairing each unit with the paints covering
+   * it.
    *
    * @remarks
-   * Backs {@link textWords}, {@link textGlyphs}, {@link textSentences}, and
-   * {@link split}. Positions are in Txt-local center-origin coordinates.
-   * `keepPunctuation` keeps non-word, non-whitespace segments (e.g. `'.'`) as
-   * their own units under `'word'` granularity; the public accessors drop
-   * them, but {@link split} keeps them so no ink is lost.
+   * Backs {@link textWords}, {@link textGlyphs}, {@link textSentences},
+   * {@link split} and path text. A sentence reaches across the pieces a line
+   * is broken into, and a unit a paint seam cuts carries one part per owner,
+   * so what a unit reports is what the node paints. Every coordinate comes
+   * from the placement pass; nothing here measures or offsets a position of
+   * its own. `keepPunctuation` keeps non-word, non-whitespace segments (e.g.
+   * `'.'`) as their own units under `'word'` granularity; the public
+   * accessors drop them, but {@link split} keeps them so no ink is lost.
    */
   private walkUnits(
     granularity: SegmentGranularity,
     keepPunctuation: boolean,
-  ): {unit: TextUnit; style: FragmentStyle}[] {
-    const lines = this.positionedLines();
-    const {x: blockWidth, y: blockHeight} = this.size();
-    const result: {unit: TextUnit; style: FragmentStyle}[] = [];
+  ): PlacedUnit[] {
+    const root = this.rootTxt();
+    const paragraph = root.paragraph();
+    const lines = this.ownedLines();
+    if (!paragraph) return [];
+
+    const {text, ownerSpans} = paragraph.content;
+    // Where the root's placement puts this node's origin.
+    const origin = root
+      .size()
+      .scale(0.5)
+      .add(root === this ? Vector2.zero : this.offsetInRoot());
+    const result: PlacedUnit[] = [];
 
     for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
       const line = lines[lineIdx];
-      const y = line.top - blockHeight / 2 + line.height / 2;
-      let indexInLine = 0;
+      const y = line.middle - origin.y;
+      const baseline = line.baseline - origin.y;
 
-      // Measure cumulatively so kerning against the prefix is preserved.
-      // `slack` is added per whitespace run (so sentences get it per gap).
-      const emit = (
-        text: string,
-        style: FragmentStyle,
-        startX: number,
-        slack: number,
-      ) => {
-        let cursor = startX;
-        let cumulativeText = '';
-        let prevCum = 0;
-        for (const seg of segment(text, granularity)) {
-          cumulativeText += seg.segment;
-          const cumWidth = this.measureStyledText(cumulativeText, style);
-          const runs = slack > 0 ? (seg.segment.match(/\s+/g)?.length ?? 0) : 0;
-          const advance = cumWidth - prevCum + slack * runs;
-          prevCum = cumWidth;
-          if (granularity === 'word' && !seg.isWordLike) {
-            const whitespace = /^\s+$/.test(seg.segment);
-            if (whitespace || !keepPunctuation) {
-              cursor += advance;
-              continue;
-            }
+      const slices: PaintedSlice[] = [];
+      const sliceOfPiece: number[] = [];
+      const sliceAt: number[] = [];
+      let logical = '';
+      for (let p = 0; p < line.pieces.length; p++) {
+        const inline = line.pieces[p];
+        // The slot an inline child holds stands in the segmented text, so no
+        // word reaches across it and the gap it leaves survives.
+        if (paragraph.items.kinds[inline.item] === 'inline-box') {
+          if (this.ownsSpan(Txt.ownerSpanAt(ownerSpans, inline.sourceStart))) {
+            logical += OBJECT_MARKER;
           }
-          if (seg.segment.length === 0) continue;
-          result.push({
-            unit: {
-              text: seg.segment,
-              x: cursor + advance / 2,
-              y,
-              width: advance,
-              height: line.height,
-              lineIndex: lineIdx,
-              indexInLine: indexInLine++,
-            },
-            style,
-          });
-          cursor += advance;
+          continue;
         }
-      };
-
-      for (let f = 0; f < line.fragments.length; f++) {
-        const fragment = line.fragments[f];
-        if (fragment.inline) continue;
-        const fragLeft = fragment.x + line.alignOffset - blockWidth / 2;
-        const justified = line.justified?.[f];
-        if (
-          justified &&
-          line.extraPerSpace !== 0 &&
-          granularity !== 'sentence'
-        ) {
-          // Match the word-by-word paint; a whole-fragment measure re-adds the
-          // inter-word kerning the paint omits.
-          let cursor = fragLeft;
-          for (const seg of justified) {
-            if (seg.whitespace) {
-              cursor += seg.advance + line.extraPerSpace;
-            } else {
-              emit(seg.text, fragment.style, cursor, 0);
-              cursor += seg.advance;
-            }
-          }
-        } else {
-          // Sentences span painted words, so measure cumulatively; justified
-          // sentence units stay sub-pixel off from the word-by-word paint.
-          emit(fragment.text, fragment.style, fragLeft, line.extraPerSpace);
+        for (const slice of Txt.paintedSlices(paragraph, inline)) {
+          if (!this.ownsSpan(slice.span)) continue;
+          slices.push(slice);
+          sliceOfPiece.push(p);
+          sliceAt.push(logical.length);
+          logical += text.slice(slice.start, slice.end);
         }
       }
+
+      const pending: {unit: PlacedUnit; lastPiece: number}[] = [];
+      for (const seg of segment(logical, granularity)) {
+        if (seg.segment.length === 0) continue;
+        if (granularity === 'word' && !seg.isWordLike) {
+          if (/^\s+$/.test(seg.segment) || !keepPunctuation) continue;
+        }
+        const from = seg.index;
+        const to = from + seg.segment.length;
+
+        const covered: {slice: PaintedSlice; start: number; end: number}[] = [];
+        let lo = Infinity;
+        let hi = -Infinity;
+        let lastPiece = 0;
+        for (let s = 0; s < slices.length; s++) {
+          const slice = slices[s];
+          const at = sliceAt[s];
+          const length = slice.end - slice.start;
+          if (at >= to || at + length <= from) continue;
+          const start = slice.start + Math.max(from, at) - at;
+          const end = slice.start + Math.min(to, at + length) - at;
+          const extent = rangeExtentOf(slice.piece, start, end);
+          lo = Math.min(lo, extent.left);
+          hi = Math.max(hi, extent.right);
+          lastPiece = sliceOfPiece[s];
+          covered.push({slice, start, end});
+        }
+        if (covered.length === 0) continue;
+
+        const center = (lo + hi) / 2;
+        pending.push({
+          lastPiece,
+          unit: {
+            box: Txt.fontBoxOf(paragraph, covered[0].slice.piece),
+            unit: {
+              text: seg.segment,
+              x: center - origin.x,
+              y,
+              width: hi - lo,
+              height: line.height,
+              lineIndex: lineIdx,
+              indexInLine: 0,
+            },
+            baseline,
+            parts: covered.map(({slice, start, end}) => {
+              const anchor = paintAnchorOf(slice.piece, start, end);
+              return {
+                text: text.slice(start, end),
+                run: slice.span.paint,
+                penOffset: anchor.penX - center,
+                advance: anchor.advance,
+              };
+            }),
+          },
+        });
+      }
+
+      let indexInLine = 0;
+      let cursor = 0;
+      const emit = (placed: PlacedUnit) => {
+        result.push({...placed, unit: {...placed.unit, indexInLine}});
+        indexInLine++;
+      };
+      for (let p = 0; p < line.pieces.length; p++) {
+        while (cursor < pending.length && pending[cursor].lastPiece <= p) {
+          emit(pending[cursor++].unit);
+        }
+        const piece = line.pieces[p];
+        const run = Txt.ownerSpanAt(ownerSpans, piece.sourceStart);
+        if (piece.hyphen <= 0 || !this.ownsSpan(run)) continue;
+        emit({
+          unit: {
+            text: '-',
+            x: piece.hyphenX + piece.hyphen / 2 - origin.x,
+            y,
+            width: piece.hyphen,
+            height: line.height,
+            lineIndex: lineIdx,
+            indexInLine: 0,
+          },
+          baseline,
+          box: Txt.fontBoxOf(paragraph, piece),
+          parts: [
+            {
+              text: '-',
+              run: run.paint,
+              penOffset: -piece.hyphen / 2,
+              advance: piece.hyphen,
+            },
+          ],
+        });
+      }
+      while (cursor < pending.length) emit(pending[cursor++].unit);
     }
 
     return result;
   }
 
   private splitLayout(granularity: SegmentGranularity): TextUnit[] {
-    if (this.positionedLines().length === 0) {
+    if (this.rootTxt().positionedLines().length === 0) {
       // No real 2D canvas context (e.g. jsdom): widths fall back to zero so
       // callers can still inspect text and order.
       return this.fallbackSplit(granularity);
@@ -2463,13 +2798,15 @@ export class Txt extends Shape {
 
   /**
    * Cheap segment-only split used when a real layout is unavailable (jsdom or
-   * other headless environments where pretext throws on canvas access).
+   * other headless environments without canvas measurement).
    * Produces a single-line layout with zero widths; preserves text order.
    */
   private fallbackSplit(granularity: SegmentGranularity): TextUnit[] {
-    const {items} = this.collectInlineItems();
-    if (items.length === 0) return [];
-    const joined = items.map(item => item.text).join('');
+    const runs = this.runsWithScale(1);
+    if (runs.length === 0) return [];
+    const joined = runs
+      .map(run => (run.kind === 'text' ? run.text : ''))
+      .join('');
     const lh = this.resolvedLineHeight();
     const result: TextUnit[] = [];
     let indexInLine = 0;
@@ -2505,7 +2842,7 @@ export class Txt extends Shape {
    * ```
    */
   public textWords(): TextUnit[] {
-    return this.pathProfile() ? [] : this.wordUnits();
+    return this.unitsRoot().pathProfile() ? [] : this.wordUnits();
   }
 
   /**
@@ -2518,14 +2855,14 @@ export class Txt extends Shape {
    * still produce two entries.
    */
   public textGlyphs(): TextUnit[] {
-    return this.pathProfile() ? [] : this.graphemeUnits();
+    return this.unitsRoot().pathProfile() ? [] : this.graphemeUnits();
   }
 
   /**
    * Sentence-level layout info. One entry per sentence span, in reading order.
    */
   public textSentences(): TextUnit[] {
-    return this.pathProfile() ? [] : this.sentenceUnits();
+    return this.unitsRoot().pathProfile() ? [] : this.sentenceUnits();
   }
 
   /**
@@ -2560,31 +2897,18 @@ export class Txt extends Shape {
    * @param granularity - `'grapheme'` (default), `'word'`, or `'sentence'`.
    */
   public split(granularity: SegmentGranularity = 'grapheme'): Txt[] {
-    if (this.pathProfile() || this.positionedLines().length === 0) {
+    const root = this.unitsRoot();
+    if (root.pathProfile() || root.positionedLines().length === 0) {
       return [];
     }
-    return this.walkUnits(granularity, true).map(({unit, style}) =>
-      this.createPiece(unit, style),
+    return this.walkUnits(granularity, true).map(entry =>
+      this.createPiece(entry),
     );
   }
 
-  /**
-   * Offset from a unit's kerned center to where its glyph must be drawn so the
-   * isolated render lands on the kern-invariant right edge (its kerned advance
-   * minus its isolated advance, halved onto the center). Shared by {@link split}
-   * and {@link drawAlongPath} so both place glyphs with the source's kerning.
-   */
-  private glyphPenOffset(unit: TextUnit, style: FragmentStyle): number {
-    return unit.width / 2 - this.measureStyledText(unit.text, style);
-  }
-
-  private createPiece(unit: TextUnit, style: FragmentStyle): Txt {
-    // Centering via the piece's own box keeps the center anchor (for
-    // rotate/scale) while the pen pins the unit where the source drew it.
-    const penLeft = unit.x + this.glyphPenOffset(unit, style);
-    const top = unit.y - unit.height / 2;
-    const piece = new Txt({
-      text: unit.text,
+  /** Everything a split piece needs of one owner's paint and typeface. */
+  private static pieceStyle(style: FragmentStyle): TxtProps {
+    return {
       fontFamily: style.fontComponents.family,
       fontSize: style.fontComponents.size,
       fontStyle: style.fontComponents.style,
@@ -2594,6 +2918,15 @@ export class Txt extends Shape {
       stroke: style.stroke,
       lineWidth: style.lineWidth,
       strokeFirst: style.strokeFirst,
+      opacity: style.opacity,
+    };
+  }
+
+  private createPiece(entry: PlacedUnit): Txt {
+    // Centering via the piece's own box keeps the center anchor (for
+    // rotate/scale) while the pen pins the unit where the source drew it.
+    const {unit, parts} = entry;
+    const shared: TxtProps = {
       lineCap: this.lineCap(),
       lineJoin: this.lineJoin(),
       lineDash: this.lineDash(),
@@ -2602,9 +2935,42 @@ export class Txt extends Shape {
       textWrap: false,
       textAlign: 'left',
       lineHeight: unit.height,
-    });
+    };
+    const styles = parts.map(part => this.styleOf(part.run));
+    // A slot the text flow gave an inline child sits between two parts as a
+    // gap, and an empty box of that width holds it open.
+    const gapBefore = (index: number) =>
+      index === 0
+        ? 0
+        : parts[index].penOffset -
+          (parts[index - 1].penOffset + parts[index - 1].advance);
+    const piece =
+      parts.length === 1
+        ? new Txt({
+            ...Txt.pieceStyle(styles[0]),
+            ...shared,
+            text: parts[0].text,
+          })
+        : new Txt({
+            ...Txt.pieceStyle(styles[0]),
+            ...shared,
+            opacity: 1,
+            children: parts.flatMap((part, index) => {
+              const own = new Txt({
+                ...Txt.pieceStyle(styles[index]),
+                text: part.text,
+              });
+              const gap = gapBefore(index);
+              return gap > FIT_TOLERANCE
+                ? [new Layout({width: gap, height: 0}), own]
+                : [own];
+            }),
+          });
+
     const size = piece.size();
-    piece.position([penLeft + size.x / 2, top + size.y / 2]);
+    const penLeft = unit.x + Math.min(...parts.map(part => part.penOffset));
+    const own = piece.positionedLines()[0]?.baseline ?? size.y / 2;
+    piece.position([penLeft + size.x / 2, entry.baseline - own + size.y / 2]);
     return piece;
   }
 
@@ -2626,24 +2992,14 @@ export class Txt extends Shape {
   /**
    * Find the tightest container width that still fits all the text.
    *
-   * @remarks
-   * Uses Pretext's line-stats measurement without allocating fragment strings.
-   *
    * @example
    * ```ts
    * label().width(label().shrinkWrapWidth());
    * ```
    */
   public shrinkWrapWidth(): number {
-    const prepared = this.preparedLayout();
-    if (!prepared) return 0;
-    if (prepared.kind === 'simple') {
-      return measureNaturalWidth(prepared.prepared);
-    }
-    return measureGroupStats(
-      prepared.groups.map(g => g.prepared),
-      Number.POSITIVE_INFINITY,
-    ).maxLineWidth;
+    this.assertRoot('shrinkWrapWidth');
+    return this.naturalPlacement(Number.POSITIVE_INFINITY)?.width ?? 0;
   }
 
   /**
@@ -2658,28 +3014,20 @@ export class Txt extends Shape {
    * ```
    */
   public balancedWidth(targetLineCount?: number): number {
-    const prepared = this.preparedLayout();
-    if (!prepared) return 0;
+    this.assertRoot('balancedWidth');
+    // The probes ask what a wrapping layout would do, whatever `textWrap` is.
+    const natural = this.naturalPlacement(Number.POSITIVE_INFINITY, true);
+    if (!natural) return 0;
 
-    const measureStats = (maxWidth: number) =>
-      prepared.kind === 'simple'
-        ? measureLineStats(prepared.prepared, maxWidth)
-        : measureGroupStats(
-            prepared.groups.map(g => g.prepared),
-            maxWidth,
-          );
-
-    const naturalStats = measureStats(Number.POSITIVE_INFINITY);
-    const target = targetLineCount ?? naturalStats.lineCount;
-    if (target <= 1) return naturalStats.maxLineWidth;
+    const target = targetLineCount ?? natural.lines.length;
+    if (target <= 1) return natural.width;
 
     let lo = 1;
-    let hi = naturalStats.maxLineWidth;
-
+    let hi = natural.width;
     for (let i = 0; i < 20; i++) {
       const mid = (lo + hi) / 2;
-      const stats = measureStats(mid);
-      if (stats.lineCount <= target) {
+      const lines = this.naturalPlacement(mid, true)?.lines.length ?? 0;
+      if (lines <= target) {
         hi = mid;
       } else {
         lo = mid;
@@ -2690,13 +3038,59 @@ export class Txt extends Shape {
   }
 
   /**
-   * Binary search for the largest font size that fits text within given
-   * dimensions, clamped at the configured {@link fontSize}.
+   * Whether the whole paragraph, laid out at `size`, fits the given box.
+   *
+   * @remarks
+   * Vertical fit is the sum of the line boxes; horizontal fit is every paint
+   * call of the placement against the free segment its line was broken in, so
+   * a call a paint seam shapes on its own is measured as it is painted. Glyph
+   * ink outside those extents is permitted, as in CSS.
+   */
+  private fitsAtSize(
+    size: number,
+    maxWidth: number,
+    maxHeight: number,
+  ): boolean {
+    const raw = this.fontSize();
+    const paragraph = this.paragraphWithScale(raw > 0 ? size / raw : 1);
+    if (!paragraph) return true;
+    const broken = this.breakAt(paragraph, maxWidth);
+    const placed = placeParagraph(paragraph.items, broken, {
+      text: paragraph.content.text,
+      metrics: paragraph.metrics,
+      vertical: paragraph.vertical,
+      textAlign: this.textAlign(),
+      direction: this.textDirectionValue(),
+      verticalAlign: this.verticalAlign(),
+      blockWidth: maxWidth,
+      blockHeight: maxHeight,
+      measurer: canvasParagraphMeasurer,
+    });
+    if (placed.height > maxHeight + FIT_TOLERANCE) return false;
+    for (const call of paintCalls(
+      paragraph.items,
+      placed,
+      paragraph.metrics,
+      paragraph.seams,
+    )) {
+      const {segment} = call.line;
+      const right = Number.isFinite(segment.right) ? segment.right : maxWidth;
+      const {penX, advance} = call.anchor;
+      if (penX < segment.left - FIT_TOLERANCE) return false;
+      if (penX + advance > right + FIT_TOLERANCE) return false;
+    }
+    return true;
+  }
+
+  /**
+   * Largest whole-pixel font size at or below {@link fontSize} whose layout
+   * fits the given box, or `1` when nothing fits.
    *
    * @remarks
    * Reads each leaf at its raw (unscaled) size, so this method is safe to
    * call from inside {@link effectiveFontSize} without creating a dependency
-   * cycle.
+   * cycle. Every probe is a real layout, so the answer depends only on the
+   * current state.
    *
    * @example
    * ```ts
@@ -2704,45 +3098,25 @@ export class Txt extends Shape {
    * ```
    */
   public fitFontSize(maxWidth: number, maxHeight: number): number {
-    const {items, styles} = this.collectItemsWithScale(1);
-    const rawSize = this.fontSize();
-    if (items.length === 0 || !this.measurementContext()) return rawSize;
+    this.assertRoot('fitFontSize');
+    const cap = this.fontSize();
+    if (!this.measurementContext()) return cap;
 
-    const wrap = this.textWrap();
-    let lo = 1;
-    let hi = rawSize;
-
-    for (let i = 0; i < 20; i++) {
-      const mid = (lo + hi) / 2;
-      const scale = mid / rawSize;
-      const scaledItems = items.map((item, idx) => {
-        const {fontComponents} = styles[idx];
-        const scaledFont = buildCanvasFontString(
-          fontComponents.style,
-          fontComponents.weight,
-          fontComponents.size * scale,
-          fontComponents.family,
-        );
-        return {...item, font: scaledFont};
-      });
-      const groups = buildRichGroups(scaledItems, wrap);
-      const stats = measureGroupStats(
-        groups.map(g =>
-          g.items.length > 0 ? prepareRichInline(g.items) : null,
-        ),
-        maxWidth,
-      );
-      const lh = resolveLineHeight(this.lineHeight(), mid);
-      const height = stats.lineCount * lh;
-      const fits = stats.maxLineWidth <= maxWidth && height <= maxHeight;
-      if (fits) {
-        lo = mid;
-      } else {
-        hi = mid;
+    let size = Math.floor(cap);
+    // A line height proportional to the font size bounds the search: no size
+    // whose own line box passes the height can fit.
+    const lineHeight = this.lineHeight();
+    if (typeof lineHeight === 'string') {
+      const ratio = resolveLineHeight(lineHeight, 1);
+      if (ratio > 0) {
+        size = Math.min(size, Math.floor((maxHeight + FIT_TOLERANCE) / ratio));
       }
     }
 
-    return Math.floor(lo);
+    for (; size >= 1; size--) {
+      if (this.fitsAtSize(size, maxWidth, maxHeight)) return size;
+    }
+    return 1;
   }
 
   // Nested runs inherit fill / stroke / line settings from the parent Txt.

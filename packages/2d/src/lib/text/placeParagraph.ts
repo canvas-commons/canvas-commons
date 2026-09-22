@@ -20,7 +20,7 @@ import type {
   ParagraphItemKind,
   ParagraphItems,
 } from './paragraphItems';
-import type {ParagraphMeasurer, ParagraphMetrics} from './preparedParagraph';
+import type {AdvanceMeasurer, ParagraphMetrics} from './preparedParagraph';
 import type {ParagraphLevel} from './pretext-derived/bidi';
 import {computeBidiLevels} from './pretext-derived/bidi';
 import type {LinePiece} from './pretext-derived/lineBreak';
@@ -172,7 +172,7 @@ export type PlaceOptions = {
   readonly verticalAlign: VerticalAlign;
   readonly blockWidth: number;
   readonly blockHeight: number;
-  readonly measurer: ParagraphMeasurer;
+  readonly measurer: AdvanceMeasurer;
 };
 
 /** Where a paint call puts its pen, and what it paints. */

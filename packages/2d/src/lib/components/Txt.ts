@@ -28,8 +28,10 @@ import {CanvasStyle, Gradient, Pattern} from '../partials';
 import type {TextExclusion, TextShapeExclusion} from '../partials/types';
 import {useScene2D} from '../scenes/useScene2D';
 import {
+  AdvanceMeasurer,
   BrokenParagraph,
   ContentRun,
+  FIT_TOLERANCE,
   FontBox,
   OBJECT_MARKER,
   OverflowWrapMode,
@@ -55,6 +57,7 @@ import {
   paintAnchorOf,
   paintCalls,
   paintsText,
+  paragraphFitMiss,
   placeParagraph,
   prepareMixedParagraph,
   rangeExtentOf,
@@ -336,7 +339,6 @@ type LineBreakOffset = {
 };
 
 const LAYOUT_CACHE_SIZE = 6;
-const FIT_TOLERANCE = 1e-6;
 
 /**
  * Breaks an exclusion layout may take to agree with the box height it was
@@ -1447,8 +1449,10 @@ export class Txt extends Shape {
   private paragraphWithScale(scale: number): OwnedParagraph | null {
     if (!this.measurementContext()) return null;
     const runs = this.runsWithScale(scale);
-    if (runs.length === 0) return null;
+    return runs.length === 0 ? null : this.paragraphOfRuns(runs);
+  }
 
+  private paragraphOfRuns(runs: readonly TxtRun[]): OwnedParagraph {
     const whiteSpace = this.whiteSpaceMode();
     const content = buildParagraphContent(runs, whiteSpace);
     const mixed = prepareMixedParagraph(
@@ -3535,15 +3539,38 @@ export class Txt extends Shape {
     return Math.ceil(hi);
   }
 
-  /**
-   * Whether the whole paragraph, laid out at `size`, fits the given box.
-   *
-   * @remarks
-   * Vertical fit is the sum of the line boxes; horizontal fit is every paint
-   * call of the placement against the free segment its line was broken in, so
-   * a call a paint seam shapes on its own is measured as it is painted. Glyph
-   * ink outside those extents is permitted, as in CSS.
-   */
+  /** Place one paragraph in the box and measure how far it reaches past it. */
+  private fitMissOf(
+    paragraph: OwnedParagraph,
+    measurer: AdvanceMeasurer,
+    maxWidth: number,
+    maxHeight: number,
+  ): number {
+    const placed = placeParagraph(
+      paragraph.items,
+      this.breakAt(paragraph, maxWidth),
+      {
+        text: paragraph.content.text,
+        metrics: paragraph.metrics,
+        vertical: paragraph.vertical,
+        textAlign: this.textAlign(),
+        direction: this.textDirectionValue(),
+        verticalAlign: this.verticalAlign(),
+        blockWidth: maxWidth,
+        blockHeight: maxHeight,
+        measurer,
+      },
+    );
+    return paragraphFitMiss(
+      paragraph.items,
+      placed,
+      paragraph.metrics,
+      paragraph.seams,
+      {width: maxWidth, height: maxHeight},
+    );
+  }
+
+  /** Whether the whole paragraph, really laid out at `size`, fits the box. */
   private fitsAtSize(
     size: number,
     maxWidth: number,
@@ -3551,32 +3578,20 @@ export class Txt extends Shape {
   ): boolean {
     const paragraph = this.paragraphWithScale(this.scaleOf(size));
     if (!paragraph) return true;
-    const broken = this.breakAt(paragraph, maxWidth);
-    const placed = placeParagraph(paragraph.items, broken, {
-      text: paragraph.content.text,
-      metrics: paragraph.metrics,
-      vertical: paragraph.vertical,
-      textAlign: this.textAlign(),
-      direction: this.textDirectionValue(),
-      verticalAlign: this.verticalAlign(),
-      blockWidth: maxWidth,
-      blockHeight: maxHeight,
-      measurer: canvasParagraphMeasurer,
-    });
-    if (placed.height > maxHeight + FIT_TOLERANCE) return false;
-    for (const call of paintCalls(
-      paragraph.items,
-      placed,
-      paragraph.metrics,
-      paragraph.seams,
-    )) {
-      const {segment} = call.line;
-      const right = Number.isFinite(segment.right) ? segment.right : maxWidth;
-      const {penX, advance} = call.anchor;
-      if (penX < segment.left - FIT_TOLERANCE) return false;
-      if (penX + advance > right + FIT_TOLERANCE) return false;
-    }
-    return true;
+    return (
+      this.fitMissOf(paragraph, canvasParagraphMeasurer, maxWidth, maxHeight) <=
+      FIT_TOLERANCE
+    );
+  }
+
+  /** Largest size the box height alone allows, bounded by the declared cap. */
+  private fitCeiling(maxHeight: number): number {
+    const size = Math.floor(this.fontSize());
+    const lineHeight = this.lineHeight();
+    if (typeof lineHeight !== 'string') return size;
+    const ratio = resolveLineHeight(lineHeight, 1);
+    if (ratio <= 0) return size;
+    return Math.min(size, Math.floor((maxHeight + FIT_TOLERANCE) / ratio));
   }
 
   /**
@@ -3597,21 +3612,8 @@ export class Txt extends Shape {
   public fitFontSize(maxWidth: number, maxHeight: number): number {
     this.assertRoot('fitFontSize');
     this.assertExclusionsIndependent();
-    const cap = this.fontSize();
-    if (!this.measurementContext()) return cap;
-
-    let size = Math.floor(cap);
-    // A line height proportional to the font size bounds the search: no size
-    // whose own line box passes the height can fit.
-    const lineHeight = this.lineHeight();
-    if (typeof lineHeight === 'string') {
-      const ratio = resolveLineHeight(lineHeight, 1);
-      if (ratio > 0) {
-        size = Math.min(size, Math.floor((maxHeight + FIT_TOLERANCE) / ratio));
-      }
-    }
-
-    for (; size >= 1; size--) {
+    if (!this.measurementContext()) return this.fontSize();
+    for (let size = this.fitCeiling(maxHeight); size >= 1; size--) {
       if (this.fitsAtSize(size, maxWidth, maxHeight)) return size;
     }
     return 1;

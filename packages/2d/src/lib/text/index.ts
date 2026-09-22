@@ -1,5 +1,6 @@
 export {clearCache as clearPretextCache} from '@chenglou/pretext';
 export * from './breakParagraph';
+export * from './fitBox';
 export * from './font';
 export * from './knuthPlassParagraph';
 export * from './lineMetrics';
@@ -14,6 +15,7 @@ export {
   readParagraphItems,
 } from './preparedParagraph';
 export type {
+  AdvanceMeasurer,
   ParagraphMeasurer,
   ParagraphMetrics,
   PreparedFields,

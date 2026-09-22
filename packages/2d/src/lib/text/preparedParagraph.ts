@@ -32,14 +32,18 @@ export type PreparedParagraph = {
   readonly handle: PreparedTextWithSegments;
 };
 
+/** What the placement pass needs of a measurement source. */
+export interface AdvanceMeasurer {
+  /** Advance of a piece of text, with no letter spacing applied. */
+  measureAdvance(text: string, metrics: ParagraphMetrics): number;
+}
+
 /**
  * Where paragraph measurements come from. Canvas measurement is the only
  * implementation; a test can supply another.
  */
-export interface ParagraphMeasurer {
+export interface ParagraphMeasurer extends AdvanceMeasurer {
   prepare(text: string, metrics: ParagraphMetrics): PreparedParagraph;
-  /** Advance of a piece of text, with no letter spacing applied. */
-  measureAdvance(text: string, metrics: ParagraphMetrics): number;
   /** Font box of a metric tuple, above and below the baseline. */
   measureFontBox(metrics: ParagraphMetrics): {ascent: number; descent: number};
 }

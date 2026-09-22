@@ -25,7 +25,12 @@ import {
 
 /** The one size {@link Txt.fitFontSize} returns when nothing fits. */
 const NO_FIT_SIZE = 1;
-const CAP = 40;
+/**
+ * Cap the generated cases search under. The exhaustive scan costs one layout
+ * per whole pixel, and the REQUIRED cases carry their own caps of 40 and 80,
+ * so a wider generated range buys sizes no surveyed project asks for.
+ */
+const CAP = 24;
 const LINE_HEIGHT: Length = '140%';
 
 const LINE_HEIGHTS: Length[] = ['140%', '100%', 30];
@@ -38,13 +43,18 @@ const BOXES: {name: string; width: number; height: number}[] = [
   {name: 'squat', width: 160, height: 30},
 ];
 
+/**
+ * Forms the sweep generates over. A tall inline child is a REQUIRED case
+ * only: no surveyed project puts a non-`Txt` child inside a `Txt`.
+ */
 const FORMS: ContentForm[] = [
   'plain',
   'span-at-space',
   'span-bold',
+  'span-italic',
+  'span-family',
   'span-in-kern',
   'span-spaced',
-  'inline-tall',
 ];
 
 type Case = {
@@ -144,6 +154,20 @@ const REQUIRED: Case[] = [
   required({letterSpacing: 2, direction: 'rtl', align: 'right'}),
   required({letterSpacing: 2, exclusions: 'left'}),
   required({letterSpacing: -1.5, exclusions: 'middle'}),
+  required({
+    form: 'span-italic',
+    exclusions: 'middle',
+    wrapMode: 'knuth-plass',
+  }),
+  required({form: 'span-italic', direction: 'rtl', align: 'justify'}),
+  required({
+    form: 'span-family',
+    hyphenated: true,
+    textName: 'long-word',
+    text: TEXTS[1].text,
+  }),
+  required({form: 'span-family', direction: 'rtl', align: 'justify'}),
+  required({form: 'span-family', exclusions: 'left', wrapMode: 'knuth-plass'}),
   required({form: 'span-spaced'}),
   required({form: 'span-spaced', align: 'center'}),
   required({form: 'span-in-kern'}),

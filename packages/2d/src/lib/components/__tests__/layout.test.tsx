@@ -381,6 +381,78 @@ describe('Layout (yoga)', () => {
 
       expect(child().size().y).toBe(200);
     });
+
+    it('should resolve a percent root past sizeless non-layout ancestors', () => {
+      const view = useScene2D().getView();
+      const child = createRef<Rect>();
+      view.add(
+        <Layout>
+          <Layout>
+            <Rect ref={child} width={'100%'} height={700} clip />
+          </Layout>
+        </Layout>,
+      );
+
+      expect(child().size()).toEqual(new Vector2(1920, 700));
+    });
+
+    it('should resolve a percent root against a sized non-layout parent', () => {
+      const view = useScene2D().getView();
+      const child = createRef<Rect>();
+      view.add(
+        <Rect width={400} height={200}>
+          <Rect ref={child} width={'50%'} height={'50%'} />
+        </Rect>,
+      );
+
+      expect(child().size()).toEqual(new Vector2(200, 100));
+    });
+
+    it('should resolve a percent root against an auto-sized flex parent', () => {
+      const view = useScene2D().getView();
+      const child = createRef<Rect>();
+      view.add(
+        <Layout layout>
+          <Rect width={300} height={50} />
+          <Rect ref={child} layout={false} width={'50%'} height={10} />
+        </Layout>,
+      );
+
+      expect(child().size().x).toBe(150);
+    });
+
+    it('should resolve a percent root against a zero-sized parent', () => {
+      const view = useScene2D().getView();
+      const child = createRef<Rect>();
+      const parent = createRef<Layout>();
+      view.add(
+        <Layout ref={parent} width={0} height={0}>
+          <Rect ref={child} layout width={'100%'} height={'100%'}>
+            <Rect width={50} height={10} />
+          </Rect>
+        </Layout>,
+      );
+
+      expect(child().size()).toEqual(new Vector2(0, 0));
+      parent().size(100);
+      expect(child().size()).toEqual(new Vector2(100, 100));
+    });
+
+    it('should resolve nested percent roots past sizeless ancestors', () => {
+      const view = useScene2D().getView();
+      const child = createRef<Rect>();
+      view.add(
+        <Layout>
+          <Rect width={'50%'} height={'50%'}>
+            <Layout>
+              <Rect ref={child} width={'50%'} height={'50%'} />
+            </Layout>
+          </Rect>
+        </Layout>,
+      );
+
+      expect(child().size()).toEqual(new Vector2(480, 270));
+    });
   });
 
   describe('dispose', () => {

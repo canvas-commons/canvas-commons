@@ -409,7 +409,8 @@ export class Layout extends Node {
    * `100` being returned.
    *
    * When the node is not part of the layout, setting its size using percents
-   * refers to the size of the entire scene.
+   * refers to the size of the nearest ancestor that has a size or a layout,
+   * which is the entire scene when no other ancestor does.
    *
    * @example
    * Initializing the size:
@@ -1028,7 +1029,8 @@ export class Layout extends Node {
    *
    * @remarks
    * Definite dimensions pass straight through. Percent dimensions resolve to
-   * the parent's computed size — yoga then applies the node's own percent
+   * the computed size of the nearest ancestor that sizes percent children —
+   * yoga then applies the node's own percent
    * against that available space, so the percent is applied exactly once
    * (a Rect with `width='50%'` under View2D gets half the view width), and
    * stacked percent roots compose recursively through `computedSize`.
@@ -1051,11 +1053,23 @@ export class Layout extends Node {
     if (typeof value === 'number') return value;
     if (typeof value !== 'string' || !value.endsWith('%')) return undefined;
 
-    const parent = this.parentTransform();
-    if (!parent) return undefined;
-    const parentSize = parent.computedSize();
-    const available = axis === 'width' ? parentSize.x : parentSize.y;
-    return isFinite(available) && available > 0 ? available : undefined;
+    let basis = this.parentTransform();
+    while (basis && !basis.sizesPercentChildren(axis)) {
+      basis = basis.parentTransform();
+    }
+    if (!basis) return undefined;
+    const basisSize = basis.computedSize();
+    const available = axis === 'width' ? basisSize.x : basisSize.y;
+    return isFinite(available) ? available : undefined;
+  }
+
+  private sizesPercentChildren(axis: 'width' | 'height'): boolean {
+    const desired = this.desiredSize();
+    return (
+      (axis === 'width' ? desired.x : desired.y) !== null ||
+      !this.isLayoutRoot() ||
+      this.canLayoutChildren()
+    );
   }
 
   private resolvePercentageDimensions(): boolean {

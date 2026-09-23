@@ -235,6 +235,25 @@ describe('Txt textWrap during text tweens', () => {
   );
 
   it(
+    'keeps wrapping a percent-width Txt resolved to a width of zero',
+    generatorTest(function* (view) {
+      const txt = (<Txt textWrap width={'100%'} text={'abc'} />) as Txt;
+      view.add(
+        <Layout layout width={0} height={400}>
+          {txt}
+        </Layout>,
+      );
+
+      yield txt.text('xyz', 2, linear);
+      yield* waitFor(1);
+
+      expect(txt.width()).toBe(0);
+      expect(txt.textWrap()).toBe(true);
+      expect(lineTexts(txt)).toHaveLength(3);
+    }),
+  );
+
+  it(
     'rewraps a percent-width Txt when its container resizes',
     generatorTest(function* (view) {
       const parent = (<Layout layout width={200} height={400} />) as Layout;

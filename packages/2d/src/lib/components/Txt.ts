@@ -663,7 +663,7 @@ export class Txt extends Shape {
       this.textWrap() !== false
     ) {
       const computedWidth = this.computedSize().x;
-      if (computedWidth > 0) {
+      if (Number.isFinite(computedWidth)) {
         // The +0.5 absorbs yoga's pixel rounding, mirroring effectiveMaxWidth.
         wrapWidth = computedWidth + 0.5;
       }
@@ -1754,7 +1754,9 @@ export class Txt extends Shape {
     // Flex/percent Txts have no numeric width; wrap at the yoga-resolved one.
     // The +0.5 absorbs yoga's pixel rounding, which would otherwise re-wrap.
     const computedWidth = this.computedSize().x;
-    return computedWidth > 0 ? computedWidth + 0.5 : Number.POSITIVE_INFINITY;
+    return Number.isFinite(computedWidth)
+      ? computedWidth + 0.5
+      : Number.POSITIVE_INFINITY;
   }
 
   @computed()

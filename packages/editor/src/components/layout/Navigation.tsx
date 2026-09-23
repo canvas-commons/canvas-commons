@@ -37,12 +37,16 @@ export function Navigation() {
     [logger, reducedMotion],
   );
 
+  const basePath = import.meta.env.BASE_URL.startsWith('http')
+    ? new URL(import.meta.env.BASE_URL).pathname
+    : import.meta.env.BASE_URL;
+
   return (
     <Tabs className={styles.root}>
       <TabLink
         title="Project Selection"
         id="project-selection-link"
-        href={window.location.search === "" ? undefined : "./"} 
+        href={window.location.pathname === basePath ? undefined : import.meta.env.BASE_URL}
       >
         <CanvasCommons />
       </TabLink>

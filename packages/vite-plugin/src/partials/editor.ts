@@ -66,8 +66,13 @@ index(${JSON.stringify(projects)});
       server.middlewares.use((req, res, next) => {
         if (req.url) {
           const url = new URL(req.url, `http://${req.headers.host}`);
+          if (url.pathname === '/') {
+            res.setHeader('Content-Type', 'text/html');
+            res.end(createHtml('/@id/__x00__virtual:editor'));
+            return;
+          }
 
-          const name = url.searchParams.get('project')
+          const name = url.pathname.slice(1);
           if (name && lookup.has(name)) {
             res.setHeader('Content-Type', 'text/html');
             res.end(
@@ -81,12 +86,6 @@ index(${JSON.stringify(projects)});
           }
         }
 
-        if (url.pathname === '/') {
-          res.setHeader('Content-Type', 'text/html');
-          res.end(createHtml('/@id/__x00__virtual:editor'));
-          return;
-        }
-        
         next();
       });
     },

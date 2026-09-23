@@ -46,7 +46,11 @@ export function Navigation() {
       <TabLink
         title="Project Selection"
         id="project-selection-link"
-        href={window.location.pathname === basePath ? undefined : import.meta.env.BASE_URL}
+        href={
+          window.location.pathname === basePath
+            ? undefined
+            : import.meta.env.BASE_URL
+        }
       >
         <CanvasCommons />
       </TabLink>

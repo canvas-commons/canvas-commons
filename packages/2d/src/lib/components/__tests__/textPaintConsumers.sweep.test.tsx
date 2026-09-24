@@ -150,7 +150,15 @@ describe('Txt frame cost', () => {
     expect(calls.length).toBeGreaterThan(3);
     expect(sets.get('font')).toBe(1);
     expect(sets.get('letterSpacing')).toBe(1);
-    expect(sets.get('fillStyle')).toBe(4);
+    const fills = calls.filter(call => call.kind === 'fill');
+    const inBox = fills.map(call => call.text.includes('box'));
+    const red = fills.find(call => call.text.includes('box'))?.fillStyle;
+    expect(fills.map(call => call.fillStyle === red)).toEqual(inBox);
+    // Once for the node's own style, then once per change of fill owner.
+    const ownerChanges = inBox.filter(
+      (box, at) => at === 0 || box !== inBox[at - 1],
+    ).length;
+    expect(sets.get('fillStyle')).toBe(1 + ownerChanges);
   });
 
   it('keeps the paint plan when its parent lays out again', () => {

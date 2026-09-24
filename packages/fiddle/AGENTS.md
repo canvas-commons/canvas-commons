@@ -169,8 +169,10 @@ Asset permissions follow the loader, not the file extension:
 
 `SVG` parses markup. Loading that markup from a URL requires a separate fetch.
 MathJax renders local SVG glyph paths without webfont requests. The harness does
-not inherit host font registrations. The TypeScript worker fetches its type pack
-outside the frame and is not governed by the frame's policy.
+not inherit host font registrations. The frame embeds Roboto, the scene default
+font, as data URLs, so a custom policy needs `font-src data:`. The TypeScript
+worker fetches its type pack outside the frame and is not governed by the
+frame's policy.
 
 `connect-src 'self' blob: data:` blocks external Iconify requests, remote audio
 decoding and scene fetches to other origins, even if images and media from those

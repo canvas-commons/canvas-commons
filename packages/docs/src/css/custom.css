@@ -15,6 +15,11 @@
 @import '@fontsource/jetbrains-mono/400.css';
 @import '@fontsource/jetbrains-mono/500.css';
 @import '@fontsource/jetbrains-mono/700.css';
+/* The scene default font; the editor loads it too. */
+@import '@fontsource/roboto/latin-400.css';
+@import '@fontsource/roboto/latin-700.css';
+@import '@fontsource/roboto/latin-400-italic.css';
+@import '@fontsource/roboto/latin-700-italic.css';
 
 /* Light mode = Catppuccin Latte. */
 :root {

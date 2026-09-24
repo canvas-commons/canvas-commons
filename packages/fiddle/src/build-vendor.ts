@@ -68,7 +68,7 @@ export interface BuildVendorOptions {
    * @example
    * ```ts
    * csp: importMapHash =>
-   *   `default-src 'none'; script-src 'self' blob: 'wasm-unsafe-eval' ${importMapHash}; style-src 'unsafe-inline'; connect-src 'self' data: blob:`,
+   *   `default-src 'none'; script-src 'self' blob: 'wasm-unsafe-eval' ${importMapHash}; style-src 'unsafe-inline'; font-src data:; connect-src 'self' data: blob:`,
    * ```
    */
   csp?: (importMapHash: string) => string;
@@ -278,6 +278,28 @@ function renderFrameBootstrap(
     `;
 }
 
+/**
+ * Embeds Roboto, the scene default font that the editor loads, because the
+ * frame does not inherit host fonts.
+ */
+function renderDefaultFontFaces(): string {
+  const faces = [
+    {weight: 400, style: 'normal'},
+    {weight: 700, style: 'normal'},
+    {weight: 400, style: 'italic'},
+    {weight: 700, style: 'italic'},
+  ];
+  return faces
+    .map(({weight, style}) => {
+      const file = packageRequire().resolve(
+        `@fontsource/roboto/files/roboto-latin-${weight}-${style}.woff2`,
+      );
+      const data = readFileSync(file).toString('base64');
+      return `@font-face { font-family: 'Roboto'; font-style: ${style}; font-weight: ${weight}; font-display: swap; src: url(data:font/woff2;base64,${data}) format('woff2'); }`;
+    })
+    .join('\n      ');
+}
+
 function renderFrameHtml(
   importMap: FiddleImportMap,
   harnessFileName: string,
@@ -313,6 +335,7 @@ function renderFrameHtml(
       /* A definite height keeps the canvas off its intrinsic pixel height,
          which would make the frame scroll. */
       html, body { height: 100%; margin: 0; overflow: hidden; }
+      ${renderDefaultFontFaces()}
     </style>
     <script type="importmap">${importMapJson}</script>
   </head>

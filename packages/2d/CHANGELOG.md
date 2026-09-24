@@ -1,5 +1,379 @@
 # Change Log
 
+## 0.4.0
+
+### Minor Changes
+
+- [#157](https://github.com/canvas-commons/canvas-commons/pull/157)
+  [`ee46230`](https://github.com/canvas-commons/canvas-commons/commit/ee46230701d0e2080388e0fd8b09bd7d9f4d23f3)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add `Latex.edit`,
+  which describes a change as one raw template whose holes carry both states of
+  the fragment that occupies them, with `morph`, `fade` and `partialFade`
+  choosing how each one animates.
+
+- [#179](https://github.com/canvas-commons/canvas-commons/pull/179)
+  [`8f01f1a`](https://github.com/canvas-commons/canvas-commons/commit/8f01f1a1dc57bfb7aa1859f837efe197e56468f4)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - `Latex` no longer
+  takes its size from the x-height of the page font. `fontSize` now equals the
+  size of the math font itself, so existing `Latex` nodes render about 10-15%
+  smaller in the editor.
+
+- [#157](https://github.com/canvas-commons/canvas-commons/pull/157)
+  [`ebbea2d`](https://github.com/canvas-commons/canvas-commons/commit/ebbea2d3a6cade9e28cee283b497eeffea534351)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Tween `<Latex>`
+  fragment by fragment, matching fragments by their sub-tex and their shapes by
+  the glyph each renders, instead of pairing every shape in the formula by
+  position. Adds `fragmentTransition` to choose how a changed fragment animates
+  and `debugFragments` to outline and label each one.
+
+- [#157](https://github.com/canvas-commons/canvas-commons/pull/157)
+  [`9345c4a`](https://github.com/canvas-commons/canvas-commons/commit/9345c4ab2040a25f5c34a494491f5d22662a8aea)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add `Latex.replace`,
+  which matches edit fragments against the current formula so only the parts
+  that change have to be written out.
+
+- [#185](https://github.com/canvas-commons/canvas-commons/pull/185)
+  [`5227033`](https://github.com/canvas-commons/canvas-commons/commit/52270337309ded9a83bd6605f1aed38280c3ca52)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Components of
+  position, scale, and layout origin signals reach the coordinate spaces:
+  `node.x.abs(value, 1)`, `node.right.x.view(value, 1)`. `relativeTo(node)` on
+  layout origin signals (`left`, `right`, ...) returns the curried signal that
+  its type declares. Layout origin `abs` and `view` give the correct point for
+  nodes that are not at the origin of their parent.
+
+  `position.relativeTo(node)` and layout origin `relativeTo(node)` read and set
+  a point in `node`'s local space, so the anchor, rotation, and scale of `node`
+  apply. For the previous offset in world axes, use
+  `a.position.abs().sub(b.position.abs())`.
+
+- [#123](https://github.com/canvas-commons/canvas-commons/pull/123)
+  [`0555a05`](https://github.com/canvas-commons/canvas-commons/commit/0555a053e37166f2321f1f59ba9e777fb476bda9)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add `autoSize` to
+  `<Txt>` — when enabled with a fixed `width` and `height`, the text takes the
+  largest whole-pixel size at or below `fontSize` whose layout fits the box. A
+  line beside an exclusion has to fit the band the exclusion leaves, so there
+  the size can be smaller than one that fits the box alone.
+
+- [#123](https://github.com/canvas-commons/canvas-commons/pull/123)
+  [`6c539a4`](https://github.com/canvas-commons/canvas-commons/commit/6c539a455e2f9f7487b66261f2138dbd27df6b1c)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add `exclusions` to
+  `<Txt>` — rect, polygon and node regions that text flows around, CSS
+  `shape-outside`-style. Coordinates are Txt-local and center-origin; a rect's
+  `x`/`y` is its center. A `{kind: 'node', node}` entry reads its shape from a
+  live node. A flex layout may place the text, the node, or both. A node that
+  this text's own flow places throws.
+
+- [#108](https://github.com/canvas-commons/canvas-commons/pull/108)
+  [`2a6f57c`](https://github.com/canvas-commons/canvas-commons/commit/2a6f57cf64ad2deb66091dc7ceed20c8685c4377)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Replace DOM-based
+  layout and text with Yoga and Pretext.
+
+  **Breaking:** `View2D.shadowRoot` and `Layout.element` / `Layout.styles` are
+  removed; use `Layout.yogaNode` and `getDomContainer()` (for SVG / arc
+  measurement) instead. `TxtLeaf` now extends `Node`, not `Shape` — direct
+  `<TxtLeaf>` styling no longer applies; styles cascade from the enclosing
+  `<Txt>`. `FlexBasis` / `LengthLimit` drop the unsupported content-keyword
+  variants, `FlexContent` adds `'normal'`, `FlexItems` adds `'auto'`, and
+  `textWrap` now defaults to `true` so width-bounded `<Txt>` wraps without
+  opt-in.
+
+  Text breaks and spaces as CSS does: a CRLF is one line break, a space or tab
+  next to a line break is dropped, and a space at a soft wrap hangs past the
+  line, so a wrapped `<Txt>` shrink-wraps to its ink. Runs of different sizes on
+  one line share one baseline, and a word that a colour or font change cuts
+  keeps the kerning of the whole word.
+
+  Flex items keep the automatic minimum size CSS gives them: a `<Txt>` in a row
+  stays as wide as the widest word it lays out, a container keeps room for the
+  text under it, and an unconstrained column item keeps its content height. Set
+  `minWidth={0}` or `minHeight={0}` to shrink past that.
+
+  A nested `<Txt>` no longer lays out its own text: its `size()` is the extent
+  of the text it paints in the root paragraph, across every line it wraps onto,
+  not the size of its text set alone on one line. It ignores `width`, `height`
+  and `padding`, and its `textLines()`, `textWords()` and `split()` read the
+  root's layout.
+
+- [#123](https://github.com/canvas-commons/canvas-commons/pull/123)
+  [`2ae5c9d`](https://github.com/canvas-commons/canvas-commons/commit/2ae5c9d666c0c5f95a5d49cf0f9a7cbee9642bbb)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add support for
+  inline non-text children inside `<Txt>` — direct `Layout` children are placed
+  in the text flow as atomic slots sized by their own `width` / `height`, and a
+  line may break on either side of one, as beside a replaced element in CSS.
+
+- [#123](https://github.com/canvas-commons/canvas-commons/pull/123)
+  [`108537f`](https://github.com/canvas-commons/canvas-commons/commit/108537f266037fc65a62da8c3bd3f2f5e2398aa8)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add
+  `textAlign={'justify'}` and a `verticalAlign` signal to `<Txt>` — justify
+  distributes line slack across word gaps and leaves a line that ends on a
+  manual newline at its natural width, as CSS does; `verticalAlign` lines text
+  up to the top, middle, or bottom of its box. A line wider than its box starts
+  at its start edge and overflows past the other, whatever the alignment, as in
+  CSS.
+
+- [#187](https://github.com/canvas-commons/canvas-commons/pull/187)
+  [`aa0f038`](https://github.com/canvas-commons/canvas-commons/commit/aa0f038532ee5b98c17630436786e6b81eb0d874)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - `Txt` wraps text
+  around a closed `textPath` when `pathOffset` loops around the end. Open paths
+  still clip.
+
+- [#123](https://github.com/canvas-commons/canvas-commons/pull/123)
+  [`218c20b`](https://github.com/canvas-commons/canvas-commons/commit/218c20bb35fd4084a63bea3479ea94a0c233faaf)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add text-on-a-path to
+  `<Txt>`: `textPath` lays a single line along SVG path data, a `CurveProfile`,
+  or a live `Curve` node, with `pathOffset`, `pathAlign`, `pathSmoothness`, and
+  `pathSplit` controlling placement, cross-path alignment, and shaping.
+
+- [#123](https://github.com/canvas-commons/canvas-commons/pull/123)
+  [`8a38ad8`](https://github.com/canvas-commons/canvas-commons/commit/8a38ad8b0336bbd852a73a3b231a7081683cecb9)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add `textWords` /
+  `textGlyphs` / `textSentences` query accessors to `<Txt>` that return per-unit
+  text and positions in Txt-local coordinates.
+
+- [#123](https://github.com/canvas-commons/canvas-commons/pull/123)
+  [`91b80f5`](https://github.com/canvas-commons/canvas-commons/commit/91b80f5b4da4399a52528431338b65fe1049eec8)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add
+  `Txt.split(granularity)` — explode a text node into one standalone,
+  style-matched `Txt` per grapheme, word, or sentence, each positioned to
+  reproduce the source render exactly (kerning included) so the pieces can be
+  animated independently.
+
+- [#123](https://github.com/canvas-commons/canvas-commons/pull/123)
+  [`57faadb`](https://github.com/canvas-commons/canvas-commons/commit/57faadb7297d6628fa1be5b53ccc5bb6d4d47279)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add `wrapMode`,
+  `hyphenate` and `overflowWrap` to `<Txt>` — opt into Knuth-Plass line breaking
+  and bring-your-own soft-hyphen insertion. `overflowWrap={'anywhere'}` breaks a
+  word wider than the line at any grapheme; the default `'normal'` keeps it
+  whole, as CSS `overflow-wrap` does.
+
+### Patch Changes
+
+- [#200](https://github.com/canvas-commons/canvas-commons/pull/200)
+  [`128dd9a`](https://github.com/canvas-commons/canvas-commons/commit/128dd9a62720043773c6a08c6ede62153857a015)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Setting `scale.abs`,
+  `scale.view`, or `scale.relativeTo` on a node rotated inside a non-uniformly
+  scaled parent lands on the value that the same space reads back, so `reparent`
+  keeps such a node's shape.
+
+- [#173](https://github.com/canvas-commons/canvas-commons/pull/173)
+  [`56a2618`](https://github.com/canvas-commons/canvas-commons/commit/56a2618548626e235fc0facd751535a20744ea86)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Wait for a web font
+  that a text node requests before the scene draws, so the first frame no longer
+  uses fallback metrics.
+
+- [#190](https://github.com/canvas-commons/canvas-commons/pull/190)
+  [`637a133`](https://github.com/canvas-commons/canvas-commons/commit/637a1339a6903a8e88f250f750769016c893e641)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Cancelling a
+  `Code.code` `replace`, `append`, or `prepend` tween holds the code at its
+  current progress and avoids memory growth.
+
+- [#190](https://github.com/canvas-commons/canvas-commons/pull/190)
+  [`289fcb7`](https://github.com/canvas-commons/canvas-commons/commit/289fcb769ee90be554739578642e8976a64932b0)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Creating many `Code`
+  nodes uses less memory.
+
+- [#168](https://github.com/canvas-commons/canvas-commons/pull/168)
+  [`e86e7a8`](https://github.com/canvas-commons/canvas-commons/commit/e86e7a8e3b42f766ea546f800a118bd75c25a07a)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Respect aspect ratios
+  on standalone nodes when only width or height is set.
+
+- [#177](https://github.com/canvas-commons/canvas-commons/pull/177)
+  [`b7c2580`](https://github.com/canvas-commons/canvas-commons/commit/b7c258029d0d56b250b5aba1064e7522bea1e8e8)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Collect a yielded
+  node's asynchronous resources inside its scene, so an icon that finishes
+  loading while the scene waits for it renders.
+
+- [#158](https://github.com/canvas-commons/canvas-commons/pull/158)
+  [`b879368`](https://github.com/canvas-commons/canvas-commons/commit/b8793686125f2e8044292bd282712a6eed28404b)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Knuth-Plass wrapping
+  treats manual newlines as mandatory breaks instead of optional break
+  candidates.
+
+- [#175](https://github.com/canvas-commons/canvas-commons/pull/175)
+  [`133b630`](https://github.com/canvas-commons/canvas-commons/commit/133b630efe326db3a5754f0564b482642febe2eb)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Knuth-Plass wrapping
+  no longer plans a last line, or any line of text that is not justified, wider
+  than the node. A word wider than the node now gets its own line instead of
+  collapsing the whole paragraph onto one line.
+
+- [#157](https://github.com/canvas-commons/canvas-commons/pull/157)
+  [`8bf9390`](https://github.com/canvas-commons/canvas-commons/commit/8bf93903ce8c5a6a42ba70cca96123eec3cc1269)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Fix `<Latex>`
+  fragments claiming glyphs that belong to a neighbouring fragment when MathJax
+  does not emit their own contiguously, and repair fragments that a split leaves
+  without the argument or the `\end` their commands need instead of reporting
+  them as invalid MathJax.
+
+- [#157](https://github.com/canvas-commons/canvas-commons/pull/157)
+  [`56c7c57`](https://github.com/canvas-commons/canvas-commons/commit/56c7c576591a417c174b91abe99adedc2742fca3)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Honor a
+  caller-supplied interpolation function when tweening `<Path>` data, and use it
+  for the path morphs in `<SVG>` and `<Latex>` so they tween through their
+  signals.
+
+- [#110](https://github.com/canvas-commons/canvas-commons/pull/110)
+  [`476f3bb`](https://github.com/canvas-commons/canvas-commons/commit/476f3bb8de19637c52a68e91bcb72b4965dd8c22)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - `Layout.add` /
+  `insert` / `remove` accept an optional `duration`. Without it they behave as
+  before; with it they return a `ThreadGenerator` that scales the child into or
+  out of its slot while the surrounding flex layout reflows.
+
+  ```tsx
+  yield * row().insert(<Rect width={100} height={100} fill="red" />, 1, 0.6);
+  yield * row().children()[0].remove(0.6);
+  ```
+
+- [#110](https://github.com/canvas-commons/canvas-commons/pull/110)
+  [`7e8384c`](https://github.com/canvas-commons/canvas-commons/commit/7e8384cc710ecb196f06d6d0738dcb75ebdd527d)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add
+  `Layout.editLayout(duration, mutator)` to animate a batch of layout properties
+  (`direction`, `wrap`, `alignItems`, `padding`, `gap`, …) as one tween.
+  Children glide from their pre-mutation positions to wherever the post-mutation
+  layout places them.
+
+  ```tsx
+  yield *
+    row().editLayout(0.3, n => {
+      n.direction('column');
+      n.alignItems('end');
+    });
+  ```
+
+- [#110](https://github.com/canvas-commons/canvas-commons/pull/110)
+  [`77a532c`](https://github.com/canvas-commons/canvas-commons/commit/77a532cf99bbdf879542d31cd519e4f6b51283fa)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add
+  `Layout.freezeLayout` / `thawLayout`. `freezeLayout` snaps children to their
+  current visual positions and turns `layoutChildren` off so they can be
+  animated by hand; `thawLayout` turns it back on and tweens children to their
+  flex slots.
+
+  ```tsx
+  row().freezeLayout();
+  yield * row().children()[0].position.x(-200, 1).back(1);
+  yield * row().thawLayout(0.3);
+  ```
+
+- [#110](https://github.com/canvas-commons/canvas-commons/pull/110)
+  [`f46dd7e`](https://github.com/canvas-commons/canvas-commons/commit/f46dd7ec3800649600d85b9e48f3e4ff914e2d13)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Concurrent-tween
+  fixes for `<Latex>`, `<Txt>`, and `<Layout>`. `padding`, `margin`, and `gap`
+  tweens now compose with `size` tweens on the same node; `Latex.tweenTex`
+  tweens the container size alongside the fragment morph; `Txt` text tweens stay
+  smooth when `fontSize` animates at the same time.
+
+  `Layout.lockLayout` / `releaseLayout` replace `lockSize` / `releaseSize`.
+
+- [#110](https://github.com/canvas-commons/canvas-commons/pull/110)
+  [`89ab100`](https://github.com/canvas-commons/canvas-commons/commit/89ab100d806fe36f49faa0f16a176179cf5ea49c)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Split `layout` on
+  `<Layout>` into `layoutSelf` (does this node participate in its parent's flex)
+  and `layoutChildren` (does this node lay out its own children). Both default
+  to `null` and fall back to `layout`, so existing code is unaffected.
+  `Layout.applyLayout` and `Layout.requestLayoutUpdate` are now public.
+
+- [#110](https://github.com/canvas-commons/canvas-commons/pull/110)
+  [`0d54f09`](https://github.com/canvas-commons/canvas-commons/commit/0d54f09aa26457cd17ec3f7c3b4e32dfdf860ac1)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add
+  `Node.transitionTo(newParent, [index,] duration)` and
+  `Node.morphTo(other, duration)`. `transitionTo` reparents a node while
+  tweening its world position, rotation, and opacity from the old slot to the
+  new one. `morphTo` cross-fades into a separate destination node.
+
+  ```tsx
+  yield * card.transitionTo(grid, 0, 0.6);
+  yield * button.morphTo(modal, 0.4);
+  ```
+
+- [#110](https://github.com/canvas-commons/canvas-commons/pull/110)
+  [`049e1d8`](https://github.com/canvas-commons/canvas-commons/commit/049e1d8f7048f4d72ff26d3a30d10e29e547c75a)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add `translate` to
+  `<Layout>` — a `Vector2Signal` (with `translateX` / `translateY` props) that
+  visually offsets the node without disturbing siblings, analogous to CSS
+  `transform: translate()`.
+
+- [#192](https://github.com/canvas-commons/canvas-commons/pull/192)
+  [`358fb59`](https://github.com/canvas-commons/canvas-commons/commit/358fb59d26607dce9c190926bd2154d486a3cd7f)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - A percent size on a
+  node outside of a layout resolves against the nearest ancestor that has a size
+  or a layout.
+
+- [#191](https://github.com/canvas-commons/canvas-commons/pull/191)
+  [`28ffc33`](https://github.com/canvas-commons/canvas-commons/commit/28ffc3389a8905d2bb4e8ef34641f77c2ea3d662)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Shaders receive the
+  `frame` uniform.
+
+- [#190](https://github.com/canvas-commons/canvas-commons/pull/190)
+  [`1be94fd`](https://github.com/canvas-commons/canvas-commons/commit/1be94fd8b8317cb709efa4898234e316aae81d45)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Text-heavy scenes
+  avoid memory growth from disposed nodes and repeated measurements.
+
+- [#169](https://github.com/canvas-commons/canvas-commons/pull/169)
+  [`3136d86`](https://github.com/canvas-commons/canvas-commons/commit/3136d86d5151a1432912cfa153a7a8bd380ec598)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Keep the shear of an
+  SVG matrix transform, and read SVG presentation properties from the `style`
+  attribute as well as the matching attribute.
+
+- [#190](https://github.com/canvas-commons/canvas-commons/pull/190)
+  [`3d1f75a`](https://github.com/canvas-commons/canvas-commons/commit/3d1f75a93d01fa5d32bd1b7a39056d4b448d7680)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - A `Txt` reuses its
+  text leaves when reactive string children change.
+
+- [#190](https://github.com/canvas-commons/canvas-commons/pull/190)
+  [`9903b5a`](https://github.com/canvas-commons/canvas-commons/commit/9903b5a04bf8394c15ad2e0546e0978d4dd7ebd8)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - `Txt` renders the
+  string representation of non-string `text` values supplied by untyped code.
+
+- [#190](https://github.com/canvas-commons/canvas-commons/pull/190)
+  [`cf288c7`](https://github.com/canvas-commons/canvas-commons/commit/cf288c74cc9de19cb617781f49c69b8a154b53ef)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - `Txt` renders empty
+  text when its value resolves to `null` or `undefined`.
+
+- [#190](https://github.com/canvas-commons/canvas-commons/pull/190)
+  [`df1d210`](https://github.com/canvas-commons/canvas-commons/commit/df1d210b9136ed568229a7bd6396e1d8f195b95a)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - `Txt` retains its
+  text leaf when a reactive `text` value changes.
+
+- [#190](https://github.com/canvas-commons/canvas-commons/pull/190)
+  [`fb40013`](https://github.com/canvas-commons/canvas-commons/commit/fb400136a62a8344714c047e06e1679f30faf1e9)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Right-to-left text
+  renders at the positions reported by its layout.
+
+- [#174](https://github.com/canvas-commons/canvas-commons/pull/174)
+  [`c52fa28`](https://github.com/canvas-commons/canvas-commons/commit/c52fa28236cf62a1a706f4b522e99f6e194337d1)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - A `<Txt>` text tween
+  whose target changes while it runs now re-wraps at the box width instead of
+  laying the rest of the tween out on one line.
+
+- [#158](https://github.com/canvas-commons/canvas-commons/pull/158)
+  [`b879368`](https://github.com/canvas-commons/canvas-commons/commit/b8793686125f2e8044292bd282712a6eed28404b)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Keep `textWrap`
+  active during text tweens on `Txt` nodes with a fixed width, a percent width
+  or a `maxWidth`.
+
+- [#190](https://github.com/canvas-commons/canvas-commons/pull/190)
+  [`ebba660`](https://github.com/canvas-commons/canvas-commons/commit/ebba660467a370ad6fc80938adb2e704429ec520)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - `Txt` wraps at a
+  resolved layout width of zero instead of painting one line.
+
+- [#155](https://github.com/canvas-commons/canvas-commons/pull/155)
+  [`0b0301b`](https://github.com/canvas-commons/canvas-commons/commit/0b0301b1f782462d8b0b19681c2f0ebeb5328016)
+  Thanks [@0byte-coding](https://github.com/0byte-coding)! - `<Video>` sources
+  are now routed through the CORS proxy, the same as `<Img>` sources. Remote
+  videos no longer taint the canvas when the proxy is enabled.
+
+- [#200](https://github.com/canvas-commons/canvas-commons/pull/200)
+  [`acb7ae4`](https://github.com/canvas-commons/canvas-commons/commit/acb7ae44bb48813a3216b04e484df8b835bf8299)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - `rotation.view` and
+  `scale.view` are measured in the view's frame through every ancestor, as
+  `position.view` is.
+- Updated dependencies
+  [[`5d2eecb`](https://github.com/canvas-commons/canvas-commons/commit/5d2eecbbafbf5715bf70a2bcda551599c7390481),
+  [`8f84c05`](https://github.com/canvas-commons/canvas-commons/commit/8f84c05d7bd156194d408b3ef1ba346a956d2de7),
+  [`2d44fca`](https://github.com/canvas-commons/canvas-commons/commit/2d44fca9cf34ddb1f193ef1c656930b9d949e42d),
+  [`c7c1e79`](https://github.com/canvas-commons/canvas-commons/commit/c7c1e79fa15bd540cb0236e720f1a2392c91f7c5),
+  [`b7c2580`](https://github.com/canvas-commons/canvas-commons/commit/b7c258029d0d56b250b5aba1064e7522bea1e8e8)]:
+  - @canvas-commons/core@0.4.0
+
 ## 0.3.1
 
 ### Patch Changes

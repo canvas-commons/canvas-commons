@@ -1,5 +1,38 @@
 # Change Log
 
+## 0.4.0
+
+### Minor Changes
+
+- [#121](https://github.com/canvas-commons/canvas-commons/pull/121)
+  [`c7c1e79`](https://github.com/canvas-commons/canvas-commons/commit/c7c1e79fa15bd540cb0236e720f1a2392c91f7c5)
+  Thanks [@xiaoxiae](https://github.com/xiaoxiae)! - change the default color
+  interpolation space from `lch` to `oklab`
+
+### Patch Changes
+
+- [#167](https://github.com/canvas-commons/canvas-commons/pull/167)
+  [`5d2eecb`](https://github.com/canvas-commons/canvas-commons/commit/5d2eecbbafbf5715bf70a2bcda551599c7390481)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - The audio preview
+  gain uses the amplitude formula (`10^(db/20)`), matching the exporters.
+
+- [#179](https://github.com/canvas-commons/canvas-commons/pull/179)
+  [`8f84c05`](https://github.com/canvas-commons/canvas-commons/commit/8f84c05d7bd156194d408b3ef1ba346a956d2de7)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add Intl.Segmenter
+  types to the shared tsconfig so projects extending it typecheck.
+
+- [#182](https://github.com/canvas-commons/canvas-commons/pull/182)
+  [`2d44fca`](https://github.com/canvas-commons/canvas-commons/commit/2d44fca9cf34ddb1f193ef1c656930b9d949e42d)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Stop webpack from
+  resolving the dynamic plugin import, which removes its critical dependency
+  warning.
+
+- [#177](https://github.com/canvas-commons/canvas-commons/pull/177)
+  [`b7c2580`](https://github.com/canvas-commons/canvas-commons/commit/b7c258029d0d56b250b5aba1064e7522bea1e8e8)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Collect a yielded
+  node's asynchronous resources inside its scene, so an icon that finishes
+  loading while the scene waits for it renders.
+
 ## 0.3.1
 
 ## 0.3.0

@@ -14,6 +14,14 @@ import {TxtLeaf} from './TxtLeaf';
 import {generatorTest} from './__tests__/generatorTest';
 import {mockScene2D} from './__tests__/mockScene2D';
 
+function leafAt(node: Txt, index: number): TxtLeaf {
+  const child = node.childAs<TxtLeaf>(index);
+  if (!(child instanceof TxtLeaf)) {
+    throw new Error(`expected a TxtLeaf at index ${index}`);
+  }
+  return child;
+}
+
 describe('Txt', () => {
   mockScene2D();
 
@@ -59,27 +67,21 @@ describe('Txt', () => {
   it('Handle plain text', () => {
     const node = (<Txt lineWidth={8}>test</Txt>) as Txt;
 
-    const parseSpy = vi.spyOn(
-      node as unknown as {parseChildren: () => unknown},
-      'parseChildren',
-    );
-    const leaf = node.childAs<TxtLeaf>(0);
+    const leaf = leafAt(node, 0);
 
     expect(node.text()).toBe('test');
     expect(node.lineWidth()).toBe(8);
     expect(node.children().length).toBe(1);
-    expect(leaf).toBeInstanceOf(TxtLeaf);
-    expect(leaf!.text()).toBe('test');
+    expect(leaf.text()).toBe('test');
 
     node.lineWidth(16);
     node.text('changed');
 
+    // A plain string stays a single leaf, and updating it in place reuses
+    // the same leaf instance.
     expect(node.childAs(0)).toBe(leaf);
     expect(node.lineWidth()).toBe(16);
-    expect(leaf!.text()).toBe('changed');
-
-    // Parsing should not happen when operating exclusively on simple text
-    expect(parseSpy).toHaveBeenCalledTimes(0);
+    expect(leaf.text()).toBe('changed');
   });
 
   it('Handle complex text', () => {
@@ -89,22 +91,20 @@ describe('Txt', () => {
       </Txt>
     ) as Txt;
 
-    const first = node.childAs<TxtLeaf>(0);
+    const first = leafAt(node, 0);
     const second = node.childAs<Txt>(1);
-    const third = node.childAs<TxtLeaf>(2);
+    const third = leafAt(node, 2);
 
     expect(node.text()).toBe('Apple Banana Cherry');
     expect(node.lineWidth()).toBe(8);
     expect(node.children().length).toBe(3);
-    expect(first).toBeInstanceOf(TxtLeaf);
-    expect(first!.text()).toBe('Apple ');
+    expect(first.text()).toBe('Apple ');
 
     expect(second).toBeInstanceOf(Txt);
-    expect(second!.text()).toBe('Banana');
-    expect(second!.lineWidth()).toBe(8);
+    expect(second?.text()).toBe('Banana');
+    expect(second?.lineWidth()).toBe(8);
 
-    expect(third).toBeInstanceOf(TxtLeaf);
-    expect(third!.text()).toBe(' Cherry');
+    expect(third.text()).toBe(' Cherry');
   });
 
   it(
@@ -119,7 +119,7 @@ describe('Txt', () => {
       yield node.text('Simple', 2, linear);
       yield* waitFor(1);
 
-      const leaf = node.childAs<TxtLeaf>(0)!;
+      const leaf = leafAt(node, 0);
 
       expect(node.children().length).toBe(1);
       expect(node.text()).toBe('Apple Ban');

@@ -935,9 +935,7 @@ export class Txt extends Shape {
     return true;
   }
 
-  /**
-   * Offset in the normalized paragraph text a break cursor points at.
-   */
+  /** Offset in the normalized paragraph text a break cursor points at. */
   private static cursorOffset(
     items: ParagraphItems,
     text: string,
@@ -991,12 +989,7 @@ export class Txt extends Shape {
     return breaks;
   }
 
-  /**
-   * Whether a line the tween joined from its two endpoint layouts still fits.
-   * The candidate is placed on its own and every paint call it makes is
-   * measured against the tightest free segment the current layout was broken
-   * in, so an exclusion narrows the test as it narrows the text.
-   */
+  /** Whether a placed line still fits the layout's free segment. */
   private lineFitsSegment(wrapWidth: number): (line: string) => boolean {
     const paragraph = this.paragraph();
     const metrics = paragraph?.metrics[0];
@@ -1359,11 +1352,7 @@ export class Txt extends Shape {
     };
   }
 
-  /**
-   * Every styled run this text block paints, in reading order. A `TxtLeaf` is
-   * a text run of its owning `Txt`'s style; any other `Layout` child is one
-   * object run of its own size.
-   */
+  /** Every styled run this block paints, in reading order. */
   private runsWithScale(scale: number): TxtRun[] {
     // Neither a finished web font load nor a locale change has a signal of
     // its own, and both change what this collects.
@@ -1415,11 +1404,7 @@ export class Txt extends Shape {
     this.runsWithScale(this.effectiveScale());
   }
 
-  /**
-   * Hyphenate every word of the paragraph and hand each character back to the
-   * run it came from. The hyphenator reads whole words, so a word a style
-   * change cuts in two still breaks where the hyphenator says it may.
-   */
+  /** Hyphenate whole words across runs, then split them back per run. */
   private static hyphenateRuns(
     runs: readonly TxtRun[],
     hyphenate: HyphenateFn,
@@ -1496,10 +1481,7 @@ export class Txt extends Shape {
     };
   }
 
-  /**
-   * Offsets a paint change begins at, each moved forward to a grapheme
-   * boundary. A cluster is one shaping run, so paint may not cut inside it.
-   */
+  /** Offsets where paint changes, snapped to grapheme boundaries. */
   private static paintSeams(
     content: ParagraphContent<Layout | null, TxtRunStyle>,
   ): number[] {
@@ -1532,20 +1514,14 @@ export class Txt extends Shape {
       : this.paragraphWithScale(scale);
   }
 
-  /**
-   * {@link paragraph} for a reader inside the layout pass. Its autoSize fit
-   * reads the boxes the pass has settled so far, not the finished pass.
-   */
+  /** {@link paragraph}, reading boxes settled so far during layout. */
   private passParagraph(): OwnedParagraph | null {
     const box = this.fitBox();
     if (!box || !this.readsSettledBoxes()) return this.paragraph();
     return this.preparedWithScale(this.scaleOf(this.fitFontSize(box.x, box.y)));
   }
 
-  /**
-   * Narrowest width the paragraph's lines fit in: the widest unit that cannot
-   * break under the current {@link overflowWrap}.
-   */
+  /** Min-content width: the widest unit the paragraph cannot break. */
   private contentFloorOf(textWrap: boolean): number {
     const paragraph = this.passParagraph();
     if (!paragraph) return 0;
@@ -1562,10 +1538,7 @@ export class Txt extends Shape {
     return this.contentFloorOf(this.textWrap() !== false);
   }
 
-  /**
-   * Every input a break and a placement depend on, so a change marks the node
-   * for yoga to measure again.
-   */
+  /** Every input a break and placement depend on. */
   @computed()
   private paragraphLayoutKey(): unknown[] {
     return [this.passParagraph(), ...this.layoutInputs()];
@@ -1584,10 +1557,7 @@ export class Txt extends Shape {
     ];
   }
 
-  /**
-   * Why the shape of `node` cannot be read without this node's own layout,
-   * and what to do instead, or `null` when it can.
-   */
+  /** Why `node`'s shape can't be read yet, or `null` if it can. */
   private exclusionDependency(node: Node): string | null {
     for (
       let current: Node | null = node;
@@ -1610,12 +1580,7 @@ export class Txt extends Shape {
     return null;
   }
 
-  /**
-   * Reject a `node` exclusion this node's own layout would have to produce
-   * before it can be read. Every public reader checks before it enters a
-   * computed, so the error reaches the caller instead of leaving the layout
-   * without an answer.
-   */
+  /** Reject a `node` exclusion this node's own layout would produce. */
   private assertExclusionsIndependent(): void {
     const exclusions = this.exclusions();
     if (exclusions.length === 0) return;
@@ -1633,11 +1598,7 @@ export class Txt extends Shape {
     }
   }
 
-  /**
-   * The exclusion set as plain values, so a memo key compares by value. A
-   * `node` entry compares by identity and by the frame, outline, and anchor
-   * its sampled polygon is built from.
-   */
+  /** The exclusion set as plain values, for a memo key. */
   private exclusionKey(): unknown[] {
     const exclusions = this.readableExclusions();
     this.assertExclusionsIndependent();
@@ -1674,23 +1635,17 @@ export class Txt extends Shape {
     return key;
   }
 
-  /**
-   * The exclusions a break reads now. Until the first pass of its layout
-   * settles, the nodes that pass places have no box, so no `node` exclusion
-   * applies.
-   */
+  /** The exclusions a break reads now. */
   private readableExclusions(): readonly TextExclusion[] {
     const exclusions = this.exclusions();
     if (!this.placedBySameLayout(this) || SettledBoxes.has(this)) {
       return exclusions;
     }
+    // Drop `node` exclusions until this layout's first pass settles a box.
     return exclusions.filter(({kind}) => kind !== 'node');
   }
 
-  /**
-   * Run the layout pass that settles the boxes a `node` exclusion reads, so a
-   * reader outside the pass reads its result and depends on it.
-   */
+  /** Run the layout pass that settles `node` exclusion boxes. */
   private readSettledPass(): void {
     if (this.readsSettledBoxes()) this.computedSize();
   }
@@ -1729,11 +1684,7 @@ export class Txt extends Shape {
     return false;
   }
 
-  /**
-   * Whether the yoga pass that lays this node out also places `node`. Such a
-   * node is read from the geometry that pass settled on, because asking its
-   * signals while the pass measures this text would read the pass itself.
-   */
+  /** Whether `node` shares this pass; read its settled boxes, not signals. */
   private placedBySameLayout(node: Layout): boolean {
     return !node.isLayoutRoot() && layoutRootOf(node) === layoutRootOf(this);
   }
@@ -1755,11 +1706,7 @@ export class Txt extends Shape {
     return matrix;
   }
 
-  /**
-   * Map `node`-local coordinates into this node's anchor frame through their
-   * lowest common ancestor, reading nothing at or above it. A descendant
-   * composes straight into Txt-local coordinates instead.
-   */
+  /** Map `node`-local coordinates into this node's anchor frame. */
   private relativeAnchorFrame(node: Node): DOMMatrix {
     if (this.contains(node)) return this.composeToAncestor(node, this);
 
@@ -1782,13 +1729,7 @@ export class Txt extends Shape {
     return txtToLca.inverse().multiply(this.composeToAncestor(node, lca));
   }
 
-  /**
-   * The outline a `node` exclusion blocks, in the node's own coordinates: a
-   * {@link Curve} walks its profile, no more than 8px of arc length apart, and
-   * any other node blocks its {@link Node.cacheBBox}. A node the same yoga pass
-   * places has no settled profile yet, so it blocks its settled box, or the
-   * ellipse in it for a full circle.
-   */
+  /** The outline a `node` exclusion blocks, in its own coordinates. */
   private nodeOutline(node: Node): Vector2[] {
     if (node instanceof Layout && this.placedBySameLayout(node)) {
       const {size} = settledGeometry(node);
@@ -1813,11 +1754,7 @@ export class Txt extends Shape {
     return node.cacheBBox().corners;
   }
 
-  /**
-   * Sample a `node` exclusion's outline into a polygon in the center-origin
-   * coordinates of a block of `size`, so a rotated node still clips
-   * correctly.
-   */
+  /** Sample a `node` exclusion's outline into a block-space polygon. */
   private sampleNodeExclusion(node: Node, size: Vector2): Vector2[] {
     const frame = this.relativeAnchorFrame(node);
     return this.nodeOutline(node).map(point =>
@@ -1825,12 +1762,7 @@ export class Txt extends Shape {
     );
   }
 
-  /**
-   * What takes an anchor-free point to the center-origin coordinates of a
-   * block of `size`. A descendant frame already lands there. A node yoga
-   * places keeps its settled top-left edge while the block grows, so the
-   * shift holds that edge in place for any `size`.
-   */
+  /** Anchor-free point to center-origin coordinates of a `size` block. */
   private anchorShift(node: Node, size: Vector2): Vector2 {
     if (this.contains(node)) return Vector2.zero;
     const anchor = this.anchor();
@@ -1839,11 +1771,7 @@ export class Txt extends Shape {
     return settled.mul(anchor.add(Vector2.one)).sub(size).scale(0.5);
   }
 
-  /**
-   * The one conversion from declared, center-origin exclusions into the block
-   * space the break pass reads, where `(0, 0)` is the top-left of a text block
-   * of `size`. Padding rides along and applies after it.
-   */
+  /** Exclusions converted into the block space the break pass reads. */
   private blockExclusions(
     exclusions: readonly TextExclusion[],
     size: Vector2,
@@ -1885,10 +1813,7 @@ export class Txt extends Shape {
     return resolved;
   }
 
-  /**
-   * Break the paragraph at `maxWidth`, memoized on the inputs the break pass
-   * reads. Placement, node size and the tween share one break per width.
-   */
+  /** Break the paragraph at `maxWidth`, memoized on its inputs. */
   private breakAt(
     paragraph: OwnedParagraph,
     maxWidth: number,
@@ -1954,13 +1879,7 @@ export class Txt extends Shape {
     });
   }
 
-  /**
-   * Break around exclusions placed against this node's own box. A box that
-   * takes its height from the text answers with a height the next pass
-   * assumes, so the pass repeats until the content fits the box it was broken
-   * against. That box is the height the node keeps, so the shapes stay where
-   * the text flowed around them.
-   */
+  /** Break against exclusions placed on this node's own box. */
   private breakConverged(
     paragraph: OwnedParagraph,
     maxWidth: number,
@@ -1995,6 +1914,8 @@ export class Txt extends Shape {
     if (broken.lines.length === 0) return broken;
     let best = broken;
     let bestHeight = Math.max(height, broken.height);
+    // Repeat until the box height and the broken content agree, since an
+    // auto-height box takes its height from the very content broken against it.
     for (let pass = 1; pass < EXCLUSION_HEIGHT_PASSES; pass++) {
       if (broken.height <= height + 0.5) return {...broken, height};
       height = bound(broken.height);
@@ -2060,10 +1981,7 @@ export class Txt extends Shape {
     return placed;
   }
 
-  /**
-   * The layout at its natural size: every line at its own ink width, with no
-   * alignment applied. This is what the node measures itself by.
-   */
+  /** The layout at its natural size, with no alignment applied. */
   private naturalPlacement(
     maxWidth: number,
     textWrap = this.textWrap() !== false,
@@ -2114,16 +2032,10 @@ export class Txt extends Shape {
     return this.placement()?.lines ?? [];
   }
 
-  /**
-   * The shared measurement context, or `null` in headless environments
-   * without 2D canvas support (e.g. jsdom) where text cannot be measured.
-   *
-   * @remarks
-   * This is the single availability gate for the text pipeline — callers
-   * branch on it instead of swallowing errors, so real measurement bugs
-   * still throw.
-   */
+  /** The shared measurement context, or `null` when unavailable. */
   private measurementContext(): CanvasRenderingContext2D | null {
+    // Single availability gate: callers branch on this instead of
+    // swallowing errors, so a real measurement bug still throws.
     return sharedMeasurementContext();
   }
 
@@ -2134,26 +2046,19 @@ export class Txt extends Shape {
     lineHeight: 0,
   };
 
-  /**
-   * The ink a paint call carries. Whitespace holds no ink of its own, so it
-   * takes the ink of the run it stands in front of.
-   */
+  /** The ink a paint call carries. */
   private static paintOwnerOf(
     paragraph: OwnedParagraph,
     text: string,
     start: number,
   ): number {
     const spans = paragraph.content.ownerSpans;
+    // Whitespace has no ink of its own; it takes the ink of the run ahead.
     const at = text.trim() === '' ? start + text.length : start;
     return Txt.ownerIndexAt(spans, Math.min(at, spans[spans.length - 1].start));
   }
 
-  /**
-   * Style a reported fragment carries: the ink of {@link paintOwnerOf} and the
-   * font of the run that measured the slice, which whitespace at a run
-   * boundary takes from the run in front of it and is measured in the run
-   * behind it.
-   */
+  /** Style a fragment carries: {@link paintOwnerOf}'s ink plus its font. */
   private fragmentStyleOf(
     paragraph: OwnedParagraph,
     text: string,
@@ -2197,11 +2102,7 @@ export class Txt extends Shape {
     return lo;
   }
 
-  /**
-   * Every painted stretch of one line, in reading order, cut where a piece
-   * ends and where a paint seam falls. These are the ranges the paint calls
-   * cover, so a consumer reading them paints what the node paints.
-   */
+  /** Every painted stretch of one line, cut at pieces and paint seams. */
   private static paintedSlices(
     paragraph: OwnedParagraph,
     piece: PlacedPiece,
@@ -2406,13 +2307,7 @@ export class Txt extends Shape {
     return new BBox(minX, minY, maxX - minX, maxY - minY);
   }
 
-  /**
-   * While a stabilized text tween is running, every line break is forced into
-   * the leaf text, so soft wrapping has nothing left to do. Turning it off
-   * also keeps lines that rely on a hanging hyphen (a discretionary hyphen is
-   * not counted against the wrap width) from being re-broken once the hyphen
-   * is materialized as a literal '-'.
-   */
+  /** Set in a stabilized tween so a materialized hyphen is not re-broken. */
   private readonly forcedBreaksOnly = createSignal(false);
 
   /**
@@ -2468,10 +2363,7 @@ export class Txt extends Shape {
     return {width: measured, height: placed.height};
   }
 
-  /**
-   * Mark this node for yoga to measure again when the geometry its last
-   * measurement read from the yoga pass has moved since.
-   */
+  /** Mark this node dirty when its exclusion geometry has moved. */
   private settleExclusions(): boolean {
     const measured = this.measuredExclusionKey;
     if (measured === null || sameKey(measured, this.exclusionKey())) {
@@ -2546,11 +2438,7 @@ export class Txt extends Shape {
     return this.parentTxt()?.rootTxt() ?? this;
   }
 
-  /**
-   * Position of an inline child, derived from the laid-out slot it occupies
-   * in the root `Txt`'s text flow. Returns the slot center in root-local
-   * coordinates; `(0, 0)` when the child has no slot (e.g. headless layout).
-   */
+  /** Position of an inline child, from its laid-out slot in the root. */
   protected inlinePositionOf(child: Layout): Vector2 {
     const root = this.rootTxt();
     const paragraph = root.paragraph();
@@ -2711,11 +2599,7 @@ export class Txt extends Shape {
     this.drawChildren(context);
   }
 
-  /**
-   * Distance along the path where the run begins, derived from `textAlign` and
-   * `textDirection` (mirroring the placement pass). Justify is unsupported on a
-   * path and falls back to the start edge.
-   */
+  /** Distance along the path where the run begins. */
   private pathAlignBase(arcLength: number, textWidth: number): number {
     const rtl = this.textDirection() === 'rtl';
     const toEnd = arcLength - textWidth;
@@ -2731,18 +2615,12 @@ export class Txt extends Shape {
       case 'start':
         return rtl ? toEnd : 0;
       default:
+        // Justify is unsupported on a path and falls back to start.
         return rtl ? toEnd : 0;
     }
   }
 
-  /**
-   * Build the `pathAlign: 'smooth'` offset as a function of arc distance (in
-   * local pixels): the signed turn at each interior vertex, interpolated
-   * linearly along every segment. The lerp keeps the lean continuous, so
-   * glyphs ramp between sides instead of jumping at a corner. On a closed
-   * path both ends use the turn across the seam, so the lean stays continuous
-   * there too.
-   */
+  /** Build the `pathAlign: 'smooth'` offset by arc distance. */
   private buildSmoothAnchor(
     profile: CurveProfile,
     matrix: DOMMatrix,
@@ -2999,10 +2877,7 @@ export class Txt extends Shape {
     });
   }
 
-  /**
-   * The box, in the root's space, of the pieces of the root's placement that
-   * hold text this node or a node under it owns. Hanging space is not ink.
-   */
+  /** The box, in root space, of pieces this node or its children own. */
   private ownedExtent(): BBox | null {
     return this.rootTxt().ownedExtents().get(this) ?? null;
   }
@@ -3046,10 +2921,7 @@ export class Txt extends Shape {
     return new Vector2(e, f);
   }
 
-  /**
-   * The lines of the root's placement that hold ink this nested node owns,
-   * with only that ink, from the top left of its {@link ownedExtent}.
-   */
+  /** This nested node's owned lines, from its {@link ownedExtent}. */
   private ownedLayout(): TextLayoutResult {
     const root = this.rootTxt();
     const paragraph = root.paragraph();
@@ -3071,11 +2943,7 @@ export class Txt extends Shape {
     };
   }
 
-  /**
-   * The root whose placement a unit query reads, once it is known the query
-   * can be answered. Public readers check before they enter a computed, so
-   * the error reaches the caller.
-   */
+  /** The root whose placement a unit query reads. */
   private unitsRoot(): Txt {
     const root = this.rootTxt();
     root.assertExclusionsIndependent();
@@ -3176,21 +3044,7 @@ export class Txt extends Shape {
     return this.textLines().lines.length;
   }
 
-  /**
-   * Walk every line of the placed layout, segmenting the line's whole text at
-   * the requested granularity and pairing each unit with the paints covering
-   * it.
-   *
-   * @remarks
-   * Backs {@link textWords}, {@link textGlyphs}, {@link textSentences},
-   * {@link split} and path text. A sentence reaches across the pieces a line
-   * is broken into, and a unit a paint seam cuts carries one part per owner,
-   * so what a unit reports is what the node paints. Every coordinate comes
-   * from the placement pass; nothing here measures or offsets a position of
-   * its own. `keepPunctuation` keeps non-word, non-whitespace segments (e.g.
-   * `'.'`) as their own units under `'word'` granularity; the public
-   * accessors drop them, but {@link split} keeps them so no ink is lost.
-   */
+  /** Walk every line, pairing segmented units with the paints on them. */
   private walkUnits(
     granularity: SegmentGranularity,
     keepPunctuation: boolean,
@@ -3240,6 +3094,8 @@ export class Txt extends Shape {
       for (const seg of segment(logical, granularity)) {
         if (seg.segment.length === 0) continue;
         if (granularity === 'word' && !seg.isWordLike) {
+          // keepPunctuation keeps units like '.'; split() needs them so no
+          // ink is lost, other callers (textWords, etc.) drop them.
           if (/^\s+$/.test(seg.segment) || !keepPunctuation) continue;
         }
         const from = seg.index;
@@ -3342,11 +3198,7 @@ export class Txt extends Shape {
     return this.walkUnits(granularity, false).map(entry => entry.unit);
   }
 
-  /**
-   * Cheap segment-only split used when a real layout is unavailable (jsdom or
-   * other headless environments without canvas measurement).
-   * Produces a single-line layout with zero widths; preserves text order.
-   */
+  /** Cheap segment-only split for headless environments. */
   private fallbackSplit(granularity: SegmentGranularity): TextUnit[] {
     const runs = this.runsWithScale(1);
     if (runs.length === 0) return [];
@@ -3632,11 +3484,7 @@ export class Txt extends Shape {
     );
   }
 
-  /**
-   * Paragraphs autoSize prepared, newest first, with the fits read from each.
-   * The key holds every input of the preparation, the hyphenated text and the
-   * font load epoch among them, so a reuse can never answer for another state.
-   */
+  /** Paragraphs autoSize prepared, newest first, keyed on every input. */
   private preparations: Preparation[] = [];
 
   private preparedWithScale(scale: number): OwnedParagraph | null {
@@ -3682,18 +3530,7 @@ export class Txt extends Shape {
     return prepared;
   }
 
-  /**
-   * A probe that answers a size by arithmetic on the ceiling preparation. It
-   * runs the same break and placement passes against the same real box, with
-   * every advance multiplied instead of measured.
-   *
-   * @remarks
-   * A rejection is final only when the paragraph still misses at the narrowest
-   * advances {@link ADVANCE_SCALE_ERROR} allows, because a face that steps
-   * with its size can move a break and so change the line count. A paragraph
-   * the bound does not describe has every rejection checked instead. Every
-   * other verdict is handed to the real pipeline.
-   */
+  /** A probe that answers a fit by scaling the ceiling preparation. */
   private scaledFitProbe(
     prepared: OwnedParagraph,
     ceiling: number,
@@ -3731,6 +3568,8 @@ export class Txt extends Shape {
       const scale = size / ceiling;
       if (tooTall(scale)) return {fits: false, final: true};
       if (missAt(scale, 0) <= FIT_TOLERANCE) return {fits: true, final: false};
+      // Final only if it still misses at the narrowest advances allowed;
+      // a size-stepped face could otherwise move a break at a wider one.
       return {
         fits: false,
         final: bounded && missAt(scale, ADVANCE_SCALE_ERROR) > FIT_TOLERANCE,
@@ -3738,12 +3577,7 @@ export class Txt extends Shape {
     };
   }
 
-  /**
-   * Whether a scale leaves more ink than the box can hold, whatever the break
-   * pass does with it. The ink is read at the narrowest advances
-   * {@link ADVANCE_SCALE_ERROR} allows, so a face that steps with its size is
-   * covered too, and the answer needs no layout.
-   */
+  /** Whether a scale leaves more ink than the box can hold. */
   private heightFloorProbe(
     prepared: OwnedParagraph,
     maxWidth: number,

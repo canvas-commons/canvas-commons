@@ -76,7 +76,7 @@
     "@lezer/highlight": "^1.2.3",
     "escape-string-regexp": "^5.0.0",
     "mathjax-full": "^3.2.2",
-    "parse-svg-path": "^0.1.2",
+    "parse-svg-path": "^0.2.0",
     "roughjs": "^4.6.6",
     "yoga-layout": "^3.2.1"
   }

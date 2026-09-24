@@ -97,7 +97,7 @@
     "@fontsource/roboto": "^5.3.0",
     "@lezer/highlight": "^1.2.0",
     "@lezer/javascript": "^1.4.13",
-    "@typescript/vfs": "1.6.1",
+    "@typescript/vfs": "1.6.4",
     "typescript": "^6.0.2"
   },
   "devDependencies": {

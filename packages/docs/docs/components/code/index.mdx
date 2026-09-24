@@ -23,7 +23,7 @@ export default makeScene2D(function* (view) {
       ref={code}
       fontSize={28}
       fontFamily={'JetBrains Mono, monospace'}
-      offsetX={-1}
+      anchorX={-1}
       x={-400}
       code={'const number = 7;'}
     />,
@@ -58,7 +58,7 @@ export default makeScene2D(function* (view) {
   const code = new Code({
     fontSize: 28,
     fontFamily: 'JetBrains Mono, monospace',
-    offsetX: -1,
+    anchorX: -1,
     x: -400,
     code: 'const number = 7;',
   });
@@ -615,7 +615,7 @@ export default makeScene2D(function* (view) {
     <Code
       ref={code}
       fontSize={28}
-      offsetX={-1}
+      anchorX={-1}
       x={-400}
       code={`\
 function example() {
@@ -638,7 +638,7 @@ import {createRef} from '@canvas-commons/core';
 export default makeScene2D(function* (view) {
   const code = new Code({
     fontSize: 28,
-    offsetX: -1,
+    anchorX: -1,
     x: -400,
     code: `\
 function example() {
@@ -679,7 +679,7 @@ export default makeScene2D(function* (view) {
     <Code
       ref={code}
       fontSize={28}
-      offsetX={-1}
+      anchorX={-1}
       x={-400}
     />,
   );
@@ -711,7 +711,7 @@ import {createRef, waitFor} from '@canvas-commons/core';
 export default makeScene2D(function* (view) {
   const code = new Code({
     fontSize: 28,
-    offsetX: -1,
+    anchorX: -1,
     x: -400,
   });
   view.add(code);
@@ -759,7 +759,7 @@ export default makeScene2D(function* (view) {
     <Code
       ref={code}
       fontSize={28}
-      offsetX={-1}
+      anchorX={-1}
       x={-400}
       code={`\
 function example() {
@@ -797,7 +797,7 @@ import {all, createRef, waitFor} from '@canvas-commons/core';
 export default makeScene2D(function* (view) {
   const code = new Code({
     fontSize: 28,
-    offsetX: -1,
+    anchorX: -1,
     x: -400,
     code: `\
 function example() {
@@ -852,7 +852,7 @@ export default makeScene2D(function* (view) {
     <Code
       ref={code}
       fontSize={28}
-      offsetX={-1}
+      anchorX={-1}
       x={-400}
     />,
   );
@@ -878,7 +878,7 @@ import {createRef, waitFor} from '@canvas-commons/core';
 export default makeScene2D(function* (view) {
   const code = new Code({
     fontSize: 28,
-    offsetX: -1,
+    anchorX: -1,
     x: -400,
   });
   view.add(code);
@@ -920,7 +920,7 @@ export default makeScene2D(function* (view) {
   view.add(
     <Code
       fontSize={28}
-      offsetX={-1}
+      anchorX={-1}
       x={-400}
       code={CODE`\
 function hello() {
@@ -952,7 +952,7 @@ export default makeScene2D(function* (view) {
 
   const code = new Code({
     fontSize: 28,
-    offsetX: -1,
+    anchorX: -1,
     x: -400,
     code: CODE`\
 function hello() {
@@ -992,7 +992,7 @@ export default makeScene2D(function* (view) {
     <Code 
       ref={code} 
       fontSize={28} 
-      offsetX={-1} 
+      anchorX={-1} 
       x={-400} 
       code={'// example'} 
     />,
@@ -1023,7 +1023,7 @@ import {createRef, waitFor} from '@canvas-commons/core';
 export default makeScene2D(function* (view) {
   const code = new Code({
     fontSize: 28,
-    offsetX: -1,
+    anchorX: -1,
     x: -400,
     code: '// example',
   });
@@ -1114,7 +1114,7 @@ export default makeScene2D(function* (view) {
     <Code
       ref={code}
       fontSize={28}
-      offsetX={-1}
+      anchorX={-1}
       x={-400}
       code={`\
 function example() {
@@ -1144,7 +1144,7 @@ import {createRef, waitFor} from '@canvas-commons/core';
 export default makeScene2D(function* (view) {
   const code = new Code({
     fontSize: 28,
-    offsetX: -1,
+    anchorX: -1,
     x: -400,
     code: `\
 function example() {
@@ -1187,7 +1187,7 @@ export default makeScene2D(function* (view) {
     <Code
       ref={code}
       fontSize={28}
-      offsetX={-1}
+      anchorX={-1}
       x={-400}
       code={`\
 function hello() {
@@ -1220,7 +1220,7 @@ import {createRef, DEFAULT, waitFor} from '@canvas-commons/core';
 export default makeScene2D(function* (view) {
   const code = new Code({
     fontSize: 28,
-    offsetX: -1,
+    anchorX: -1,
     x: -400,
     code: `\
 function hello() {
@@ -1271,7 +1271,7 @@ export default makeScene2D(function* (view) {
     <Code
       ref={code}
       fontSize={28}
-      offsetX={-1}
+      anchorX={-1}
       x={-400}
       code={`\
 function hello() {
@@ -1292,7 +1292,7 @@ function hello() {
 
   code().add(
     <Rect
-      offset={-1}
+      anchor={-1}
       position={range().position}
       size={range().size}
       lineWidth={4}
@@ -1313,7 +1313,7 @@ import {createRef, createSignal} from '@canvas-commons/core';
 export default makeScene2D(function* (view) {
   const code = new Code({
     fontSize: 28,
-    offsetX: -1,
+    anchorX: -1,
     x: -400,
     code: `\
 function hello() {
@@ -1333,7 +1333,7 @@ function hello() {
   });
 
   const rect = new Rect({
-    offset: -1,
+    anchor: -1,
     position: range().position,
     size: range().size,
     lineWidth: 4,
@@ -1393,7 +1393,7 @@ const RustHighlighter = new LezerHighlighter(parser);
 view.add(
   <Code
     // this node uses the default parser
-    offsetX={-1}
+    anchorX={-1}
     x={-400}
     code={`
 function hello() {
@@ -1407,7 +1407,7 @@ view.add(
   <Code
     // this node uses the Rust parser
     highlighter={RustHighlighter}
-    offsetX={1}
+    anchorX={1}
     x={400}
     code={`
 fn hello() {
@@ -1431,7 +1431,7 @@ const RustHighlighter = new LezerHighlighter(parser);
 
 const jsCode = new Code({
   // this node uses the default parser
-  offsetX: -1,
+  anchorX: -1,
   x: -400,
   code: `
 function hello() {
@@ -1444,7 +1444,7 @@ view.add(jsCode);
 const rustCode = new Code({
   // this node uses the Rust parser
   highlighter: RustHighlighter,
-  offsetX: 1,
+  anchorX: 1,
   x: 400,
   code: `
 fn hello() {

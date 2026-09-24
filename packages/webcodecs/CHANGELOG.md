@@ -1,5 +1,13 @@
 # @canvas-commons/webcodecs
 
+## 0.4.1
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @canvas-commons/core@0.4.1
+  - @canvas-commons/vite-plugin@0.4.1
+
 ## 0.4.0
 
 ### Minor Changes

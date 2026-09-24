@@ -1,6 +1,6 @@
 {
   "name": "@canvas-commons/fiddle",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "private": true,
   "description": "Browser playground runtime for Canvas Commons",
   "type": "module",

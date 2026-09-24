@@ -1,5 +1,14 @@
 # Change Log
 
+## 0.4.0
+
+### Minor Changes
+
+- [#171](https://github.com/canvas-commons/canvas-commons/pull/171)
+  [`bb7cedc`](https://github.com/canvas-commons/canvas-commons/commit/bb7cedcffbdf46a4db03dc05bce638c6d58c826d)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add a `paused`
+  attribute to pause embedded animations, including autoplay.
+
 ## 0.3.1
 
 ## 0.3.0

@@ -1,5 +1,21 @@
 # Change Log
 
+## 0.4.0
+
+### Patch Changes
+
+- [#115](https://github.com/canvas-commons/canvas-commons/pull/115)
+  [`c59b2c8`](https://github.com/canvas-commons/canvas-commons/commit/c59b2c834df83d4e47f7140f019365b31d7e4887)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - declare kleur as a
+  direct dependency so scaffolding works under pnpm's strict node_modules layout
+  instead of relying on npm hoisting it from prompts.
+
+- [#165](https://github.com/canvas-commons/canvas-commons/pull/165)
+  [`1b3c05e`](https://github.com/canvas-commons/canvas-commons/commit/1b3c05e6c0f3e5dbfcd5a6c32e20bd7a7582e9ab)
+  Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Offer the WebCodecs
+  video exporter in the render prompt, selected by default. The FFmpeg exporter
+  is still available but is now deprecated.
+
 ## 0.3.1
 
 ## 0.3.0

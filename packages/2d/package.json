@@ -58,7 +58,7 @@
     "@canvas-commons/editor": "workspace:^",
     "@preact/signals": "catalog:",
     "@rollup/plugin-node-resolve": "^15.3.1",
-    "@rollup/plugin-typescript": "^11.1.6",
+    "@rollup/plugin-typescript": "^12.3.0",
     "@types/node": "catalog:",
     "clsx": "catalog:",
     "geometry-polyfill": "^1.0.7",

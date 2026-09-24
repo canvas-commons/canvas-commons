@@ -66,11 +66,8 @@ export default makeScene2D(function* (view) {
 ```ts editor mode=preview
 // snippet Cubic Bézier
 import {makeScene2D, CubicBezier} from '@canvas-commons/2d';
-import {createRef} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
-  const bezier = createRef<CubicBezier>();
-
   const cubicBezierElement = new CubicBezier({
     lineWidth: 6,
     stroke: 'lightseagreen',
@@ -80,20 +77,16 @@ export default makeScene2D(function* (view) {
     p3: [200, 70],
     end: 0,
   });
-  bezier(cubicBezierElement);
   view.add(cubicBezierElement);
 
-  yield* bezier.end(1, 1);
-  yield* bezier.start(1, 1).to(0, 1);
+  yield* cubicBezierElement.end(1, 1);
+  yield* cubicBezierElement.start(1, 1).to(0, 1);
 });
 
 // snippet Quadratic Bézier
 import {makeScene2D, QuadBezier} from '@canvas-commons/2d';
-import {createRef} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
-  const bezier = createRef<QuadBezier>();
-
   const quadBezierElement = new QuadBezier({
     lineWidth: 6,
     stroke: 'lightseagreen',
@@ -102,11 +95,10 @@ export default makeScene2D(function* (view) {
     p2: [150, 50],
     end: 0,
   });
-  bezier(quadBezierElement);
   view.add(quadBezierElement);
 
-  yield* bezier.end(1, 1);
-  yield* bezier.start(1, 1).to(0, 1);
+  yield* quadBezierElement.end(1, 1);
+  yield* quadBezierElement.start(1, 1).to(0, 1);
 });
 ```
 
@@ -343,11 +335,8 @@ export default makeScene2D(function* (view) {
 ```ts editor
 // snippet Cubic Bézier
 import {makeScene2D, CubicBezier} from '@canvas-commons/2d';
-import {createRef} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
-  const bezier = createRef<CubicBezier>();
-
   const cubicBezierElement = new CubicBezier({
     lineWidth: 6,
     stroke: 'lightseagreen',
@@ -359,19 +348,15 @@ export default makeScene2D(function* (view) {
     startArrow: true,
     endArrow: true,
   });
-  bezier(cubicBezierElement);
   view.add(cubicBezierElement);
 
-  yield* bezier.arrowSize(20, 1).to(10, 1).to(16, 1);
+  yield* cubicBezierElement.arrowSize(20, 1).to(10, 1).to(16, 1);
 });
 
 // snippet Quadratic Bézier
 import {makeScene2D, QuadBezier} from '@canvas-commons/2d';
-import {createRef} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
-  const bezier = createRef<QuadBezier>();
-
   const quadBezierElement = new QuadBezier({
     lineWidth: 6,
     stroke: 'lightseagreen',
@@ -382,10 +367,9 @@ export default makeScene2D(function* (view) {
     startArrow: true,
     endArrow: true,
   });
-  bezier(quadBezierElement);
   view.add(quadBezierElement);
 
-  yield* bezier.arrowSize(20, 1).to(10, 1).to(16, 1);
+  yield* quadBezierElement.arrowSize(20, 1).to(10, 1).to(16, 1);
 });
 ```
 
@@ -521,11 +505,8 @@ export default makeScene2D(function* (view) {
 ```ts editor
 // snippet Drawing Bézier curves
 import {makeScene2D, CubicBezier} from '@canvas-commons/2d';
-import {createRef} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
-  const bezier = createRef<CubicBezier>();
-
   const cubicBezierElement = new CubicBezier({
     lineWidth: 6,
     stroke: 'lightseagreen',
@@ -535,28 +516,17 @@ export default makeScene2D(function* (view) {
     p3: [200, 70],
     end: 0,
   });
-  bezier(cubicBezierElement);
   view.add(cubicBezierElement);
 
-  yield* bezier.end(1, 2).to(0, 2);
+  yield* cubicBezierElement.end(1, 2).to(0, 2);
 });
 
 // snippet Moving nodes along a curve
 import {makeScene2D, CubicBezier, Rect} from '@canvas-commons/2d';
-import {
-  createRef,
-  waitFor,
-  createSignal,
-  createComputed,
-} from '@canvas-commons/core';
+import {waitFor, createSignal, createComputed} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
-  const bezier = createRef<CubicBezier>();
-
   const progress = createSignal(0);
-  const curvePoint = createComputed(() =>
-    bezier.getPointAtPercentage(progress()),
-  );
 
   const bezierElement = new CubicBezier({
     lineWidth: 6,
@@ -566,7 +536,10 @@ export default makeScene2D(function* (view) {
     p2: [-120, 120],
     p3: [300, 70],
   });
-  bezier(bezierElement);
+
+  const curvePoint = createComputed(() =>
+    bezierElement.getPointAtPercentage(progress()),
+  );
 
   const rectElement = new Rect({
     size: 25,

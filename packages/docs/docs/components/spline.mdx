@@ -40,11 +40,8 @@ export default makeScene2D(function* (view) {
 
 ```ts editor mode=preview
 import {makeScene2D, Spline, Knot} from '@canvas-commons/2d';
-import {createRef} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
-  const spline = createRef<Spline>();
-
   const splineElement = new Spline({
     lineWidth: 4,
     fill: '#e13238',
@@ -60,10 +57,9 @@ export default makeScene2D(function* (view) {
       new Knot({position: [0, 100], startHandle: [5, 0]}),
     ],
   });
-  spline(splineElement);
   view.add(splineElement);
 
-  yield* spline.scale(0.9, 0.6).to(1, 0.4);
+  yield* splineElement.scale(0.9, 0.6).to(1, 0.4);
 });
 ```
 
@@ -184,11 +180,8 @@ export default makeScene2D(function* (view) {
 
 ```ts editor
 import {makeScene2D, Spline} from '@canvas-commons/2d';
-import {createRef} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
-  const spline = createRef<Spline>();
-
   const splineElement = new Spline({
     lineWidth: 6,
     stroke: 'lightseagreen',
@@ -200,10 +193,9 @@ export default makeScene2D(function* (view) {
       [300, 0],
     ],
   });
-  spline(splineElement);
   view.add(splineElement);
 
-  yield* spline.smoothness(0, 1).to(1, 1).to(0.4, 1);
+  yield* splineElement.smoothness(0, 1).to(1, 1).to(0.4, 1);
 });
 ```
 
@@ -619,10 +611,9 @@ export default makeScene2D(function* (view) {
 
 ```ts editor
 import {makeScene2D, Spline, Rect} from '@canvas-commons/2d';
-import {createRef, createSignal} from '@canvas-commons/core';
+import {createSignal} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
-  const spline = createRef<Spline>();
   const progress = createSignal(0);
 
   const splineElement = new Spline({
@@ -635,13 +626,13 @@ export default makeScene2D(function* (view) {
       [300, 0],
     ],
   });
-  spline(splineElement);
 
   const rectElement = new Rect({
     size: 26,
     fill: 'lightseagreen',
-    position: () => spline.getPointAtPercentage(progress()).position,
-    rotation: () => spline.getPointAtPercentage(progress()).tangent.degrees,
+    position: () => splineElement.getPointAtPercentage(progress()).position,
+    rotation: () =>
+      splineElement.getPointAtPercentage(progress()).tangent.degrees,
   });
 
   view.add([splineElement, rectElement]);

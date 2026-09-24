@@ -84,22 +84,19 @@ export default makeScene2D(function* (view) {
 ```ts editor
 // snippet Filters Property
 import {Img, makeScene2D} from '@canvas-commons/2d';
-import {createRef} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
   view.fill('#141414');
 
-  const iconRef = createRef<Img>();
   const imgElement = new Img({src: '/img/logo_dark.svg', size: 200});
-  iconRef(imgElement);
   yield view.add(imgElement);
   // Modification happens by accessing the `filters` property.
   // Individual filters don't need to be initialized. If a filter you set doesn't
   // exists, it will be automatically created and added to the list of filters.
   // If you have multiple filters of the same type, this will only
   // modify the first instance (you can use the array method for more control).
-  yield* iconRef.filters.blur(10, 1);
-  yield* iconRef.filters.blur(0, 1);
+  yield* imgElement.filters.blur(10, 1);
+  yield* imgElement.filters.blur(0, 1);
 });
 
 // snippet Filters Array

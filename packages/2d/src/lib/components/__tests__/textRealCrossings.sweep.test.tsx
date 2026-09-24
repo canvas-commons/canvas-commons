@@ -653,8 +653,7 @@ describe('Txt crossings real scenes hit', () => {
       width: 200,
       text: SENTENCE,
     };
-    // The door 57 surveyed call sites pass `'wrap'` through: an untyped props
-    // object spread over the typed ones.
+    // Untyped props can pass `'wrap'` through.
     const fromTheWild = (record: Record<string, unknown>): TxtProps => ({
       ...props,
       ...record,

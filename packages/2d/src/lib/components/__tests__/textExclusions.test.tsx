@@ -44,8 +44,6 @@ describe('getPolygonIntervalForBand', () => {
 
   it('catches thin features that integer-y sampling would miss', () => {
     // A sliver less than 1px tall, positioned between integer scanlines.
-    // The previous scanline implementation sampled at y + 0.5 and returned
-    // null for this polygon; the analytic version is exact.
     const sliver = [
       {x: 0, y: 50},
       {x: 100, y: 49.8},

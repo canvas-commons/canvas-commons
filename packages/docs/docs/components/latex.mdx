@@ -36,23 +36,21 @@ export default makeScene2D(function* (view) {
 
 ```ts editor mode=preview
 import {Latex, makeScene2D} from '@canvas-commons/2d';
-import {createRef, waitFor} from '@canvas-commons/core';
+import {waitFor} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
-  const tex = createRef<Latex>();
   const latexElement = new Latex({tex: '{{y=}}{{a}}{{x^2}}', fill: 'white'});
-  tex(latexElement);
   view.add(latexElement);
 
   yield* waitFor(0.2);
-  yield* tex.tex('{{y=}}{{a}}{{x^2}} + {{bx}}', 1);
+  yield* latexElement.tex('{{y=}}{{a}}{{x^2}} + {{bx}}', 1);
   yield* waitFor(0.2);
-  yield* tex.tex(
+  yield* latexElement.tex(
     '{{y=}}{{\\left(}}{{a}}{{x^2}} + {{bx}}{{\\over 1}}{{\\right)}}',
     1,
   );
   yield* waitFor(0.2);
-  yield* tex.tex('{{y=}}{{a}}{{x^2}}', 1);
+  yield* latexElement.tex('{{y=}}{{a}}{{x^2}}', 1);
 });
 ```
 
@@ -211,16 +209,14 @@ export default makeScene2D(function* (view) {
 
 ```ts editor
 import {Latex, makeScene2D} from '@canvas-commons/2d';
-import {createRef, waitFor} from '@canvas-commons/core';
+import {waitFor} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
-  const tex = createRef<Latex>();
   const latexElement = new Latex({tex: '{{1}} + {{2}}', fill: 'white'});
-  tex(latexElement);
   view.add(latexElement);
 
   yield* waitFor(0.5);
-  yield* tex.tex(['2', '+', '3', '+', '4'], 1);
+  yield* latexElement.tex(['2', '+', '3', '+', '4'], 1);
 });
 ```
 
@@ -324,28 +320,26 @@ export default makeScene2D(function* (view) {
 
 ```ts
 import {Latex, makeScene2D, manimMorpher} from '@canvas-commons/2d';
-import {createRef, waitFor} from '@canvas-commons/core';
+import {waitFor} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
-  const tex = createRef<Latex>();
-  view.add(<Latex
-    ref={tex}
+  const tex = new Latex({
     //     0     1   2   3     4
-    tex="{{x}}^{{2}} + {{y}}^{{2}}"
-    fill="white"
-    stroke="white"
-    lineWidth={0}
-    morpher={manimMorpher({})}
-  />);
+    tex: '{{x}}^{{2}} + {{y}}^{{2}}',
+    fill: 'white',
+    stroke: 'white',
+    lineWidth: 0,
+    morpher: manimMorpher({}),
+  });
   view.add(tex);
 
   yield* waitFor(2);
 
-  yield* tex().lineWidth(4, 0.5);
-  yield* tex().fill('rgba(255, 255, 255, 0.0)', 0.5);
+  yield* tex.lineWidth(4, 0.5);
+  yield* tex.fill('rgba(255, 255, 255, 0.0)', 0.5);
 
   const pmatrixTex =
-  //         4          0       1          2       3         5
+    //         4          0       1          2       3         5
     '\\begin{pmatrix} {{a}} & {{b}} \\\\ {{c}} & {{d}} \\end{pmatrix}';
   // Mapping of original indices to target indices
   // Split the plus into the matrix parenthesis, then map x -> a, y -> c, 2 -> b, 2 -> d
@@ -353,8 +347,8 @@ export default makeScene2D(function* (view) {
 
   yield* tex.map(pmatrixTex, pmatrixMap, 1);
 
-  yield* tex().fill('white', 0.5);
-  yield* tex().lineWidth(0, 0.5);
+  yield* tex.fill('white', 0.5);
+  yield* tex.lineWidth(0, 0.5);
 
   yield* waitFor(2);
 });

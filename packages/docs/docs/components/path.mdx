@@ -41,11 +41,8 @@ export default makeScene2D(function* (view) {
 
 ```ts editor mode=preview
 import {makeScene2D, Path} from '@canvas-commons/2d';
-import {createRef} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
-  const path = createRef<Path>();
-
   const pathElement = new Path({
     lineWidth: 4,
     stroke: '#e13238',
@@ -55,11 +52,10 @@ export default makeScene2D(function* (view) {
     start: 0,
     end: 0,
   });
-  path(pathElement);
   view.add(pathElement);
 
-  yield* path.end(1, 1);
-  yield* path.fill('#e13238', 1);
+  yield* pathElement.end(1, 1);
+  yield* pathElement.fill('#e13238', 1);
 });
 ```
 
@@ -169,11 +165,8 @@ export default makeScene2D(function* (view) {
 
 ```ts editor
 import {makeScene2D, Path} from '@canvas-commons/2d';
-import {createRef} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
-  const path = createRef<Path>();
-
   const pathElement = new Path({
     lineWidth: 4,
     stroke: '#e13238',
@@ -181,10 +174,9 @@ export default makeScene2D(function* (view) {
     position: [-100, -100],
     scale: 0.25,
   });
-  path(pathElement);
   view.add(pathElement);
 
-  yield* path.data(
+  yield* pathElement.data(
     'M25.508,12.011 L576.715,12.011 L576.715,584.766 L25.508,584.766 L25.508,12.011 z',
     1,
   );
@@ -239,10 +231,9 @@ export default makeScene2D(function* (view) {
 
 ```ts editor
 import {makeScene2D, Path, Rect} from '@canvas-commons/2d';
-import {createRef, createSignal} from '@canvas-commons/core';
+import {createSignal} from '@canvas-commons/core';
 
 export default makeScene2D(function* (view) {
-  const path = createRef<Path>();
   const progress = createSignal(0);
 
   const pathElement = new Path({
@@ -250,13 +241,13 @@ export default makeScene2D(function* (view) {
     stroke: 'lightgray',
     data: 'M -180 -21 C -180 -54.1371 -153.1371 -81 -120 -81 C -86.8629 -81 -60 -54.1371 -60 -21 C -60 12.1371 -33.1371 33 0 33 C 33.1371 33 48 3 48 -21 C 48 -45 30 -69 0 -69 C -30 -69 -48 -45 -48 -21 C -48 3 -33.1371 33 0 33 C 39 34.5 60 12 60 -21 C 60 -54.1371 86.8629 -81 120 -81 C 153.1371 -81 180 -54.1371 180 -21 C 180 12.1371 153.1371 39 120 39 L -120 39 C -153.1371 39 -180 12.1371 -180 -21 Z',
   });
-  path(pathElement);
 
   const rectElement = new Rect({
     size: 26,
     fill: 'lightseagreen',
-    position: () => path.getPointAtPercentage(progress()).position,
-    rotation: () => path.getPointAtPercentage(progress()).tangent.degrees,
+    position: () => pathElement.getPointAtPercentage(progress()).position,
+    rotation: () =>
+      pathElement.getPointAtPercentage(progress()).tangent.degrees,
   });
 
   view.add([pathElement, rectElement]);

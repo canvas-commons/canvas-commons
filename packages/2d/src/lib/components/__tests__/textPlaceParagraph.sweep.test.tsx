@@ -3,6 +3,7 @@ import type {TextAlign, TextShapeExclusion} from '../../partials/types';
 import type {
   BreakConstraints,
   BrokenParagraph,
+  OverflowWrapMode,
 } from '../../text/breakParagraph';
 import {breakParagraph} from '../../text/breakParagraph';
 import {breakParagraphOptimally} from '../../text/knuthPlassParagraph';
@@ -77,6 +78,7 @@ const LETTER_SPACINGS = [0, 2];
 const ALIGNS: TextAlign[] = ['left', 'center', 'right', 'justify'];
 const DIRECTIONS: TextDirection[] = ['ltr', 'rtl'];
 const WIDTHS = [37, 61, 120];
+const OVERFLOW_WRAPS: OverflowWrapMode[] = ['anywhere', 'normal'];
 
 /** The sweep may only grow: a shrunken sweep is a weaker gate. */
 const WIDTH_COMPARISONS = 1000;
@@ -131,11 +133,12 @@ function constraintsOf(
   vertical: ParagraphVerticalMetrics,
   maxWidth: number,
   exclusions: readonly TextShapeExclusion[],
+  overflowWrap: OverflowWrapMode = 'anywhere',
 ): BreakConstraints {
   return {
     maxWidth,
     textWrap: true,
-    overflowWrap: 'anywhere',
+    overflowWrap,
     exclusions,
     vertical,
   };
@@ -178,10 +181,11 @@ function place(
   textAlign: TextAlign,
   direction: TextDirection,
   exclusions: readonly TextShapeExclusion[] = [],
+  overflowWrap?: OverflowWrapMode,
 ): {broken: BrokenParagraph; placed: PlacedParagraph} {
   const broken = breakParagraph(
     built.items,
-    constraintsOf(built.vertical, width, exclusions),
+    constraintsOf(built.vertical, width, exclusions, overflowWrap),
   );
   return {
     broken,
@@ -191,6 +195,65 @@ function place(
       optionsOf(built, textAlign, direction, width),
     ),
   };
+}
+
+type EdgeAlign = 'left' | 'right' | 'center';
+
+/** The box edge a fitting line's ink lands on, per CSS Text 3. */
+const ALIGN_TABLE: Record<TextAlign, Record<TextDirection, EdgeAlign>> = {
+  left: {ltr: 'left', rtl: 'left'},
+  right: {ltr: 'right', rtl: 'right'},
+  center: {ltr: 'center', rtl: 'center'},
+  end: {ltr: 'right', rtl: 'left'},
+  start: {ltr: 'left', rtl: 'right'},
+  justify: {ltr: 'left', rtl: 'right'},
+};
+
+/** Records each alignment miss; returns whether the line overflows. */
+function checkLineAlignment(
+  line: PlacedLine,
+  align: TextAlign,
+  direction: TextDirection,
+  where: string,
+  findings: string[],
+): boolean {
+  const boxLeft = line.segment.left;
+  const boxRight = line.segment.right;
+  const inkLeft = line.left;
+  const inkRight = line.left + line.inkWidth;
+  const overflowing = line.inkWidth - (boxRight - boxLeft) > 1e-6;
+
+  if (overflowing) {
+    // A line too long for its box is start-aligned: start is left in ltr,
+    // right in rtl.
+    const [actual, expected] =
+      direction === 'rtl' ? [inkRight, boxRight] : [inkLeft, boxLeft];
+    if (Math.abs(actual - expected) > 1e-6) {
+      findings.push(`${where}: overflow edge ${actual} != ${expected}`);
+    }
+    return true;
+  }
+
+  if (line.justified) {
+    if (Math.abs(inkLeft - boxLeft) > 1e-6) {
+      findings.push(`${where}: justified left ${inkLeft} != ${boxLeft}`);
+    }
+    return false;
+  }
+
+  const edge = ALIGN_TABLE[align][direction];
+  if (edge === 'left' && Math.abs(inkLeft - boxLeft) > 1e-6) {
+    findings.push(`${where}: left edge ${inkLeft} != ${boxLeft}`);
+  } else if (edge === 'right' && Math.abs(inkRight - boxRight) > 1e-6) {
+    findings.push(`${where}: right edge ${inkRight} != ${boxRight}`);
+  } else if (edge === 'center') {
+    const center = (inkLeft + inkRight) / 2;
+    const boxCenter = (boxLeft + boxRight) / 2;
+    if (Math.abs(center - boxCenter) > 1e-6) {
+      findings.push(`${where}: center ${center} != ${boxCenter}`);
+    }
+  }
+  return false;
 }
 
 /** Right edge of the line's ink, read back from the placed pieces. */
@@ -1017,39 +1080,49 @@ describe('placeParagraph', () => {
     expect(measurer.calls).toBe(0);
   });
 
-  it('matches the reference alignment offset and justification slack', () => {
+  it('aligns every line to its CSS edge and justifies by the natural slack', () => {
     const findings: string[] = [];
     let comparisons = 0;
+    let overflowing = 0;
     for (const sweep of sweepCases()) {
       for (const width of WIDTHS) {
         for (const align of ALIGNS) {
           for (const direction of DIRECTIONS) {
-            const {placed} = place(sweep, width, align, direction);
-            for (let l = 0; l < placed.lines.length; l++) {
-              comparisons++;
-              const line = placed.lines[l];
-              const where = `${sweep.name}@${width}/${align}/${direction}#${l}`;
-              const expected = line.justified
-                ? line.segment.left
-                : line.segment.left +
-                  referenceAlignOffset(
-                    align,
-                    direction,
-                    line.segment.right,
-                    line.segment.left + line.inkWidth,
-                  );
-              if (Math.abs(line.left - expected) > 1e-6) {
-                findings.push(`${where}: ${line.left} != ${expected}`);
-              }
-              if (!line.justified) continue;
-              const slack = line.pieces.reduce((sum, p) => sum + p.slack, 0);
-              const natural = place(sweep, width, 'left', direction).placed;
-              const reference =
-                line.segment.right -
-                line.segment.left -
-                natural.lines[l].inkWidth;
-              if (Math.abs(slack - reference) > 1e-6) {
-                findings.push(`${where}: slack ${slack} != ${reference}`);
+            for (const overflowWrap of OVERFLOW_WRAPS) {
+              const {placed} = place(
+                sweep,
+                width,
+                align,
+                direction,
+                [],
+                overflowWrap,
+              );
+              for (let l = 0; l < placed.lines.length; l++) {
+                comparisons++;
+                const line = placed.lines[l];
+                const where = `${sweep.name}@${width}/${align}/${direction}/${overflowWrap}#${l}`;
+                if (
+                  checkLineAlignment(line, align, direction, where, findings)
+                ) {
+                  overflowing++;
+                }
+                if (!line.justified) continue;
+                const slack = line.pieces.reduce((sum, p) => sum + p.slack, 0);
+                const natural = place(
+                  sweep,
+                  width,
+                  'left',
+                  direction,
+                  [],
+                  overflowWrap,
+                ).placed;
+                const reference =
+                  line.segment.right -
+                  line.segment.left -
+                  natural.lines[l].inkWidth;
+                if (Math.abs(slack - reference) > 1e-6) {
+                  findings.push(`${where}: slack ${slack} != ${reference}`);
+                }
               }
             }
           }
@@ -1057,6 +1130,7 @@ describe('placeParagraph', () => {
       }
     }
     expect(comparisons).toBeGreaterThanOrEqual(ALIGN_COMPARISONS);
+    expect(overflowing).toBeGreaterThan(0);
     expect(findings).toEqual([]);
   });
 
@@ -1209,27 +1283,3 @@ describe('placeParagraph', () => {
     expect(graphemeEdges(whole)).toEqual([0, 12, 24, 36]);
   });
 });
-
-/** `computeAlignOffset` of the reference placement, branch for branch. */
-function referenceAlignOffset(
-  align: TextAlign,
-  direction: TextDirection,
-  containerWidth: number,
-  lineWidth: number,
-): number {
-  const rtl = direction === 'rtl';
-  switch (align) {
-    case 'center':
-      return (containerWidth - lineWidth) / 2;
-    case 'right':
-      return containerWidth - lineWidth;
-    case 'end':
-      return rtl ? 0 : containerWidth - lineWidth;
-    case 'start':
-      return rtl ? containerWidth - lineWidth : 0;
-    case 'left':
-      return 0;
-    default:
-      return rtl ? containerWidth - lineWidth : 0;
-  }
-}

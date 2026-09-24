@@ -298,3 +298,68 @@ describe('transform signals', () => {
     });
   });
 });
+
+describe('view space', () => {
+  mockScene2D();
+
+  let parent: Rect;
+  let child: Rect;
+
+  beforeEach(() => {
+    parent = new Rect({position: [100, 0], rotation: 90, scale: 2});
+    child = new Rect({position: [10, 0], rotation: 15, scale: 1.5});
+    parent.add(child);
+    useScene2D().getView().add(parent);
+  });
+
+  function expectSameWorldMatrix(actual: Rect, expected: Rect) {
+    const a = actual.localToWorld();
+    const b = expected.localToWorld();
+    for (const key of ['a', 'b', 'c', 'd', 'e', 'f'] as const) {
+      expect(a[key]).toBeCloseTo(b[key]);
+    }
+  }
+
+  /** A node in the view built from the child's view-space values. */
+  function copyInView(): Rect {
+    const copy = new Rect({
+      position: child.position.view(),
+      rotation: child.rotation.view(),
+      scale: child.scale.view(),
+    });
+    useScene2D().getView().add(copy);
+    return copy;
+  }
+
+  test.each([
+    ['an untransformed view', () => {}],
+    [
+      'a rotated and scaled view',
+      () => useScene2D().getView().rotation(30).scale(0.5),
+    ],
+  ])('reads what a view child needs to cover the node, in %s', (_, setup) => {
+    setup();
+    expectSameWorldMatrix(copyInView(), child);
+  });
+
+  test('keeps x and y apart under non-uniform scales', () => {
+    useScene2D().getView().scale([0.5, 0.25]);
+    parent.rotation(0).scale([2, 3]);
+    child.rotation(0).scale([1.5, 0.5]);
+
+    expectSameWorldMatrix(copyInView(), child);
+  });
+
+  test('sets through view so the node matches a view child', () => {
+    const view = useScene2D().getView();
+    view.rotation(30).scale(0.5);
+    const target = new Rect({position: [40, -20], rotation: 45, scale: 3});
+    view.add(target);
+
+    child.position.view(target.position());
+    child.rotation.view(target.rotation());
+    child.scale.view(target.scale());
+
+    expectSameWorldMatrix(child, target);
+  });
+});

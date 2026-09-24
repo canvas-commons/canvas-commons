@@ -42,6 +42,13 @@ const PropertyChainCache = new WeakMap<
   {epoch: number; properties: Record<string, PropertyMetadata<any>>}
 >();
 
+const KnownKeysCache = new WeakMap<
+  Record<string, PropertyMetadata<any>>,
+  Set<string>
+>();
+
+const WarnedUnknownProps = new WeakMap<Constructor, Set<string>>();
+
 export function getPropertyMeta<T>(
   target: any,
   key: string | symbol,
@@ -104,9 +111,27 @@ export function getPropertiesOf(
   return properties;
 }
 
+export function getKnownPropKeysOf(value: any): Set<string> {
+  const properties = getPropertiesOf(value);
+  let known = KnownKeysCache.get(properties);
+  if (known) {
+    return known;
+  }
+
+  known = new Set(Object.keys(properties));
+  for (const meta of Object.values(properties)) {
+    for (const [, property] of meta.compoundEntries) {
+      known.add(property);
+    }
+  }
+  KnownKeysCache.set(properties, known);
+  return known;
+}
+
 export function initializeSignals(instance: any, props: Record<string, any>) {
   initialize(instance);
-  for (const [key, meta] of Object.entries(getPropertiesOf(instance))) {
+  const properties = getPropertiesOf(instance);
+  for (const [key, meta] of Object.entries(properties)) {
     const signal = instance[key];
     signal.reset();
     if (props[key] !== undefined) {
@@ -119,6 +144,27 @@ export function initializeSignals(instance: any, props: Record<string, any>) {
         }
       }
     }
+  }
+
+  const known = getKnownPropKeysOf(instance);
+  for (const key of Object.keys(props)) {
+    if (known.has(key) || props[key] === undefined) {
+      continue;
+    }
+
+    let warned = WarnedUnknownProps.get(instance.constructor);
+    if (!warned) {
+      warned = new Set();
+      WarnedUnknownProps.set(instance.constructor, warned);
+    }
+    if (warned.has(key)) {
+      continue;
+    }
+    warned.add(key);
+
+    useLogger().warn(
+      `${instance.constructor.name} received an unknown prop "${key}"; it will be ignored. This usually means a typo, or the plugin that registers this property isn't installed in this project.`,
+    );
   }
 }
 

@@ -1,5 +1,7 @@
 import {CompoundSignal, DEFAULT, SimpleSignal} from '@canvas-commons/core';
-import {beforeEach, describe, expect, test, vi} from 'vitest';
+import {afterEach, beforeEach, describe, expect, test, vi} from 'vitest';
+import {Node} from '../components';
+import {mockScene2D} from '../components/__tests__/mockScene2D';
 import {compound} from './compound';
 import {computed} from './computed';
 import {
@@ -306,5 +308,88 @@ describe('property metadata chain-walk', () => {
 
     expect(getPropertiesOf(Benchmarked)).toBe(propertiesBefore);
     expect(chainWalkCallsPerInstance).toBeLessThan(1);
+  });
+});
+
+describe('initializeSignals: unknown prop warning', () => {
+  mockScene2D();
+
+  class Warnable {
+    @initial(0)
+    @signal()
+    declare public readonly length: SimpleSignal<number>;
+
+    @initial({x: 0, y: 0})
+    @parser((value: {x: number; y: number}) => value)
+    @compound({x: 'positionX', y: 'positionY'})
+    declare public readonly position: CompoundSignal<
+      {x: number; y: number},
+      {x: number; y: number}
+    >;
+
+    public constructor(props: Record<string, any> = {}) {
+      initializeSignals(this, props);
+    }
+  }
+  class OtherWarnable {
+    public constructor(props: Record<string, any> = {}) {
+      initializeSignals(this, props);
+    }
+  }
+
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
+  test('warns on a prop that matches no declared property', () => {
+    new Warnable({unknownPropA: 5});
+
+    expect(warnSpy).toHaveBeenCalledOnce();
+    expect(warnSpy.mock.calls[0][0]).toContain('unknownPropA');
+    expect(warnSpy.mock.calls[0][0]).toContain('Warnable');
+  });
+
+  test('does not warn for a declared property', () => {
+    new Warnable({length: 5});
+
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  test('does not warn for a compound sub-prop', () => {
+    new Warnable({positionX: 5, positionY: 5});
+
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  test('does not warn for an undefined-valued key', () => {
+    new Warnable({unknownPropB: undefined});
+
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  test('does not warn for children, key, or ref, which Node strips before initializeSignals sees them', () => {
+    new Node({children: [], key: 'my-key', ref: () => {}});
+
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  test('warns once per (constructor, prop) across multiple constructions', () => {
+    new Warnable({unknownPropC: 1});
+    new Warnable({unknownPropC: 2});
+
+    expect(warnSpy).toHaveBeenCalledOnce();
+  });
+
+  test('warns separately for the same prop name on a different constructor', () => {
+    new Warnable({unknownPropD: 1});
+    new OtherWarnable({unknownPropD: 1});
+
+    expect(warnSpy).toHaveBeenCalledTimes(2);
   });
 });

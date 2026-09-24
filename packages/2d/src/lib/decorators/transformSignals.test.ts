@@ -363,3 +363,29 @@ describe('view space', () => {
     expectSameWorldMatrix(child, target);
   });
 });
+
+describe('absolute scale', () => {
+  mockScene2D();
+
+  let child: Rect;
+
+  beforeEach(() => {
+    const parent = new Rect({scale: [2, 1]});
+    child = new Rect({rotation: 90, scale: [1, 1]});
+    parent.add(child);
+    useScene2D().getView().add(parent);
+  });
+
+  test('reads the scale along the node axes under a non-uniform parent', () => {
+    expectVector(child.scale.abs(), 1, 2);
+  });
+
+  test('sets the scale along the node axes under a non-uniform parent', () => {
+    child.scale.abs(child.scale.abs());
+    expectVector(child.scale(), 1, 1);
+
+    child.scale.abs([3, 4]);
+    expectVector(child.scale(), 3, 2);
+    expectVector(child.scale.abs(), 3, 4);
+  });
+});

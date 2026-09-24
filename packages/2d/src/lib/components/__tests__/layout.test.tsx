@@ -477,14 +477,6 @@ describe('Layout (yoga)', () => {
   });
 });
 
-interface LayoutInternals {
-  layoutLockCounter(): number;
-}
-
-function lockCounter(layout: Layout): number {
-  return (layout as unknown as LayoutInternals).layoutLockCounter();
-}
-
 describe('Layout', () => {
   mockScene2D();
 
@@ -565,80 +557,118 @@ describe('Layout', () => {
   });
 
   describe('layout lock', () => {
-    it('lockLayout increments and releaseLayout decrements the counter', () => {
-      const layout = (<Layout />) as Layout;
-      expect(lockCounter(layout)).toBe(0);
+    it('holds a growing node at its own width until every lock is released', () => {
+      const view = useScene2D().getView();
+      const child = createRef<Layout>();
+      view.add(
+        <Layout layout direction="row" width={300} height={100}>
+          <Layout ref={child} width={50} height={100} grow={1} />
+        </Layout>,
+      );
 
-      layout.lockLayout();
-      expect(lockCounter(layout)).toBe(1);
-      layout.lockLayout();
-      expect(lockCounter(layout)).toBe(2);
+      expect(child().size().x).toBe(300);
 
-      layout.releaseLayout();
-      expect(lockCounter(layout)).toBe(1);
-      layout.releaseLayout();
-      expect(lockCounter(layout)).toBe(0);
+      child().lockLayout();
+      expect(child().size().x).toBe(50);
+
+      child().lockLayout();
+      child().releaseLayout();
+      expect(child().size().x).toBe(50);
+
+      child().releaseLayout();
+      expect(child().size().x).toBe(300);
     });
 
     it(
-      'padding tween acquires the layout lock for its full duration',
+      'padding tween holds a growing node in place for its full duration',
       generatorTest(function* () {
-        const layout = (<Layout padding={0} />) as Layout;
-        expect(lockCounter(layout)).toBe(0);
+        const view = useScene2D().getView();
+        const child = createRef<Layout>();
+        view.add(
+          <Layout layout direction="row" width={300} height={100}>
+            <Layout ref={child} width={50} height={100} padding={0} grow={1} />
+          </Layout>,
+        );
+        expect(child().size().x).toBe(300);
 
-        const task = yield layout.padding(20, 1);
+        const task = yield child().padding(20, 1);
 
         yield* waitFor(0.5);
-        expect(lockCounter(layout)).toBeGreaterThan(0);
+        expect(child().size().x).toBe(50);
 
         yield* task;
-        expect(lockCounter(layout)).toBe(0);
+        expect(child().size().x).toBe(300);
       }),
     );
 
     it(
-      'margin tween acquires the layout lock for its full duration',
+      'margin tween holds a growing node in place for its full duration',
       generatorTest(function* () {
-        const layout = (<Layout margin={0} />) as Layout;
-        const task = yield layout.margin(20, 1);
+        const view = useScene2D().getView();
+        const child = createRef<Layout>();
+        view.add(
+          <Layout layout direction="row" width={300} height={100}>
+            <Layout ref={child} width={50} height={100} margin={0} grow={1} />
+          </Layout>,
+        );
+        expect(child().size().x).toBe(300);
+
+        const task = yield child().margin(20, 1);
 
         yield* waitFor(0.5);
-        expect(lockCounter(layout)).toBeGreaterThan(0);
+        expect(child().size().x).toBe(50);
 
         yield* task;
-        expect(lockCounter(layout)).toBe(0);
+        expect(child().size().x).toBe(260);
       }),
     );
 
     it(
-      'gap tween acquires the layout lock for its full duration',
+      'gap tween holds a growing node in place for its full duration',
       generatorTest(function* () {
-        const layout = (<Layout gap={0} />) as Layout;
-        const task = yield layout.gap(20, 1);
+        const view = useScene2D().getView();
+        const child = createRef<Layout>();
+        view.add(
+          <Layout layout direction="row" width={300} height={100}>
+            <Layout ref={child} width={50} height={100} gap={0} grow={1} />
+          </Layout>,
+        );
+        expect(child().size().x).toBe(300);
+
+        const task = yield child().gap(20, 1);
 
         yield* waitFor(0.5);
-        expect(lockCounter(layout)).toBeGreaterThan(0);
+        expect(child().size().x).toBe(50);
 
         yield* task;
-        expect(lockCounter(layout)).toBe(0);
+        expect(child().size().x).toBe(300);
       }),
     );
 
     it(
-      'concurrent size + padding tweens compose their locks',
+      'concurrent size + padding tweens keep a growing node in place until both finish',
       generatorTest(function* () {
-        const layout = (<Layout size={100} padding={0} />) as Layout;
-        const task = yield layout.padding(20, 1);
-        const sizeTask = yield layout.size(200, 0.5);
+        const view = useScene2D().getView();
+        const child = createRef<Layout>();
+        view.add(
+          <Layout layout direction="row" width={300} height={100}>
+            <Layout ref={child} width={100} height={100} padding={0} grow={1} />
+          </Layout>,
+        );
+        expect(child().size().x).toBe(300);
+
+        const task = yield child().padding(20, 1);
+        const sizeTask = yield child().size(200, 0.5);
 
         yield* waitFor(0.25);
-        expect(lockCounter(layout)).toBeGreaterThanOrEqual(2);
+        expect(child().size().x).toBeGreaterThan(100);
+        expect(child().size().x).toBeLessThan(200);
 
         yield* sizeTask;
-        expect(lockCounter(layout)).toBeGreaterThan(0);
+        expect(child().size().x).toBe(200);
 
         yield* task;
-        expect(lockCounter(layout)).toBe(0);
+        expect(child().size().x).toBe(300);
       }),
     );
   });

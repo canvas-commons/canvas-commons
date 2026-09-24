@@ -24,7 +24,7 @@ describe('transform signals', () => {
   beforeEach(() => {
     parent = new Rect({position: [100, 0], rotation: 90, scale: 2});
     child = new Rect({position: [10, 0]});
-    other = new Rect({position: [-50, 30], rotation: 30, scale: 4});
+    other = new Rect({position: [-50, 30], rotation: 90, scale: 4});
     parent.add(child);
     useScene2D().getView().add([parent, other]);
   });
@@ -36,9 +36,8 @@ describe('transform signals', () => {
       expectVector(child.position.abs(), 1060, 560);
     });
 
-    test('reads relativeTo as the absolute offset from the other node', () => {
-      // The other node's rotation and scale do not apply.
-      expectVector(child.position.relativeTo(other)(), 150, -10);
+    test('reads relativeTo in the local space of the other node', () => {
+      expectVector(child.position.relativeTo(other)(), -2.5, -37.5);
     });
 
     test('sets through abs, view, and relativeTo', () => {
@@ -78,7 +77,7 @@ describe('transform signals', () => {
 
       child.position([10, 0]);
       child.position.relativeTo(other).x(170);
-      expectVector(child.position(), 10, -10);
+      expectVector(child.position(), 355, 0);
     });
 
     test('reaches spaces from components in either order', () => {
@@ -92,7 +91,7 @@ describe('transform signals', () => {
 
       child.position([10, 0]);
       child.x.relativeTo(other)(170);
-      expectVector(child.position(), 10, -10);
+      expectVector(child.position(), 355, 0);
     });
 
     test('follows a reactive value set in another space', () => {
@@ -120,7 +119,7 @@ describe('transform signals', () => {
       }
       child.position(0);
 
-      expectVector(deep.position.relativeTo(parent)(), -200, 200);
+      expectVector(deep.position.relativeTo(parent)(), 100, 100);
 
       deep.position.abs(parent.position.abs());
       expectVector(deep.position(), -90, -90);
@@ -171,7 +170,7 @@ describe('transform signals', () => {
   describe('rotation', () => {
     test('reads in abs and relativeTo', () => {
       expect(child.rotation.abs()).toBeCloseTo(90);
-      expect(child.rotation.relativeTo(other)()).toBeCloseTo(60);
+      expect(child.rotation.relativeTo(other)()).toBeCloseTo(0);
     });
 
     test('sets through abs and relativeTo', () => {
@@ -180,7 +179,7 @@ describe('transform signals', () => {
       expect(child.rotation.abs()).toBeCloseTo(135);
 
       child.rotation.relativeTo(other)(15);
-      expect(child.rotation()).toBeCloseTo(-45);
+      expect(child.rotation()).toBeCloseTo(15);
     });
 
     test('tweens to a value in abs', () => {
@@ -198,7 +197,7 @@ describe('transform signals', () => {
     expect(result).toBe(child);
     expectVector(child.position(), 10, -10);
     expectVector(child.scale(), 1, 3);
-    expect(child.rotation()).toBeCloseTo(-45);
+    expect(child.rotation()).toBeCloseTo(15);
   });
 
   describe('layout origins', () => {
@@ -387,5 +386,52 @@ describe('absolute scale', () => {
     child.scale.abs([3, 4]);
     expectVector(child.scale(), 3, 2);
     expectVector(child.scale.abs(), 3, 4);
+  });
+});
+
+describe('relative position', () => {
+  mockScene2D();
+
+  let other: Rect;
+  let marker: Rect;
+  let node: Rect;
+
+  beforeEach(() => {
+    other = new Rect({
+      position: [-50, 30],
+      rotation: 30,
+      scale: [3, 1],
+      size: [60, 40],
+      anchor: [-1, 0],
+    });
+    marker = new Rect({position: [10, 5]});
+    other.add(marker);
+    const parent = new Rect({position: [200, 0], rotation: -20, scale: 2});
+    node = new Rect({});
+    parent.add(node);
+    useScene2D().getView().add([other, parent]);
+  });
+
+  function expectAtMarker(point: Vector2) {
+    const at = marker.position.abs();
+    expectVector(point, at.x, at.y);
+  }
+
+  test('reads a point in the local space of the other node', () => {
+    node.position.abs(marker.position.abs());
+    expectVector(node.position.relativeTo(other)(), 10, 5);
+  });
+
+  test('sets a point in the local space of the other node', () => {
+    node.position.relativeTo(other)([10, 5]);
+    expectAtMarker(node.position.abs());
+  });
+
+  test('places a layout origin in the local space of the other node', () => {
+    const box = new Layout({size: [80, 20], rotation: 45});
+    useScene2D().getView().add(box);
+
+    box.left.relativeTo(other)([10, 5]);
+    expectAtMarker(box.left.abs());
   });
 });

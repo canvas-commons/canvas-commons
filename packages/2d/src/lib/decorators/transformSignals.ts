@@ -34,8 +34,8 @@ import {getPropertyMetaOrCreate, wrapper} from './signal';
  * // Convert an absolute position to local coordinates
  * const localPos = TransformConverter.absoluteToLocalPosition(node, [100, 200]);
  *
- * // Convert a view space position to local coordinates
- * const localPos = TransformConverter.viewToLocalPosition(node, [100, 200]);
+ * // Convert a position in another node's local space to absolute coordinates
+ * const absPos = TransformConverter.relativeToAbsolutePosition(other, [10, 0]);
  * ```
  */
 class TransformConverter {
@@ -96,7 +96,7 @@ class TransformConverter {
     relativeValue: SignalValue<PossibleVector2>,
   ): SignalValue<PossibleVector2> {
     return this.wrapVectorSignalTransform(relativeValue, val =>
-      val.add(targetNode.absolutePosition()),
+      val.transformAsPoint(targetNode.localToWorld()),
     );
   }
 
@@ -117,16 +117,6 @@ class TransformConverter {
       relativeValue,
       val => val + targetNode.absoluteRotation(),
     );
-  }
-
-  public static viewToLocalPosition(
-    owner: Node,
-    viewValue: SignalValue<PossibleVector2>,
-  ): SignalValue<PossibleVector2> {
-    return this.wrapVectorSignalTransform(viewValue, val => {
-      const worldPos = val.transformAsPoint(owner.view().localToWorld());
-      return worldPos.transformAsPoint(owner.worldToParent());
-    });
   }
 }
 
@@ -368,31 +358,28 @@ function createPositionSpaces<TOwner extends Node>(
 ): TransformSpaces<EnhancedTransformMethod<TOwner>> {
   const toAbsolute = (local: Vector2) =>
     local.transformAsPoint(owner.parentToWorld());
+  const relativeTo = (node: () => Node) =>
+    createVectorSpaceMethod(
+      signal,
+      local => toAbsolute(local).transformAsPoint(node().worldToLocal()),
+      relative =>
+        TransformConverter.absoluteToLocalPosition(
+          owner,
+          TransformConverter.relativeToAbsolutePosition(node(), relative),
+        ),
+    );
 
   return {
     abs: createVectorSpaceMethod(signal, toAbsolute, absolute =>
       TransformConverter.absoluteToLocalPosition(owner, absolute),
     ),
-    view: createVectorSpaceMethod(
-      signal,
-      local => toAbsolute(local).transformAsPoint(owner.view().worldToLocal()),
-      view => TransformConverter.viewToLocalPosition(owner, view),
-    ),
+    view: relativeTo(() => owner.view()),
     local: createVectorSpaceMethod(
       signal,
       local => local,
       local => local,
     ),
-    relativeTo: node =>
-      createVectorSpaceMethod(
-        signal,
-        local => toAbsolute(local).sub(node.absolutePosition()),
-        relative =>
-          TransformConverter.absoluteToLocalPosition(
-            owner,
-            TransformConverter.relativeToAbsolutePosition(node, relative),
-          ),
-      ),
+    relativeTo: node => relativeTo(() => node),
   };
 }
 
@@ -582,7 +569,7 @@ export class LayoutPositionSignalContext<
  * - **Local**: Relative to the node's parent
  * - **Absolute**: In the global scene coordinates
  * - **View**: In the camera/view coordinate system
- * - **Relative**: Relative to another specific node
+ * - **Relative**: In the local space of another node
  *
  * @param prefix - Optional prefix for the underlying X/Y property names.
  *                Can be a string (e.g., 'scale' creates 'scaleX'/'scaleY') or

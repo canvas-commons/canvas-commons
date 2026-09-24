@@ -34,8 +34,8 @@ import {getPropertyMetaOrCreate, wrapper} from './signal';
  * // Convert an absolute position to local coordinates
  * const localPos = TransformConverter.absoluteToLocalPosition(node, [100, 200]);
  *
- * // Convert a view space scale to local coordinates
- * const localScale = TransformConverter.viewToLocalScale(node, [2, 2]);
+ * // Convert a view space position to local coordinates
+ * const localPos = TransformConverter.viewToLocalPosition(node, [100, 200]);
  * ```
  */
 class TransformConverter {
@@ -124,58 +124,6 @@ class TransformConverter {
       const worldPos = val.transformAsPoint(owner.view().localToWorld());
       return worldPos.transformAsPoint(owner.worldToParent());
     });
-  }
-
-  public static viewToLocalScale(
-    owner: Node,
-    viewValue: SignalValue<PossibleVector2>,
-  ): SignalValue<PossibleVector2> {
-    return this.wrapVectorSignalTransform(viewValue, val => {
-      const viewMatrix = owner.view().localToWorld();
-      const [xMagnitude, yMagnitude] = this.getViewScaleMagnitudes(viewMatrix);
-      return new Vector2(val.x / xMagnitude, val.y / yMagnitude);
-    });
-  }
-
-  public static viewToLocalRotation(
-    owner: Node,
-    viewValue: SignalValue<number>,
-  ): SignalValue<number> {
-    return this.wrapScalarSignalTransform(
-      viewValue,
-      val => val - this.getViewRotation(owner),
-    );
-  }
-
-  public static getViewRotation(owner: Node): number {
-    const viewMatrix = owner.view().localToWorld();
-    return Vector2.degrees(viewMatrix.m11, viewMatrix.m12);
-  }
-
-  public static calculateViewSpaceScale(
-    owner: Node,
-    localScale: Vector2,
-  ): Vector2 {
-    const viewMatrix = owner.view().localToWorld();
-    return new Vector2(
-      Vector2.magnitude(
-        viewMatrix.m11 * localScale.x,
-        viewMatrix.m12 * localScale.x,
-      ),
-      Vector2.magnitude(
-        viewMatrix.m21 * localScale.y,
-        viewMatrix.m22 * localScale.y,
-      ),
-    );
-  }
-
-  private static getViewScaleMagnitudes(
-    viewMatrix: DOMMatrix,
-  ): [number, number] {
-    return [
-      Vector2.magnitude(viewMatrix.m11, viewMatrix.m12),
-      Vector2.magnitude(viewMatrix.m21, viewMatrix.m22),
-    ];
   }
 }
 
@@ -449,6 +397,17 @@ function createScaleSpaces<TOwner extends Node>(
   signal: Signal<PossibleVector2, Vector2, TOwner>,
   owner: TOwner,
 ): TransformSpaces<EnhancedTransformMethod<TOwner>> {
+  const relativeTo = (node: () => Node) =>
+    createVectorSpaceMethod(
+      signal,
+      () => owner.absoluteScale().div(node().absoluteScale()),
+      relative =>
+        TransformConverter.absoluteToLocalScale(
+          owner,
+          TransformConverter.relativeToAbsoluteScale(node(), relative),
+        ),
+    );
+
   return {
     abs: createVectorSpaceMethod(
       signal,
@@ -461,26 +420,13 @@ function createScaleSpaces<TOwner extends Node>(
       },
       absolute => TransformConverter.absoluteToLocalScale(owner, absolute),
     ),
-    view: createVectorSpaceMethod(
-      signal,
-      local => TransformConverter.calculateViewSpaceScale(owner, local),
-      view => TransformConverter.viewToLocalScale(owner, view),
-    ),
+    view: relativeTo(() => owner.view()),
     local: createVectorSpaceMethod(
       signal,
       local => local,
       local => local,
     ),
-    relativeTo: node =>
-      createVectorSpaceMethod(
-        signal,
-        () => owner.absoluteScale().div(node.absoluteScale()),
-        relative =>
-          TransformConverter.absoluteToLocalScale(
-            owner,
-            TransformConverter.relativeToAbsoluteScale(node, relative),
-          ),
-      ),
+    relativeTo: node => relativeTo(() => node),
   };
 }
 
@@ -488,6 +434,17 @@ function createRotationSpaces<TOwner extends Node>(
   signal: Signal<number, number, TOwner>,
   owner: TOwner,
 ): TransformSpaces<EnhancedRotationMethod<TOwner>> {
+  const relativeTo = (node: () => Node) =>
+    createSpaceMethod(
+      signal,
+      () => owner.absoluteRotation() - node().absoluteRotation(),
+      relative =>
+        TransformConverter.absoluteToLocalRotation(
+          owner,
+          TransformConverter.relativeToAbsoluteRotation(node(), relative),
+        ),
+    );
+
   return {
     abs: createSpaceMethod(
       signal,
@@ -497,26 +454,13 @@ function createRotationSpaces<TOwner extends Node>(
       },
       absolute => TransformConverter.absoluteToLocalRotation(owner, absolute),
     ),
-    view: createSpaceMethod(
-      signal,
-      local => local + TransformConverter.getViewRotation(owner),
-      view => TransformConverter.viewToLocalRotation(owner, view),
-    ),
+    view: relativeTo(() => owner.view()),
     local: createSpaceMethod(
       signal,
       local => local,
       local => local,
     ),
-    relativeTo: node =>
-      createSpaceMethod(
-        signal,
-        () => owner.absoluteRotation() - node.absoluteRotation(),
-        relative =>
-          TransformConverter.absoluteToLocalRotation(
-            owner,
-            TransformConverter.relativeToAbsoluteRotation(node, relative),
-          ),
-      ),
+    relativeTo: node => relativeTo(() => node),
   };
 }
 

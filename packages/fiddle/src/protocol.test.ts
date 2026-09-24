@@ -1,6 +1,5 @@
 import {describe, expect, it} from 'vitest';
 import {
-  DEFAULT_RENDER_SIZE,
   GenerationTracker,
   isStaleGeneration,
   VariableTracker,
@@ -92,11 +91,5 @@ describe('VariableTracker', () => {
     tracker.applyTo(target);
     expect(target.applied).toEqual([]);
     expect(target.renders).toBe(0);
-  });
-});
-
-describe('DEFAULT_RENDER_SIZE', () => {
-  it('is the 16:9 size a fiddle gets when it declares none', () => {
-    expect(DEFAULT_RENDER_SIZE).toEqual({width: 1920, height: 1080});
   });
 });

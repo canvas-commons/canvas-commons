@@ -226,12 +226,12 @@ export default makeScene2D(function* (view) {
         fill={v.get('--cc-text', '#cdd6f4')}
         textAlign={'left'}
         exclusions={() => {
-          const corner = box().topLeft().sub(body().position());
+          const center = box().position();
           return [
             {
               kind: 'rect',
-              x: corner.x,
-              y: corner.y,
+              x: center.x,
+              y: center.y,
               width: box().width(),
               height: box().height(),
               horizontalPadding: 24,
@@ -252,6 +252,9 @@ export default makeScene2D(function* (view) {
   yield* waitFor(0.5);
 });
 ```
+
+Exclusions also accept a `{kind: 'node', node: box}` form as well, which can be
+a little more convenient than manually creating a rect.
 
 #### Fixes
 

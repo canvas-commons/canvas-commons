@@ -54,6 +54,6 @@
     "sass": "^1.104.1",
     "source-map-js": "^1.2.1",
     "vite": "catalog:",
-    "vite-plugin-dts": "^4.5.4"
+    "vite-plugin-dts": "^5.1.0"
   }
 }

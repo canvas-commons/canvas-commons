@@ -73,8 +73,11 @@ class TransformConverter {
     absoluteValue: SignalValue<PossibleVector2>,
   ): SignalValue<PossibleVector2> {
     return this.wrapVectorSignalTransform(absoluteValue, val => {
-      const parentAbsScale = owner.parent()?.absoluteScale() ?? Vector2.one;
-      return val.div(parentAbsScale);
+      const axes = owner.parentToWorld().rotate(0, 0, owner.rotation());
+      return new Vector2(
+        val.x / Vector2.magnitude(axes.m11, axes.m12),
+        val.y / Vector2.magnitude(axes.m21, axes.m22),
+      );
     });
   }
 

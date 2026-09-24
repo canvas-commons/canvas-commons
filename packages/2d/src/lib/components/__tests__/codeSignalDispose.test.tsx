@@ -7,6 +7,7 @@ import {
 } from '@canvas-commons/core';
 import {describe, expect, it, vi} from 'vitest';
 import {CodeSignal} from '../../code';
+import {isCodeScope} from '../../code/CodeScope';
 import {useScene2D} from '../../scenes';
 import {Code} from '../Code';
 import {generatorTest} from './generatorTest';
@@ -43,16 +44,24 @@ describe('Code signal cancellation', () => {
       const node = new Code({code: 'hello world'});
       view.add(node);
 
-      const disposeSpy = vi.spyOn(SignalContext.prototype, 'dispose');
-      const before = disposeSpy.mock.calls.length;
-      try {
-        const thread = new Thread(startTween(node.code));
-        thread.next();
-        thread.cancel();
-        expect(disposeSpy.mock.calls.length).toBe(before + 1);
-      } finally {
-        disposeSpy.mockRestore();
+      const thread = new Thread(startTween(node.code));
+      thread.next();
+
+      const scope = node.code().fragments.find(isCodeScope);
+      const progress = scope?.progress;
+      if (
+        typeof progress !== 'function' ||
+        !('context' in progress) ||
+        !(progress.context instanceof SignalContext)
+      ) {
+        throw new Error('expected the tween to scope a progress signal');
       }
+      const disposeSpy = vi.spyOn(progress.context, 'dispose');
+
+      thread.cancel();
+
+      expect(disposeSpy).toHaveBeenCalledTimes(1);
+      expect(typeof scope?.progress).toBe('number');
     },
   );
 

@@ -1,5 +1,6 @@
 import {
   BBox,
+  Color,
   Matrix2D,
   PossibleSpacing,
   RAD2DEG,
@@ -545,6 +546,11 @@ export class SVG extends Shape {
       return null;
     }
 
+    if (typeof color === 'string' && !Color.isValid(color)) {
+      useLogger().warn(`SVG: unsupported paint "${color}"`);
+      return undefined;
+    }
+
     return color;
   }
 
@@ -618,7 +624,9 @@ export class SVG extends Shape {
     element: SVGGraphicsElement,
     name: string,
   ): string | null {
-    return element.style.getPropertyValue(name) || element.getAttribute(name);
+    const value =
+      element.style.getPropertyValue(name) || element.getAttribute(name);
+    return value === 'inherit' ? null : value;
   }
 
   /**
@@ -680,12 +688,16 @@ export class SVG extends Shape {
     for (const child of element.children) {
       if (!(child instanceof SVGGraphicsElement)) continue;
 
-      yield* this.extractElementNodes(
-        child,
-        svgRoot,
-        parentTransform,
-        inheritedStyle,
-      );
+      try {
+        yield* this.extractElementNodes(
+          child,
+          svgRoot,
+          parentTransform,
+          inheritedStyle,
+        );
+      } catch (e) {
+        useLogger().warn(`SVG: skipped element "${child.outerHTML}": ${e}`);
+      }
     }
   }
 
@@ -742,9 +754,8 @@ export class SVG extends Shape {
 
       yield* SVG.extractGroupNodes(child, svgRoot, nestedTransform, style);
     } else if (child.tagName === 'use') {
-      const hrefElement = svgRoot.querySelector(
-        (child as SVGUseElement).href.baseVal,
-      );
+      const href = (child as SVGUseElement).href.baseVal;
+      const hrefElement = href ? svgRoot.querySelector(href) : null;
       if (!(hrefElement instanceof SVGGraphicsElement)) {
         useLogger().warn(`invalid SVG use tag. element "${child.outerHTML}"`);
         return;
@@ -822,10 +833,13 @@ export class SVG extends Shape {
           ? ['x1', 'y1', 'x2', 'y2'].map(attr =>
               SVG.parseNumberAttribute(child, attr),
             )
-          : child
-              .getAttribute('points')!
-              .match(/-?[\d.e+-]+/g)!
-              .map(value => parseFloat(value));
+          : (child.getAttribute('points')?.match(/-?[\d.e+-]+/g) ?? []).map(
+              value => parseFloat(value),
+            );
+      if (numbers.length === 0) {
+        useLogger().warn(`SVG: no points at ${child.tagName} ${child.id}`);
+        return;
+      }
       const points = numbers.reduce<number[][]>((accum, current) => {
         let last = accum.at(-1);
         if (!last || last.length === 2) {

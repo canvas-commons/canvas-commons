@@ -173,7 +173,8 @@ describe('svg-import', () => {
       }
     });
 
-    test.fails(`${svgCase.name}`, () => {
+    const isFixed = index < 2;
+    (isFixed ? test : test.fails)(`${svgCase.name}`, () => {
       expect(
         diffRatio(cropCase(index, 'subject'), cropCase(index, 'reference')),
       ).toBeLessThan(0.001);

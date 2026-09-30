@@ -163,7 +163,7 @@ describe('layout-overlap', () => {
       expect(width).toBeLessThanOrEqual(202);
     });
 
-    test.fails('percent box follows the new parent width', () => {
+    test('percent box follows the new parent width', () => {
       const tweened = crop(last, rowRegion(0));
       const fresh = crop(last, rowRegion(150));
       expect(diffRatio(tweened, fresh)).toBeLessThan(MAX_DIFF);

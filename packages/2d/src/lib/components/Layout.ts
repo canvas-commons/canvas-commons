@@ -279,6 +279,10 @@ function sameBoxes(a: readonly SettledBox[], b: readonly SettledBox[]) {
   );
 }
 
+function isPercent(value: DesiredLength): value is `${number}%` {
+  return typeof value === 'string' && value.endsWith('%');
+}
+
 function isRowDirection(direction: FlexDirection): boolean {
   return direction === 'row' || direction === 'row-reverse';
 }
@@ -1182,7 +1186,7 @@ export class Layout extends Node {
     axis: 'width' | 'height',
   ): number | undefined {
     if (typeof value === 'number') return value;
-    if (typeof value !== 'string' || !value.endsWith('%')) return undefined;
+    if (!isPercent(value)) return undefined;
 
     let basis = this.parentTransform();
     while (basis && !basis.sizesPercentChildren(axis)) {
@@ -1209,7 +1213,7 @@ export class Layout extends Node {
       const size = child.desiredSize();
       const parentLayout = parent.yogaNode.getComputedLayout();
 
-      if (typeof size.x === 'string' && size.x.endsWith('%')) {
+      if (isPercent(size.x)) {
         const parentDesired = parent.desiredSize();
         if (parentDesired.x === null) {
           const percent = parseFloat(size.x);
@@ -1218,7 +1222,7 @@ export class Layout extends Node {
         }
       }
 
-      if (typeof size.y === 'string' && size.y.endsWith('%')) {
+      if (isPercent(size.y)) {
         const parentDesired = parent.desiredSize();
         if (parentDesired.y === null) {
           const percent = parseFloat(size.y);
@@ -1535,6 +1539,11 @@ export class Layout extends Node {
     );
 
     const size = this.desiredSize();
+    if (isPercent(size.x) || isPercent(size.y)) {
+      // resolvePercentageDimensions writes pixels over a percent while the
+      // parent is auto-sized, so this must re-run when the parent's size changes.
+      this.parentTransform()?.desiredSize();
+    }
     setYogaDimension(node, 'setWidth', size.x);
     setYogaDimension(node, 'setHeight', size.y);
     setYogaDimension(node, 'setMaxWidth', this.maxWidth());

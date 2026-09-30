@@ -82,13 +82,10 @@ describe('flow timing', () => {
     });
   });
 
-  test.fails(
-    'every() ticks at its interval when the interval is not a whole number of frames',
-    () => {
-      expect(probe.ticks).toBeGreaterThanOrEqual(79);
-      expect(probe.ticks).toBeLessThanOrEqual(82);
-    },
-  );
+  test('every() ticks at its interval when the interval is not a whole number of frames', () => {
+    expect(probe.ticks).toBeGreaterThanOrEqual(79);
+    expect(probe.ticks).toBeLessThanOrEqual(82);
+  });
 
   test('every() ticks at the new interval after it is shortened', () => {
     expect(probe.retimedTicksAfterChange).toBeGreaterThanOrEqual(3);

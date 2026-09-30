@@ -125,7 +125,7 @@ describe('flow timing', () => {
     },
   );
 
-  test.fails('secondsToFrames returns k for k / fps', async () => {
+  test('secondsToFrames returns k for k / fps', async () => {
     const wrong = await page.evaluate(() => {
       const {player} = window.commons;
       const fps = player.playback.fps;

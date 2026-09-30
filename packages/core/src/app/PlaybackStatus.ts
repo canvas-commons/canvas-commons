@@ -1,3 +1,4 @@
+import {EPSILON} from '../types';
 import {PlaybackManager, PlaybackState} from './PlaybackManager';
 
 /**
@@ -12,7 +13,7 @@ export class PlaybackStatus {
    * @param seconds - The seconds to convert.
    */
   public secondsToFrames(seconds: number) {
-    return Math.ceil(seconds * this.playback.fps);
+    return Math.ceil(seconds * this.playback.fps - EPSILON);
   }
 
   /**

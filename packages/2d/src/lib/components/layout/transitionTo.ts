@@ -114,14 +114,14 @@ export function* transitionTo(
       const wrapperIndex = newParent.children().indexOf(growInfo.wrapper);
       if (wrapperIndex >= 0) {
         newParent.insert(source, wrapperIndex);
-        growInfo.wrapper.remove();
+        growInfo.wrapper.remove().dispose();
       }
     } else {
       newParent.insert(source, targetIndex);
     }
 
     if (shrinkInfo) {
-      shrinkInfo.wrapper.remove();
+      shrinkInfo.wrapper.remove().dispose();
     }
 
     if (savedLayoutSelf === undefined) {

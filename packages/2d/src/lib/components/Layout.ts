@@ -1807,7 +1807,7 @@ export class Layout extends Node {
         const wrapperIndex = this.children().indexOf(slot.wrapper);
         if (wrapperIndex >= 0) {
           this.insert(slot.userNode, wrapperIndex);
-          slot.wrapper.remove();
+          slot.wrapper.remove().dispose();
         }
       }
     }
@@ -1869,7 +1869,7 @@ export class Layout extends Node {
       );
     } finally {
       node.remove();
-      wrapper.remove();
+      wrapper.remove().dispose();
     }
   }
 

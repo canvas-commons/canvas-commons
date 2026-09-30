@@ -143,6 +143,7 @@ export class Player {
     this.requestedSeek = initialFrame;
     this.logger = this.project.logger;
     this.playback = new PlaybackManager();
+    this.playback.speed = this.playerState.current.speed;
     this.status = new PlaybackStatus(this.playback);
     this.audioResources = new AudioResourceManager(this.logger);
     this.audioPool = new AudioManagerPool(this.logger, this.audioResources);

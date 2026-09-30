@@ -290,7 +290,7 @@ describe('player state and rendering', () => {
       expect(state.speed).toBe(2);
     });
 
-    test.fails('a saved player speed is applied to playback', async () => {
+    test('a saved player speed is applied to playback', async () => {
       const playbackSpeed = await page.evaluate(
         () => window.commons.player.playback.speed,
       );

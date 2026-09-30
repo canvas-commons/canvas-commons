@@ -2,7 +2,6 @@ import {
   BBox,
   Color,
   DependencyContext,
-  DetailedError,
   PossibleVector2,
   SerializedVector2,
   SignalValue,
@@ -166,14 +165,14 @@ export class Img extends Rect {
     }
 
     if (!image.complete) {
+      const logger = useLogger();
       DependencyContext.collectPromise(
-        new Promise((resolve, reject) => {
-          image.addEventListener('load', resolve);
-          image.addEventListener('error', () =>
-            reject(
-              new DetailedError({
-                message: `Failed to load an image`,
-                remarks: `\
+        new Promise<void>(resolve => {
+          image.addEventListener('load', () => resolve());
+          image.addEventListener('error', () => {
+            logger.error({
+              message: `Failed to load an image`,
+              remarks: `\
 The <code>src</code> property was set to:
 <pre><code>${rawSrc}</code></pre>
 ...which resolved to the following url:
@@ -181,10 +180,10 @@ The <code>src</code> property was set to:
 Make sure that source is correct and that the image exists.<br/>
 <a target='_blank' href='https://canvascommons.io/docs/media#images'>Learn more</a>
 about working with images.`,
-                inspect: this.key,
-              }),
-            ),
-          );
+              inspect: this.key,
+            });
+            resolve();
+          });
         }),
       );
     }
@@ -211,15 +210,18 @@ about working with images.`,
     context.canvas.width = image.naturalWidth;
     context.canvas.height = image.naturalHeight;
     context.imageSmoothingEnabled = this.smoothing();
-    context.drawImage(image, 0, 0);
+    if (image.naturalWidth > 0) {
+      context.drawImage(image, 0, 0);
+    }
 
     return context;
   }
 
   protected override draw(context: CanvasRenderingContext2D) {
     this.drawShape(context);
+    const image = this.image();
     const alpha = this.alpha();
-    if (alpha > 0) {
+    if (alpha > 0 && image.naturalWidth > 0) {
       const box = BBox.fromSizeCentered(this.computedSize());
       context.save();
       context.clip(this.getPath());
@@ -227,7 +229,7 @@ about working with images.`,
         context.globalAlpha *= alpha;
       }
       context.imageSmoothingEnabled = this.smoothing();
-      drawImage(context, this.image(), box);
+      drawImage(context, image, box);
       context.restore();
     }
 

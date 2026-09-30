@@ -170,7 +170,8 @@ export class Video extends Rect {
 
   @computed()
   protected video(): HTMLVideoElement {
-    const {key, src} = resolveAssetUrl(this.src(), this.view().assetHash);
+    const rawSrc = this.src();
+    const {key, src} = resolveAssetUrl(rawSrc, this.view().assetHash);
 
     const poolKey = `${this.key}/${key}`;
     let video = Video.pool[poolKey];
@@ -181,14 +182,29 @@ export class Video extends Rect {
       Video.pool[poolKey] = video;
     }
 
-    if (video.readyState < 2) {
+    if (video.readyState < 2 && !video.error) {
+      const logger = useLogger();
       DependencyContext.collectPromise(
         new Promise<void>(resolve => {
-          const listener = () => {
+          const settle = () => {
+            video.removeEventListener('canplay', settle);
+            video.removeEventListener('error', onError);
             resolve();
-            video.removeEventListener('canplay', listener);
           };
-          video.addEventListener('canplay', listener);
+          const onError = () => {
+            logger.error({
+              message: 'Failed to load a video',
+              remarks: `The <code>src</code> property was set to:
+<pre><code>${rawSrc}</code></pre>
+...which resolved to the following url:
+<pre><code>${src}</code></pre>
+Make sure that source is correct and that the video exists.`,
+              inspect: this.key,
+            });
+            settle();
+          };
+          video.addEventListener('canplay', settle);
+          video.addEventListener('error', onError);
         }),
       );
     }
@@ -356,7 +372,9 @@ export class Video extends Rect {
   }
 
   public clampTime(time: number): number {
-    const duration = this.video().duration;
+    const video = this.video();
+    const duration = video.duration;
+    if (video.error && Number.isNaN(duration)) return 0;
     if (this.loop()) {
       time %= duration;
     }

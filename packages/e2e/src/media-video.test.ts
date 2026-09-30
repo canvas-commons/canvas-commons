@@ -122,15 +122,11 @@ describe('video and image that fail to load', () => {
     await loggedError(page, 'Failed to load an image');
   });
 
-  test.fails(
-    'the video error is logged',
-    {timeout: RenderTimeoutMs},
-    async () => {
-      await loggedError(page, 'Failed to load a video');
-    },
-  );
+  test('the video error is logged', {timeout: RenderTimeoutMs}, async () => {
+    await loggedError(page, 'Failed to load a video');
+  });
 
-  test.fails(
+  test(
     'the rest of a seeked frame is drawn',
     {timeout: RenderTimeoutMs},
     async () => {
@@ -139,7 +135,7 @@ describe('video and image that fail to load', () => {
     },
   );
 
-  test.fails(
+  test(
     'the rest of a played frame is drawn',
     {timeout: RenderTimeoutMs},
     async () => {

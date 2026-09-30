@@ -149,5 +149,6 @@ export class Icon extends SVG {
 
     yield* this.svg(newSvg, time, timingFunction);
     this.icon.context.setter(newIconId);
+    this.svg(this.iconSvg);
   }
 }

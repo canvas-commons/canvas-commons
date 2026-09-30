@@ -140,7 +140,7 @@ describe(Scene, () => {
     ).toBeGreaterThan(0.005);
   });
 
-  test.fails('Latex follows tex set after a tween', () => {
+  test('Latex follows tex set after a tween', () => {
     expect(
       diffRatio(
         crop(texAfterSet, TexCells.subject),
@@ -158,7 +158,7 @@ describe(Scene, () => {
     ).toBeGreaterThan(0.005);
   });
 
-  test.fails('a cancelled tex tween restores the formula', () => {
+  test('a cancelled tex tween restores the formula', () => {
     expect(
       diffRatio(crop(final, TexCells.subject), crop(final, TexCells.reference)),
     ).toBeLessThan(0.0015);

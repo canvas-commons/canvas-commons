@@ -275,6 +275,10 @@ export class Latex extends SVGNode {
     return this.texToSvg(this.tex());
   }
 
+  private rebuildDocument() {
+    this.svg(() => this.latexSVG());
+  }
+
   @computed()
   private fragmentOverlay(): Node[] {
     if (!this.debugFragments()) {
@@ -606,7 +610,7 @@ export class Latex extends SVGNode {
 
     yield* this.tweenFragments(
       pairs,
-      {svg: newSVG, tex: parsedValue, document: targetDoc},
+      {tex: parsedValue, document: targetDoc},
       time,
       timingFunction,
     );
@@ -615,7 +619,7 @@ export class Latex extends SVGNode {
   @threadable()
   private *tweenFragments(
     pairs: LatexFragmentPair[],
-    target: {svg: string; tex: string[]; document: SVGDocument},
+    target: {tex: string[]; document: SVGDocument},
     time: number,
     timingFunction: TimingFunction,
   ) {
@@ -653,15 +657,17 @@ export class Latex extends SVGNode {
       );
     }
 
-    yield* all(...animations, this.size(newSize, time, timingFunction));
-
-    this.svg.context.setter(target.svg);
-    this.tex.context.setter(target.tex);
-    this.wrapper.children(this.documentNodes);
-    this.wrapper.scale(this.wrapperScale);
-    this.releaseLayout();
-    this.width.reset();
-    this.height.reset();
+    try {
+      yield* all(...animations, this.size(newSize, time, timingFunction));
+      this.tex.context.setter(target.tex);
+    } finally {
+      this.rebuildDocument();
+      this.wrapper.children(this.documentNodes);
+      this.wrapper.scale(this.wrapperScale);
+      this.releaseLayout();
+      this.width.reset();
+      this.height.reset();
+    }
   }
 
   /**
@@ -833,7 +839,7 @@ export class Latex extends SVGNode {
 
     yield* this.tweenFragments(
       pairs,
-      {svg: targetSVG, tex: targetTex, document: targetDoc},
+      {tex: targetTex, document: targetDoc},
       time,
       timingFunction,
     );
@@ -987,10 +993,12 @@ export class Latex extends SVGNode {
       );
     }
 
-    yield* all(...animations);
-
-    this.svg.context.setter(newSVG);
-    this.tex.context.setter(parsedValue);
-    this.wrapper.children(this.documentNodes);
+    try {
+      yield* all(...animations);
+      this.tex.context.setter(parsedValue);
+    } finally {
+      this.rebuildDocument();
+      this.wrapper.children(this.documentNodes);
+    }
   }
 }

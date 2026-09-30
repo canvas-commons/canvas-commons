@@ -350,7 +350,7 @@ describe('player state and rendering', () => {
       expect(isColor(await readStagePixel(page), 'blue')).toBe(true);
     });
 
-    test.fails('repaints when variables change', async () => {
+    test('repaints when variables change', async () => {
       expect(
         await countUnrequestedRenders(page, {color: 'blue'}),
       ).toBeGreaterThan(0);

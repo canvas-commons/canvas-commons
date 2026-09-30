@@ -329,6 +329,7 @@ export class Player {
     for (const scene of this.playback.onScenesRecalculated.current) {
       scene.variables.updateSignals(variables);
     }
+    this.requestRender();
   }
 
   /**

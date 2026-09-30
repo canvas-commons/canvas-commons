@@ -101,7 +101,7 @@ describe(Scene, () => {
     ).toBeGreaterThan(30000);
   });
 
-  test.fails('tweening scale to DEFAULT restores the initial scale', () => {
+  test('tweening scale to DEFAULT restores the initial scale', () => {
     expect(
       diffRatio(
         crop(final, ScaleCells.subject),

@@ -1,5 +1,6 @@
 import {InterpolationFunction, map} from '../tweening';
 import {Signal, SignalContext} from './SignalContext';
+import {DEFAULT} from './symbols';
 import {SignalExtensions, SignalValue} from './types';
 import {isReactive, modify} from './utils';
 
@@ -37,7 +38,7 @@ export class CompoundSignalContext<
     owner: TOwner = <TOwner>(<unknown>undefined),
     extensions: Partial<SignalExtensions<TSetterValue, TValue>> = {},
   ) {
-    super(undefined, interpolation, owner, parser, extensions);
+    super(initial, interpolation, owner, parser, extensions);
     this.parser = parser;
 
     for (const entry of entries) {
@@ -82,7 +83,10 @@ export class CompoundSignalContext<
     );
   }
 
-  public override setter(value: SignalValue<TValue>): TOwner {
+  public override setter(value: SignalValue<TValue> | typeof DEFAULT): TOwner {
+    if (value === DEFAULT || value === this.getInitial()) {
+      return this.reset();
+    }
     if (isReactive(value)) {
       for (const [key, property] of this.signals) {
         property(() => this.parser(value())[key]);

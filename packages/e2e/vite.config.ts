@@ -3,6 +3,7 @@
 import canvasCommons from '@canvas-commons/vite-plugin';
 import {fileURLToPath} from 'url';
 import {defineConfig} from 'vite';
+import {configDefaults} from 'vitest/config';
 
 export default defineConfig({
   plugins: [
@@ -19,6 +20,7 @@ export default defineConfig({
     },
   },
   test: {
+    exclude: [...configDefaults.exclude, 'src/perf/**'],
     testTimeout: 60000,
     hookTimeout: 60000,
     globalSetup: ['./src/globalSetup.ts'],

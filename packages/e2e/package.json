@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "test": "vitest run",
+    "test:perf": "vitest run --config vite.perf.config.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test:docker": "node scripts/test-docker.mjs",
     "render:social-card": "node scripts/render-social-card.mjs"

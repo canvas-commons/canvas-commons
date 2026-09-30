@@ -10,6 +10,7 @@ See the [root `AGENTS.md`](../../AGENTS.md) for repo-wide standards.
 
 ```bash
 pnpm e2e:test          # vitest run inside this package
+pnpm e2e:perf          # timing tests in src/perf/, excluded from e2e:test
 pnpm --filter @canvas-commons/e2e run dev    # vite dev server (rarely needed)
 ```
 

@@ -75,7 +75,7 @@ describe('line point tween', () => {
     TEST_TIMEOUT_MS,
   );
 
-  test.fails(
+  test(
     'growing a line by one point ends on the target shape',
     async () => {
       const {start, mid, end} = await growthFrames('line-grow');

@@ -15,7 +15,6 @@ import {
 import {CurveProfile, getPolylineProfile} from '../curves';
 import {
   calculateLerpDistance,
-  polygonLength,
   polygonPointsLerp,
 } from '../curves/createCurveProfileLerp';
 import {computed, initial, nodeName, signal} from '../decorators';
@@ -206,34 +205,27 @@ export class Line extends Curve {
       return;
     }
 
-    const desiredLength = points.length + count;
-    const arcLength = polygonLength(points);
-    let density = arcLength === 0 ? 0 : count / arcLength;
+    const lengths = points
+      .slice(1)
+      .map((point, i) => point.sub(points[i]).magnitude);
+    const arcLength = lengths.reduce((sum, length) => sum + length, 0);
+    const measurable = Number.isFinite(arcLength) && arcLength > 0;
+    const weights = measurable ? lengths : lengths.map(() => 1);
+    const totalWeight = measurable ? arcLength : weights.length;
 
-    let i = 0;
-    while (points.length < desiredLength) {
-      const pointsLeft = desiredLength - points.length;
-
-      if (i + 1 >= points.length) {
-        density = arcLength === 0 ? 0 : pointsLeft / arcLength;
-        i = 0;
-        continue;
+    const source = [...points];
+    points.length = 1;
+    let cumulativeWeight = 0;
+    let added = 0;
+    for (let i = 1; i < source.length; i++) {
+      cumulativeWeight += weights[i - 1];
+      const target = Math.round((cumulativeWeight / totalWeight) * count);
+      const inserted = target - added;
+      for (let j = 1; j <= inserted; j++) {
+        points.push(Vector2.lerp(source[i - 1], source[i], j / (inserted + 1)));
       }
-
-      const a = points[i];
-      const b = points[i + 1];
-      const length = a.sub(b).magnitude;
-      let pointCount = Math.min(Math.round(length * density), pointsLeft) + 1;
-
-      if (arcLength === 0) {
-        pointCount = 2;
-      }
-
-      for (let j = 1; j < pointCount; j++) {
-        points.splice(++i, 0, Vector2.lerp(a, b, j / pointCount));
-      }
-
-      i++;
+      added = target;
+      points.push(source[i]);
     }
   }
 

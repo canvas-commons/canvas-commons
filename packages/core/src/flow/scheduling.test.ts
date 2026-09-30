@@ -78,4 +78,22 @@ describe('waitFor()', () => {
     expect(playback.frame).toBe(4);
     expect(time).toBeCloseTo(0.45);
   });
+
+  test('Whole-frame waits end on time at any playback speed', () => {
+    const framesSpent = (speed: number) => {
+      playback.fps = 10;
+      playback.frame = 0;
+      playback.speed = speed;
+      let frames = 0;
+      for (const _ of threads(() => waitFor(1))) {
+        frames++;
+      }
+      playback.speed = 1;
+      return frames;
+    };
+
+    expect(framesSpent(1)).toBe(10);
+    expect(framesSpent(0.5)).toBe(20);
+    expect(framesSpent(2)).toBe(5);
+  });
 });

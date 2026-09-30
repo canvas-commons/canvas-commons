@@ -112,18 +112,15 @@ describe('flow timing', () => {
     expect(probe.joinFinishedDoneAt).toBeLessThan(1);
   });
 
-  test.fails(
-    'waits and tweens of whole-frame durations take exactly that many frames',
-    () => {
-      const wrong = probe.frames
-        .map(sample => ({
-          ...sample,
-          expected: Math.round(sample.seconds * probe.fps),
-        }))
-        .filter(sample => sample.frames !== sample.expected);
-      expect(wrong).toEqual([]);
-    },
-  );
+  test('waits and tweens of whole-frame durations take exactly that many frames', () => {
+    const wrong = probe.frames
+      .map(sample => ({
+        ...sample,
+        expected: Math.round(sample.seconds * probe.fps),
+      }))
+      .filter(sample => sample.frames !== sample.expected);
+    expect(wrong).toEqual([]);
+  });
 
   test('secondsToFrames returns k for k / fps', async () => {
     const wrong = await page.evaluate(() => {

@@ -92,10 +92,12 @@ export class PlaybackManager {
 
         this.frame = this.currentScene.firstFrame;
         await this.currentScene.reset();
+        await this.transitionOut();
       } else if (this.frame >= frame) {
         this.previousScene = null;
         this.frame = this.currentScene.firstFrame;
         await this.currentScene.reset();
+        await this.transitionOut();
       }
     }
 
@@ -155,6 +157,7 @@ export class PlaybackManager {
     this.frame = 0;
     this.finished = false;
     await this.currentScene.reset();
+    await this.transitionOut();
   }
 
   public reload(description?: SceneDescriptionReload<never>) {
@@ -205,19 +208,25 @@ export class PlaybackManager {
       this.previousScene = null;
     }
 
-    if (this.currentScene.canTransitionOut()) {
+    await this.transitionOut();
+
+    return this.currentScene.isFinished();
+  }
+
+  private async transitionOut() {
+    while (this.currentScene.canTransitionOut()) {
       this.previousScene = this.currentScene;
       const nextScene = this.getNextScene(this.previousScene);
-      if (nextScene) {
-        this.currentScene = nextScene;
-        await this.currentScene.reset(this.previousScene);
+      if (!nextScene) {
+        this.previousScene = null;
+        return;
       }
-      if (!nextScene || this.currentScene.isAfterTransitionIn()) {
+      this.currentScene = nextScene;
+      await this.currentScene.reset(this.previousScene);
+      if (this.currentScene.isAfterTransitionIn()) {
         this.previousScene = null;
       }
     }
-
-    return this.currentScene.isFinished();
   }
 
   private findBestScene(frame: number): Scene {

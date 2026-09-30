@@ -250,26 +250,23 @@ describe('playback through scene boundaries (defects)', () => {
     return page;
   }
 
-  test.fails('play continues through an empty middle scene', async () => {
+  test('play continues through an empty middle scene', async () => {
     const result = await playThrough(pageOf('empty-middle'));
     expect(result.maxFrame).toBe(result.duration);
     expect(result.firstPlayedFrame[2]).toBeGreaterThanOrEqual(0);
   });
 
-  test.fails('play continues after an empty first scene', async () => {
+  test('play continues after an empty first scene', async () => {
     const result = await playThrough(pageOf('empty-first'));
     expect(result.maxFrame).toBe(result.duration);
     expect(result.firstPlayedFrame[1]).toBeGreaterThanOrEqual(0);
   });
 
-  test.fails(
-    'a scene after a first-step finish starts where the timeline says',
-    async () => {
-      const result = await playThrough(pageOf('first-step-finish'));
-      expect(result.firstPlayedFrame[1]).toBeGreaterThanOrEqual(0);
-      expect(result.firstPlayedFrame[1]).toBe(result.cachedFirstFrame[1]);
-    },
-  );
+  test('a scene after a first-step finish starts where the timeline says', async () => {
+    const result = await playThrough(pageOf('first-step-finish'));
+    expect(result.firstPlayedFrame[1]).toBeGreaterThanOrEqual(0);
+    expect(result.firstPlayedFrame[1]).toBe(result.cachedFirstFrame[1]);
+  });
 });
 
 describe('player state and rendering', () => {

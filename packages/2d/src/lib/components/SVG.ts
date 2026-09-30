@@ -452,6 +452,8 @@ export class SVG extends Shape {
       } as SVGDocumentData;
     }
 
+    SVG.inlineStyleSheets(svgRoot);
+
     let viewBox = new BBox();
     let size = new Vector2();
 
@@ -487,14 +489,17 @@ export class SVG extends Shape {
       .scaleSelf(scale.x, scale.y)
       .translateSelf(-center.x, -center.y);
 
-    const nodes = Array.from(
-      SVG.extractGroupNodes(
-        svgRoot,
-        svgRoot,
-        rootTransform,
-        SVG.getElementStyle(svgRoot, {}),
-      ),
-    );
+    const nodes =
+      SVG.getPresentationProperty(svgRoot, 'display') === 'none'
+        ? []
+        : Array.from(
+            SVG.extractGroupNodes(
+              svgRoot,
+              svgRoot,
+              rootTransform,
+              SVG.getElementStyle(svgRoot, {}),
+            ),
+          );
 
     const builder: SVGDocumentData = {
       size,
@@ -615,8 +620,105 @@ export class SVG extends Shape {
 
   private static parseOpacity(value: string | null): number | null {
     if (!value) return null;
-    if (value.endsWith('%')) return parseFloat(value) / 100;
-    return parseFloat(value);
+    const opacity = value.endsWith('%')
+      ? parseFloat(value) / 100
+      : parseFloat(value);
+    return Math.min(1, Math.max(0, opacity));
+  }
+
+  /** Copy `<style>` rules into the `style` attribute, below inline styles. */
+  private static inlineStyleSheets(svgRoot: Element) {
+    const rules: {selector: string; specificity: number; style: string}[] = [];
+    for (const styleElement of svgRoot.querySelectorAll('style')) {
+      for (const rule of styleElement.sheet?.cssRules ?? []) {
+        if (!(rule instanceof CSSStyleRule)) continue;
+        for (const selector of SVG.splitSelectorList(rule.selectorText)) {
+          if (!SVG.isSupportedSelector(svgRoot, selector)) continue;
+          rules.push({
+            selector,
+            specificity: SVG.selectorSpecificity(selector),
+            style: rule.style.cssText,
+          });
+        }
+      }
+    }
+    rules.sort((a, b) => a.specificity - b.specificity);
+
+    for (const element of [svgRoot, ...svgRoot.querySelectorAll('*')]) {
+      if (!(element instanceof SVGGraphicsElement)) continue;
+      const matched = rules.filter(({selector}) => element.matches(selector));
+      if (matched.length === 0) continue;
+      element.style.cssText = [
+        ...matched.map(({style}) => style),
+        element.style.cssText,
+      ].join(';');
+    }
+  }
+
+  private static isSupportedSelector(element: Element, selector: string) {
+    try {
+      element.matches(selector);
+      return true;
+    } catch {
+      useLogger().warn(`SVG: unsupported style selector "${selector}"`);
+      return false;
+    }
+  }
+
+  /** Split on the commas outside parentheses, brackets, and quotes. */
+  private static splitSelectorList(selectorText: string): string[] {
+    const selectors: string[] = [];
+    let depth = 0;
+    let quote: string | null = null;
+    let start = 0;
+    for (let i = 0; i < selectorText.length; i++) {
+      const char = selectorText[i];
+      if (quote !== null) {
+        if (char === quote) quote = null;
+      } else if (char === '"' || char === "'") {
+        quote = char;
+      } else if (char === '(' || char === '[') {
+        depth++;
+      } else if (char === ')' || char === ']') {
+        depth--;
+      } else if (char === ',' && depth === 0) {
+        selectors.push(selectorText.slice(start, i).trim());
+        start = i + 1;
+      }
+    }
+    selectors.push(selectorText.slice(start).trim());
+    return selectors;
+  }
+
+  /** `:where()` counts as zero; `:is()`, `:not()`, `:has()` as their top argument. */
+  private static selectorSpecificity(selector: string): number {
+    let functional = 0;
+    const plain = selector.replace(
+      /:(where|is|not|has)\(((?:[^()]|\([^()]*\))*)\)/g,
+      (_, name: string, args: string) => {
+        if (name !== 'where') {
+          functional += Math.max(
+            ...SVG.splitSelectorList(args).map(SVG.selectorSpecificity),
+          );
+        }
+        return '';
+      },
+    );
+    const count = (pattern: RegExp) => (plain.match(pattern) ?? []).length;
+    return (
+      functional +
+      count(/#[\w-]+/g) * 10000 +
+      count(/\.[\w-]+|\[[^\]]*\]|:[\w-]+/g) * 100 +
+      count(/(^|[\s>+~])[a-zA-Z][\w-]*/g)
+    );
+  }
+
+  private static composeOpacity(
+    own: number | null,
+    inherited: SignalValue<number> | undefined,
+  ): SignalValue<number> | undefined {
+    if (own === null) return inherited;
+    return typeof inherited === 'number' ? own * inherited : own;
   }
 
   /** Read a presentation property, preferring `style` over the attribute. */
@@ -664,9 +766,10 @@ export class SVG extends Shape {
         this.parseDashOffset(
           this.getPresentationProperty(element, 'stroke-dashoffset'),
         ) ?? inheritedStyle.lineDashOffset,
-      opacity:
-        this.parseOpacity(this.getPresentationProperty(element, 'opacity')) ??
+      opacity: this.composeOpacity(
+        this.parseOpacity(this.getPresentationProperty(element, 'opacity')),
         inheritedStyle.opacity,
+      ),
       layout: false,
     };
   }
@@ -728,6 +831,8 @@ export class SVG extends Shape {
     parentTransform: DOMMatrix,
     inheritedStyle: ShapeProps,
   ): Generator<SVGShapeData> {
+    if (SVG.getPresentationProperty(child, 'display') === 'none') return;
+
     const transformMatrix = SVG.getElementTransformation(
       child,
       parentTransform,

@@ -67,6 +67,16 @@ export const svgCases: SvgCase[] = [
     ),
     reference: svgDocument(PlainRect),
   },
+  {
+    name: 'opacity above one is clamped before it composes',
+    subject: svgDocument(
+      '<g opacity="2"><rect width="10" height="10" opacity=".25" fill="#000"/></g>',
+    ),
+    reference: svgDocument(
+      '<rect width="10" height="10" opacity=".25" fill="#000"/>',
+    ),
+    backdrop: '#fff',
+  },
 ];
 
 export const CellSize = 240;

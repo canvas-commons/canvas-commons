@@ -110,11 +110,11 @@ export function deepLerp(
     return value < 0.5 ? from : to;
   }
 
-  if ('lerp' in from) {
+  if (typeof from === 'object' && 'lerp' in from) {
     return from.lerp(to, value);
   }
 
-  if (from && to && typeof from === 'object' && typeof to === 'object') {
+  if (typeof from === 'object' && typeof to === 'object') {
     if (Array.isArray(from) && Array.isArray(to)) {
       if (from.length === to.length) {
         return from.map((f, i) => deepLerp(f, to[i], value));

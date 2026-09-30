@@ -1,5 +1,5 @@
 import {describe, expect, test, vi} from 'vitest';
-import {Vector2} from '../types';
+import {Color, Vector2} from '../types';
 import {deepLerp} from './interpolationFunctions';
 
 describe('deepLerp', () => {
@@ -88,6 +88,12 @@ describe('deepLerp', () => {
     ];
     expect(deepLerp(...args)).toEqual(Vector2.lerp(...args));
     expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  test('interpolates a native value toward a string target', () => {
+    expect(deepLerp<Color | string>(new Color('red'), 'blue', 0.5)).toEqual(
+      Color.lerp('red', 'blue', 0.5),
+    );
   });
 
   test('returns the from boolean until a value of 0.5', () => {

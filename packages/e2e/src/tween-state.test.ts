@@ -170,7 +170,7 @@ describe(Scene, () => {
     );
   });
 
-  test.fails('tweening a signal to a different type ends at the target', () => {
+  test('tweening a signal to a different type ends at the target', () => {
     expect(countForeground(crop(final, MixedCell), Red)).toBeGreaterThan(10000);
   });
 });

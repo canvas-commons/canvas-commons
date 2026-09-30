@@ -94,7 +94,7 @@ describe(SCENE, () => {
       expect(countForeground(above, WHITE)).toBeGreaterThan(50);
     });
 
-    test.fails('cached text does not clip overshooting glyphs', () => {
+    test('cached text does not clip overshooting glyphs', () => {
       const {subject, reference} = cellAt(frame, 1);
       expect(diffRatio(subject, reference)).toBeLessThan(MAX_DIFF);
     });

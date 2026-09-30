@@ -236,7 +236,7 @@ describe('Txt nested span', () => {
     expect(lineTexts(root)).toEqual(['aaaa bbbb', 'cccc dddd']);
     expect([span.size().x, span.size().y]).toEqual([90, 40]);
     const box = span.cacheBBox();
-    expect([box.y, box.height]).toEqual([-20, 40]);
+    expect([box.x, box.y, box.width, box.height]).toEqual([-60, -30, 110, 60]);
   });
 
   it('reads its lines from the root placement', () => {

@@ -2815,8 +2815,8 @@ export class Txt extends Shape {
     const box = this.parentTxt()
       ? this.ownedTextBox()
       : BBox.fromSizeCentered(this.computedSize());
-    // Pad vertically for glyphs that overshoot the line box.
-    return box.expand([0, this.fontSize() * 0.5]).expand(stroke);
+    // Glyphs overshoot the line box and the advance width.
+    return box.expand(this.fontSize() * 0.5).expand(stroke);
   }
 
   @computed()

@@ -262,11 +262,7 @@ export class Camera extends Node {
   ): ThreadGenerator {
     yield* tween(duration, value => {
       const t = timing(value);
-      const point = curve
-        .getPointAtPercentage(t)
-        .position.transformAsPoint(curve.localToWorld());
-
-      this.position(point);
+      this.position(this.curvePointInScene(curve, t).position);
     });
   }
 
@@ -292,11 +288,7 @@ export class Camera extends Node {
   ) {
     yield* tween(duration, value => {
       const t = 1 - timing(value);
-      const point = curve
-        .getPointAtPercentage(t)
-        .position.transformAsPoint(curve.localToWorld());
-
-      this.position(point);
+      this.position(this.curvePointInScene(curve, t).position);
     });
   }
 
@@ -323,11 +315,9 @@ export class Camera extends Node {
   ) {
     yield* tween(duration, value => {
       const t = timing(value);
-      const {position, normal} = curve.getPointAtPercentage(t);
-      const point = position.transformAsPoint(curve.localToWorld());
-      const angle = normal.flipped.perpendicular.degrees;
+      const {position, angle} = this.curvePointInScene(curve, t);
 
-      this.position(point);
+      this.position(position);
       this.rotation(angle);
     });
   }
@@ -355,13 +345,33 @@ export class Camera extends Node {
   ) {
     yield* tween(duration, value => {
       const t = 1 - timing(value);
-      const {position, normal} = curve.getPointAtPercentage(t);
-      const point = position.transformAsPoint(curve.localToWorld());
-      const angle = normal.flipped.perpendicular.degrees;
+      const {position, angle} = this.curvePointInScene(curve, t);
 
-      this.position(point);
+      this.position(position);
       this.rotation(angle);
     });
+  }
+
+  private curvePointInScene(curve: Curve, percentage: number) {
+    const curveToScene = this.curveToScene(curve);
+    const {position, normal} = curve.getPointAtPercentage(percentage);
+    const tangent = normal.flipped.perpendicular;
+    const start = position.transformAsPoint(curveToScene);
+    const end = position.add(tangent).transformAsPoint(curveToScene);
+
+    return {position: start, angle: end.sub(start).degrees};
+  }
+
+  // Free of the camera's own transform: it cancels inside, and the rest of the
+  // tree is seen with the camera at rest.
+  private curveToScene(curve: Curve): DOMMatrix {
+    if (curve.findAncestor(node => node === this)) {
+      return this.worldToLocal().multiply(curve.localToWorld());
+    }
+    const root = (node: Node) => node.findAncestor(n => !n.parent()) ?? node;
+    return root(curve) === root(this)
+      ? this.worldToParent().multiply(curve.localToWorld())
+      : curve.localToWorld();
   }
 
   protected override transformContext(context: CanvasRenderingContext2D) {

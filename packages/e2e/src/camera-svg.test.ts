@@ -80,7 +80,7 @@ describe('camera-follow', () => {
     expect(Math.abs(y - 200)).toBeLessThan(5);
   });
 
-  test.fails('followCurve ends centered on the curve end', () => {
+  test('followCurve ends centered on the curve end', () => {
     expect(
       diffRatio(crop(final, stages.follow), crop(final, stages.center)),
     ).toBeLessThan(0.001);

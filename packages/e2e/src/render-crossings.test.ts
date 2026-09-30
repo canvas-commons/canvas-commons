@@ -74,7 +74,7 @@ describe(SCENE, () => {
       expect(soft).toBeGreaterThan(100);
     });
 
-    test.fails('cached parent does not clip the blur of a scaled child', () => {
+    test('cached parent does not clip the blur of a scaled child', () => {
       const {subject, reference} = cellAt(frame, 0);
       expect(diffRatio(subject, reference)).toBeLessThan(MAX_DIFF);
     });
@@ -106,7 +106,7 @@ describe(SCENE, () => {
       expect(countForeground(reference, WHITE)).toBeGreaterThan(5000);
     });
 
-    test.fails('cached parent does not clip the blur of the child', () => {
+    test('cached parent does not clip the blur of the child', () => {
       const {subject, reference} = cellAt(frame, 2);
       expect(diffRatio(subject, reference)).toBeLessThan(MAX_DIFF);
     });
@@ -130,7 +130,7 @@ describe(SCENE, () => {
       expect(countForeground(reference, WHITE)).toBeGreaterThan(5000);
     });
 
-    test.fails('cached parent does not clip the isotropic blur', () => {
+    test('cached parent does not clip the isotropic blur', () => {
       const {subject, reference} = cellAt(frame, 4);
       expect(diffRatio(subject, reference)).toBeLessThan(MAX_DIFF);
     });

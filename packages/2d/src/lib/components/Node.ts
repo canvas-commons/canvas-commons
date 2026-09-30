@@ -28,6 +28,7 @@ import {
   isReactive,
   threadable,
   transformScalar,
+  transformScalarPerAxis,
   unwrap,
   useLogger,
 } from '@canvas-commons/core';
@@ -657,13 +658,16 @@ export class Node implements Promisable<Node> {
     return this.parent()?.compositeRoot() ?? null;
   }
 
+  /**
+   * A matrix mapping composite space to local space.
+   */
   @computed()
   public compositeToLocal() {
     const root = this.compositeRoot();
     if (root) {
       const worldToLocal = this.worldToLocal();
       worldToLocal.m44 = 1;
-      return root.localToWorld().multiply(worldToLocal);
+      return worldToLocal.multiply(root.localToWorld());
     }
     return new DOMMatrix();
   }
@@ -1537,11 +1541,13 @@ export class Node implements Promisable<Node> {
   protected fullCacheBBox(): BBox {
     const matrix = this.compositeToLocal();
     const shadowOffset = this.shadowOffset().transform(matrix);
-    const shadowBlur = transformScalar(this.shadowBlur(), matrix);
-
-    const result = this.cacheBBox().expand(
-      this.filters.blur() * 2 + shadowBlur,
+    const worldBlur = transformScalar(
+      this.filters.blur() * 2 + this.shadowBlur(),
+      this.compositeToWorld(),
     );
+    const padding = transformScalarPerAxis(worldBlur, this.worldToLocal());
+
+    const result = this.cacheBBox().expand([padding.y, padding.x]);
 
     if (shadowOffset.x < 0) {
       result.x += shadowOffset.x;

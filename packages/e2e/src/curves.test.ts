@@ -59,12 +59,9 @@ describe(SCENE, () => {
     expect(Math.abs(horizontalSpan(spline) - 200)).toBeLessThan(20);
   });
 
-  test.fails(
-    'a spline with three coincident knots draws its full length',
-    () => {
-      const spline = crop(frame, splineRegion(-200));
-      expect(countForeground(spline, BLACK)).toBeGreaterThan(500);
-      expect(Math.abs(horizontalSpan(spline) - 200)).toBeLessThan(20);
-    },
-  );
+  test('a spline with three coincident knots draws its full length', () => {
+    const spline = crop(frame, splineRegion(-200));
+    expect(countForeground(spline, BLACK)).toBeGreaterThan(500);
+    expect(Math.abs(horizontalSpan(spline) - 200)).toBeLessThan(20);
+  });
 });

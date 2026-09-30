@@ -37,7 +37,9 @@ function calculateSmoothHandles(
   // http://scaledinnovation.com/analytics/splines/aboutSplines.html
   const distanceToPrev = knot.position.sub(previous.position).magnitude;
   const distanceToNext = next.position.sub(knot.position).magnitude;
-  const fa = (smoothness * distanceToPrev) / (distanceToPrev + distanceToNext);
+  const totalDistance = distanceToPrev + distanceToNext;
+  const fa =
+    totalDistance === 0 ? 0 : (smoothness * distanceToPrev) / totalDistance;
   const fb = smoothness - fa;
   const startHandle = new Vector2(
     knot.position.x - fa * (next.position.x - previous.position.x),

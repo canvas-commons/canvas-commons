@@ -112,7 +112,7 @@ describe('camera-clone', () => {
     expect(rowRun(view, view.height / 2, red)).toBeLessThanOrEqual(102);
   });
 
-  test.fails('a cloned camera renders its own zoomed view', () => {
+  test('a cloned camera renders its own zoomed view', () => {
     const independent = crop(frame, stages.independent);
     expect(diffRatio(crop(frame, stages.original), independent)).toBeLessThan(
       0.001,

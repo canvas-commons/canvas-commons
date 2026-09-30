@@ -17,7 +17,7 @@ import {
 } from '@canvas-commons/core';
 import {cloneable, computed, signal} from '../decorators';
 import {Curve} from './Curve';
-import {Node, NodeProps} from './Node';
+import {Node, NodeProps, NodeState} from './Node';
 import {Rect, RectProps} from './Rect';
 
 export interface CameraProps extends NodeProps {
@@ -84,6 +84,14 @@ export class Camera extends Node {
   public constructor({children, ...props}: CameraProps) {
     super(props);
 
+    // Initializing `zoom` overwrites the scale given in props.
+    const {scale, scaleX, scaleY, zoom} = props;
+    if (zoom === undefined) {
+      if (scale !== undefined) this.scale(scale);
+      if (scaleX !== undefined) this.scale.x(scaleX);
+      if (scaleY !== undefined) this.scale.y(scaleY);
+    }
+
     if (!this.scene()) {
       this.scene(new Node({}));
     }
@@ -96,6 +104,27 @@ export class Camera extends Node {
     if (scene.parent() !== this) {
       scene.parent(this);
     }
+  }
+
+  public override clone(customProps: NodeState = {}): this {
+    return super.clone({
+      ...customProps,
+      scene: customProps.scene ?? this.scene().clone(),
+    });
+  }
+
+  public override snapshotClone(customProps: NodeState = {}): this {
+    return super.snapshotClone({
+      ...customProps,
+      scene: customProps.scene ?? this.scene().snapshotClone(),
+    });
+  }
+
+  public override reactiveClone(customProps: NodeState = {}): this {
+    return super.reactiveClone({
+      ...customProps,
+      scene: customProps.scene ?? this.scene().reactiveClone(),
+    });
   }
 
   protected setScene(value: SignalValue<Node>) {

@@ -56,6 +56,46 @@ describe('Camera', () => {
     expect(after.x).toBeCloseTo(viewCenter.x + 200, 3);
   });
 
+  it('keeps a scale given in props', () => {
+    const camera = new Camera({scale: [2, 3]});
+    expect(camera.scale()).toEqual(new Vector2(2, 3));
+
+    const zoomed = new Camera({zoom: 2});
+    expect(zoomed.scale()).toEqual(new Vector2(0.5, 0.5));
+  });
+
+  it('zoom.reset restores the initial zoom', () => {
+    const camera = new Camera({});
+    camera.zoom(2);
+    camera.zoom.reset();
+    expect(camera.zoom()).toBe(1);
+  });
+
+  describe('clones', () => {
+    const cloneMethods = ['clone', 'snapshotClone', 'reactiveClone'] as const;
+
+    for (const method of cloneMethods) {
+      it(`${method} gives the copy its own scene at the same zoom`, () => {
+        const child = new Rect({size: 100});
+        const camera = new Camera({zoom: 2, children: child});
+
+        const copy = camera[method]();
+
+        expect(camera.scene().parent()).toBe(camera);
+        expect(copy.scene()).not.toBe(camera.scene());
+        expect(copy.scene().parent()).toBe(copy);
+        expect(copy.scene().children()).toHaveLength(1);
+        expect(copy.scene().children()[0]).not.toBe(child);
+        expect(copy.zoom()).toBe(2);
+      });
+    }
+
+    it('clone keeps a non-uniform scale', () => {
+      const camera = new Camera({scale: [2, 3]});
+      expect(camera.clone().scale()).toEqual(new Vector2(2, 3));
+    });
+  });
+
   it('reparents the scene when reassigning the scene signal', () => {
     const view = useScene2D().getView();
     const camera = new Camera({});

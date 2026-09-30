@@ -143,7 +143,7 @@ describe('layout-overlap', () => {
       expect(foregroundSpan(row, ROW.height / 2)).toBeGreaterThan(520);
     });
 
-    test.fails('reflows after the animations end', () => {
+    test('reflows after the animations end', () => {
       const overlapping = crop(last, rowRegion(-400));
       const sequential = crop(last, rowRegion(-250));
       expect(diffRatio(overlapping, sequential)).toBeLessThan(MAX_DIFF);

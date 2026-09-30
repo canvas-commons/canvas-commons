@@ -283,6 +283,15 @@ function isPercent(value: DesiredLength): value is `${number}%` {
   return typeof value === 'string' && value.endsWith('%');
 }
 
+function saveRawValue<T>(context: {
+  raw(): T | undefined;
+  reset(): unknown;
+  setter(value: T): unknown;
+}): () => void {
+  const raw = context.raw();
+  return () => (raw === undefined ? context.reset() : context.setter(raw));
+}
+
 function isRowDirection(direction: FlexDirection): boolean {
   return direction === 'row' || direction === 'row-reverse';
 }
@@ -865,6 +874,30 @@ export class Layout extends Node {
   @initial(0)
   @signal()
   declare protected readonly layoutLockCounter: SimpleSignal<number, this>;
+
+  private frozen?: {tweens: number; thaw: () => void};
+
+  private saveLayoutInputs(): () => void {
+    const restoreWidth = saveRawValue(this.width.context);
+    const restoreHeight = saveRawValue(this.height.context);
+    const restoreLayoutChildren = saveRawValue(this.layoutChildren.context);
+    return () => {
+      restoreWidth();
+      restoreHeight();
+      restoreLayoutChildren();
+    };
+  }
+
+  // Runs a mutation on the thawed layout so flex resolves the new targets and
+  // the final thaw keeps the change. Follow with `runFreezeThawTween`.
+  private mutateThawedLayout(mutation: () => void) {
+    this.frozen?.thaw();
+    mutation();
+    this.requestLayoutUpdate();
+    if (this.frozen) {
+      this.frozen.thaw = this.saveLayoutInputs();
+    }
+  }
 
   public constructor(props: LayoutProps) {
     super(props);
@@ -1731,11 +1764,12 @@ export class Layout extends Node {
       preWorld.set(child, child.position.abs());
     }
 
-    slots.forEach((slot, i) => {
-      const insertIndex = Number.isFinite(index) ? index + i : Infinity;
-      this.insert(slot.wrapper, insertIndex);
+    this.mutateThawedLayout(() => {
+      slots.forEach((slot, i) => {
+        const insertIndex = Number.isFinite(index) ? index + i : Infinity;
+        this.insert(slot.wrapper, insertIndex);
+      });
     });
-    this.requestLayoutUpdate();
 
     const newSize = new Vector2(this.size());
     const postWorld = new Map<Layout, Vector2>();
@@ -1800,15 +1834,16 @@ export class Layout extends Node {
       width: natural.x,
       height: natural.y,
     });
-    node.remove();
-    this.insert(wrapper, removalIndex);
-    wrapper.add(node);
+    this.mutateThawedLayout(() => {
+      node.remove();
+      this.insert(wrapper, removalIndex);
+      wrapper.add(node);
 
-    // Pin at the flex-resolved position before pulling out of flex; otherwise
-    // `position` falls back to the raw signal default once `layoutSelf` is off.
-    wrapper.position.abs(wrapper.position.abs());
-    wrapper.layoutSelf(false);
-    this.requestLayoutUpdate();
+      // Pin at the flex-resolved position before pulling out of flex; otherwise
+      // `position` falls back to the raw signal default once `layoutSelf` is off.
+      wrapper.position.abs(wrapper.position.abs());
+      wrapper.layoutSelf(false);
+    });
 
     const newSize = new Vector2(this.size());
     const postWorld = new Map<Layout, Vector2>();
@@ -1865,8 +1900,7 @@ export class Layout extends Node {
     }
     const oldSize = new Vector2(this.size());
 
-    mutator(this);
-    this.requestLayoutUpdate();
+    this.mutateThawedLayout(() => mutator(this));
     const postWorld = new Map<Layout, Vector2>();
     for (const child of flexChildren) {
       postWorld.set(child, child.position.abs());
@@ -1901,9 +1935,11 @@ export class Layout extends Node {
       const pre = preWorld.get(child);
       if (pre) child.position.abs(pre);
     }
-    const savedLayoutChildren = this.layoutChildren.context.raw();
-    const savedWidth = this.width.context.raw();
-    const savedHeight = this.height.context.raw();
+    const frozen = (this.frozen ??= {
+      tweens: 0,
+      thaw: this.saveLayoutInputs(),
+    });
+    frozen.tweens++;
     this.layoutChildren(false);
     this.lockLayout();
     this.size(oldSize);
@@ -1925,20 +1961,9 @@ export class Layout extends Node {
       );
     } finally {
       this.releaseLayout();
-      if (savedWidth === undefined) {
-        this.width.context.reset();
-      } else {
-        this.width.context.setter(savedWidth);
-      }
-      if (savedHeight === undefined) {
-        this.height.context.reset();
-      } else {
-        this.height.context.setter(savedHeight);
-      }
-      if (savedLayoutChildren === undefined) {
-        this.layoutChildren.context.reset();
-      } else {
-        this.layoutChildren.context.setter(savedLayoutChildren);
+      if (--frozen.tweens === 0) {
+        frozen.thaw();
+        this.frozen = undefined;
       }
     }
   }

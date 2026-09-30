@@ -75,7 +75,7 @@ export function* threads(
       }
 
       const result = thread.next();
-      if (result.done) {
+      if (result.done || thread.canceled) {
         thread.cancel();
         continue;
       }

@@ -100,13 +100,10 @@ describe('flow timing', () => {
     expect(probe.canceledSpawnProgress).toBeLessThan(0.3);
   });
 
-  test.fails(
-    'canceling a task runs the finally blocks of its child tasks',
-    () => {
-      expect(probe.finalizedByCancel).toContain('a');
-      expect(probe.finalizedByCancel).toContain('b');
-    },
-  );
+  test('canceling a task runs the finally blocks of its child tasks', () => {
+    expect(probe.finalizedByCancel).toContain('a');
+    expect(probe.finalizedByCancel).toContain('b');
+  });
 
   test.fails('any() without tasks ends at once', () => {
     expect(probe.anyWithoutTasksDoneAt).toBeGreaterThanOrEqual(0);

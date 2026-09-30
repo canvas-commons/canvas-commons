@@ -27,3 +27,7 @@ export function endThread(thread: Thread) {
     throw new Error('startThread/endThread was called out of order.');
   }
 }
+
+export function isThreadRunning(thread: Thread): boolean {
+  return ThreadStack.includes(thread);
+}

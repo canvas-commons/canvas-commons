@@ -80,7 +80,7 @@ describe('tree-edits', () => {
       expect(countForeground(expected, WHITE)).toBeGreaterThan(20000);
     });
 
-    test.fails('moves the child to the top and draws it once', () => {
+    test('moves the child to the top and draws it once', () => {
       expect(diffRatio(moved, expected)).toBeLessThan(MAX_DIFF);
     });
   });

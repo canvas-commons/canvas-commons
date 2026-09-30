@@ -736,15 +736,17 @@ export class Node implements Promisable<Node> {
       return this;
     }
 
+    const nodes = new Set(array.filter(child => child instanceof Node));
+    for (const node of nodes) {
+      node.remove();
+    }
+
     const children = this.children();
     const newChildren = children.slice(0, index);
 
-    for (const node of array) {
-      if (node instanceof Node) {
-        newChildren.push(node);
-        node.remove();
-        node.parent(this);
-      }
+    for (const node of nodes) {
+      newChildren.push(node);
+      node.parent(this);
     }
 
     newChildren.push(...children.slice(index));
@@ -1395,7 +1397,7 @@ export class Node implements Promisable<Node> {
   }
 
   protected spawnChildren(reactive: boolean, children: ComponentChildren) {
-    const parsedChildren = this.parseChildren(children);
+    const parsedChildren = [...new Set(this.parseChildren(children))];
 
     const keep = new Set<string>();
     for (const newChild of parsedChildren) {

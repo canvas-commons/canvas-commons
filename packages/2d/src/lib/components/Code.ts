@@ -265,9 +265,12 @@ export class Code extends Shape {
     this.oldSelection = this.selection();
     this.selection(value);
     this.selectionProgress(0);
-    yield* this.selectionProgress(1, duration, timingFunction);
-    this.selectionProgress(null);
-    this.oldSelection = null;
+    try {
+      yield* this.selectionProgress(1, duration, timingFunction);
+    } finally {
+      this.selectionProgress(null);
+      this.oldSelection = null;
+    }
   }
 
   /**

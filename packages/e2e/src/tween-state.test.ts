@@ -121,7 +121,7 @@ describe(Scene, () => {
     expect(mid).toBeGreaterThan(resting * 1.02);
   });
 
-  test.fails('a cancelled selection tween leaves no blend', () => {
+  test('a cancelled selection tween leaves no blend', () => {
     expect(
       diffRatio(
         crop(final, CodeCells.subject),

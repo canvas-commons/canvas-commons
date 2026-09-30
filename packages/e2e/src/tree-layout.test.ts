@@ -110,7 +110,7 @@ describe('tree-edits', () => {
       expect(countForeground(sentinelAfter, WHITE)).toBeGreaterThan(9000);
     });
 
-    test.fails('leaves the tree intact', () => {
+    test('leaves the tree intact', () => {
       const region = around(CENTER_X + 400, CENTER_Y, CELL.width, CELL.height);
       expect(diffRatio(crop(before, region), crop(after, region))).toBeLessThan(
         MAX_DIFF,

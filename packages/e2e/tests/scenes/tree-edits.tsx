@@ -34,10 +34,6 @@ export default makeScene2D(function* (view) {
   view.add(new Rect({x: 750, size: 100, fill: '#00aa00'}));
 
   yield* waitFor(0.1);
-  try {
-    inner.add(outer);
-  } catch {
-    // Rejecting the edit is an accepted outcome.
-  }
+  inner.add(outer);
   yield* waitFor(0.4);
 });

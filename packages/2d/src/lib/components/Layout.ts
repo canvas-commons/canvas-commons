@@ -1689,14 +1689,17 @@ export class Layout extends Node {
     timing: TimingFunction = easeInOutCubic,
     animate?: LayoutAnimateCallback,
   ): ThreadGenerator {
-    const nodes = Array.isArray(node) ? node : [node];
+    const nodes = this.withoutCircular(Array.isArray(node) ? node : [node]);
+    if (nodes.length === 0) {
+      return;
+    }
     const layoutNodes: Layout[] = [];
     for (const n of nodes) {
       if (n instanceof Layout) layoutNodes.push(n);
     }
 
     if (layoutNodes.length !== nodes.length) {
-      super.insert(node, index);
+      super.insert(nodes, index);
       return;
     }
 

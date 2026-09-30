@@ -48,6 +48,15 @@ export class PlaybackStatus {
    * The time passed since the last frame in seconds.
    */
   public get deltaTime(): number {
-    return this.framesToSeconds(1) * this.speed;
+    return this.framesToSeconds(1) * this.playback.increment;
+  }
+
+  /**
+   * The time that the scene advances after the current update.
+   *
+   * @internal
+   */
+  public get nextDeltaTime(): number {
+    return this.framesToSeconds(1) * this.playback.nextIncrement;
   }
 }

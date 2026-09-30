@@ -310,14 +310,14 @@ describe('player state and rendering', () => {
       expect(result.unrequestedRenders).toBe(0);
     });
 
-    test.fails('rests after a seek to its end at double speed', async () => {
+    test('rests after a seek to its end at double speed', async () => {
       await setPlaybackSpeed(page, 2);
       const result = await seekToEndAndRest(page);
       expect(result.frame).toBe(result.duration);
       expect(result.unrequestedRenders).toBe(0);
     });
 
-    test.fails('a seek at double speed shows the requested frame', async () => {
+    test('a seek at double speed shows the requested frame', async () => {
       const target = 5;
       await seekTo(page, target);
       const expected = await readSceneProgress(page);

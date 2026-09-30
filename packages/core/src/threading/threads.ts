@@ -66,7 +66,7 @@ export function* threads(
   while (threads.length > 0) {
     const newThreads = [];
     const queue = [...threads];
-    const dt = playback.deltaTime;
+    const dt = playback.nextDeltaTime;
 
     while (queue.length > 0) {
       const thread = queue.pop();

@@ -67,6 +67,18 @@ export class PlaybackManager {
     this.currentSceneReference.current = scene;
   }
 
+  /** The frames that the current run advances. */
+  public get increment(): number {
+    return this.currentIncrement ?? this.speed;
+  }
+
+  /** The frames that the run after the current one advances. */
+  public get nextIncrement(): number {
+    return this.upcomingIncrement ?? this.speed;
+  }
+
+  private currentIncrement: number | null = null;
+  private upcomingIncrement: number | null = null;
   private currentSceneReference: ValueDispatcher<Scene> | null = null;
   private scenes = new ValueDispatcher<Scene[]>([]);
 
@@ -81,8 +93,9 @@ export class PlaybackManager {
   }
 
   public async seek(frame: number): Promise<boolean> {
+    const rewind = frame < this.frame + this.speed;
     if (
-      frame <= this.frame ||
+      rewind ||
       (this.currentScene.isCached() && this.currentScene.lastFrame < frame)
     ) {
       const scene = this.findBestScene(frame);
@@ -91,22 +104,56 @@ export class PlaybackManager {
         this.currentScene = scene;
 
         this.frame = this.currentScene.firstFrame;
-        await this.currentScene.reset();
-        await this.transitionOut();
-      } else if (this.frame >= frame) {
+        await this.restart(frame);
+      } else if (rewind) {
         this.previousScene = null;
         this.frame = this.currentScene.firstFrame;
-        await this.currentScene.reset();
-        await this.transitionOut();
+        await this.restart(frame);
       }
     }
 
     this.finished = false;
     while (this.frame < frame && !this.finished) {
-      this.finished = await this.next();
+      const increment = Math.min(this.speed, frame - this.frame);
+      this.finished = await this.next(
+        increment,
+        this.incrementAfter(frame, this.frame + increment),
+      );
     }
 
     return this.finished;
+  }
+
+  /** The increment of the run after the one that ends at `from`. */
+  private incrementAfter(frame: number, from: number): number {
+    const remaining = frame - from;
+    return remaining > 0 ? Math.min(this.speed, remaining) : this.speed;
+  }
+
+  private async restart(target: number) {
+    await this.withIncrements(
+      this.speed,
+      this.incrementAfter(target, this.frame),
+      async () => {
+        await this.currentScene.reset();
+        await this.transitionOut();
+      },
+    );
+  }
+
+  private async withIncrements<T>(
+    increment: number,
+    nextIncrement: number,
+    run: () => Promise<T>,
+  ): Promise<T> {
+    this.currentIncrement = increment;
+    this.upcomingIncrement = nextIncrement;
+    try {
+      return await run();
+    } finally {
+      this.currentIncrement = null;
+      this.upcomingIncrement = null;
+    }
   }
 
   public async goBack() {
@@ -189,7 +236,16 @@ export class PlaybackManager {
     this.duration = this.frame;
   }
 
-  private async next(): Promise<boolean> {
+  private async next(
+    increment = this.speed,
+    nextIncrement = this.speed,
+  ): Promise<boolean> {
+    return this.withIncrements(increment, nextIncrement, () =>
+      this.advance(increment),
+    );
+  }
+
+  private async advance(increment: number): Promise<boolean> {
     if (this.previousScene) {
       await this.previousScene.next();
       if (this.currentScene.isFinished()) {
@@ -197,7 +253,7 @@ export class PlaybackManager {
       }
     }
 
-    this.frame += this.speed;
+    this.frame += increment;
 
     if (this.currentScene.isFinished()) {
       return true;

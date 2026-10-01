@@ -389,8 +389,17 @@ export abstract class Shape extends Layout {
 
     if (!result) return;
 
+    const matrix = this.worldToLocal();
     context.save();
-    this.renderFromSource(context, result, 0, 0);
+    context.transform(
+      matrix.a,
+      matrix.b,
+      matrix.c,
+      matrix.d,
+      matrix.e,
+      matrix.f,
+    );
+    context.drawImage(result, 0, 0);
     context.restore();
   }
 

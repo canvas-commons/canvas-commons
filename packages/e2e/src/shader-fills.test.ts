@@ -66,7 +66,7 @@ describe(SCENE, () => {
     (_, row) => expectMatchesReference(row),
   );
 
-  test.fails.each(EFFECT_CASES)(
+  test.each(EFFECT_CASES)(
     'pass-through fill and stroke shaders match no shader with %s',
     (_, row) => expectMatchesReference(row),
   );

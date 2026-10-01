@@ -72,10 +72,7 @@ describe('code tween render cost', () => {
   });
 
   // 8x the lines: linear growth gives 8, n^1.5 gives 22.6, quadratic gives 64.
-  test.fails(
-    'stepped tween render time grows well below n^1.5 with lines',
-    () => {
-      expect(largeMs / smallMs).toBeLessThan(14);
-    },
-  );
+  test('stepped tween render time grows well below n^1.5 with lines', () => {
+    expect(largeMs / smallMs).toBeLessThan(14);
+  });
 });

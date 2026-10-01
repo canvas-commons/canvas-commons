@@ -52,7 +52,8 @@ export class CodeCursor {
   private highlighter: CodeHighlighter | null = null;
   private selection: CodeRange[] = [];
   private selectionProgress: number | null = null;
-  private globalProgress: number[] = [];
+  private progressSum = 0;
+  private progressCount = 0;
   private fragmentDrawingInfo: CodeFragmentDrawingInfo[] = [];
   private fontHeight = 0;
   private verticalOffset = 0;
@@ -116,7 +117,8 @@ export class CodeCursor {
     this.selection = this.node.selection();
     this.selectionProgress = this.node.selectionProgress();
     this.fragmentDrawingInfo = [];
-    this.globalProgress = [];
+    this.progressSum = 0;
+    this.progressCount = 0;
   }
 
   /**
@@ -278,7 +280,8 @@ export class CodeCursor {
     const progress = unwrap(scope.progress);
     const currentProgress = this.currentProgress();
     if (progress > 0) {
-      this.globalProgress.push(progress);
+      this.progressSum += progress;
+      this.progressCount++;
     }
 
     const code = progress < 0.5 ? fragment.before : fragment.after;
@@ -430,16 +433,7 @@ export class CodeCursor {
   }
 
   private currentProgress() {
-    if (this.globalProgress.length === 0) {
-      return 0;
-    }
-
-    let sum = 0;
-    for (const progress of this.globalProgress) {
-      sum += progress;
-    }
-
-    return sum / this.globalProgress.length;
+    return this.progressCount === 0 ? 0 : this.progressSum / this.progressCount;
   }
 
   private processSelection(

@@ -61,7 +61,7 @@ describe(SCENE, () => {
     ).toBeLessThan(MAX_DIFF_RATIO);
   }
 
-  test.fails.each(TRANSFORM_CASES)(
+  test.each(TRANSFORM_CASES)(
     'pass-through fill and stroke shaders match no shader with %s',
     (_, row) => expectMatchesReference(row),
   );

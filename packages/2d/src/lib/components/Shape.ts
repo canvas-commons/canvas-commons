@@ -396,7 +396,7 @@ export abstract class Shape extends Layout {
 
   private shapeShaderCanvas(
     destination: TexImageSource,
-    source: TexImageSource,
+    source: HTMLCanvasElement,
     shaders: ShaderConfig[],
   ) {
     if (shaders.length === 0) return null;
@@ -414,11 +414,13 @@ export abstract class Shape extends Layout {
         parentCacheRect.y / size.height - 1,
       );
 
-    const cacheRect = this.worldSpaceCacheBBox();
-    const cameraToCache = new DOMMatrix()
-      .scaleSelf(size.width / cacheRect.width, size.height / -cacheRect.height)
-      .translateSelf(cacheRect.x / -size.width, cacheRect.y / size.height - 1)
-      .invertSelf();
+    const textureBBox = this.cacheBBox();
+    const textureToCamera = new DOMMatrix()
+      .translateSelf(0, 1)
+      .scaleSelf(1 / size.width, -1 / size.height)
+      .multiplySelf(this.localToWorld())
+      .translateSelf(textureBBox.x, textureBBox.y)
+      .scaleSelf(source.width, source.height);
 
     const gl = scene.shaders.getGL();
     scene.shaders.copyTextures(destination, source);
@@ -458,7 +460,7 @@ export abstract class Shape extends Layout {
       gl.uniformMatrix4fv(
         gl.getUniformLocation(program, UNIFORM_SOURCE_MATRIX),
         false,
-        cameraToCache.toFloat32Array(),
+        textureToCamera.toFloat32Array(),
       );
       gl.uniformMatrix4fv(
         gl.getUniformLocation(program, UNIFORM_DESTINATION_MATRIX),

@@ -1,5 +1,6 @@
 /// <reference types="vitest" />
 
+import motionCanvasCompat from '@canvas-commons/motion-canvas-compat';
 import canvasCommons from '@canvas-commons/vite-plugin';
 import {fileURLToPath} from 'url';
 import {defineConfig} from 'vite';
@@ -9,7 +10,13 @@ export default defineConfig({
     canvasCommons({
       project: ['./tests/projects/*.ts'],
     }),
+    motionCanvasCompat({experimental: true}),
   ],
+  optimizeDeps: {
+    // Pre-bundle the library at start so that the first scene does not
+    // trigger a re-optimization and a reload.
+    include: ['motion-canvas-fixture-library'],
+  },
   server: {
     fs: {
       allow: [

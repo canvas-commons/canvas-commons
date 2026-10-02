@@ -149,6 +149,11 @@ export const testFrames: Record<string, TestFrame[]> = {
     {frame: -1, label: 'final'},
   ],
   primitives: [{frame: 0, label: 'initial'}],
+  'motion-canvas-library': [
+    {frame: 0, label: 'initial'},
+    {frame: 60, label: 'mid'},
+    {frame: -1, label: 'final'},
+  ],
   'composite-operations': [
     {frame: 0, label: 'initial'},
     {frame: 45, label: 'sliding'},

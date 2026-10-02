@@ -19,10 +19,12 @@
   },
   "devDependencies": {
     "@canvas-commons/editor": "workspace:^",
+    "@canvas-commons/motion-canvas-compat": "workspace:^",
     "@canvas-commons/player": "workspace:^",
     "@canvas-commons/vite-plugin": "workspace:^",
     "@types/pixelmatch": "5.2.6",
     "@types/pngjs": "6.0.5",
+    "motion-canvas-fixture-library": "file:../motion-canvas-compat/tests/fixtures/library",
     "pixelmatch": "5.3.0",
     "pngjs": "6.0.0",
     "vite": "catalog:"

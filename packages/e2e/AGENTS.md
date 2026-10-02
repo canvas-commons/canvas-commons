@@ -93,6 +93,10 @@ The bias is **use existing examples as fixtures**:
 5. Run `pnpm e2e:test` to generate baselines; eyeball each PNG.
 6. Commit scene + wrapper + baselines together.
 
+`tests/scenes/motion-canvas-library.tsx` imports the fixture library of
+`@canvas-commons/motion-canvas-compat` through a `file:` dependency. Run
+`pnpm install` after you change the fixture.
+
 ## Used in the wild
 
 Not consumed outside the repo. CI runs `pnpm e2e:test` as the final integration

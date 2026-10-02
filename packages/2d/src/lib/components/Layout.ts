@@ -1304,20 +1304,22 @@ export class Layout extends Node {
   }
 
   @computed()
-  private participatingChildren(): Layout[] {
+  private nearestLayouts(): Layout[] {
     const queue = [...this.children()];
     const result: Layout[] = [];
     while (queue.length) {
       const child = queue.shift();
       if (child instanceof Layout) {
-        if (child.layoutEnabled()) {
-          result.push(child);
-        }
+        result.push(child);
       } else if (child) {
         queue.unshift(...child.children());
       }
     }
     return result;
+  }
+
+  private participatingChildren(): Layout[] {
+    return this.nearestLayouts().filter(child => child.layoutEnabled());
   }
 
   @computed()
@@ -2018,11 +2020,12 @@ export class Layout extends Node {
     timing: TimingFunction = easeInOutCubic,
     interpolation: InterpolationFunction<Vector2> = Vector2.lerp,
   ): ThreadGenerator {
-    const children = this.applyLayout();
-    const pre = snapshotPositions(children);
+    // A child that takes its layout from this node only joins `applyLayout`
+    // after `layoutChildren` is on.
+    const pre = snapshotPositions(this.nearestLayouts());
     this.layoutChildren(true);
     this.requestLayoutUpdate();
-    const post = snapshotPositions(children);
+    const post = snapshotPositions(this.applyLayout());
     const inverted = invertPositions(pre, post);
     yield* playInverted(inverted, duration, timing, interpolation);
   }

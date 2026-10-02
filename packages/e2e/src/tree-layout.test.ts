@@ -211,7 +211,7 @@ describe('layout-tweens', () => {
       expect(isBlue(at(last, -200, -300))).toBe(true);
     });
 
-    test.fails('the moved child is halfway there at half the duration', () => {
+    test('the moved child is halfway there at half the duration', () => {
       expect(isBlue(at(halfway, -200, -180))).toBe(true);
     });
   });

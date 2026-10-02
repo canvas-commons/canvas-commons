@@ -221,7 +221,7 @@ describe('layout-tweens', () => {
       expect(isGray(at(last, 480, -300))).toBe(true);
     });
 
-    test.fails('the parent keeps its size', () => {
+    test('the parent keeps its size', () => {
       expect(isOrange(at(last, 265, -300))).toBe(true);
     });
   });

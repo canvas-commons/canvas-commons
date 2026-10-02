@@ -67,6 +67,7 @@ import {
   playInverted,
   snapshotPositions,
 } from '../utils/layoutFlip';
+import {captureRaw, restoreRaw} from '../utils/rawSignal';
 import {
   PositionType,
   createYogaNode,
@@ -866,21 +867,24 @@ export class Layout extends Node {
   @signal()
   declare protected readonly layoutLockCounter: SimpleSignal<number, this>;
 
+  @initial(null)
+  @signal()
+  declare protected readonly pinnedSize: SimpleSignal<Vector2 | null, this>;
+
   private frozen?: {
     tweens: number;
     thaw: () => void;
     positions: Map<Node, RawPosition>;
+    nestedModes: (() => void)[];
+    freezeWhenDone: boolean;
   };
 
   private saveLayoutInputs(): () => void {
-    const width = this.width.context.raw();
-    const height = this.height.context.raw();
-    const layoutChildren = this.layoutChildren.context.raw();
-    return () => {
-      restoreRaw(this.width, width);
-      restoreRaw(this.height, height);
-      restoreRaw(this.layoutChildren, layoutChildren);
-    };
+    const restores = [
+      captureRaw(this.pinnedSize),
+      captureRaw(this.layoutChildren),
+    ];
+    return () => restores.forEach(restore => restore());
   }
 
   // Runs a mutation on the thawed layout so flex resolves the new targets and
@@ -1583,7 +1587,8 @@ export class Layout extends Node {
       this.isLayoutRoot() ? PositionType.Absolute : PositionType.Relative,
     );
 
-    const size = this.desiredSize();
+    const pinned = this.pinnedSize();
+    const size = pinned ?? this.desiredSize();
     if (isPercent(size.x) || isPercent(size.y)) {
       // resolvePercentageDimensions writes pixels over a percent while the
       // parent is auto-sized, so this must re-run when the parent's size changes.
@@ -1592,9 +1597,17 @@ export class Layout extends Node {
     setYogaDimension(node, 'setWidth', size.x);
     setYogaDimension(node, 'setHeight', size.y);
     setYogaDimension(node, 'setMaxWidth', this.maxWidth());
-    setYogaDimension(node, 'setMinWidth', this.resolvedMinWidth());
+    setYogaDimension(
+      node,
+      'setMinWidth',
+      pinned ? pinned.x : this.resolvedMinWidth(),
+    );
     setYogaDimension(node, 'setMaxHeight', this.maxHeight());
-    setYogaDimension(node, 'setMinHeight', this.minHeight());
+    setYogaDimension(
+      node,
+      'setMinHeight',
+      pinned ? pinned.y : this.minHeight(),
+    );
 
     const ratio = this.ratio();
     node.setAspectRatio(ratio ?? undefined);
@@ -1617,7 +1630,7 @@ export class Layout extends Node {
     );
 
     node.setFlexDirection(toYogaFlexDirection(this.direction()));
-    setYogaFlexBasis(node, this.basis());
+    setYogaFlexBasis(node, pinned ? null : this.basis());
     node.setFlexWrap(toYogaFlexWrap(this.wrap()));
 
     const direction = this.direction();
@@ -1631,7 +1644,12 @@ export class Layout extends Node {
 
     setYogaGap(node, this.gap.x(), this.gap.y());
 
-    if (this.layoutLockCounter() > 0) {
+    // The minimum holds a pinned size. Yoga gives a wrong size after grow and
+    // shrink come back from zero together, so shrink stays as it is.
+    if (pinned) {
+      node.setFlexGrow(0);
+      node.setFlexShrink(this.resolvedShrink());
+    } else if (this.layoutLockCounter() > 0) {
       node.setFlexGrow(0);
       node.setFlexShrink(0);
     } else {
@@ -1907,8 +1925,6 @@ export class Layout extends Node {
     interpolation: InterpolationFunction<Vector2> = Vector2.lerp,
   ): ThreadGenerator {
     const flexChildren = new Set<Node>(this.applyLayout());
-    // Parents come first: a world position is set against the parent's
-    // current transform.
     const children = new Set([...this.children(), ...flexChildren]);
     const preWorld = new Map<Node, Vector2>();
     for (const child of children) {
@@ -1929,8 +1945,14 @@ export class Layout extends Node {
     }
     const newSize = new Vector2(this.size());
 
+    // Parents come first: a world position is set against the parent's
+    // current transform.
+    const ordered = [...postWorld.keys()].sort(
+      (a, b) => ancestorCount(a) - ancestorCount(b),
+    );
+
     yield* this.runFreezeThawTween(
-      [...postWorld.keys()],
+      ordered,
       preWorld,
       postWorld,
       oldSize,
@@ -1953,28 +1975,35 @@ export class Layout extends Node {
     interpolation: InterpolationFunction<Vector2>,
     additionalTasks: ThreadGenerator[] = [],
   ): ThreadGenerator {
-    const frozen = (this.frozen ??= {
+    const frozen: NonNullable<typeof this.frozen> = (this.frozen ??= {
       tweens: 0,
       thaw: this.saveLayoutInputs(),
       positions: new Map(),
+      nestedModes: [],
+      freezeWhenDone: false,
     });
     frozen.tweens++;
     for (const child of children) {
       if (!frozen.positions.has(child)) {
         frozen.positions.set(child, rawPosition(child));
+        if (child instanceof Layout) {
+          // A nested layout that inherits its mode keeps laying out its own
+          // children while `layoutChildren` is off here.
+          frozen.nestedModes.push(captureRaw(child.layoutChildren));
+          child.layoutChildren(child.canLayoutChildren());
+        }
       }
       const pre = preWorld.get(child);
       if (pre) child.position.abs(pre);
     }
     this.layoutChildren(false);
-    this.lockLayout();
-    this.size(oldSize);
+    this.pinnedSize(oldSize);
 
     try {
       yield* all(
         tween(duration, t => {
           const progress = timing(t);
-          this.size(interpolation(oldSize, newSize, progress));
+          this.pinnedSize(interpolation(oldSize, newSize, progress));
           for (const child of children) {
             const pre = preWorld.get(child);
             const post = postWorld.get(child);
@@ -1986,33 +2015,45 @@ export class Layout extends Node {
         ...additionalTasks,
       );
     } finally {
-      this.releaseLayout();
       if (--frozen.tweens === 0) {
         frozen.thaw();
         for (const [child, {x, y}] of frozen.positions) {
           restoreRaw(child.x, x);
           restoreRaw(child.y, y);
         }
+        frozen.nestedModes.forEach(restore => restore());
         this.frozen = undefined;
+        if (frozen.freezeWhenDone) this.freezeLayout();
       }
     }
   }
 
   /**
-   * Snap each laid-out child to its current visual position, then disable
-   * `layoutChildren`. Pair with {@link thawLayout} to bring children back
-   * under flex.
+   * Snap each laid-out child to its current visual position, pin this node's
+   * size and slot, then disable `layoutChildren`. Pair with {@link thawLayout}
+   * to bring children back under flex.
+   *
+   * @remarks
+   * While a layout animation of this node runs, the freeze applies when the
+   * animation ends.
    */
   public freezeLayout(): void {
+    if (this.frozen) {
+      this.frozen.freezeWhenDone = true;
+      return;
+    }
+    const size = new Vector2(this.size());
     for (const child of this.applyLayout()) {
       child.position(child.computedPosition());
     }
     this.layoutChildren(false);
+    this.pinnedSize(size);
   }
 
   /**
-   * Re-enable `layoutChildren` and animate each child from its manual
-   * position to wherever the flex layout now places it.
+   * Re-enable `layoutChildren`, release the size pinned by
+   * {@link freezeLayout}, and animate the size and each child from the frozen
+   * state to the flex layout.
    */
   @threadable()
   public *thawLayout(
@@ -2020,14 +2061,35 @@ export class Layout extends Node {
     timing: TimingFunction = easeInOutCubic,
     interpolation: InterpolationFunction<Vector2> = Vector2.lerp,
   ): ThreadGenerator {
+    const oldSize = new Vector2(this.size());
     // A child that takes its layout from this node only joins `applyLayout`
     // after `layoutChildren` is on.
-    const pre = snapshotPositions(this.nearestLayouts());
-    this.layoutChildren(true);
-    this.requestLayoutUpdate();
-    const post = snapshotPositions(this.applyLayout());
-    const inverted = invertPositions(pre, post);
-    yield* playInverted(inverted, duration, timing, interpolation);
+    const preWorld = new Map<Node, Vector2>();
+    for (const child of this.nearestLayouts()) {
+      preWorld.set(child, child.position.abs());
+    }
+    if (this.frozen) this.frozen.freezeWhenDone = false;
+    this.mutateThawedLayout(() => {
+      this.pinnedSize(null);
+      this.layoutChildren(true);
+    });
+    const children = this.applyLayout();
+    const postWorld = new Map<Node, Vector2>();
+    for (const child of children) {
+      postWorld.set(child, child.position.abs());
+    }
+    const newSize = new Vector2(this.size());
+
+    yield* this.runFreezeThawTween(
+      children,
+      preWorld,
+      postWorld,
+      oldSize,
+      newSize,
+      duration,
+      timing,
+      interpolation,
+    );
   }
 
   /**
@@ -2093,6 +2155,7 @@ export class Layout extends Node {
     }
     super.dispose();
     this.layoutLockCounter?.context.dispose();
+    this.pinnedSize?.context.dispose();
     if (this.yogaNode) {
       this.yogaNode.free();
     }
@@ -2117,15 +2180,12 @@ function rawPosition(node: Node): RawPosition {
   return {x: node.x.context.raw(), y: node.y.context.raw()};
 }
 
-function restoreRaw<TSetterValue, TValue extends TSetterValue, TOwner>(
-  signal: Signal<TSetterValue, TValue, TOwner>,
-  raw: SignalValue<TSetterValue> | undefined,
-) {
-  if (raw === undefined) {
-    signal.context.reset();
-  } else {
-    signal.context.setter(raw);
+function ancestorCount(node: Node): number {
+  let count = 0;
+  for (let parent = node.parent(); parent; parent = parent.parent()) {
+    count++;
   }
+  return count;
 }
 
 function originSignal(origin: Origin): PropertyDecorator {

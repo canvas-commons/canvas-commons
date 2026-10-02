@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "ignoreDeprecations": "6.0",
+    "strict": true,
+    "noEmit": true,
+    "module": "esnext",
+    "esModuleInterop": true,
+    "target": "es2022",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "paths": {
+      "motion-canvas-fixture-library": ["./tests/fixtures/library/index.d.ts"]
+    }
+  },
+  "include": ["src", "tests"],
+  "exclude": ["tests/fixtures/motion-canvas-trap"]
+}

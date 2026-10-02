@@ -13,6 +13,7 @@ module.exports = {
       'always',
       [
         '2d',
+        'compat',
         'core',
         'create',
         'deps',

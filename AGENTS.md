@@ -23,6 +23,7 @@ This is a `pnpm` monorepo containing the following packages:
 - `editor` - User interface used for editing
 - `examples` - Animation examples used in documentation
 - `ffmpeg` - FFmpeg renderer
+- `motion-canvas-compat` - Vite plugin and shims for Motion Canvas libraries
 - `player` - Custom element for displaying animations in a browser
 - `template` - Template project included for developer's convenience
 - `vite-plugin` - Vite plugin for developing and bundling animations
@@ -130,6 +131,7 @@ Available types are:
 Available scopes are:
 
 - `2d`
+- `compat`
 - `core`
 - `create`
 - `deps-dev`
@@ -198,6 +200,7 @@ short usage examples. Read the one for the package you're touching:
 - [`packages/ffmpeg/AGENTS.md`](packages/ffmpeg/AGENTS.md)
 - [`packages/webcodecs/AGENTS.md`](packages/webcodecs/AGENTS.md)
 - [`packages/fiddle/AGENTS.md`](packages/fiddle/AGENTS.md)
+- [`packages/motion-canvas-compat/AGENTS.md`](packages/motion-canvas-compat/AGENTS.md)
 - [`packages/create/AGENTS.md`](packages/create/AGENTS.md)
 - [`packages/template/AGENTS.md`](packages/template/AGENTS.md)
 - [`packages/examples/AGENTS.md`](packages/examples/AGENTS.md)

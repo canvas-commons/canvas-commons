@@ -1,0 +1,26 @@
+{
+  "name": "motion-canvas-fixture-library",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./runtime-plugin": "./runtime-plugin.js"
+  },
+  "peerDependencies": {
+    "@motion-canvas/2d": "^3.17.2",
+    "@motion-canvas/core": "^3.17.2"
+  },
+  "peerDependenciesMeta": {
+    "@motion-canvas/2d": {
+      "optional": true
+    },
+    "@motion-canvas/core": {
+      "optional": true
+    }
+  }
+}

@@ -6,6 +6,7 @@ export * from './defaultStyle';
 export * from './filtersSignal';
 export * from './initializers';
 export * from './nodeName';
+export {addPropAliases} from './propAliases';
 export * from './signal';
 export * from './spacingSignal';
 export * from './vector2Signal';

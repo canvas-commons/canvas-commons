@@ -9,6 +9,7 @@ import {
 } from '@canvas-commons/core';
 import {makeSignalExtensions} from '../utils/makeSignalExtensions';
 import {addInitializer, initialize} from './initializers';
+import {resolvePropAliases} from './propAliases';
 
 export interface PropertyMetadata<T> {
   default?: T;
@@ -78,6 +79,7 @@ export function getPropertiesOf(
 
 export function initializeSignals(instance: any, props: Record<string, any>) {
   initialize(instance);
+  props = resolvePropAliases(instance, props);
   for (const [key, meta] of Object.entries(getPropertiesOf(instance))) {
     const signal = instance[key];
     signal.reset();

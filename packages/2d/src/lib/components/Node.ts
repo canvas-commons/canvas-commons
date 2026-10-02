@@ -48,6 +48,7 @@ import {
 } from '../decorators';
 import {disposeComputed} from '../decorators/computed';
 import {FiltersSignal, filtersSignal} from '../decorators/filtersSignal';
+import {resolvePropAliases} from '../decorators/propAliases';
 import {spacingSignal} from '../decorators/spacingSignal';
 import {
   PositionComponentSignal,
@@ -1299,7 +1300,7 @@ export class Node implements Promisable<Node> {
    * @param customProps - Properties to override.
    */
   public clone(customProps: NodeState = {}): this {
-    const props = {...customProps};
+    const props = {...resolvePropAliases(this, customProps)};
     if (isReactive(this.children.context.raw())) {
       props.children ??= this.children.context.raw();
     } else if (this.children().length > 0) {
@@ -1338,7 +1339,7 @@ export class Node implements Promisable<Node> {
   public snapshotClone(customProps: NodeState = {}): this {
     const props = {
       ...this.getState(),
-      ...customProps,
+      ...resolvePropAliases(this, customProps),
     };
 
     if (this.children().length > 0) {
@@ -1358,7 +1359,7 @@ export class Node implements Promisable<Node> {
    * @param customProps - Properties to override.
    */
   public reactiveClone(customProps: NodeState = {}): this {
-    const props = {...customProps};
+    const props = {...resolvePropAliases(this, customProps)};
     if (this.children().length > 0) {
       props.children ??= this.children().map(child => child.reactiveClone());
     }
@@ -1927,6 +1928,7 @@ export class Node implements Promisable<Node> {
     duration?: number,
     timing: TimingFunction = easeInOutCubic,
   ): ThreadGenerator | void {
+    state = resolvePropAliases(this, state);
     if (duration === undefined) {
       for (const key in state) {
         const signal = this.signalByKey(key);

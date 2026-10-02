@@ -1,14 +1,19 @@
 import {
   InterpolationFunction,
+  SignalValue,
+  SimpleSignal,
   ThreadGenerator,
   TimingFunction,
   Vector2,
   all,
+  createSignal,
   easeInOutCubic,
   tween,
+  unwrap,
 } from '@canvas-commons/core';
 import {Layout} from '../components/Layout';
 import {Node} from '../components/Node';
+import {restoreRaw} from './rawSignal';
 
 /**
  * A FLIP (First, Last, Invert, Play) snapshot of node positions.
@@ -119,8 +124,54 @@ export function invertPositions(
   return inverted;
 }
 
+interface OffsetLayer {
+  rawX: SignalValue<number> | undefined;
+  rawY: SignalValue<number> | undefined;
+  layeredX: () => number;
+  layeredY: () => number;
+  offsets: SimpleSignal<(() => Vector2)[]>;
+}
+
+const OFFSET_LAYERS = new WeakMap<object, OffsetLayer>();
+
+/** Add `offset` to the node's own translate or position; returns its remover. */
+function applyOffset(item: InvertedNode, offset: () => Vector2): () => void {
+  const {node} = item;
+  const [x, y] =
+    item.channel === 'translate' && node instanceof Layout
+      ? [node.translate.x, node.translate.y]
+      : [node.x, node.y];
+
+  let layer = OFFSET_LAYERS.get(x);
+  if (!layer) {
+    const rawX = x.context.raw();
+    const rawY = y.context.raw();
+    const offsets = createSignal<(() => Vector2)[]>([]);
+    const total = () =>
+      offsets().reduce((sum, active) => sum.add(active()), Vector2.zero);
+    const layeredX = () => unwrap(rawX ?? 0) + total().x;
+    const layeredY = () => unwrap(rawY ?? 0) + total().y;
+    x.context.setter(layeredX);
+    y.context.setter(layeredY);
+    layer = {rawX, rawY, layeredX, layeredY, offsets};
+    OFFSET_LAYERS.set(x, layer);
+  }
+
+  const {rawX, rawY, layeredX, layeredY, offsets} = layer;
+  offsets([...offsets(), offset]);
+  return () => {
+    offsets(offsets().filter(active => active !== offset));
+    if (offsets().length === 0) {
+      if (x.context.raw() === layeredX) restoreRaw(x, rawX);
+      if (y.context.raw() === layeredY) restoreRaw(y, rawY);
+      OFFSET_LAYERS.delete(x);
+    }
+  };
+}
+
 /**
- * Apply the inverted offsets immediately and then animate them back to zero.
+ * Apply the inverted offsets and animate them away. The node's own translate
+ * or position comes back when the tween ends or is cancelled.
  *
  * @param inverted - The set returned from {@link invertPositions}.
  * @param duration - How long the play-forward tween runs, in seconds.
@@ -135,35 +186,23 @@ export function* playInverted(
 ): ThreadGenerator {
   if (inverted.length === 0) return;
 
-  for (const item of inverted) {
-    if (item.channel === 'translate' && item.node instanceof Layout) {
-      item.node.translate(item.from);
-    } else if (item.channel === 'position') {
-      item.node.position(item.from);
-    }
-  }
+  const animated = inverted.map(item => {
+    const offset = createSignal(item.from.sub(item.to));
+    return {item, offset, restore: applyOffset(item, offset)};
+  });
 
   try {
     yield* all(
-      ...inverted.map(item =>
+      ...animated.map(({item, offset}) =>
         tween(duration, t => {
-          const progress = timing(t);
-          const value = interpolation(item.from, item.to, progress);
-          if (item.channel === 'translate' && item.node instanceof Layout) {
-            item.node.translate(value);
-          } else if (item.channel === 'position') {
-            item.node.position(value);
-          }
+          const value = interpolation(item.from, item.to, timing(t));
+          offset(value.sub(item.to));
         }),
       ),
     );
   } finally {
-    for (const item of inverted) {
-      if (item.channel === 'translate' && item.node instanceof Layout) {
-        item.node.translate(item.to);
-      } else if (item.channel === 'position') {
-        item.node.position(item.to);
-      }
+    for (const {restore} of animated) {
+      restore();
     }
   }
 }

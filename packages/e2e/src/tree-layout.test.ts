@@ -242,7 +242,7 @@ describe('layout-tweens', () => {
       ).toBeGreaterThan(50);
     });
 
-    test.fails('the sibling keeps its translate after the tween', () => {
+    test('the sibling keeps its translate after the tween', () => {
       expect(
         greenRows(around(CENTER_X - 600, CENTER_Y + 300, 400, 60)),
       ).toBeGreaterThan(50);

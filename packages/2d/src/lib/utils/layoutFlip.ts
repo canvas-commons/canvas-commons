@@ -3,12 +3,14 @@ import {
   ThreadGenerator,
   TimingFunction,
   Vector2,
-  all,
+  createSignal,
   easeInOutCubic,
   tween,
+  unwrap,
 } from '@canvas-commons/core';
 import {Layout} from '../components/Layout';
 import {Node} from '../components/Node';
+import {restoreRaw} from './rawSignal';
 
 /**
  * A FLIP (First, Last, Invert, Play) snapshot of node positions.
@@ -112,7 +114,30 @@ export function invertPositions(
 }
 
 /**
- * Apply the inverted offsets immediately and then animate them back to zero.
+ * Layer `offset` over the node's own translate (or position) and return a
+ * function that puts the original bindings back.
+ */
+function applyOffset(item: InvertedNode, offset: () => Vector2): () => void {
+  const {node} = item;
+  const [x, y] =
+    item.channel === 'translate' && node instanceof Layout
+      ? [node.translate.x, node.translate.y]
+      : [node.x, node.y];
+
+  const rawX = x.context.raw();
+  const rawY = y.context.raw();
+  x.context.setter(() => unwrap(rawX ?? 0) + offset().x);
+  y.context.setter(() => unwrap(rawY ?? 0) + offset().y);
+  return () => {
+    restoreRaw(x, rawX);
+    restoreRaw(y, rawY);
+  };
+}
+
+/**
+ * Apply the inverted offsets immediately and then animate them away. The
+ * offsets are added to each node's own translate or position, which is
+ * restored untouched when the tween ends or is cancelled.
  *
  * @param inverted - The set returned from {@link invertPositions}.
  * @param duration - How long the play-forward tween runs, in seconds.
@@ -127,35 +152,21 @@ export function* playInverted(
 ): ThreadGenerator {
   if (inverted.length === 0) return;
 
-  for (const item of inverted) {
-    if (item.channel === 'translate' && item.node instanceof Layout) {
-      item.node.translate(item.from);
-    } else if (item.channel === 'position') {
-      item.node.position(item.from);
-    }
-  }
+  const animated = inverted.map(item => {
+    const offset = createSignal(item.from.sub(item.to));
+    return {item, offset, restore: applyOffset(item, offset)};
+  });
 
   try {
-    yield* all(
-      ...inverted.map(item =>
-        tween(duration, t => {
-          const progress = timing(t);
-          const value = interpolation(item.from, item.to, progress);
-          if (item.channel === 'translate' && item.node instanceof Layout) {
-            item.node.translate(value);
-          } else if (item.channel === 'position') {
-            item.node.position(value);
-          }
-        }),
-      ),
-    );
-  } finally {
-    for (const item of inverted) {
-      if (item.channel === 'translate' && item.node instanceof Layout) {
-        item.node.translate(item.to);
-      } else if (item.channel === 'position') {
-        item.node.position(item.to);
+    yield* tween(duration, t => {
+      const progress = timing(t);
+      for (const {item, offset} of animated) {
+        offset(interpolation(item.from, item.to, progress).sub(item.to));
       }
+    });
+  } finally {
+    for (const {restore} of animated) {
+      restore();
     }
   }
 }

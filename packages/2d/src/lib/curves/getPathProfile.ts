@@ -55,6 +55,9 @@ function updateMinSin(profile: CurveProfile) {
   }
 }
 
+/**
+ * Create a curve profile from SVG path data.
+ */
 export function getPathProfile(data: string): CurveProfile {
   const profile: CurveProfile = {
     segments: [],

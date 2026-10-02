@@ -8,6 +8,8 @@ import {PolynomialSegment} from './PolynomialSegment';
  * @remarks
  * In order to uniformly sample points from non-linear curves, this sampler
  * re-parameterizes the curve by arclength.
+ *
+ * @experimental
  */
 export class UniformPolynomialCurveSampler {
   private sampledDistances: number[] = [];

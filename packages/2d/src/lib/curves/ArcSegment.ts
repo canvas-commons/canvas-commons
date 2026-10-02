@@ -3,6 +3,9 @@ import {getDomContainer} from '../utils/domContainer';
 import {CurvePoint} from './CurvePoint';
 import {Segment} from './Segment';
 
+/**
+ * A curve segment that follows an SVG elliptical arc.
+ */
 export class ArcSegment extends Segment {
   @lazy(() => {
     const root = document.createElementNS('http://www.w3.org/2000/svg', 'svg');

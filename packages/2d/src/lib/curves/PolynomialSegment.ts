@@ -5,6 +5,11 @@ import {Polynomial2D} from './Polynomial2D';
 import {Segment} from './Segment';
 import {UniformPolynomialCurveSampler} from './UniformPolynomialCurveSampler';
 
+/**
+ * A curve segment described by a two-dimensional polynomial.
+ *
+ * @experimental
+ */
 export abstract class PolynomialSegment extends Segment {
   protected readonly pointSampler: UniformPolynomialCurveSampler;
 

@@ -7,4 +7,5 @@ export * from './filtersSignal';
 export * from './initializers';
 export * from './nodeName';
 export * from './signal';
+export * from './spacingSignal';
 export * from './vector2Signal';

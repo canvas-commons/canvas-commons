@@ -87,9 +87,15 @@ export interface ShaderConfig {
   teardown?: (gl: WebGL2RenderingContext, program: WebGLProgram) => void;
 }
 
+/**
+ * A value that can be parsed into a list of {@link ShaderConfig}s.
+ */
 export type PossibleShaderConfig =
   (ShaderConfig | string)[] | ShaderConfig | string | null;
 
+/**
+ * Parse a {@link PossibleShaderConfig} into a list of {@link ShaderConfig}s.
+ */
 export function parseShader(
   this: Node,
   value: PossibleShaderConfig,

@@ -1,4 +1,4 @@
-interface TransformDiff<T> {
+export interface TransformDiff<T> {
   inserted: TransformDiffItem<T>[];
   deleted: TransformDiffItem<T>[];
   transformed: TransformDiffItemTransformed<T>[];
@@ -27,7 +27,7 @@ interface ApplyTransformResult<T> {
   inserted: ApplyTransformInserted<T>[];
 }
 
-interface Idable {
+export interface Idable {
   id: string;
 }
 
@@ -123,6 +123,9 @@ function getIdMap<T extends Idable>(list: T[]) {
   return map;
 }
 
+/**
+ * Compute the insertions, deletions, and moves between two lists of items.
+ */
 export function getTransformDiff<T extends Idable>(
   from: T[],
   to: T[],
@@ -170,6 +173,9 @@ export function getTransformDiff<T extends Idable>(
   return diff;
 }
 
+/**
+ * Apply a {@link getTransformDiff} result to a list of items.
+ */
 export function applyTransformDiff<T extends Idable>(
   current: T[],
   diff: TransformDiff<T>,

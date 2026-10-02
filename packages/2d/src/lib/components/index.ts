@@ -21,6 +21,7 @@ export * from './Shape';
 export * from './Spline';
 export * from './SVG';
 export * from './Txt';
+export * from './TxtLeaf';
 export * from './types';
 export * from './Video';
 export * from './View2D';

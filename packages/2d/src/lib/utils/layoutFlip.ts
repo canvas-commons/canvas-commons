@@ -65,6 +65,21 @@ export function snapshotPositions(nodes: Node[]): PositionSnapshot {
 }
 
 /**
+ * The offset that moves a node from its post position back to its pre
+ * position, in the local frame of `frame`.
+ */
+export function invertedOffset(
+  preWorld: Vector2,
+  postWorld: Vector2,
+  frame: Node,
+): Vector2 {
+  const matrix = frame.worldToLocal();
+  return preWorld
+    .transformAsPoint(matrix)
+    .sub(postWorld.transformAsPoint(matrix));
+}
+
+/**
  * Diff two snapshots and produce the inverted offsets needed to make each
  * moved node appear to stay put. Skips nodes whose parent changed — the
  * caller is responsible for handling those via `position.abs` (the local
@@ -83,22 +98,15 @@ export function invertPositions(
     const parent = preData.parent;
     if (parent === null || parent !== postData.parent) continue;
 
-    // World-space delta projected into the parent's local frame so it lines
-    // up with translate / position, which operate in the same frame.
-    const matrix = parent.worldToLocal();
-    const preLocal = preData.world.transformAsPoint(matrix);
-    const postLocal = postData.world.transformAsPoint(matrix);
-    const delta = preLocal.sub(postLocal);
-    if (delta.exactlyEquals(Vector2.zero)) continue;
-
     if (node instanceof Layout) {
       inverted.push({
         node,
         channel: 'translate',
-        from: delta,
+        from: invertedOffset(preData.world, postData.world, node),
         to: Vector2.zero,
       });
     } else {
+      const delta = invertedOffset(preData.world, postData.world, parent);
       const postPos = node.position();
       inverted.push({
         node,

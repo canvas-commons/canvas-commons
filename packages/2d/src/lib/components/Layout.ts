@@ -62,11 +62,14 @@ import {
 import {buildCanvasFontString, resolveLineHeight} from '../text';
 import {drawLine, drawPivot, is} from '../utils';
 import {
+  InvertedNode,
   affectedLayouts,
   invertPositions,
+  invertedOffset,
   playInverted,
   snapshotPositions,
 } from '../utils/layoutFlip';
+import {restoreRaw} from '../utils/rawSignal';
 import {
   PositionType,
   createYogaNode,
@@ -1828,7 +1831,8 @@ export class Layout extends Node {
 
   /**
    * Animate a batch of layout-property changes. Children tween from their
-   * pre-mutation positions to wherever the post-mutation layout puts them.
+   * pre-mutation positions to wherever the mutator or the post-mutation
+   * layout puts them.
    *
    * @example
    * ```tsx
@@ -1846,23 +1850,54 @@ export class Layout extends Node {
     timing: TimingFunction = easeInOutCubic,
     interpolation: InterpolationFunction<Vector2> = Vector2.lerp,
   ): ThreadGenerator {
-    const flexChildren = this.applyLayout();
-    const preWorld = new Map<Layout, Vector2>();
-    for (const child of flexChildren) {
+    const flexChildren = new Set<Node>(this.applyLayout());
+    const children = new Set([...this.children(), ...flexChildren]);
+    const preWorld = new Map<Node, Vector2>();
+    for (const child of children) {
       preWorld.set(child, child.position.abs());
     }
     const oldSize = new Vector2(this.size());
 
     mutator(this);
     this.requestLayoutUpdate();
-    const postWorld = new Map<Layout, Vector2>();
-    for (const child of flexChildren) {
-      postWorld.set(child, child.position.abs());
+    const postWorld = new Map<Node, Vector2>();
+    const reflowed: InvertedNode[] = [];
+    for (const child of children) {
+      const post = child.position.abs();
+      const pre = preWorld.get(child);
+      const parent = child.parent();
+      if (
+        pre &&
+        parent &&
+        parent !== this &&
+        child instanceof Layout &&
+        !flexChildren.has(child) &&
+        !child.isLayoutRoot()
+      ) {
+        reflowed.push({
+          node: child,
+          channel: 'translate',
+          from: invertedOffset(pre, post, child),
+          to: Vector2.zero,
+        });
+      } else if (
+        flexChildren.has(child) ||
+        child.parent() !== this ||
+        !pre?.exactlyEquals(post)
+      ) {
+        postWorld.set(child, post);
+      }
     }
     const newSize = new Vector2(this.size());
 
+    // Parents come first: a world position is set against the parent's
+    // current transform.
+    const ordered = [...postWorld.keys()].sort(
+      (a, b) => ancestorCount(a) - ancestorCount(b),
+    );
+
     yield* this.runFreezeThawTween(
-      flexChildren,
+      ordered,
       preWorld,
       postWorld,
       oldSize,
@@ -1870,14 +1905,15 @@ export class Layout extends Node {
       duration,
       timing,
       interpolation,
+      [playInverted(reflowed, duration, timing, interpolation)],
     );
   }
 
   @threadable()
   protected *runFreezeThawTween(
-    flexChildren: Layout[],
-    preWorld: Map<Layout, Vector2>,
-    postWorld: Map<Layout, Vector2>,
+    children: Node[],
+    preWorld: Map<Node, Vector2>,
+    postWorld: Map<Node, Vector2>,
     oldSize: Vector2,
     newSize: Vector2,
     duration: number,
@@ -1885,7 +1921,12 @@ export class Layout extends Node {
     interpolation: InterpolationFunction<Vector2>,
     additionalTasks: ThreadGenerator[] = [],
   ): ThreadGenerator {
-    for (const child of flexChildren) {
+    const savedPositions = children.map(child => ({
+      child,
+      x: child.x.context.raw(),
+      y: child.y.context.raw(),
+    }));
+    for (const child of children) {
       const pre = preWorld.get(child);
       if (pre) child.position.abs(pre);
     }
@@ -1901,7 +1942,7 @@ export class Layout extends Node {
         tween(duration, t => {
           const progress = timing(t);
           this.size(interpolation(oldSize, newSize, progress));
-          for (const child of flexChildren) {
+          for (const child of children) {
             const pre = preWorld.get(child);
             const post = postWorld.get(child);
             if (pre && post) {
@@ -1913,20 +1954,12 @@ export class Layout extends Node {
       );
     } finally {
       this.releaseLayout();
-      if (savedWidth === undefined) {
-        this.width.context.reset();
-      } else {
-        this.width.context.setter(savedWidth);
-      }
-      if (savedHeight === undefined) {
-        this.height.context.reset();
-      } else {
-        this.height.context.setter(savedHeight);
-      }
-      if (savedLayoutChildren === undefined) {
-        this.layoutChildren.context.reset();
-      } else {
-        this.layoutChildren.context.setter(savedLayoutChildren);
+      restoreRaw(this.width, savedWidth);
+      restoreRaw(this.height, savedHeight);
+      restoreRaw(this.layoutChildren, savedLayoutChildren);
+      for (const {child, x, y} of savedPositions) {
+        restoreRaw(child.x, x);
+        restoreRaw(child.y, y);
       }
     }
   }
@@ -2015,11 +2048,7 @@ export class Layout extends Node {
         playInverted(inverted, duration, timing, interpolation),
       );
     } finally {
-      if (savedLayoutSelf === undefined) {
-        this.layoutSelf.context.reset();
-      } else {
-        this.layoutSelf.context.setter(savedLayoutSelf);
-      }
+      restoreRaw(this.layoutSelf, savedLayoutSelf);
     }
   }
 
@@ -2042,6 +2071,14 @@ export class Layout extends Node {
 
     return null;
   }
+}
+
+function ancestorCount(node: Node): number {
+  let count = 0;
+  for (let parent = node.parent(); parent; parent = parent.parent()) {
+    count++;
+  }
+  return count;
 }
 
 function originSignal(origin: Origin): PropertyDecorator {

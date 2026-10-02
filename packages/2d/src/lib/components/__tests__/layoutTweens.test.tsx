@@ -203,3 +203,35 @@ describe('Layout.editLayout', () => {
     }),
   );
 });
+
+describe('Layout.thawLayout', () => {
+  mockScene2D();
+
+  it(
+    'glides a moved child back to its slot',
+    generatorTest(function* (view) {
+      const row = createRef<Layout>();
+      const middle = createRef<Rect>();
+      view.add(
+        <Layout ref={row} layout direction="row" gap={20}>
+          <Rect width={100} height={100} />
+          <Rect ref={middle} width={100} height={100} />
+          <Rect width={100} height={100} />
+        </Layout>,
+      );
+
+      row().freezeLayout();
+      middle().position.view([0, -300]);
+
+      const task = yield row().thawLayout(1, linear);
+      yield* waitFor(0.5);
+      const halfway = middle().middle.view();
+      expect(halfway.x).toBeCloseTo(0);
+      expect(halfway.y).toBeGreaterThan(-200);
+      expect(halfway.y).toBeLessThan(-100);
+
+      yield* task;
+      expectVector(middle().middle.view(), 0, 0);
+    }),
+  );
+});

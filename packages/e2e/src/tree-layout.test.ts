@@ -261,7 +261,7 @@ describe('layout-tweens', () => {
       expect(countForeground(landing(349), WHITE)).toBeGreaterThan(10000);
     });
 
-    test.fails('lands where a plain insert puts the node', () => {
+    test('lands where a plain insert puts the node', () => {
       expect(diffRatio(landing(99), landing(349))).toBeLessThan(MAX_DIFF);
     });
   });

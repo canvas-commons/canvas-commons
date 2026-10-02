@@ -6,6 +6,7 @@ import {
   all,
   easeInOutCubic,
 } from '@canvas-commons/core';
+import {captureRaw} from '../../utils/rawSignal';
 import {Layout, LayoutProps} from '../Layout';
 import {Node} from '../Node';
 
@@ -50,6 +51,7 @@ export function* transitionTo(
 
   const startWorld = source.position.abs();
   const startWorldRotation = source.rotation.abs();
+  const startWorldScale = signedWorldScale(source);
   const startWorldOpacity = source.opacity() * ancestorOpacity(source);
 
   source.remove();
@@ -57,6 +59,7 @@ export function* transitionTo(
   const naturalSize = new Vector2(source.size());
   const targetWorld = source.position.abs();
   const targetWorldRotation = source.rotation.abs();
+  const targetWorldScale = signedWorldScale(source);
   const targetWorldOpacity = source.opacity() * ancestorOpacity(source);
   const targetIndex = newParent.children().indexOf(source);
   source.remove();
@@ -72,18 +75,26 @@ export function* transitionTo(
     ? buildGrowWrapper(newParentLayout, targetIndex)
     : null;
 
-  const savedLayoutSelf = source.layoutSelf.context.raw();
-  const savedOpacity = source.opacity.context.raw();
-  const savedRotation = source.rotation.context.raw();
+  const restoreRawValues = [
+    captureRaw(source.layoutSelf),
+    captureRaw(source.opacity),
+    captureRaw(source.rotation),
+    captureRaw(source.position.x),
+    captureRaw(source.position.y),
+    captureRaw(source.scale.x),
+    captureRaw(source.scale.y),
+  ];
   view.add(source);
   source.layoutSelf(false);
   source.position.abs(startWorld);
   source.rotation.abs(startWorldRotation);
+  source.scale.abs(startWorldScale);
   source.opacity(startWorldOpacity);
 
   const tasks: ThreadGenerator[] = [
     source.position.abs(targetWorld, duration, actualTiming, interpolation),
     source.rotation.abs(targetWorldRotation, duration, actualTiming),
+    source.scale.abs(targetWorldScale, duration, actualTiming),
     source.opacity(targetWorldOpacity, duration, actualTiming),
   ];
 
@@ -97,17 +108,6 @@ export function* transitionTo(
   try {
     yield* all(...tasks);
   } finally {
-    if (savedOpacity === undefined) {
-      source.opacity.context.reset();
-    } else {
-      source.opacity.context.setter(savedOpacity);
-    }
-    if (savedRotation === undefined) {
-      source.rotation.context.reset();
-    } else {
-      source.rotation.context.setter(savedRotation);
-    }
-
     // The grow wrapper has reached the source's natural size, so swapping
     // the source into its slot is visually invisible.
     if (growInfo) {
@@ -124,12 +124,17 @@ export function* transitionTo(
       shrinkInfo.wrapper.remove().dispose();
     }
 
-    if (savedLayoutSelf === undefined) {
-      source.layoutSelf.context.reset();
-    } else {
-      source.layoutSelf.context.setter(savedLayoutSelf);
-    }
+    restoreRawValues.forEach(restore => restore());
   }
+}
+
+/** `scale.abs` with the sign of a mirrored transform kept on the y axis. */
+function signedWorldScale(node: Node): Vector2 {
+  const scale = node.scale.abs();
+  const matrix = node.localToWorld();
+  return matrix.a * matrix.d - matrix.b * matrix.c < 0
+    ? new Vector2(scale.x, -scale.y)
+    : scale;
 }
 
 function ancestorOpacity(node: Node): number {

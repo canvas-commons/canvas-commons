@@ -283,15 +283,6 @@ function isPercent(value: DesiredLength): value is `${number}%` {
   return typeof value === 'string' && value.endsWith('%');
 }
 
-function saveRawValue<T>(context: {
-  raw(): T | undefined;
-  reset(): unknown;
-  setter(value: T): unknown;
-}): () => void {
-  const raw = context.raw();
-  return () => (raw === undefined ? context.reset() : context.setter(raw));
-}
-
 function isRowDirection(direction: FlexDirection): boolean {
   return direction === 'row' || direction === 'row-reverse';
 }
@@ -875,27 +866,46 @@ export class Layout extends Node {
   @signal()
   declare protected readonly layoutLockCounter: SimpleSignal<number, this>;
 
-  private frozen?: {tweens: number; thaw: () => void};
+  private frozen?: {
+    tweens: number;
+    thaw: () => void;
+    positions: Map<Node, RawPosition>;
+  };
 
   private saveLayoutInputs(): () => void {
-    const restoreWidth = saveRawValue(this.width.context);
-    const restoreHeight = saveRawValue(this.height.context);
-    const restoreLayoutChildren = saveRawValue(this.layoutChildren.context);
+    const width = this.width.context.raw();
+    const height = this.height.context.raw();
+    const layoutChildren = this.layoutChildren.context.raw();
     return () => {
-      restoreWidth();
-      restoreHeight();
-      restoreLayoutChildren();
+      restoreRaw(this.width, width);
+      restoreRaw(this.height, height);
+      restoreRaw(this.layoutChildren, layoutChildren);
     };
   }
 
   // Runs a mutation on the thawed layout so flex resolves the new targets and
   // the final thaw keeps the change. Follow with `runFreezeThawTween`.
   private mutateThawedLayout(mutation: () => void) {
-    this.frozen?.thaw();
+    const frozen = this.frozen;
+    if (!frozen) {
+      mutation();
+      this.requestLayoutUpdate();
+      return;
+    }
+
+    frozen.thaw();
+    const pins = [...frozen.positions].map(([node, saved]) => ({
+      node,
+      saved,
+      pin: rawPosition(node),
+    }));
     mutation();
     this.requestLayoutUpdate();
-    if (this.frozen) {
-      this.frozen.thaw = this.saveLayoutInputs();
+    frozen.thaw = this.saveLayoutInputs();
+    for (const {node, saved, pin} of pins) {
+      const current = rawPosition(node);
+      if (current.x !== pin.x) saved.x = current.x;
+      if (current.y !== pin.y) saved.y = current.y;
     }
   }
 
@@ -1875,7 +1885,8 @@ export class Layout extends Node {
 
   /**
    * Animate a batch of layout-property changes. Children tween from their
-   * pre-mutation positions to wherever the post-mutation layout puts them.
+   * pre-mutation positions to wherever the mutator or the post-mutation
+   * layout puts them.
    *
    * @example
    * ```tsx
@@ -1893,22 +1904,31 @@ export class Layout extends Node {
     timing: TimingFunction = easeInOutCubic,
     interpolation: InterpolationFunction<Vector2> = Vector2.lerp,
   ): ThreadGenerator {
-    const flexChildren = this.applyLayout();
-    const preWorld = new Map<Layout, Vector2>();
-    for (const child of flexChildren) {
+    const flexChildren = new Set<Node>(this.applyLayout());
+    // Parents come first: a world position is set against the parent's
+    // current transform.
+    const children = new Set([...this.children(), ...flexChildren]);
+    const preWorld = new Map<Node, Vector2>();
+    for (const child of children) {
       preWorld.set(child, child.position.abs());
     }
     const oldSize = new Vector2(this.size());
 
     this.mutateThawedLayout(() => mutator(this));
-    const postWorld = new Map<Layout, Vector2>();
-    for (const child of flexChildren) {
-      postWorld.set(child, child.position.abs());
+    const postWorld = new Map<Node, Vector2>();
+    for (const child of children) {
+      const post = child.position.abs();
+      if (
+        flexChildren.has(child) ||
+        !preWorld.get(child)?.exactlyEquals(post)
+      ) {
+        postWorld.set(child, post);
+      }
     }
     const newSize = new Vector2(this.size());
 
     yield* this.runFreezeThawTween(
-      flexChildren,
+      [...postWorld.keys()],
       preWorld,
       postWorld,
       oldSize,
@@ -1921,9 +1941,9 @@ export class Layout extends Node {
 
   @threadable()
   protected *runFreezeThawTween(
-    flexChildren: Layout[],
-    preWorld: Map<Layout, Vector2>,
-    postWorld: Map<Layout, Vector2>,
+    children: Node[],
+    preWorld: Map<Node, Vector2>,
+    postWorld: Map<Node, Vector2>,
     oldSize: Vector2,
     newSize: Vector2,
     duration: number,
@@ -1931,15 +1951,19 @@ export class Layout extends Node {
     interpolation: InterpolationFunction<Vector2>,
     additionalTasks: ThreadGenerator[] = [],
   ): ThreadGenerator {
-    for (const child of flexChildren) {
-      const pre = preWorld.get(child);
-      if (pre) child.position.abs(pre);
-    }
     const frozen = (this.frozen ??= {
       tweens: 0,
       thaw: this.saveLayoutInputs(),
+      positions: new Map(),
     });
     frozen.tweens++;
+    for (const child of children) {
+      if (!frozen.positions.has(child)) {
+        frozen.positions.set(child, rawPosition(child));
+      }
+      const pre = preWorld.get(child);
+      if (pre) child.position.abs(pre);
+    }
     this.layoutChildren(false);
     this.lockLayout();
     this.size(oldSize);
@@ -1949,7 +1973,7 @@ export class Layout extends Node {
         tween(duration, t => {
           const progress = timing(t);
           this.size(interpolation(oldSize, newSize, progress));
-          for (const child of flexChildren) {
+          for (const child of children) {
             const pre = preWorld.get(child);
             const post = postWorld.get(child);
             if (pre && post) {
@@ -1963,6 +1987,10 @@ export class Layout extends Node {
       this.releaseLayout();
       if (--frozen.tweens === 0) {
         frozen.thaw();
+        for (const [child, {x, y}] of frozen.positions) {
+          restoreRaw(child.x, x);
+          restoreRaw(child.y, y);
+        }
         this.frozen = undefined;
       }
     }
@@ -2052,11 +2080,7 @@ export class Layout extends Node {
         playInverted(inverted, duration, timing, interpolation),
       );
     } finally {
-      if (savedLayoutSelf === undefined) {
-        this.layoutSelf.context.reset();
-      } else {
-        this.layoutSelf.context.setter(savedLayoutSelf);
-      }
+      restoreRaw(this.layoutSelf, savedLayoutSelf);
     }
   }
 
@@ -2078,6 +2102,26 @@ export class Layout extends Node {
     }
 
     return null;
+  }
+}
+
+interface RawPosition {
+  x: SignalValue<number> | undefined;
+  y: SignalValue<number> | undefined;
+}
+
+function rawPosition(node: Node): RawPosition {
+  return {x: node.x.context.raw(), y: node.y.context.raw()};
+}
+
+function restoreRaw<TSetterValue, TValue extends TSetterValue, TOwner>(
+  signal: Signal<TSetterValue, TValue, TOwner>,
+  raw: SignalValue<TSetterValue> | undefined,
+) {
+  if (raw === undefined) {
+    signal.context.reset();
+  } else {
+    signal.context.setter(raw);
   }
 }
 

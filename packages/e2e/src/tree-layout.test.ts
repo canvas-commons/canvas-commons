@@ -201,7 +201,7 @@ describe('layout-tweens', () => {
       expect(isRed(at(last, -550, -300))).toBe(true);
     });
 
-    test.fails('the child is halfway there at half the duration', () => {
+    test('the child is halfway there at half the duration', () => {
       expect(isRed(at(halfway, -700, -300))).toBe(true);
     });
   });

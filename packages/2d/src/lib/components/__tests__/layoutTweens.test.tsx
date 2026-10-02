@@ -1,5 +1,6 @@
 import {
   Vector2,
+  all,
   createRef,
   createSignal,
   linear,
@@ -232,6 +233,221 @@ describe('Layout.thawLayout', () => {
 
       yield* task;
       expectVector(middle().middle.view(), 0, 0);
+    }),
+  );
+
+  it(
+    'holds the parent size through the freeze and the thaw',
+    generatorTest(function* (view) {
+      const frame = createRef<Rect>();
+      const row = createRef<Layout>();
+      const middle = createRef<Rect>();
+      view.add(
+        <Rect ref={frame} layout padding={20}>
+          <Layout ref={row} layout direction="row" gap={20}>
+            <Rect width={100} height={100} />
+            <Rect ref={middle} width={100} height={100} />
+            <Rect width={100} height={100} />
+          </Layout>
+        </Rect>,
+      );
+      row().freezeLayout();
+      middle().topLeft.view();
+      middle().position.view([0, -300]);
+      expectVector(frame().size(), 380, 140);
+      expectVector(row().size(), 340, 100);
+
+      const task = yield row().thawLayout(1, linear);
+      yield* waitFor(0.5);
+      expectVector(frame().size(), 380, 140);
+      expect(middle().middle.view().y).toBeGreaterThan(-200);
+      expect(middle().middle.view().y).toBeLessThan(-100);
+
+      yield* task;
+      expectVector(frame().size(), 380, 140);
+      expectVector(middle().middle.view(), 0, 0);
+    }),
+  );
+
+  it(
+    'tweens the size of the parent to the new layout',
+    generatorTest(function* (view) {
+      const row = createRef<Layout>();
+      const last = createRef<Rect>();
+      view.add(
+        <Layout ref={row} layout direction="row">
+          <Rect width={100} height={100} />
+          <Rect ref={last} width={100} height={100} />
+        </Layout>,
+      );
+
+      row().freezeLayout();
+      row().direction('column');
+      expectVector(row().size(), 200, 100);
+
+      const task = yield row().thawLayout(1, linear);
+      yield* waitFor(0.5);
+      expectVector(row().size(), 150, 150);
+
+      yield* task;
+      expectVector(row().size(), 100, 200);
+      expectVector(last().position.view(), 0, 50);
+      expect(row().width.context.raw()).toBeNull();
+    }),
+  );
+
+  it(
+    'keeps a width that the user sets during the freeze',
+    generatorTest(function* (view) {
+      const row = createRef<Layout>();
+      view.add(
+        <Layout ref={row} layout direction="row">
+          <Rect width={100} height={100} />
+          <Rect width={100} height={100} />
+        </Layout>,
+      );
+
+      row().freezeLayout();
+      row().width(500);
+      yield* row().thawLayout(0.5, linear);
+      expect(row().width()).toBe(500);
+      expectVector(row().size(), 500, 100);
+    }),
+  );
+
+  it(
+    'keeps a width that the user sets to the frozen value',
+    generatorTest(function* (view) {
+      const row = createRef<Layout>();
+      const removed = createRef<Rect>();
+      view.add(
+        <Layout ref={row} layout direction="row">
+          <Rect width={100} height={100} />
+          <Rect ref={removed} width={100} height={100} />
+        </Layout>,
+      );
+
+      row().freezeLayout();
+      row().width(200);
+      removed().remove();
+      yield* row().thawLayout(0.5, linear);
+      expectVector(row().size(), 200, 100);
+    }),
+  );
+
+  it(
+    'holds the slot of a growing node while it is frozen',
+    generatorTest(function* (view) {
+      const frozen = createRef<Layout>();
+      const other = createRef<Layout>();
+      view.add(
+        <Layout layout direction="row" width={400}>
+          <Layout ref={frozen} width={100} height={100} grow={1} />
+          <Layout ref={other} width={100} height={100} grow={1} />
+        </Layout>,
+      );
+      expectVector(frozen().size(), 200, 100);
+
+      frozen().freezeLayout();
+      expectVector(frozen().size(), 200, 100);
+      expectVector(other().size(), 200, 100);
+
+      yield* frozen().thawLayout(0.5, linear);
+      expectVector(frozen().size(), 200, 100);
+      expect(frozen().width()).toBe(200);
+      expect(frozen().width.context.raw()).toBe(100);
+    }),
+  );
+
+  it(
+    'thaws a clone of a frozen layout',
+    generatorTest(function* (view) {
+      const row = createRef<Layout>();
+      view.add(
+        <Layout ref={row} layout direction="row">
+          <Rect width={100} height={100} />
+          <Rect width={100} height={100} />
+        </Layout>,
+      );
+
+      row().freezeLayout();
+      row().children()[1].remove();
+      const clone = row().clone();
+      view.add(clone);
+      expectVector(clone.size(), 200, 100);
+
+      yield* all(row().thawLayout(0.5, linear), clone.thawLayout(0.5, linear));
+      expectVector(row().size(), 100, 100);
+      expectVector(clone.size(), 100, 100);
+    }),
+  );
+
+  it(
+    'keeps the flex basis size of a frozen node and its siblings',
+    generatorTest(function* (view) {
+      const frozen = createRef<Layout>();
+      const other = createRef<Layout>();
+      view.add(
+        <Layout layout direction="row" width={400}>
+          <Layout ref={frozen} basis={100} height={100} grow={1} />
+          <Layout ref={other} basis={100} height={100} grow={1} />
+        </Layout>,
+      );
+
+      frozen().freezeLayout();
+      expectVector(frozen().size(), 200, 100);
+      expectVector(other().size(), 200, 100);
+
+      yield* frozen().thawLayout(0.5, linear);
+      expectVector(frozen().size(), 200, 100);
+      expectVector(other().size(), 200, 100);
+    }),
+  );
+
+  it(
+    'keeps nested layouts laying out their children during the thaw',
+    generatorTest(function* (view) {
+      const row = createRef<Layout>();
+      const second = createRef<Rect>();
+      view.add(
+        <Layout ref={row} layout direction="row">
+          <Layout direction="row">
+            <Rect width={100} height={100} />
+            <Rect ref={second} width={100} height={100} />
+          </Layout>
+        </Layout>,
+      );
+      expectVector(second().middle.view(), 50, 0);
+
+      row().freezeLayout();
+      const task = yield row().thawLayout(1, linear);
+      yield* waitFor(0.5);
+      expectVector(second().middle.view(), 50, 0);
+
+      yield* task;
+      expectVector(second().middle.view(), 50, 0);
+    }),
+  );
+
+  it(
+    'holds the size of a frozen node with a percent width',
+    generatorTest(function* (view) {
+      const frozen = createRef<Layout>();
+      const other = createRef<Rect>();
+      view.add(
+        <Layout layout direction="row">
+          <Layout ref={frozen} width="50%" height={100} />
+          <Rect ref={other} width={100} height={100} />
+        </Layout>,
+      );
+      const size = frozen().size();
+
+      frozen().freezeLayout();
+      other().width(500);
+      expectVector(frozen().size(), size.x, size.y);
+
+      yield* frozen().thawLayout(0.5, linear);
+      expect(frozen().size().x).toBeGreaterThan(size.x);
     }),
   );
 });

@@ -69,7 +69,7 @@ import {
   playInverted,
   snapshotPositions,
 } from '../utils/layoutFlip';
-import {restoreRaw} from '../utils/rawSignal';
+import {captureRaw} from '../utils/rawSignal';
 import {
   PositionType,
   createYogaNode,
@@ -865,6 +865,11 @@ export class Layout extends Node {
   @signal()
   declare protected readonly layoutLockCounter: SimpleSignal<number, this>;
 
+  @initial(null)
+  @interpolation<Vector2 | null>((from, to, value) => (value < 1 ? from : to))
+  @signal()
+  declare protected readonly frozenSize: SimpleSignal<Vector2 | null, this>;
+
   public constructor(props: LayoutProps) {
     super(props);
   }
@@ -1209,7 +1214,7 @@ export class Layout extends Node {
   private resolvePercentageDimensions(): boolean {
     let resolved = false;
     this.walkFlexTree((child, parent) => {
-      const size = child.desiredSize();
+      const size = child.frozenSize() ?? child.desiredSize();
       const parentLayout = parent.yogaNode.getComputedLayout();
 
       if (typeof size.x === 'string' && size.x.endsWith('%')) {
@@ -1541,13 +1546,22 @@ export class Layout extends Node {
       this.isLayoutRoot() ? PositionType.Absolute : PositionType.Relative,
     );
 
-    const size = this.desiredSize();
+    const frozenSize = this.frozenSize();
+    const size = frozenSize ?? this.desiredSize();
     setYogaDimension(node, 'setWidth', size.x);
     setYogaDimension(node, 'setHeight', size.y);
     setYogaDimension(node, 'setMaxWidth', this.maxWidth());
-    setYogaDimension(node, 'setMinWidth', this.resolvedMinWidth());
+    setYogaDimension(
+      node,
+      'setMinWidth',
+      frozenSize ? frozenSize.x : this.resolvedMinWidth(),
+    );
     setYogaDimension(node, 'setMaxHeight', this.maxHeight());
-    setYogaDimension(node, 'setMinHeight', this.minHeight());
+    setYogaDimension(
+      node,
+      'setMinHeight',
+      frozenSize ? frozenSize.y : this.minHeight(),
+    );
 
     const ratio = this.ratio();
     node.setAspectRatio(ratio ?? undefined);
@@ -1570,7 +1584,7 @@ export class Layout extends Node {
     );
 
     node.setFlexDirection(toYogaFlexDirection(this.direction()));
-    setYogaFlexBasis(node, this.basis());
+    setYogaFlexBasis(node, frozenSize ? null : this.basis());
     node.setFlexWrap(toYogaFlexWrap(this.wrap()));
 
     const direction = this.direction();
@@ -1584,7 +1598,10 @@ export class Layout extends Node {
 
     setYogaGap(node, this.gap.x(), this.gap.y());
 
-    if (this.layoutLockCounter() > 0) {
+    if (frozenSize) {
+      node.setFlexGrow(0);
+      node.setFlexShrink(1);
+    } else if (this.layoutLockCounter() > 0) {
       node.setFlexGrow(0);
       node.setFlexShrink(0);
     } else {
@@ -1925,18 +1942,27 @@ export class Layout extends Node {
     interpolation: InterpolationFunction<Vector2>,
     additionalTasks: ThreadGenerator[] = [],
   ): ThreadGenerator {
-    const savedPositions = children.map(child => ({
-      child,
-      x: child.x.context.raw(),
-      y: child.y.context.raw(),
-    }));
+    const restorers = children.flatMap(child => [
+      captureRaw(child.x),
+      captureRaw(child.y),
+    ]);
     for (const child of children) {
       const pre = preWorld.get(child);
       if (pre) child.position.abs(pre);
     }
-    const savedLayoutChildren = this.layoutChildren.context.raw();
-    const savedWidth = this.width.context.raw();
-    const savedHeight = this.height.context.raw();
+    // Reading the mode before `layoutChildren` goes off keeps nested layouts
+    // laying out their own children.
+    for (const child of children) {
+      if (child instanceof Layout) {
+        restorers.push(captureRaw(child.layoutChildren));
+        child.layoutChildren(child.canLayoutChildren());
+      }
+    }
+    restorers.push(
+      captureRaw(this.layoutChildren),
+      captureRaw(this.width),
+      captureRaw(this.height),
+    );
     this.layoutChildren(false);
     this.lockLayout();
     this.size(oldSize);
@@ -1958,31 +1984,30 @@ export class Layout extends Node {
       );
     } finally {
       this.releaseLayout();
-      restoreRaw(this.width, savedWidth);
-      restoreRaw(this.height, savedHeight);
-      restoreRaw(this.layoutChildren, savedLayoutChildren);
-      for (const {child, x, y} of savedPositions) {
-        restoreRaw(child.x, x);
-        restoreRaw(child.y, y);
+      for (const restore of restorers) {
+        restore();
       }
     }
   }
 
   /**
-   * Snap each laid-out child to its current visual position, then disable
-   * `layoutChildren`. Pair with {@link thawLayout} to bring children back
-   * under flex.
+   * Snap each laid-out child to its current visual position, pin this node's
+   * size and slot, then disable `layoutChildren`. Pair with {@link thawLayout}
+   * to bring children back under flex.
    */
   public freezeLayout(): void {
+    const pinned = new Vector2(this.size());
     for (const child of this.applyLayout()) {
       child.position(child.computedPosition());
     }
     this.layoutChildren(false);
+    this.frozenSize(pinned);
   }
 
   /**
-   * Re-enable `layoutChildren` and animate each child from its manual
-   * position to wherever the flex layout now places it.
+   * Re-enable `layoutChildren`, release the size pinned by
+   * {@link freezeLayout}, and animate the size and each child from the frozen
+   * state to the flex layout.
    */
   @threadable()
   public *thawLayout(
@@ -1990,14 +2015,33 @@ export class Layout extends Node {
     timing: TimingFunction = easeInOutCubic,
     interpolation: InterpolationFunction<Vector2> = Vector2.lerp,
   ): ThreadGenerator {
+    const oldSize = new Vector2(this.size());
+    this.frozenSize(null);
     // A child that takes its layout from this node only joins `applyLayout`
     // after `layoutChildren` is on.
-    const pre = snapshotPositions(this.nearestLayoutDescendants());
+    const preWorld = new Map<Node, Vector2>();
+    for (const child of this.nearestLayoutDescendants()) {
+      preWorld.set(child, child.position.abs());
+    }
     this.layoutChildren(true);
     this.requestLayoutUpdate();
-    const post = snapshotPositions(this.applyLayout());
-    const inverted = invertPositions(pre, post);
-    yield* playInverted(inverted, duration, timing, interpolation);
+    const children = this.applyLayout();
+    const postWorld = new Map<Node, Vector2>();
+    for (const child of children) {
+      postWorld.set(child, child.position.abs());
+    }
+    const newSize = new Vector2(this.size());
+
+    yield* this.runFreezeThawTween(
+      children,
+      preWorld,
+      postWorld,
+      oldSize,
+      newSize,
+      duration,
+      timing,
+      interpolation,
+    );
   }
 
   /**
@@ -2038,7 +2082,7 @@ export class Layout extends Node {
     const siblings = affectedLayouts(this).filter(n => n !== this);
     const pre = snapshotPositions(siblings);
 
-    const savedLayoutSelf = this.layoutSelf.context.raw();
+    const restoreLayoutSelf = captureRaw(this.layoutSelf);
     this.layoutSelf(false);
     if (this.parent()) {
       this.position.abs(startWorld);
@@ -2053,7 +2097,7 @@ export class Layout extends Node {
         playInverted(inverted, duration, timing, interpolation),
       );
     } finally {
-      restoreRaw(this.layoutSelf, savedLayoutSelf);
+      restoreLayoutSelf();
     }
   }
 
@@ -2063,6 +2107,7 @@ export class Layout extends Node {
     }
     super.dispose();
     this.layoutLockCounter?.context.dispose();
+    this.frozenSize?.context.dispose();
     if (this.yogaNode) {
       this.yogaNode.free();
     }

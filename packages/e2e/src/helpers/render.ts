@@ -15,17 +15,37 @@ const TEST_RENDER_IMAGE_EXPORTER_OPTIONS = {
 
 const TEST_RENDER_RESOLUTION_SCALE = 0.5;
 
+export interface OpenSceneOptions {
+  /** Entries written to `localStorage` before any page script runs. */
+  localStorage?: Record<string, string>;
+}
+
+function seedLocalStorage(entries: Record<string, string>): void {
+  if (window.location.protocol !== 'http:') {
+    return;
+  }
+  for (const [key, value] of Object.entries(entries)) {
+    window.localStorage.setItem(key, value);
+  }
+}
+
 /**
  * Open the editor at the wrapper project for `sceneName` and wait for
  * `window.commons` and a positive playback duration.
  */
-export async function openScene(sceneName: string): Promise<Page> {
+export async function openScene(
+  sceneName: string,
+  options: OpenSceneOptions = {},
+): Promise<Page> {
   const browser = await getSharedBrowser();
   let lastError: unknown;
 
   for (let attempt = 0; attempt < 3; attempt++) {
     const page = await browser.newPage();
     try {
+      if (options.localStorage) {
+        await page.addInitScript(seedLocalStorage, options.localStorage);
+      }
       await page.goto(`${baseUrl()}/tests/projects/${sceneName}`);
       await page.waitForSelector('main');
       await page.waitForFunction(

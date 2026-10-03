@@ -50,6 +50,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm dedupe --check
       - run: pnpm exec eslint "**/*.ts?(x)"
   prettier:
     name: Code style

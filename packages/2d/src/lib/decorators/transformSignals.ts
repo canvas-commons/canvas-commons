@@ -20,6 +20,18 @@ import {compound} from './compound';
 import {addInitializer} from './initializers';
 import {getPropertyMetaOrCreate, wrapper} from './signal';
 
+function isMirrored(matrix: DOMMatrix): boolean {
+  return matrix.a * matrix.d - matrix.b * matrix.c < 0;
+}
+
+function scaleAxisLengths(owner: Node): Vector2 {
+  const axes = owner.parentToWorld().rotate(0, 0, owner.rotation());
+  return new Vector2(
+    Vector2.magnitude(axes.m11, axes.m12),
+    Vector2.magnitude(axes.m21, axes.m22),
+  );
+}
+
 /**
  * Utility class for handling coordinate space transformations.
  *
@@ -73,12 +85,20 @@ class TransformConverter {
     absoluteValue: SignalValue<PossibleVector2>,
   ): SignalValue<PossibleVector2> {
     return this.wrapVectorSignalTransform(absoluteValue, val => {
-      const axes = owner.parentToWorld().rotate(0, 0, owner.rotation());
-      return new Vector2(
-        val.x / Vector2.magnitude(axes.m11, axes.m12),
-        val.y / Vector2.magnitude(axes.m21, axes.m22),
-      );
+      const axes = scaleAxisLengths(owner);
+      const parentMirror = isMirrored(owner.parentToWorld()) ? -1 : 1;
+      return new Vector2(val.x / axes.x, val.y / (axes.y * parentMirror));
     });
+  }
+
+  /** The mirror of the world transform is carried by the sign of y. */
+  public static localToAbsoluteScale(owner: Node, local: Vector2): Vector2 {
+    const axes = scaleAxisLengths(owner);
+    const mirror = isMirrored(owner.localToWorld()) ? -1 : 1;
+    return new Vector2(
+      Math.abs(local.x) * axes.x,
+      Math.abs(local.y) * axes.y * mirror,
+    );
   }
 
   public static absoluteToLocalRotation(
@@ -401,13 +421,7 @@ function createScaleSpaces<TOwner extends Node>(
   return {
     abs: createVectorSpaceMethod(
       signal,
-      () => {
-        const matrix = owner.localToWorld();
-        return new Vector2(
-          Vector2.magnitude(matrix.m11, matrix.m12),
-          Vector2.magnitude(matrix.m21, matrix.m22),
-        );
-      },
+      local => TransformConverter.localToAbsoluteScale(owner, local),
       absolute => TransformConverter.absoluteToLocalScale(owner, absolute),
     ),
     view: relativeTo(() => owner.view()),

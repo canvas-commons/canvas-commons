@@ -1,0 +1,7 @@
+---
+'@canvas-commons/2d': patch
+---
+
+`Layout.editLayout` tweens children that are not flex children when the mutator
+moves or reparents them. A child reparented into another layout tweens to its
+slot.

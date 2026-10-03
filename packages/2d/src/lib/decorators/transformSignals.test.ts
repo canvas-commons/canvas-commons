@@ -2,7 +2,7 @@ import {Vector2, createSignal, threads} from '@canvas-commons/core';
 import 'geometry-polyfill';
 import {beforeEach, describe, expect, test} from 'vitest';
 import {Layout} from '../components/Layout';
-import {Rect} from '../components/Rect';
+import {Rect, RectProps} from '../components/Rect';
 import {mockScene2D} from '../components/__tests__/mockScene2D';
 import {useScene2D} from '../scenes';
 
@@ -386,6 +386,62 @@ describe('absolute scale', () => {
     child.scale.abs([3, 4]);
     expectVector(child.scale(), 3, 2);
     expectVector(child.scale.abs(), 3, 4);
+  });
+});
+
+describe('absolute scale round trip', () => {
+  mockScene2D();
+
+  const worldKeys = ['a', 'b', 'c', 'd', 'e', 'f'] as const;
+
+  function worldMatrix(node: Rect): number[] {
+    const matrix = node.localToWorld();
+    return worldKeys.map(key => matrix[key]);
+  }
+
+  function expectMatrix(actual: number[], expected: number[]) {
+    actual.forEach((value, index) =>
+      expect(value).toBeCloseTo(expected[index]),
+    );
+  }
+
+  test.each<[string, RectProps, RectProps]>([
+    ['a mirrored y scale', {scale: [1, -1]}, {}],
+    ['a mirrored x scale with a rotation', {scale: [-1, 1], rotation: 30}, {}],
+    ['a skew', {skewX: 45}, {}],
+    ['a mirrored parent', {scale: [2, 3]}, {scale: [1, -1]}],
+  ])('keeps the world matrix for %s', (_, childProps, parentProps) => {
+    const parent = new Rect(parentProps);
+    const node = new Rect({position: [10, 20], ...childProps});
+    parent.add(node);
+    useScene2D().getView().add(parent);
+    const before = worldMatrix(node);
+
+    node.rotation.abs(node.rotation.abs());
+    node.scale.abs(node.scale.abs());
+
+    expectMatrix(worldMatrix(node), before);
+  });
+
+  test('keeps the local scale of a skewed node', () => {
+    const node = new Rect({skewX: 45});
+    useScene2D().getView().add(node);
+
+    expectVector(node.scale.abs(), 1, 1);
+  });
+
+  test('keeps the world matrix of a mirrored node through reparent', () => {
+    const from = new Rect({position: [100, 0]});
+    const to = new Rect({position: [-40, 30]});
+    const node = new Rect({scale: [1, -1]});
+    from.add(node);
+    useScene2D().getView().add([from, to]);
+    const before = worldMatrix(node);
+
+    node.reparent(to);
+
+    expect(node.parent()).toBe(to);
+    expectMatrix(worldMatrix(node), before);
   });
 });
 

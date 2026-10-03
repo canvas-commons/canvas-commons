@@ -1,5 +1,6 @@
 import {decorate, threadable} from '../decorators';
 import {ThreadGenerator} from '../threading';
+import {EPSILON} from '../types';
 import {useThread} from '../utils';
 
 decorate(tween, threadable());
@@ -14,7 +15,7 @@ export function* tween(
   const endTime = thread.time() + seconds;
 
   onProgress(0, 0);
-  while (endTime > thread.fixed) {
+  while (endTime - thread.fixed > EPSILON) {
     const time = thread.fixed - startTime;
     const value = time / seconds;
     if (time > 0) {

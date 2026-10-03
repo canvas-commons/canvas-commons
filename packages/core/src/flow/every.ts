@@ -1,5 +1,6 @@
 import {decorate, threadable} from '../decorators';
 import {ThreadGenerator} from '../threading';
+import {EPSILON} from '../types';
 import {usePlayback} from '../utils';
 
 export interface EveryCallback {
@@ -48,21 +49,23 @@ export function every(interval: number, callback: EveryCallback): EveryTimer {
   decorate(everyRunner, threadable('every'));
   function* everyRunner(): ThreadGenerator {
     const project = usePlayback();
-    let acc = 0;
+    let elapsedFrames = 0;
     let tick = 0;
     callback(tick);
     changed = true;
 
     while (true) {
-      if (acc >= project.secondsToFrames(interval)) {
-        acc = 0;
+      const intervalFrames = interval * project.fps;
+      if (elapsedFrames >= intervalFrames - EPSILON) {
+        elapsedFrames =
+          (elapsedFrames - intervalFrames) % Math.max(intervalFrames, 1);
         tick++;
         callback(tick);
         changed = true;
       } else {
         changed = false;
       }
-      acc++;
+      elapsedFrames++;
       yield;
     }
   }

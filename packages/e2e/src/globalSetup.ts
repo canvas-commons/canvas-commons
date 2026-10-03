@@ -6,6 +6,15 @@ import type {TestProject} from 'vitest/node';
 
 const Root = fileURLToPath(new URL('.', import.meta.url));
 
+// Headless Firefox blocklists WebGL2 on software GL; force it on.
+/* eslint-disable @typescript-eslint/naming-convention -- Firefox pref names */
+const WebglPrefs = {
+  'webgl.force-enabled': true,
+  'webgl.disabled': false,
+  'webgl.enable-webgl2': true,
+};
+/* eslint-enable @typescript-eslint/naming-convention */
+
 let ViteServer: ViteDevServer | null = null;
 let BrowserServer: PlaywrightBrowserServer | null = null;
 
@@ -15,7 +24,7 @@ export async function setup(project: TestProject) {
       root: Root,
       configFile: path.resolve(Root, '../vite.config.ts'),
     }).then(s => s.listen()),
-    firefox.launchServer({headless: true}),
+    firefox.launchServer({headless: true, firefoxUserPrefs: WebglPrefs}),
   ]);
 
   ViteServer = server;

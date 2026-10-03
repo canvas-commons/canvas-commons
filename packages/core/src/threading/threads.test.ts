@@ -239,4 +239,31 @@ describe('threads()', () => {
 
     expect(finalizedWhileRootRuns).toBe(true);
   });
+
+  test('A task that cancels its own ancestor runs its finally block', () => {
+    let finalized = false;
+    let finalizedWhileRootRuns = false;
+    const task = threads(function* () {
+      const ancestor = yield run(function* () {
+        yield run(function* () {
+          try {
+            yield;
+            cancel(ancestor);
+            yield* waitFor(5);
+          } finally {
+            finalized = true;
+          }
+        });
+        yield* waitFor(5);
+      });
+      yield;
+      yield;
+      finalizedWhileRootRuns = finalized;
+      yield* waitFor(1);
+    });
+
+    [...task];
+
+    expect(finalizedWhileRootRuns).toBe(true);
+  });
 });

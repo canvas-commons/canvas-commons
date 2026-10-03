@@ -138,6 +138,17 @@ export class Thread {
     setTaskName(child.runner, `unknown ${this.children.length}`);
   }
 
+  public unspawn(task: ThreadGenerator): Thread | undefined {
+    const index = this.queue.indexOf(task);
+    if (index < 0) {
+      return undefined;
+    }
+    this.queue.splice(index, 1);
+    const thread = new Thread(task);
+    thread.cancel();
+    return thread;
+  }
+
   public drain(callback: (task: ThreadGenerator) => void) {
     this.queue.forEach(callback);
     this.queue = [];
@@ -190,4 +201,8 @@ export class Thread {
       this.cancel();
     }
   }
+}
+
+export function findThread(task: ThreadGenerator): Thread | undefined {
+  return 'task' in task && task.task instanceof Thread ? task.task : undefined;
 }

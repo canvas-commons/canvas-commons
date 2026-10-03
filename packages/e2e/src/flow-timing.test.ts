@@ -95,7 +95,7 @@ describe('flow timing', () => {
     expect(probe.retimedTicksAfterChange).toBeLessThanOrEqual(4);
   });
 
-  test.fails('a spawned task can be canceled from a nested thread', () => {
+  test('a spawned task can be canceled from a nested thread', () => {
     expect(probe.canceledSpawnProgress).toBeGreaterThanOrEqual(0);
     expect(probe.canceledSpawnProgress).toBeLessThan(0.3);
   });
@@ -105,12 +105,12 @@ describe('flow timing', () => {
     expect(probe.finalizedByCancel).toContain('b');
   });
 
-  test.fails('any() without tasks ends at once', () => {
+  test('any() without tasks ends at once', () => {
     expect(probe.anyWithoutTasksDoneAt).toBeGreaterThanOrEqual(0);
     expect(probe.anyWithoutTasksDoneAt).toBeLessThan(0.2);
   });
 
-  test.fails('join(false, task) on a finished task returns at once', () => {
+  test('join(false, task) on a finished task returns at once', () => {
     expect(probe.joinFinishedDoneAt).toBeGreaterThanOrEqual(0.5);
     expect(probe.joinFinishedDoneAt).toBeLessThan(1);
   });

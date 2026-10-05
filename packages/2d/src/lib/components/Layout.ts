@@ -861,6 +861,7 @@ export class Layout extends Node {
   declare public readonly clip: SimpleSignal<boolean, this>;
 
   declare public yogaNode: YogaNode;
+  private yogaConstraint: {width?: number; height?: number} | null = null;
 
   @initial(0)
   @signal()
@@ -1044,7 +1045,7 @@ export class Layout extends Node {
     const settling = this.settlingTree();
     if (settling) this.unsettle(settling);
     this.updateLayout();
-    this.yogaNode.calculateLayout(width, height);
+    this.calculateYoga(width, height);
     const aspectRatioConstraint = this.resolveAspectRatioConstraint(
       width,
       height,
@@ -1052,12 +1053,26 @@ export class Layout extends Node {
     if (aspectRatioConstraint) {
       width = aspectRatioConstraint.width;
       height = aspectRatioConstraint.height;
-      this.yogaNode.calculateLayout(width, height);
+      this.calculateYoga(width, height);
     }
     if (this.resolvePercentageDimensions()) {
-      this.yogaNode.calculateLayout(width, height);
+      this.calculateYoga(width, height);
     }
     if (settling) this.settle(settling, width, height);
+  }
+
+  private calculateYoga(width: number | undefined, height: number | undefined) {
+    const last = this.yogaConstraint;
+    if (
+      last &&
+      !this.yogaNode.isDirty() &&
+      last.width === width &&
+      last.height === height
+    ) {
+      return;
+    }
+    this.yogaConstraint = {width, height};
+    this.yogaNode.calculateLayout(width, height);
   }
 
   private settlingTree(): SettlingTree | null {
@@ -1111,13 +1126,13 @@ export class Layout extends Node {
           if (better(i, chosen)) chosen = i;
         }
         if (this.readBoxes(nodes, settlers, cycle[chosen])) {
-          this.yogaNode.calculateLayout(width, height);
+          this.calculateYoga(width, height);
         }
         return;
       }
       seen.push(boxes);
       if (!this.readBoxes(nodes, settlers, boxes)) return;
-      this.yogaNode.calculateLayout(width, height);
+      this.calculateYoga(width, height);
     }
   }
 

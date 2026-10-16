@@ -1,5 +1,17 @@
 # Change Log
 
+## 0.4.1
+
+### Patch Changes
+
+- [#229](https://github.com/canvas-commons/canvas-commons/pull/229)
+  [`cbdf198`](https://github.com/canvas-commons/canvas-commons/commit/cbdf1987acfc44acd4b12c0c25358f3a5b44f31c)
+  Thanks [@icholy](https://github.com/icholy)! - Clicking or dragging the
+  timeline scrollbar no longer seeks the playhead.
+
+- Updated dependencies []:
+  - @canvas-commons/core@0.4.1
+
 ## 0.4.0
 
 ### Minor Changes

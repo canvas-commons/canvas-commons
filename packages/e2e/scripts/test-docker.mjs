@@ -50,10 +50,13 @@ console.log(
 const args = [
   'run',
   '--rm',
+  // xvfb-run hangs on its start-up handshake when it is PID 1.
+  '--init',
   '-v',
   `${snapshotsDir}:/work/packages/e2e/src/__image_snapshots__`,
   tag,
 ];
-if (userCommand) args.push('bash', '-c', userCommand);
+// Firefox needs a display to create a WebGL context.
+args.push('xvfb-run', '-a', 'bash', '-c', userCommand || 'pnpm run e2e:test');
 const run = spawnSync('docker', args, {stdio: 'inherit'});
 process.exit(run.status ?? 1);

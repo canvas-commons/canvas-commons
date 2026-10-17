@@ -1,5 +1,6 @@
 import {decorate, threadable} from '../decorators';
 import {ThreadGenerator} from '../threading';
+import {EPSILON} from '../types';
 import {usePlayback, useThread} from '../utils';
 import {LoopCallback} from './loop';
 
@@ -30,11 +31,11 @@ export function* loopFor(
   factory: LoopCallback,
 ): ThreadGenerator {
   const thread = useThread();
-  const step = usePlayback().framesToSeconds(1);
+  const playback = usePlayback();
   const targetTime = thread.time() + seconds;
 
   let iteration = 0;
-  while (targetTime - step > thread.fixed) {
+  while (thread.fixed + playback.deltaTime - targetTime < EPSILON) {
     const generator = factory(iteration);
     if (generator) {
       yield* generator;

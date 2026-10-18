@@ -1,7 +1,7 @@
 import {EventDispatcher} from '../events';
 import {noop} from '../flow';
 import {createSignal} from '../signals';
-import {endThread, startThread, useLogger} from '../utils';
+import {endThread, isThreadRunning, startThread, useLogger} from '../utils';
 import {ThreadGenerator, isThreadGenerator} from './ThreadGenerator';
 import reusedGenerator from './__logs__/reused-generator';
 import {getTaskName, setTaskName} from './names';
@@ -138,6 +138,17 @@ export class Thread {
     setTaskName(child.runner, `unknown ${this.children.length}`);
   }
 
+  public unspawn(task: ThreadGenerator): Thread | undefined {
+    const index = this.queue.indexOf(task);
+    if (index < 0) {
+      return undefined;
+    }
+    this.queue.splice(index, 1);
+    const thread = new Thread(task);
+    thread.cancel();
+    return thread;
+  }
+
   public drain(callback: (task: ThreadGenerator) => void) {
     this.queue.forEach(callback);
     this.queue = [];
@@ -145,10 +156,34 @@ export class Thread {
 
   public cancel() {
     this.deferred.clear();
-    this.runner.return();
+    for (const child of this.children) {
+      child.cancel();
+    }
+    this.children = [];
+    if (!isThreadRunning(this)) {
+      this.close();
+    }
     this.isCanceled = true;
     this.parent = null;
     this.drain(task => task.return());
+  }
+
+  private close() {
+    startThread(this);
+    try {
+      let result = this.runner.return();
+      if (!result.done) {
+        useLogger().warn(
+          `The task "${getTaskName(this.runner)}" yielded inside a finally block ` +
+            'while being canceled. Cleanup after a cancel must be synchronous.',
+        );
+      }
+      while (!result.done) {
+        result = this.runner.return();
+      }
+    } finally {
+      endThread(this);
+    }
   }
 
   public pause(value: boolean) {
@@ -157,7 +192,17 @@ export class Thread {
 
   public runDeferred() {
     startThread(this);
-    this.deferred.dispatch();
-    endThread(this);
+    try {
+      this.deferred.dispatch();
+    } finally {
+      endThread(this);
+    }
+    if (this.isCanceled) {
+      this.cancel();
+    }
   }
+}
+
+export function findThread(task: ThreadGenerator): Thread | undefined {
+  return 'task' in task && task.task instanceof Thread ? task.task : undefined;
 }

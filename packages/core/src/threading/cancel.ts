@@ -1,4 +1,5 @@
 import {useThread} from '../utils';
+import {findThread} from './Thread';
 import {ThreadGenerator} from './ThreadGenerator';
 
 /**
@@ -18,8 +19,10 @@ import {ThreadGenerator} from './ThreadGenerator';
 export function cancel(...tasks: ThreadGenerator[]) {
   const thread = useThread();
   for (const task of tasks) {
-    const child = thread.children.find(thread => thread.runner === task);
-    if (child && !child.canceled) {
+    const child = findThread(task);
+    if (!child) {
+      thread.root.unspawn(task)?.time(thread.time());
+    } else if (!child.canceled) {
       child.cancel();
       child.time(thread.time());
     }

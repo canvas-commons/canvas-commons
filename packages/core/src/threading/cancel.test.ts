@@ -6,6 +6,7 @@ import {waitFor} from '../flow';
 import {endPlayback, startPlayback, useTime} from '../utils';
 import {cancel} from './cancel';
 import {join} from './join';
+import {spawn} from './spawn';
 import {threads} from './threads';
 
 describe('cancel()', () => {
@@ -30,5 +31,22 @@ describe('cancel()', () => {
     }
 
     expect(time).toBeCloseTo(0);
+  });
+
+  test('Canceling a task spawned on the same frame', () => {
+    let started = false;
+    const task = threads(function* () {
+      const spawned = spawn(function* () {
+        started = true;
+        yield;
+      });
+      cancel(spawned);
+      yield;
+      yield;
+    });
+
+    [...task];
+
+    expect(started).toBe(false);
   });
 });

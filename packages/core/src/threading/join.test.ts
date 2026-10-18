@@ -2,9 +2,11 @@
 
 import {afterAll, beforeAll, describe, expect, test} from 'vitest';
 import {PlaybackManager, PlaybackStatus} from '../app';
-import {waitFor} from '../flow';
+import {all, waitFor} from '../flow';
 import {endPlayback, startPlayback, useTime} from '../utils';
+import {cancel} from './cancel';
 import {join} from './join';
+import {spawn} from './spawn';
 import {threads} from './threads';
 
 describe('join()', () => {
@@ -82,5 +84,62 @@ describe('join()', () => {
     }
 
     expect(time).toBeCloseTo(0.05);
+  });
+
+  test('Joining without tasks returns at once', () => {
+    let framesWaited = NaN;
+    const task = threads(function* () {
+      const frame = playback.frame;
+      yield* join();
+      yield* all();
+      framesWaited = playback.frame - frame;
+    });
+
+    playback.fps = 10;
+    playback.frame = 0;
+    for (const _ of task) {
+      playback.frame++;
+    }
+
+    expect(framesWaited).toBe(0);
+  });
+
+  test('Joining a task canceled on the frame it was spawned returns at once', () => {
+    let framesWaited = NaN;
+    const task = threads(function* () {
+      const spawned = spawn(waitFor(1));
+      cancel(spawned);
+      const frame = playback.frame;
+      yield* join(spawned);
+      framesWaited = playback.frame - frame;
+    });
+
+    playback.fps = 10;
+    playback.frame = 0;
+    for (const _ of task) {
+      playback.frame++;
+    }
+
+    expect(framesWaited).toBe(0);
+  });
+
+  test('Joining any task returns at once when one is already finished', () => {
+    let framesWaited = NaN;
+    const task = threads(function* () {
+      const finished = yield waitFor(0.05);
+      yield* waitFor(0.2);
+      const spawned = spawn(waitFor(1));
+      const frame = playback.frame;
+      yield* join(false, finished, spawned);
+      framesWaited = playback.frame - frame;
+    });
+
+    playback.fps = 10;
+    playback.frame = 0;
+    for (const _ of task) {
+      playback.frame++;
+    }
+
+    expect(framesWaited).toBe(0);
   });
 });

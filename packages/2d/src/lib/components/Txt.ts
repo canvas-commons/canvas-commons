@@ -765,7 +765,7 @@ export class Txt extends Shape {
           ? desiredMaxWidth
           : null;
     if (wrapWidth === null && containerWidth && this.textWrap() !== false) {
-      const computedWidth = this.computedSize().x;
+      const computedWidth = this.layoutSize().x;
       if (Number.isFinite(computedWidth)) {
         // The +0.5 absorbs yoga's pixel rounding, mirroring effectiveMaxWidth.
         wrapWidth = computedWidth + 0.5;
@@ -2817,6 +2817,10 @@ export class Txt extends Shape {
       : BBox.fromSizeCentered(this.computedSize());
     // Pad vertically for glyphs that overshoot the line box.
     return box.expand([0, this.fontSize() * 0.5]).expand(stroke);
+  }
+
+  protected override layoutSize(): Vector2 {
+    return this.parentTxt() ? this.computedSize() : super.layoutSize();
   }
 
   @computed()

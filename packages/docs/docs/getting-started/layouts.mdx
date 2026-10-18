@@ -258,6 +258,127 @@ useful properties are listed below:
 <ApiSnippet url={'/api/2d/components/Layout#justifyContent'} />
 <hr />
 
+## Animating layout changes
+
+Layout changes jump by default. The methods below animate them. Each box is
+drawn where flex puts it plus an offset, and the offset decays to zero over the
+duration.
+
+### Adding and removing children
+
+Give `add`, `insert` or `remove` a duration. The child scales in or out while
+its siblings move to their new slots. `add(node, duration)` and
+`insert(node, index, duration)` are called on the parent, and `remove(duration)`
+on the child. Each takes an optional timing function.
+
+```tsx editor
+import {Layout, Rect, makeScene2D} from '@canvas-commons/2d';
+import {createRef, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const row = createRef<Layout>();
+  const first = createRef<Rect>();
+  view.add(
+    <Layout ref={row} layout gap={40}>
+      <Rect ref={first} width={160} height={160} fill="#e13238" />
+      <Rect width={160} height={160} fill="#e6a700" />
+    </Layout>,
+  );
+
+  yield* waitFor(0.5);
+  yield* row().add(<Rect width={160} height={160} fill="#4b9bff" />, 0.6);
+  yield* first().remove(0.6);
+  yield* waitFor(0.5);
+});
+```
+
+### Editing layout properties
+
+The `editLayout` method takes a duration and a function that changes layout
+properties. Every box in the layout moves from where it was drawn to where the
+new layout puts it.
+
+```tsx editor
+import {Layout, Rect, makeScene2D} from '@canvas-commons/2d';
+import {createRef, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const row = createRef<Layout>();
+  view.add(
+    <Layout ref={row} layout gap={40}>
+      <Rect width={160} height={160} fill="#e13238" />
+      <Rect width={160} height={160} fill="#e6a700" />
+      <Rect width={160} height={160} fill="#4b9bff" />
+    </Layout>,
+  );
+
+  yield* waitFor(0.5);
+  yield* row().editLayout(1, node => {
+    node.direction('column');
+    node.alignItems('end');
+  });
+  yield* waitFor(0.5);
+});
+```
+
+### Freezing and thawing
+
+The `freezeLayout` method pins each child where it is drawn. Flex stays on, and
+the layout keeps the size it has at freeze time. You can move the children by
+hand. The `thawLayout` method moves the layout from the frozen size to the size
+flex gives it, together with the children.
+
+```tsx editor
+import {Layout, Rect, makeScene2D} from '@canvas-commons/2d';
+import {createRef, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const row = createRef<Layout>();
+  const first = createRef<Rect>();
+  view.add(
+    <Layout ref={row} layout gap={40}>
+      <Rect ref={first} width={160} height={160} fill="#e13238" />
+      <Rect width={160} height={160} fill="#e6a700" />
+    </Layout>,
+  );
+
+  row().freezeLayout();
+  yield* first().position.y(-200, 0.6);
+  yield* row().thawLayout(0.6);
+  yield* waitFor(0.5);
+});
+```
+
+### Running transitions together
+
+Layout transitions compose. You can start an `add`, an `editLayout` and a
+`remove` in the same `all`, or start one while another runs. Each decays on its
+own, and a box is drawn at its flex position plus the sum of its offsets.
+
+```tsx editor
+import {Layout, Rect, makeScene2D} from '@canvas-commons/2d';
+import {all, createRef, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const row = createRef<Layout>();
+  const first = createRef<Rect>();
+  view.add(
+    <Layout ref={row} layout gap={40}>
+      <Rect ref={first} width={160} height={160} fill="#e13238" />
+      <Rect width={160} height={160} fill="#e6a700" />
+    </Layout>,
+  );
+
+  yield* waitFor(0.5);
+  yield* all(
+    row().add(<Rect width={160} height={160} fill="#4b9bff" />, 1),
+    row().editLayout(1.5, node => node.gap(100)),
+    first().remove(0.8),
+  );
+  yield* waitFor(0.5);
+});
+```
+
 ## Groups
 
 Nodes that don't extend the `Layout` class, such as the `Node` itself, are

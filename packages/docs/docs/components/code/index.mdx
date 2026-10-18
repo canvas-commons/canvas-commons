@@ -897,6 +897,42 @@ ${remove(`  return 7;
 </TabItem>
 </Tabs>
 
+### Transitions
+
+The `transitions` property of a `Code` node changes how its edits look. It takes
+the hooks `incoming`, `outgoing`, `move` and `morph`, which override
+`Code.defaultTransitions`. An edit can pass its own transitions as the last
+argument, and they override both. A hook gets the pose of a unit, the progress
+of the edit, and the change, and returns the pose to draw.
+
+```tsx editor
+import {Code, makeScene2D} from '@canvas-commons/2d';
+import {createRef, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const code = createRef<Code>();
+
+  view.add(
+    <Code
+      ref={code}
+      fontSize={28}
+      code={'const number = 7;'}
+      transitions={{
+        incoming: (pose, progress) => ({
+          ...pose,
+          position: pose.position.addY(20 * (1 - progress)),
+          opacity: pose.opacity * progress,
+        }),
+      }}
+    />,
+  );
+
+  yield* waitFor(0.5);
+  yield* code().code.replace(code().findFirstRange('7'), '42', 1);
+  yield* waitFor(0.5);
+});
+```
+
 ### Signals
 
 Notice that all the methods used above are not invoked on the `Code` node but

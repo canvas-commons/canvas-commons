@@ -1,5 +1,7 @@
 import {
   BBox,
+  Color,
+  createMotionStack,
   createSignal,
   experimentalLog,
   map,
@@ -9,14 +11,11 @@ import {
   SimpleSignal,
   ThreadGenerator,
   TimingFunction,
-  unwrap,
   useLogger,
   useScene,
   Vector2,
 } from '@canvas-commons/core';
 import {
-  CodeCursor,
-  CodeFragmentDrawingInfo,
   CodeHighlighter,
   CodePoint,
   CodeRange,
@@ -27,11 +26,33 @@ import {
   findAllCodeRanges,
   isPointInCodeSelection,
   lines,
+  nestedCode,
   parseCodeSelection,
   PossibleCodeScope,
   PossibleCodeSelection,
   resolveScope,
 } from '../code';
+import {CodePiece} from '../code/CodeContent';
+import {
+  CodeCells,
+  CodeEmbed,
+  CodeFragmentDrawingInfo,
+  CodeLayout,
+  CodeMotion,
+  CodeRegion,
+  CodeSnapshot,
+  colorAt,
+  colorRuns,
+  highlightOf,
+} from '../code/CodeLayout';
+import {CodeTransitions, DefaultCodeTransitions} from '../code/codeTransitions';
+import {
+  ContentBoxKey,
+  ContentUnit,
+  restPose,
+  UnitKey,
+  UnitPose,
+} from '../content';
 import {computed, initial, nodeName, parser, signal} from '../decorators';
 import {DesiredLength} from '../partials';
 import {sharedMeasurementContext} from '../utils/measurement';
@@ -91,6 +112,89 @@ export interface CodeProps extends ShapeProps {
    * {@inheritDoc Code.drawHooks}
    */
   drawHooks?: SignalValue<DrawHooks>;
+  /**
+   * {@inheritDoc Code.transitions}
+   */
+  transitions?: SignalValue<Partial<CodeTransitions>>;
+}
+
+interface CodeFont {
+  readonly monoWidth: number;
+  readonly lineHeight: number;
+  readonly fontHeight: number;
+  readonly verticalOffset: number;
+  measure(text: string): number;
+  readonly cells: CodeCells;
+}
+
+interface CodeRun {
+  readonly text: string;
+  /** The offset of the run in its unit. */
+  readonly from: number;
+  /** Where the run starts from its unit, in cells and rows. */
+  readonly offset: Vector2;
+  readonly cursor: Vector2;
+  readonly color: string | null;
+  /** Whether each selection in `Code.selectionSteps` contains the run. */
+  readonly selected: readonly boolean[];
+}
+
+/** A selection tween: the selection it leaves, and its progress. */
+interface SelectionStep {
+  readonly progress: SimpleSignal<number>;
+  readonly from: CodeSelection;
+}
+
+const SelectionKey = 'selection';
+
+function sameSelected(a: readonly boolean[], b: readonly boolean[]) {
+  return a.every((value, i) => value === b[i]);
+}
+
+interface CodeDrawingInfo {
+  fragments: CodeFragmentDrawingInfo[];
+  /** Code that edits removed and still draw. */
+  ghosts: CodeFragmentDrawingInfo[];
+  verticalOffset: number;
+  fontHeight: number;
+}
+
+const CharacterCells: CodeCells = text => text.length;
+
+/** The pose of a unit inside the units of the signals it is nested in. */
+function embeddedPose(
+  motion: CodeMotion,
+  key: UnitKey,
+  embeds: readonly CodeEmbed[],
+  rest: UnitPose,
+  transitions: CodeTransitions,
+): UnitPose {
+  let pose = motion.pose(key, rest, transitions);
+  for (let i = embeds.length - 1; i >= 0; i--) {
+    pose = embeds[i].motion.pose(embeds[i].key, pose, transitions);
+  }
+  return pose;
+}
+
+function snapshotRuns(
+  snapshot: CodeSnapshot,
+  cells: CodeCells,
+): {text: string; offset: Vector2; color: string | null}[] {
+  const runs: {text: string; offset: Vector2; color: string | null}[] = [];
+  let at = Vector2.zero;
+  for (const {from, to, color} of snapshot.colors) {
+    const lines = snapshot.text.slice(from, to).split('\n');
+    lines.forEach((text, index) => {
+      if (index > 0) {
+        at = new Vector2(-snapshot.column, at.y + 1);
+      }
+      if (text.length > 0) {
+        runs.push({text, offset: at, color});
+        at = at.addX(cells(text));
+      }
+    });
+  }
+  return runs;
 }
 
 /**
@@ -152,6 +256,12 @@ export class Code extends Shape {
   }
 
   public static defaultHighlighter: CodeHighlighter | null = null;
+
+  /**
+   * How every code node shows its edits, unless a node or an edit says
+   * otherwise.
+   */
+  public static defaultTransitions: CodeTransitions = DefaultCodeTransitions;
 
   /**
    * The code highlighter to use for this code node.
@@ -223,6 +333,31 @@ export class Code extends Shape {
   }
 
   /**
+   * How this node shows its edits, over {@link Code.defaultTransitions}.
+   *
+   * @example
+   * Fade inserted code in from below instead of swapping it at the middle:
+   * ```tsx
+   * <Code
+   *   transitions={{
+   *     incoming: (pose, progress) => ({
+   *       ...pose,
+   *       position: pose.position.addY(1 - progress),
+   *       opacity: pose.opacity * progress,
+   *     }),
+   *   }}
+   *   code={'const number = 7;'}
+   * />
+   * ```
+   */
+  @initial({})
+  @signal()
+  declare public readonly transitions: SimpleSignal<
+    Partial<CodeTransitions>,
+    this
+  >;
+
+  /**
    * The currently selected code range.
    *
    * @remarks
@@ -255,47 +390,54 @@ export class Code extends Shape {
     CodeSelection,
     this
   >;
-  public oldSelection: CodeSelection | null = null;
-  public selectionProgress = createSignal<number | null>(null);
+  private readonly selectionMotion = createMotionStack<string, SelectionStep>();
+
   protected *tweenSelection(
     value: CodeRange[],
     duration: number,
     timingFunction: TimingFunction,
   ): ThreadGenerator {
-    this.oldSelection = this.selection();
+    const progress = createSignal(0);
+    this.selectionMotion.push(SelectionKey, {
+      progress,
+      from: this.selection(),
+    });
     this.selection(value);
-    this.selectionProgress(0);
-    yield* this.selectionProgress(1, duration, timingFunction);
-    this.selectionProgress(null);
-    this.oldSelection = null;
+    try {
+      yield* progress(1, duration, timingFunction);
+    } finally {
+      this.selectionMotion.release(progress);
+      progress.context.dispose();
+    }
+  }
+
+  /** The selections the drawn one blends through, oldest first. */
+  private selectionSteps(): readonly SelectionStep[] {
+    return this.selectionMotion.entries(SelectionKey);
   }
 
   /**
    * Get the currently displayed code as a string.
+   *
+   * @remarks
+   * During an edit, this is the code the edit ends with.
    */
   @computed()
   public parsed(): string {
-    return resolveScope(this.code(), scope => unwrap(scope.progress) > 0.5);
+    return resolveScope(this.code(), true);
   }
 
   @computed()
   public highlighterCache() {
     const highlighter = this.highlighter();
     if (!highlighter || !highlighter.initialize()) return null;
-    const code = this.code();
-    const before = resolveScope(code, false);
-    const after = resolveScope(code, true);
-
-    return {
-      before: highlighter.prepare(before),
-      after: highlighter.prepare(after),
-    };
+    return highlighter.prepare(this.parsed());
   }
 
-  private cursorCache: CodeCursor | undefined;
-  private get cursor() {
-    this.cursorCache ??= new CodeCursor(this);
-    return this.cursorCache;
+  /** The transitions this node uses, over the class defaults. */
+  @computed()
+  public resolvedTransitions(): CodeTransitions {
+    return {...Code.defaultTransitions, ...this.transitions()};
   }
 
   public constructor(props: CodeProps) {
@@ -458,44 +600,236 @@ export class Code extends Shape {
     return bboxes;
   }
 
+  /** The font measurements the code grid is built on. */
   @computed()
-  protected drawingInfo() {
+  protected codeFont(): CodeFont | null {
     this.requestFontUpdate();
     const context = sharedMeasurementContext();
     if (!context) {
-      const fragments: CodeFragmentDrawingInfo[] = [];
-      return {fragments, verticalOffset: 0, fontHeight: 0};
+      return null;
     }
-    const code = this.code();
-
     context.save();
     this.applyStyle(context);
     this.applyText(context);
-    this.cursor.setupDraw(context);
-    this.cursor.drawScope(code);
-    const info = this.cursor.getDrawingInfo();
+    const {font, direction} = context;
+    const letterSpacing =
+      'letterSpacing' in context ? context.letterSpacing : '0px';
+    const metrics = context.measureText('X');
     context.restore();
 
-    return info;
+    // A fragment callback measuring a sibling node leaves its own font on the
+    // shared context, so every measurement restores this node's state.
+    const measure = (text: string) => {
+      context.font = font;
+      context.direction = direction;
+      if ('letterSpacing' in context) {
+        context.letterSpacing = letterSpacing;
+      }
+      return context.measureText(text).width;
+    };
+    const monoWidth = metrics.width;
+    return {
+      monoWidth,
+      lineHeight: this.resolvedLineHeight(),
+      fontHeight:
+        metrics.fontBoundingBoxDescent + metrics.fontBoundingBoxAscent,
+      verticalOffset: metrics.fontBoundingBoxAscent,
+      measure,
+      cells: text =>
+        monoWidth > 0 ? Math.round(measure(text) / monoWidth) : text.length,
+    };
+  }
+
+  /**
+   * Lay out code units on the grid of this node.
+   *
+   * @internal
+   */
+  public layoutUnits(units: readonly ContentUnit<CodePiece>[]): CodeLayout {
+    return new CodeLayout(
+      units,
+      this.code.context.motion,
+      this.codeFont()?.cells ?? CharacterCells,
+      nestedCode,
+    );
+  }
+
+  @computed()
+  protected contentLayout(): CodeLayout {
+    return this.layoutUnits(this.code.context.units());
+  }
+
+  /** The runs each unit is drawn in, split by color and by selection. */
+  @computed()
+  protected codeRuns(): CodeRun[][] {
+    const layout = this.contentLayout();
+    const highlight = highlightOf(this.highlighter(), layout.text);
+    const selections = [
+      ...this.selectionSteps().map(step => step.from),
+      this.selection(),
+    ];
+    const cells = this.codeFont()?.cells ?? CharacterCells;
+    const selectedAt = (row: number, column: number) =>
+      selections.map(selection =>
+        isPointInCodeSelection([row, column], selection),
+      );
+
+    return layout.units.map(unit => {
+      const runs: CodeRun[] = [];
+      let at = Vector2.zero;
+      for (const color of colorRuns(
+        highlight,
+        unit.from,
+        unit.from + unit.text.length,
+      )) {
+        let from = color.from;
+        while (from < color.to) {
+          if (unit.text[from] === '\n') {
+            at = new Vector2(-unit.start.x, at.y + 1);
+            from++;
+            continue;
+          }
+          const [row, column] = layout.point(unit.from + from);
+          const selected = selectedAt(row, column);
+          let to = from + 1;
+          while (
+            to < color.to &&
+            unit.text[to] !== '\n' &&
+            sameSelected(selectedAt(row, column + to - from), selected)
+          ) {
+            to++;
+          }
+          const text = unit.text.slice(from, to);
+          runs.push({
+            text,
+            from,
+            offset: at,
+            cursor: new Vector2(column, row),
+            color: color.color,
+            selected,
+          });
+          at = at.addX(cells(text));
+          from = to;
+        }
+      }
+      return runs;
+    });
+  }
+
+  @computed()
+  protected drawingInfo(): CodeDrawingInfo {
+    const font = this.codeFont();
+    if (!font) {
+      return {fragments: [], ghosts: [], verticalOffset: 0, fontHeight: 0};
+    }
+    const layout = this.contentLayout();
+    const runs = this.codeRuns();
+    const transitions = this.resolvedTransitions();
+    const steps = this.selectionSteps();
+    const selectionTime = (selected: readonly boolean[]) =>
+      steps.reduce(
+        (time, step, i) => map(time, selected[i + 1] ? 1 : 0, step.progress()),
+        selected[0] ? 1 : 0,
+      );
+    const fallback = this.fallbackFill();
+    const grid = new Vector2(font.monoWidth, font.lineHeight);
+
+    const info = (
+      run: {text: string; offset: Vector2},
+      pose: UnitPose,
+      fill: string,
+      time: number,
+      cursor: Vector2,
+    ): CodeFragmentDrawingInfo => ({
+      text: run.text,
+      position: pose.position.add(run.offset).mul(grid),
+      characterSize: new Vector2(
+        font.measure(run.text) / run.text.length,
+        font.fontHeight,
+      ),
+      cursor,
+      fill,
+      time,
+      alpha: pose.opacity,
+      scale: pose.scale,
+    });
+
+    const fragments: CodeFragmentDrawingInfo[] = [];
+    layout.units.forEach((unit, index) => {
+      const pose = embeddedPose(
+        unit.motion,
+        unit.key,
+        unit.embeds,
+        restPose(unit.start),
+        transitions,
+      );
+      const morphs = unit.motion.morphs(unit.key, transitions);
+      for (const run of runs[index]) {
+        let fill = run.color ?? fallback;
+        if (morphs.length > 0) {
+          let color = new Color(fill);
+          for (const {from, weight} of morphs) {
+            color = Color.lerp(
+              colorAt(from.colors, run.from) ?? fallback,
+              color,
+              1 - weight,
+            );
+          }
+          fill = color.serialize();
+        }
+        fragments.push(
+          info(run, pose, fill, selectionTime(run.selected), run.cursor),
+        );
+      }
+    });
+
+    const ghosts: CodeFragmentDrawingInfo[] = [];
+    const selection = this.selection();
+    const regions: [CodeMotion, CodeRegion][] = [
+      [this.code.context.motion, {from: 0, embeds: []}],
+      ...layout.regions,
+    ];
+    for (const [motion, region] of regions) {
+      for (const [key, ghost] of motion.ghosts()) {
+        const anchor = region.from + ghost.anchor;
+        const pose = embeddedPose(
+          motion,
+          key,
+          region.embeds,
+          restPose(layout.caret(anchor).add(ghost.relative)),
+          transitions,
+        );
+        const [row, column] = layout.point(anchor);
+        const cursor = new Vector2(column, row);
+        const time = isPointInCodeSelection([row, column], selection) ? 1 : 0;
+        for (const run of snapshotRuns(ghost.snapshot, font.cells)) {
+          ghosts.push(info(run, pose, run.color ?? fallback, time, cursor));
+        }
+      }
+    }
+
+    return {
+      fragments,
+      ghosts,
+      verticalOffset: font.verticalOffset,
+      fontHeight: font.fontHeight,
+    };
   }
 
   protected override desiredSize(): SerializedVector2<DesiredLength> {
-    this.requestFontUpdate();
-    const context = sharedMeasurementContext();
-    if (!context) {
+    const font = this.codeFont();
+    if (!font) {
       return {x: 0, y: 0};
     }
-    const code = this.code();
-
-    context.save();
-    this.applyStyle(context);
-    this.applyText(context);
-    this.cursor.setupMeasure(context);
-    this.cursor.measureSize(code);
-    const size = this.cursor.getSize();
-    context.restore();
-
-    return size;
+    const size = this.code.context.motion.pose(
+      ContentBoxKey,
+      restPose(this.contentLayout().size),
+      this.resolvedTransitions(),
+    ).position;
+    return {
+      x: size.x * font.monoWidth,
+      y: size.y * font.lineHeight + font.verticalOffset,
+    };
   }
 
   protected override draw(context: CanvasRenderingContext2D): void {
@@ -512,16 +846,28 @@ export class Code extends Shape {
     );
 
     const drawHooks = this.drawHooks();
-    for (const info of drawingInfo.fragments) {
+    for (const info of [...drawingInfo.ghosts, ...drawingInfo.fragments]) {
+      if (info.alpha <= 0) continue;
       context.save();
       context.globalAlpha *= info.alpha;
-      drawHooks.token(context, info.text, info.position, info.fill, info.time);
+      let position = info.position;
+      if (info.scale !== 1) {
+        context.translate(position.x, position.y);
+        context.scale(info.scale, info.scale);
+        position = Vector2.zero;
+      }
+      drawHooks.token(context, info.text, position, info.fill, info.time);
       context.restore();
     }
 
     context.restore();
 
     this.drawChildren(context);
+  }
+
+  private fallbackFill(): string {
+    const fill = this.fill();
+    return (fill instanceof Color ? fill : new Color('white')).serialize();
   }
 
   protected override applyText(context: CanvasRenderingContext2D) {

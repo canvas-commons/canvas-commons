@@ -1,0 +1,24 @@
+---
+sidebar_position: 5
+slug: /migration/0.5.0
+---
+
+# Migrating to 0.5.0
+
+## Breaking Changes and Migration Guide
+
+### Mirrored transform `y` values are now negative
+
+In 0.4.0 `scale.abs()` and `absoluteScale` return a positive `y` for a mirrored
+transform and include skew. In 0.5.0 they return a negative `y` and do not
+include skew. `reparent` keeps a mirrored node in place.
+
+Code that reads the absolute scale to size or flip something should account for
+the sign:
+
+```ts
+// 0.4.0
+const height = node.absoluteScale().y * node.height();
+// 0.5.0
+const height = Math.abs(node.absoluteScale().y) * node.height();
+```

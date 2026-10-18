@@ -62,6 +62,8 @@ export class SignalContext<
   protected current: SignalValue<TSetterValue> | undefined;
   protected last: TValue | undefined;
   protected tweening = false;
+  private runningTweens = 0;
+  private latestTween = 0;
 
   public constructor(
     private initial: SignalValue<TSetterValue> | undefined,
@@ -252,14 +254,21 @@ export class SignalContext<
     }
 
     this.tweening = true;
-    yield* this.extensions.tweener(
-      value,
-      duration,
-      timingFunction,
-      interpolationFunction,
-    );
-    this.set(value);
-    this.tweening = false;
+    this.runningTweens++;
+    const token = ++this.latestTween;
+    try {
+      yield* this.extensions.tweener(
+        value,
+        duration,
+        timingFunction,
+        interpolationFunction,
+      );
+      if (this.tweening && token === this.latestTween) {
+        this.set(value);
+      }
+    } finally {
+      this.tweening = --this.runningTweens > 0;
+    }
   }
 
   public *tweener(

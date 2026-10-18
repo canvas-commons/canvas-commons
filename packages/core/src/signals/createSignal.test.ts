@@ -1,7 +1,17 @@
-import {describe, expect, test, vi} from 'vitest';
+import {afterAll, beforeAll, describe, expect, test, vi} from 'vitest';
+import {PlaybackManager, PlaybackStatus} from '../app';
+import {waitFor} from '../flow';
+import {ThreadGenerator, threads} from '../threading';
+import {deepLerp} from '../tweening';
+import {endPlayback, startPlayback} from '../utils';
 import {createSignal} from './createSignal';
+import {SignalContext} from './SignalContext';
 
 describe('createSignal()', () => {
+  const status = new PlaybackStatus(new PlaybackManager());
+  beforeAll(() => startPlayback(status));
+  afterAll(() => endPlayback(status));
+
   test('Works correctly with plain values', () => {
     const signal = createSignal(7);
 
@@ -59,5 +69,40 @@ describe('createSignal()', () => {
     c();
 
     expect(value.mock.calls.length).toBe(1);
+  });
+
+  test('A tween ended early by another writer does not set its target', () => {
+    class EndedEarly extends SignalContext<number> {
+      public override *tweener(): ThreadGenerator {
+        this.set(2);
+        this.tweening = false;
+        yield;
+      }
+    }
+    const signal = new EndedEarly(0, deepLerp).toSignal();
+
+    [...threads(() => signal(5, 1))];
+
+    expect(signal()).toBe(2);
+  });
+
+  test('A tween that ends while a newer tween runs keeps the newer value', () => {
+    const signal = createSignal(0);
+    const seen: number[] = [];
+
+    [
+      ...threads(function* () {
+        yield signal(10, 1);
+        yield* waitFor(0.5);
+        yield signal(20, 1);
+        yield* waitFor(0.6);
+        seen.push(signal());
+        yield* waitFor(0.5);
+        seen.push(signal());
+      }),
+    ];
+
+    expect(seen[0]).not.toBe(10);
+    expect(seen[1]).toBe(20);
   });
 });

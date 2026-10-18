@@ -10,12 +10,21 @@ import {
   all,
   clamp,
   createSignal,
+  findThread,
   isReactive,
+  join,
   threadable,
   tween,
   unwrap,
   useLogger,
 } from '@canvas-commons/core';
+import {
+  ContentBoxKey,
+  ContentUnit,
+  UnitKey,
+  UnitPose,
+  restPose,
+} from '../content';
 import {
   CurveProfile,
   createCurveSampler,
@@ -31,7 +40,6 @@ import {
   ADVANCE_SCALE_ERROR,
   AdvanceMeasurer,
   BrokenParagraph,
-  ContentRun,
   FIT_TOLERANCE,
   FontBox,
   OBJECT_MARKER,
@@ -85,7 +93,21 @@ import {Layout} from './Layout';
 import {Node} from './Node';
 import {LayoutSettlers, SettledBoxes} from './settledLayout';
 import {Shape, ShapeProps} from './Shape';
+import {
+  DefaultTxtTransitions,
+  TxtPiece,
+  TxtTransitions,
+  leafTexts,
+} from './txtContent';
+import {
+  FontComponents,
+  RunTypeface,
+  TxtLayout,
+  TxtRun,
+  TxtRunStyle,
+} from './TxtLayout';
 import {TxtLeaf} from './TxtLeaf';
+import {TxtSignal, txtSignal} from './TxtSignal';
 import {ComponentChild, ComponentChildren} from './types';
 
 type TxtChildren = string | Node | (string | Node)[];
@@ -151,6 +173,7 @@ function resolvePathAnchor(align: PathAlign): number | null {
 export interface TxtProps extends ShapeProps {
   children?: TxtChildren;
   text?: SignalValue<string>;
+  transitions?: SignalValue<Partial<TxtTransitions>>;
   autoSize?: SignalValue<boolean>;
   wrapMode?: SignalValue<TxtWrapMode>;
   overflowWrap?: SignalValue<OverflowWrapMode>;
@@ -162,20 +185,6 @@ export interface TxtProps extends ShapeProps {
   pathSmoothness?: SignalValue<number>;
   pathSplit?: SignalValue<PathSplit>;
 }
-
-type FontComponents = {
-  style: string;
-  weight: number;
-  size: number;
-  family: string;
-};
-
-/** What a run measures with; no paint value may reach it. */
-type RunTypeface = {
-  font: string;
-  fontComponents: FontComponents;
-  letterSpacing: number;
-};
 
 type FragmentStyle = RunTypeface & {
   fill: CanvasStyle;
@@ -293,13 +302,11 @@ type PaintedSlice = {
   end: number;
 };
 
-/** A run's typeface and the node whose paint it takes, read at paint time. */
-type TxtRunStyle = RunTypeface & {node: Txt};
-type TxtRun = ContentRun<Layout | null, TxtRunStyle>;
 type TxtOwnerSpan = OwnerSpan<Layout | null, TxtRunStyle>;
 
 /** Everything one paragraph of text needs before a width is known. */
 type OwnedParagraph = {
+  runs: readonly TxtRun[];
   content: ParagraphContent<Layout | null, TxtRunStyle>;
   items: ParagraphItems;
   metrics: readonly ParagraphMetrics[];
@@ -316,7 +323,18 @@ type OwnedParagraph = {
 };
 
 /** A paint call, the owner span whose paint it takes, and its spacing. */
-type PlannedPaint = {call: PaintCall; owner: number; letterSpacing: string};
+type PlannedPaint = {
+  call: PaintCall;
+  owner: number;
+  letterSpacing: string;
+  /** The unit an edit moves the call with. */
+  unit?: number;
+};
+
+/** A unit an edit moves: its paragraph range and rest from the top left. */
+type MovingUnit = {key: UnitKey; from: number; to: number; rest: Vector2};
+
+type MovingPaint = {plan: PlannedPaint[]; units: MovingUnit[]};
 
 /** An owner's paint as the canvas takes it: a colour is serialized once. */
 type RunPaint = {
@@ -362,6 +380,10 @@ const LAYOUT_CACHE_SIZE = 6;
  * broken against; a layout that has not settled keeps the lowest box it saw.
  */
 const EXCLUSION_HEIGHT_PASSES = 4;
+
+type LeafText = (leaf: TxtLeaf) => string;
+
+const CurrentLeafText: LeafText = leaf => textValue(leaf.text());
 
 /** Untyped callers pass values a `string` signal cannot hold. */
 function textValue(value: string): string {
@@ -484,9 +506,124 @@ export class Txt extends Shape {
     return new Txt({...props, fontStyle: 'italic'});
   }
 
+  /**
+   * How every text node shows its edits, unless a node or an edit says
+   * otherwise.
+   */
+  public static defaultTransitions: TxtTransitions = DefaultTxtTransitions;
+
+  /**
+   * The text of this node and of the spans in it.
+   *
+   * @remarks
+   * Its edit helpers change the text at once and animate the change from
+   * where the text is drawn:
+   *
+   * ```ts
+   * yield* txt().text.replace([6, 11], 'there', 1);
+   * yield* txt().text.edit(1)`Hello ${replace('there', 'world')}!`;
+   * ```
+   *
+   * Offsets and ranges count UTF-16 units of this node's own text.
+   */
   @initial('')
+  @txtSignal()
+  declare public readonly text: TxtSignal<this>;
+
+  /** How this node shows its edits, over {@link Txt.defaultTransitions}; see {@link Code.transitions}. */
+  @initial({})
   @signal()
-  declare public readonly text: SimpleSignal<string, this>;
+  declare public readonly transitions: SimpleSignal<
+    Partial<TxtTransitions>,
+    this
+  >;
+
+  /** The transitions this node uses, over the class defaults. */
+  @computed()
+  public resolvedTransitions(): TxtTransitions {
+    return {...Txt.defaultTransitions, ...this.transitions()};
+  }
+
+  /** @internal The root that lays out and paints this node's text. */
+  public textRoot(): Txt {
+    return this.rootTxt();
+  }
+
+  /** @internal The leaves of this node and its spans, in reading order. */
+  @computed()
+  public textLeaves(): TxtLeaf[] {
+    const leaves: TxtLeaf[] = [];
+    const walk = (node: Node) => {
+      for (const child of node.children()) {
+        if (child instanceof TxtLeaf) {
+          leaves.push(child);
+        } else if (child instanceof Txt) {
+          walk(child);
+        }
+      }
+    };
+    walk(this);
+    return leaves;
+  }
+
+  /** @internal Where the units of this root's text are drawn. */
+  public layoutText(units: readonly ContentUnit<TxtPiece>[]): TxtLayout {
+    const origin = this.size().scale(-0.5);
+    if (units === this.text.context.units()) {
+      return this.placedTextLayout().at(origin);
+    }
+    const leaves = this.textLeaves();
+    const texts = leafTexts(leaves, units);
+    const textOf: LeafText = leaf => texts[leaves.indexOf(leaf)] ?? '';
+    const runs = this.runsWithScale(this.scaleWithText(textOf), textOf);
+    const paragraph =
+      runs.length > 0 && this.measurementContext()
+        ? this.paragraphOfRuns(runs)
+        : null;
+    return this.textLayoutOf(
+      units,
+      paragraph,
+      this.placeWith(paragraph, {
+        ...this.placeRequest(),
+        maxWidth: this.wrapWidth(),
+      }),
+      origin,
+    );
+  }
+
+  /** The layout of the text as it is placed now, from the block's top left. */
+  @computed()
+  private placedTextLayout(): TxtLayout {
+    return this.textLayoutOf(
+      this.text.context.units(),
+      this.paragraph(),
+      this.placement(),
+      Vector2.zero,
+    );
+  }
+
+  private textLayoutOf(
+    units: readonly ContentUnit<TxtPiece>[],
+    paragraph: OwnedParagraph | null,
+    placed: PlacedParagraph | null,
+    origin: Vector2,
+  ): TxtLayout {
+    const natural =
+      paragraph &&
+      this.placeWith(paragraph, {
+        ...this.naturalRequest(),
+        maxWidth: this.wrapWidth(),
+      });
+    return new TxtLayout(
+      units,
+      paragraph?.runs ?? [],
+      paragraph?.content ?? null,
+      paragraph?.items ?? null,
+      placed,
+      origin,
+      natural ? new Vector2(natural.width, natural.height) : Vector2.zero,
+    );
+  }
 
   /**
    * Automatically shrink the font to fit the configured `width` and `height`.
@@ -745,6 +882,7 @@ export class Txt extends Shape {
     timingFunction: TimingFunction,
     interpolationFunction: InterpolationFunction<string>,
   ): ThreadGenerator {
+    this.text.context.settleEdits();
     const children = this.children();
     if (children.length !== 1 || !(children[0] instanceof TxtLeaf)) {
       this.text.save();
@@ -899,35 +1037,49 @@ export class Txt extends Shape {
       this.forcedBreaksOnly(true);
     }
 
-    let completed = false;
-    try {
-      yield* all(
-        tween(time, t => {
-          if (planDropped) return;
-          const progress = timingFunction(t);
-          const [from, to] = currentPlan().sizes;
-          const size = Vector2.lerp(from, to, progress);
-          // A wrapped percent width stays container-driven, so only the
-          // height animates; otherwise the box lerps between text sizes.
-          if (keepWrap && containerWidth) {
-            this.height(size.y);
-          } else {
-            this.size(size);
-          }
-        }),
-        leaf.text(value, time, timingFunction, interpolate),
-      );
-
-      this.children.context.setter(value);
-      completed = true;
-    } finally {
-      // Don't leave tweens in a broken state
-      if (!completed && lastRaw !== null) {
-        leaf.text(lastRaw);
-      }
+    const restore = () => {
       dropPlan();
       this.releaseLayout();
       this.textWrap(oldWrap ?? DEFAULT);
+    };
+    const running: ThreadGenerator = yield all(
+      tween(time, t => {
+        if (planDropped) return;
+        const progress = timingFunction(t);
+        const [from, to] = currentPlan().sizes;
+        const size = Vector2.lerp(from, to, progress);
+        // A wrapped percent width stays container-driven, so only the
+        // height animates; otherwise the box lerps between text sizes.
+        if (keepWrap && containerWidth) {
+          this.height(size.y);
+        } else {
+          this.size(size);
+        }
+      }),
+      leaf.text(value, time, timingFunction, interpolate),
+    );
+    const leave = this.text.context.registerTween(() => {
+      findThread(running)?.cancel();
+      this.text.context.set(value);
+      restore();
+    });
+
+    let completed = false;
+    try {
+      yield* join(running);
+      if (leave()) {
+        completed = true;
+        this.children.context.setter(value);
+      }
+    } finally {
+      if (completed) {
+        restore();
+      } else if (leave()) {
+        if (lastRaw !== null) {
+          leaf.text(lastRaw);
+        }
+        restore();
+      }
     }
   }
 
@@ -1207,6 +1359,8 @@ export class Txt extends Shape {
   }
 
   private lastMeasureKey: unknown[] | null = null;
+  /** Width the last yoga measurement wrapped at. */
+  private measuredMaxWidth = Number.POSITIVE_INFINITY;
   /** Exclusion key the last yoga measurement read, until it is settled. */
   private measuredExclusionKey: unknown[] | null = null;
   private measureFuncReady = false;
@@ -1218,7 +1372,7 @@ export class Txt extends Shape {
     if (this.parentTxt()) return;
     // Yoga caches measure-func results until the node is marked dirty, so a
     // change to any measurement input has to bust the cache.
-    const key = this.paragraphLayoutKey();
+    const key = [...this.paragraphLayoutKey(), ...this.textBoxKey()];
     const last = this.lastMeasureKey;
     if (
       !last ||
@@ -1275,10 +1429,15 @@ export class Txt extends Shape {
    */
   @computed()
   public effectiveFontSize(): number {
+    return this.fontSizeWithText(CurrentLeafText);
+  }
+
+  /** {@link effectiveFontSize} for the text `textOf` gives each leaf. */
+  private fontSizeWithText(textOf: LeafText): number {
     const box = this.fitBox();
     if (!box) return this.fontSize();
     this.readSettledPass();
-    return this.fitFontSize(box.x, box.y);
+    return this.fitSizeWithText(box.x, box.y, textOf);
   }
 
   /** The box {@link autoSize} fits the text to, or `null` when it does not. */
@@ -1296,13 +1455,22 @@ export class Txt extends Shape {
     return this.scaleOf(this.effectiveFontSize());
   }
 
+  /** {@link effectiveScale} for the text `textOf` gives each leaf. */
+  private scaleWithText(textOf: LeafText): number {
+    return this.scaleOf(this.fontSizeWithText(textOf));
+  }
+
   /** How much a root size of `size` scales every font size of the tree. */
   private scaleOf(size: number): number {
     const raw = this.fontSize();
     return raw > 0 ? size / raw : 1;
   }
 
-  private static runStyleOf(owner: Txt, scale: number): TxtRunStyle {
+  private static runStyleOf(
+    owner: Txt,
+    scale: number,
+    leaf: TxtLeaf | null,
+  ): TxtRunStyle {
     const fontComponents: FontComponents = {
       style: owner.fontStyle(),
       weight: owner.fontWeight(),
@@ -1318,6 +1486,7 @@ export class Txt extends Shape {
     requestFontLoad(font);
     return {
       node: owner,
+      leaf,
       font,
       fontComponents,
       letterSpacing: owner.letterSpacing() * scale,
@@ -1353,7 +1522,10 @@ export class Txt extends Shape {
   }
 
   /** Every styled run this block paints, in reading order. */
-  private runsWithScale(scale: number): TxtRun[] {
+  private runsWithScale(
+    scale: number,
+    textOf: LeafText = CurrentLeafText,
+  ): TxtRun[] {
     // Neither a finished web font load nor a locale change has a signal of
     // its own, and both change what this collects.
     fontsVersion();
@@ -1363,8 +1535,8 @@ export class Txt extends Shape {
 
     const collect = (node: Node, owner: Txt) => {
       if (node instanceof TxtLeaf) {
-        const style = Txt.runStyleOf(owner, scale);
-        const source = textValue(node.text());
+        const style = Txt.runStyleOf(owner, scale, node);
+        const source = textOf(node);
         // A path forces a single line, so newlines collapse to spaces.
         const raw = onPath ? source.replace(/\n/g, ' ') : source;
         runs.push({
@@ -1379,7 +1551,7 @@ export class Txt extends Shape {
           collect(child, node);
         }
       } else if (node instanceof Layout) {
-        const style = Txt.runStyleOf(owner, scale);
+        const style = Txt.runStyleOf(owner, scale, null);
         runs.push({
           kind: 'object',
           owner: node,
@@ -1450,9 +1622,12 @@ export class Txt extends Shape {
     return wrap === false ? 'normal' : 'pre-line';
   }
 
-  private paragraphWithScale(scale: number): OwnedParagraph | null {
+  private paragraphWithScale(
+    scale: number,
+    textOf: LeafText = CurrentLeafText,
+  ): OwnedParagraph | null {
     if (!this.measurementContext()) return null;
-    const runs = this.runsWithScale(scale);
+    const runs = this.runsWithScale(scale, textOf);
     return runs.length === 0 ? null : this.paragraphOfRuns(runs);
   }
 
@@ -1466,6 +1641,7 @@ export class Txt extends Shape {
     );
     const metrics = mixed.preparations.map(one => one.metrics);
     return {
+      runs,
       content,
       items: mixed.items,
       metrics,
@@ -1996,14 +2172,34 @@ export class Txt extends Shape {
     textWrap: boolean,
   ): PlacedParagraph | null {
     return this.placeWith(this.passParagraph(), {
+      ...this.naturalRequest(),
       maxWidth,
       textWrap,
+    });
+  }
+
+  /** The width yoga wraps the text at, which an edit's box does not move. */
+  private wrapWidth(): number {
+    if (this.pathProfile() || this.textWrap() === false) {
+      return Number.POSITIVE_INFINITY;
+    }
+    const width = this.width.context.getter();
+    if (typeof width === 'number') return width;
+    this.computedSize();
+    return this.measuredMaxWidth;
+  }
+
+  /** A request for the natural size, with no alignment applied. */
+  private naturalRequest(): PlaceRequest {
+    return {
+      maxWidth: Number.POSITIVE_INFINITY,
+      textWrap: this.textWrap() !== false,
       blockWidth: Number.POSITIVE_INFINITY,
       blockHeight: 0,
       textAlign: 'left',
       direction: 'ltr',
       verticalAlign: 'top',
-    });
+    };
   }
 
   private textDirectionValue(): TextDirection {
@@ -2016,8 +2212,13 @@ export class Txt extends Shape {
    */
   @computed()
   private placement(): PlacedParagraph | null {
+    return this.placeWith(this.paragraph(), this.placeRequest());
+  }
+
+  /** A request for the placement against the node's own box. */
+  private placeRequest(): PlaceRequest {
     const {x: blockWidth, y: blockHeight} = this.size();
-    return this.placeWith(this.paragraph(), {
+    return {
       maxWidth: this.effectiveMaxWidth(),
       textWrap: this.textWrap() !== false,
       blockWidth,
@@ -2025,7 +2226,7 @@ export class Txt extends Shape {
       textAlign: this.textAlign(),
       direction: this.textDirectionValue(),
       verticalAlign: this.verticalAlign(),
-    });
+    };
   }
 
   protected positionedLines(): readonly PlacedLine[] {
@@ -2331,6 +2532,10 @@ export class Txt extends Shape {
     // Flex/percent Txts have no numeric width; wrap at the yoga-resolved one.
     // The +0.5 absorbs yoga's pixel rounding, which would otherwise re-wrap.
     const computedWidth = this.computedSize().x;
+    // A box that an edit moves is not the width the text wraps at.
+    if (this.text.context.motion.entries.has(ContentBoxKey)) {
+      return this.measuredMaxWidth;
+    }
     return Number.isFinite(computedWidth)
       ? computedWidth + 0.5
       : Number.POSITIVE_INFINITY;
@@ -2358,9 +2563,29 @@ export class Txt extends Shape {
       this.textWrap() === false ? Number.POSITIVE_INFINITY : maxWidth;
     const placed = this.placeNaturally(effectiveMax, this.textWrap() !== false);
     this.measuredExclusionKey = this.exclusionKey();
+    this.measuredMaxWidth = effectiveMax;
     if (!placed) return {width: 0, height: 0};
-    const measured = widthMode === MeasureMode.Exactly ? width : placed.width;
-    return {width: measured, height: placed.height};
+    const box = this.textBox(new Vector2(placed.width, placed.height));
+    const measured = widthMode === MeasureMode.Exactly ? width : box.x;
+    return {width: measured, height: box.y};
+  }
+
+  /** The box the text edits in flight draw, from the box it measures. */
+  private textBox(measured: Vector2): Vector2 {
+    const motion = this.text.context.motion;
+    if (!motion.entries.has(ContentBoxKey)) return measured;
+    return motion.pose(
+      ContentBoxKey,
+      restPose(measured),
+      this.resolvedTransitions(),
+    ).position;
+  }
+
+  /** What the box of the text edits in flight depends on. */
+  private textBoxKey(): unknown[] {
+    return this.text.context.motion.entries
+      .entries(ContentBoxKey)
+      .flatMap(entry => [entry, entry.progress()]);
   }
 
   /** Mark this node dirty when its exclusion geometry has moved. */
@@ -2489,13 +2714,17 @@ export class Txt extends Shape {
   @computed()
   private runPaints(): RunPaint[] {
     const spans = this.paragraph()?.content.ownerSpans ?? [];
-    return spans.map(({paint: {node}}) => ({
+    return spans.map(({paint: {node}}) => this.runPaintOf(node));
+  }
+
+  private runPaintOf(node: Txt): RunPaint {
+    return {
       fill: Txt.inkOf(node.fill()),
       stroke: Txt.inkOf(node.stroke()),
       lineWidth: node.lineWidth(),
       strokeFirst: node.strokeFirst(),
       opacity: this.relativeOpacity(node),
-    }));
+    };
   }
 
   private static inkOf(style: CanvasStyle): string | Gradient | Pattern {
@@ -2525,16 +2754,17 @@ export class Txt extends Shape {
       return;
     }
 
-    const plan = this.paintPlan();
-    if (plan.length === 0) {
+    const moving = this.movingPaint();
+    const plan = moving?.plan ?? this.paintPlan();
+    if (plan.length === 0 && !moving) {
       this.drawChildren(context);
       return;
     }
     const paints = this.runPaints();
 
     const {width, height} = this.size();
-    const originX = width / -2;
-    const originY = height / -2;
+    const origin = new Vector2(width / -2, height / -2);
+    const poses = moving && this.movingPoses(moving, origin);
 
     context.save();
     this.applyStyle(context);
@@ -2552,21 +2782,25 @@ export class Txt extends Shape {
     let stroke: ReturnType<typeof resolve> | null = null;
     let lineWidth: number | null = null;
 
-    for (const {call, owner, letterSpacing} of plan) {
-      const style = paints[owner];
-      const x = originX + call.anchor.penX;
-      const y = originY + call.line.baseline;
-
-      if (font !== call.anchor.metrics.font) {
-        font = call.anchor.metrics.font;
+    const paint = (
+      text: string,
+      pen: Vector2,
+      callFont: string,
+      letterSpacing: string,
+      style: RunPaint,
+      pose: UnitPose | null,
+    ) => {
+      if (font !== callFont) {
+        font = callFont;
         context.font = font;
       }
       if (spacing !== letterSpacing) {
         spacing = letterSpacing;
         context.letterSpacing = spacing;
       }
-      if (opacity !== style.opacity) {
-        opacity = style.opacity;
+      const shown = style.opacity * (pose?.opacity ?? 1);
+      if (opacity !== shown) {
+        opacity = shown;
         context.globalAlpha = alpha * opacity;
       }
       const nextFill = resolve(style.fill);
@@ -2584,19 +2818,142 @@ export class Txt extends Shape {
         context.lineWidth = lineWidth;
       }
 
+      let {x, y} = pen;
+      const scaled = pose !== null && pose.scale !== 1;
+      if (scaled) {
+        context.save();
+        context.translate(x, y);
+        context.scale(pose.scale, pose.scale);
+        x = 0;
+        y = 0;
+      }
       if (style.lineWidth <= 0) {
-        context.fillText(call.anchor.text, x, y);
+        context.fillText(text, x, y);
       } else if (style.strokeFirst) {
-        context.strokeText(call.anchor.text, x, y);
-        context.fillText(call.anchor.text, x, y);
+        context.strokeText(text, x, y);
+        context.fillText(text, x, y);
       } else {
-        context.fillText(call.anchor.text, x, y);
-        context.strokeText(call.anchor.text, x, y);
+        context.fillText(text, x, y);
+        context.strokeText(text, x, y);
+      }
+      if (scaled) context.restore();
+    };
+
+    for (const {call, owner, letterSpacing, unit} of plan) {
+      let pen = origin.add(new Vector2(call.anchor.penX, call.line.baseline));
+      const posed = unit === undefined ? undefined : poses?.[unit];
+      if (posed) {
+        if (posed.pose.opacity <= 0) continue;
+        pen = posed.pose.position.add(
+          pen.sub(posed.rest).scale(posed.pose.scale),
+        );
+      }
+      paint(
+        call.anchor.text,
+        pen,
+        call.anchor.metrics.font,
+        letterSpacing,
+        paints[owner],
+        posed?.pose ?? null,
+      );
+    }
+
+    if (moving) {
+      const motion = this.text.context.motion;
+      const transitions = this.resolvedTransitions();
+      const layout = this.placedTextLayout().at(origin);
+      for (const [key, ghost] of motion.ghosts()) {
+        const pose = motion.pose(
+          key,
+          motion.ghostRest(ghost, layout),
+          transitions,
+        );
+        if (pose.opacity <= 0) continue;
+        for (const part of ghost.snapshot.parts) {
+          paint(
+            part.text,
+            pose.position.add(part.offset.scale(pose.scale)),
+            part.run.font,
+            `${part.run.letterSpacing}px`,
+            this.runPaintOf(part.run.node),
+            pose,
+          );
+        }
       }
     }
 
     context.restore();
     this.drawChildren(context);
+  }
+
+  /**
+   * The paint plan while text edits are in flight, cut at the units they
+   * move, or `null` when none are.
+   */
+  @computed()
+  private movingPaint(): MovingPaint | null {
+    const motion = this.text.context.motion;
+    if (motion.entries.size() === 0) return null;
+    const paragraph = this.paragraph();
+    const placed = this.placement();
+    if (!paragraph || !placed) return {plan: [], units: []};
+
+    const keys = new Set(motion.entries.keys());
+    const layout = this.placedTextLayout();
+    const units: MovingUnit[] = [];
+    let offset = 0;
+    for (const {key, piece} of this.text.context.units()) {
+      const end = offset + piece.text.length;
+      if (keys.has(key)) {
+        const from = layout.paragraphOffset(offset);
+        const to = layout.paragraphOffset(end);
+        if (to > from) units.push({key, from, to, rest: layout.caret(offset)});
+      }
+      offset = end;
+    }
+
+    const seams = [
+      ...new Set([
+        ...paragraph.seams,
+        ...units.flatMap(({from, to}) => [from, to]),
+      ]),
+    ].sort((a, b) => a - b);
+    const unitOf = (call: PaintCall) => {
+      const at = call.hyphen ? call.start - 1 : call.start;
+      let low = 0;
+      let high = units.length - 1;
+      while (low < high) {
+        const middle = (low + high + 1) >> 1;
+        if (units[middle].from <= at) low = middle;
+        else high = middle - 1;
+      }
+      const found = units[low];
+      return found && found.from <= at && at < found.to ? low : undefined;
+    };
+    return {
+      units,
+      plan: paintCalls(paragraph.items, placed, paragraph.metrics, seams).map(
+        call => ({
+          call,
+          owner: Txt.paintOwnerOf(paragraph, call.anchor.text, call.start),
+          letterSpacing: `${call.anchor.metrics.letterSpacing}px`,
+          unit: unitOf(call),
+        }),
+      ),
+    };
+  }
+
+  /** How each unit an edit moves is drawn now. */
+  private movingPoses(
+    moving: MovingPaint,
+    origin: Vector2,
+  ): {rest: Vector2; pose: UnitPose}[] {
+    const motion = this.text.context.motion;
+    const transitions = this.resolvedTransitions();
+    return moving.units.map(({key, rest}) => {
+      const at = origin.add(rest);
+      return {rest: at, pose: motion.pose(key, restPose(at), transitions)};
+    });
   }
 
   /** Distance along the path where the run begins. */
@@ -3479,8 +3836,9 @@ export class Txt extends Shape {
     size: number,
     maxWidth: number,
     maxHeight: number,
+    textOf: LeafText,
   ): boolean {
-    const paragraph = this.paragraphWithScale(this.scaleOf(size));
+    const paragraph = this.paragraphWithScale(this.scaleOf(size), textOf);
     if (!paragraph) return true;
     return (
       this.fitMissOf(paragraph, canvasParagraphMeasurer, maxWidth, maxHeight) <=
@@ -3495,9 +3853,12 @@ export class Txt extends Shape {
     return this.preparationWithScale(scale)?.paragraph ?? null;
   }
 
-  private preparationWithScale(scale: number): Preparation | null {
+  private preparationWithScale(
+    scale: number,
+    textOf: LeafText = CurrentLeafText,
+  ): Preparation | null {
     if (!this.measurementContext()) return null;
-    const runs = this.runsWithScale(scale);
+    const runs = this.runsWithScale(scale, textOf);
     if (runs.length === 0) return null;
 
     const key: unknown[] = [
@@ -3552,6 +3913,7 @@ export class Txt extends Shape {
       const scaled = read(scale, slack);
       return this.fitMissOf(
         {
+          runs: prepared.runs,
           content: prepared.content,
           seams: prepared.seams,
           items: scaled.items,
@@ -3630,13 +3992,23 @@ export class Txt extends Shape {
    * ```
    */
   public fitFontSize(maxWidth: number, maxHeight: number): number {
+    return this.fitSizeWithText(maxWidth, maxHeight, CurrentLeafText);
+  }
+
+  /** {@link fitFontSize} for the text `textOf` gives each leaf. */
+  private fitSizeWithText(
+    maxWidth: number,
+    maxHeight: number,
+    textOf: LeafText,
+  ): number {
     this.assertRoot('fitFontSize');
     this.assertExclusionsIndependent();
     if (!this.measurementContext()) return this.fontSize();
     const ceiling = this.fitCeiling(maxHeight);
     if (ceiling < 1) return 1;
-    const real = (size: number) => this.fitsAtSize(size, maxWidth, maxHeight);
-    const prepared = this.preparationWithScale(this.scaleOf(ceiling));
+    const real = (size: number) =>
+      this.fitsAtSize(size, maxWidth, maxHeight, textOf);
+    const prepared = this.preparationWithScale(this.scaleOf(ceiling), textOf);
     if (!prepared) return searchFitSize(ceiling, null, real);
 
     const key: unknown[] = [

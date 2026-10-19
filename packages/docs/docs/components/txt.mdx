@@ -60,6 +60,32 @@ export default makeScene2D(function* (view) {
 });
 ```
 
+## Reading an edit
+
+Every edit returns the ranges it changes. `leaving` holds the ranges of the old
+text that the edit removes or replaces, and `arriving` the ranges of the new
+text that it inserts or replaces. Both are offsets into the text of the node
+that was edited. `progress` is a signal that goes from 0 to 1 as the edit plays.
+
+```tsx
+makeScene2D(function* (view) {
+  const txt = createRef<Txt>();
+  view.add(<Txt ref={txt} fill="white" text="Hello world" />);
+
+  const edit = txt().text.replace([6, 11], 'there', 1);
+  const [from, to] = edit.arriving[0];
+  view.add(
+    <Txt
+      fill="white"
+      y={80}
+      opacity={edit.progress}
+      text={txt().text().substring(from, to)}
+    />,
+  );
+  yield* edit;
+});
+```
+
 ## Transitions
 
 The `transitions` property of a `Txt` node changes how its edits look. It takes

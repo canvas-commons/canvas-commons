@@ -1,6 +1,7 @@
 export * from './code';
 export * from './components';
 export type {
+  ContentEdit,
   ContentEntry,
   ContentTransitions,
   EntryBase,

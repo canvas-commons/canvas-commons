@@ -4,7 +4,6 @@ import {
   SignalContext,
   SignalExtensions,
   SignalValue,
-  ThreadGenerator,
   TimingFunction,
   createComputed,
   createSignal,
@@ -14,6 +13,7 @@ import {
 import {
   ContentAdapter,
   ContentChange,
+  ContentEdit,
   ContentMotion,
   ContentUnit,
   editCall,
@@ -43,10 +43,12 @@ export type TxtMotion = ContentMotion<TxtPiece, TxtSnapshot, TxtChange>;
 
 type EditTransitions = Partial<TxtTransitions>;
 
+type TxtEdit = ContentEdit<TxtRange>;
+
 type TagGenerator = (
   strings: TemplateStringsArray,
   ...tags: TxtTag[]
-) => ThreadGenerator;
+) => TxtEdit;
 
 type TxtPlan = (
   units: readonly ContentUnit<TxtPiece>[],
@@ -54,11 +56,7 @@ type TxtPlan = (
 
 interface TxtModifier<TOwner> {
   (text: string): TOwner;
-  (
-    text: string,
-    duration: number,
-    transitions?: EditTransitions,
-  ): ThreadGenerator;
+  (text: string, duration: number, transitions?: EditTransitions): TxtEdit;
   (duration?: number, transitions?: EditTransitions): TagGenerator;
 }
 
@@ -69,7 +67,7 @@ interface TxtInsert<TOwner> {
     text: string,
     duration: number,
     transitions?: EditTransitions,
-  ): ThreadGenerator;
+  ): TxtEdit;
   (
     offset: number,
     duration?: number,
@@ -84,7 +82,7 @@ interface TxtReplace<TOwner> {
     text: string,
     duration: number,
     transitions?: EditTransitions,
-  ): ThreadGenerator;
+  ): TxtEdit;
   (
     range: TxtRange,
     duration?: number,
@@ -94,11 +92,7 @@ interface TxtReplace<TOwner> {
 
 interface TxtRemove<TOwner> {
   (range: TxtRange): TOwner;
-  (
-    range: TxtRange,
-    duration: number,
-    transitions?: EditTransitions,
-  ): ThreadGenerator;
+  (range: TxtRange, duration: number, transitions?: EditTransitions): TxtEdit;
 }
 
 export interface TxtSignalHelpers<TOwner> {
@@ -218,13 +212,13 @@ export class TxtSignalContext<TOwner>
     text: string,
     duration: number,
     transitions?: EditTransitions,
-  ): ThreadGenerator;
+  ): TxtEdit;
   public append(duration?: number, transitions?: EditTransitions): TagGenerator;
   public append(
     first: string | number = 0.6,
     second?: number | EditTransitions,
     third?: EditTransitions,
-  ): TOwner | ThreadGenerator | TagGenerator {
+  ): TOwner | TxtEdit | TagGenerator {
     return this.modify(
       (units, text) => {
         const end = this.ownLength();
@@ -241,7 +235,7 @@ export class TxtSignalContext<TOwner>
     text: string,
     duration: number,
     transitions?: EditTransitions,
-  ): ThreadGenerator;
+  ): TxtEdit;
   public prepend(
     duration?: number,
     transitions?: EditTransitions,
@@ -250,7 +244,7 @@ export class TxtSignalContext<TOwner>
     first: string | number = 0.6,
     second?: number | EditTransitions,
     third?: EditTransitions,
-  ): TOwner | ThreadGenerator | TagGenerator {
+  ): TOwner | TxtEdit | TagGenerator {
     return this.modify(
       (units, text) => this.splice(units, [0, 0], text),
       first,
@@ -265,7 +259,7 @@ export class TxtSignalContext<TOwner>
     text: string,
     duration: number,
     transitions?: EditTransitions,
-  ): ThreadGenerator;
+  ): TxtEdit;
   public insert(
     offset: number,
     duration?: number,
@@ -276,7 +270,7 @@ export class TxtSignalContext<TOwner>
     first: string | number = 0.6,
     second?: number | EditTransitions,
     third?: EditTransitions,
-  ): TOwner | ThreadGenerator | TagGenerator {
+  ): TOwner | TxtEdit | TagGenerator {
     return this.modify(
       (units, text) => this.splice(units, [offset, offset], text),
       first,
@@ -290,12 +284,12 @@ export class TxtSignalContext<TOwner>
     range: TxtRange,
     duration: number,
     transitions?: EditTransitions,
-  ): ThreadGenerator;
+  ): TxtEdit;
   public remove(
     range: TxtRange,
     duration?: number,
     transitions?: EditTransitions,
-  ): TOwner | ThreadGenerator {
+  ): TOwner | TxtEdit {
     const plan: TxtPlan = units => this.splice(units, range, '');
     return duration === undefined
       ? this.change(plan)
@@ -308,7 +302,7 @@ export class TxtSignalContext<TOwner>
     text: string,
     duration: number,
     transitions?: EditTransitions,
-  ): ThreadGenerator;
+  ): TxtEdit;
   public replace(
     range: TxtRange,
     duration?: number,
@@ -319,7 +313,7 @@ export class TxtSignalContext<TOwner>
     first: string | number = 0.6,
     second?: number | EditTransitions,
     third?: EditTransitions,
-  ): TOwner | ThreadGenerator | TagGenerator {
+  ): TOwner | TxtEdit | TagGenerator {
     return this.modify(
       (units, text) => this.splice(units, range, text),
       first,
@@ -409,7 +403,7 @@ export class TxtSignalContext<TOwner>
     first: string | number,
     second?: number | EditTransitions,
     third?: EditTransitions,
-  ): TOwner | ThreadGenerator | TagGenerator {
+  ): TOwner | TxtEdit | TagGenerator {
     return editCall(
       {
         change: p => this.change(p),
@@ -444,20 +438,22 @@ export class TxtSignalContext<TOwner>
     return this.owner;
   }
 
-  private *animate(
+  private animate(
     plan: TxtPlan,
     duration: number,
     transitions: EditTransitions = {},
     timing: TimingFunction = easeInOutCubic,
-  ): ThreadGenerator {
+  ): TxtEdit {
     this.settleTweens();
     const root = this.root();
     const own =
       this.node.textRoot() === this.node ? {} : this.node.transitions();
-    yield* root.motion.animate(
+    const start = this.ownSpans()[0]?.start ?? 0;
+    return root.motion.animate(
       () => root.units(),
       units => root.write(units),
       plan,
+      (_, from, to): TxtRange => [from - start, to - start],
       duration,
       timing,
       {...own, ...transitions},

@@ -1,6 +1,6 @@
-import {cancel, waitFor} from '@canvas-commons/core';
+import {all, cancel, waitFor} from '@canvas-commons/core';
 import {describe, expect, it} from 'vitest';
-import {insert, replace} from '../../code/CodeFragment';
+import {insert, remove, replace} from '../../code/CodeFragment';
 import {Txt} from '../Txt';
 import {generatorTest} from './generatorTest';
 import {mockScene2D} from './mockScene2D';
@@ -289,6 +289,93 @@ describe('Txt edits', () => {
       expect(txt.text()).toBe(target);
       expect(txt.text.context.motion.entries.size()).toBe(0);
       expect(glyphs(txt)).toEqual(glyphs(atRest(target)));
+    }),
+  );
+
+  it(
+    'reports the ranges an edit template removes and inserts',
+    generatorTest(function* () {
+      const txt = paragraph();
+      add(txt);
+      const edit = txt.text.edit(1)`${insert('Look! ')}The ${replace(
+        'quick',
+        'slow',
+      )} brown ${remove('fox ')}jumps over the lazy dog.`;
+      yield edit;
+      const target = txt.text();
+      expect(
+        edit.leaving.map(([from, to]) => Source.substring(from, to)),
+      ).toEqual(['quick', 'fox ']);
+      expect(
+        edit.arriving.map(([from, to]) => target.substring(from, to)),
+      ).toEqual(['Look! ', 'slow']);
+    }),
+  );
+
+  it(
+    'reports one range for replace, insert and remove',
+    generatorTest(function* () {
+      const txt = paragraph();
+      add(txt);
+      const replaced = txt.text.replace([4, 9], 'slow', 1);
+      expect(replaced.leaving).toEqual([[4, 9]]);
+      expect(replaced.arriving).toEqual([[4, 8]]);
+      yield replaced;
+      const inserted = txt.text.insert(0, 'Big ', 1);
+      expect(inserted.leaving).toEqual([]);
+      expect(inserted.arriving).toEqual([[0, 4]]);
+      yield inserted;
+      const removed = txt.text.remove([0, 4], 1);
+      expect(removed.leaving).toEqual([[0, 4]]);
+      expect(removed.arriving).toEqual([]);
+    }),
+  );
+
+  it(
+    'reports the offsets of an edit on a span in the text of the span',
+    generatorTest(function* () {
+      const span = (<Txt fill={'red'}>brown</Txt>) as Txt;
+      const txt = (
+        <Txt width={160} textWrap fill={'white'}>
+          The quick {span} fox jumps over the lazy dog.
+        </Txt>
+      ) as Txt;
+      add(txt);
+      const edit = span.text.replace([0, 5], 'grey', 1);
+      expect(edit.leaving).toEqual([[0, 5]]);
+      expect(edit.arriving).toEqual([[0, 4]]);
+      yield edit;
+    }),
+  );
+
+  it(
+    'reports the progress of an edit from the call to its end',
+    generatorTest(function* () {
+      const txt = paragraph();
+      add(txt);
+      const edit = txt.text.replace([4, 9], 'slow', 1);
+      expect(edit.progress()).toBe(0);
+      yield edit;
+      yield* waitFor(0.3);
+      expect(edit.progress()).toBeGreaterThan(0);
+      expect(edit.progress()).toBeLessThan(1);
+      yield* waitFor(1);
+      expect(edit.progress()).toBe(1);
+    }),
+  );
+
+  it(
+    'applies two edits created before either runs in order',
+    generatorTest(function* () {
+      const txt = paragraph();
+      add(txt);
+      const first = txt.text.insert(0, 'Big ', 1);
+      const second = txt.text.replace([8, 13], 'slow', 1);
+      yield* all(first, second);
+      const target = txt.text();
+      expect(target).toBe(`Big ${Source.replace('quick', 'slow')}`);
+      const [[from, to]] = second.arriving;
+      expect(target.substring(from, to)).toBe('slow');
     }),
   );
 });

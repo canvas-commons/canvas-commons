@@ -7,9 +7,9 @@ import {
   waitFor,
 } from '@canvas-commons/core';
 import {describe, expect, it} from 'vitest';
-import {insert} from '../../code/CodeFragment';
+import {insert, remove, replace} from '../../code/CodeFragment';
 import {CodeHighlighter} from '../../code/CodeHighlighter';
-import {lines, word} from '../../code/CodeRange';
+import {CodeRange, lines, word} from '../../code/CodeRange';
 import {CODE} from '../../code/CodeScope';
 import {defaultTokenize} from '../../code/CodeTokenizer';
 import type {CodeTransitions} from '../../code/codeTransitions';
@@ -75,6 +75,22 @@ function expectContinuous(
     expect(code.code.context.motion.entries.size()).toBe(0);
     expect(glyphs(code)).toEqual(glyphs(atRest(code.parsed(), highlighter)));
   });
+}
+
+/** The text of `range` in `lines`. */
+function slice(lines: readonly string[], [from, to]: CodeRange): string {
+  return lines
+    .join('\n')
+    .split('\n')
+    .map((line, row) =>
+      row < from[0] || row > to[0]
+        ? ''
+        : line.slice(
+            row === from[0] ? from[1] : 0,
+            row === to[0] ? to[1] : undefined,
+          ) + (row < to[0] ? '\n' : ''),
+    )
+    .join('');
 }
 
 /** Colors code inside double quotes, so a quote recolors the code after it. */
@@ -286,6 +302,90 @@ describe('Code edits', () => {
       });
       yield* waitFor(0.3);
       expect(alphaOf(code, 'note')).toEqual([0.5]);
+    }),
+  );
+
+  it(
+    'reports the ranges an edit template removes and inserts',
+    generatorTest(function* () {
+      const code = new Code({code: Source, highlighter: null});
+      add(code);
+      const edit = code.code.edit(
+        1,
+      )`${insert('// top\n')}const alpha = ${replace('1', '10')};
+const beta = 2;
+${remove('const gamma = 3;')}`;
+      yield edit;
+      const before = Source.split('\n');
+      const after = code.parsed().split('\n');
+      expect(edit.leaving.map(range => slice(before, range))).toEqual([
+        '1',
+        'const gamma = 3;',
+      ]);
+      expect(edit.arriving.map(range => slice(after, range))).toEqual([
+        '// top\n',
+        '10',
+      ]);
+    }),
+  );
+
+  it(
+    'reports one range for replace, insert and remove',
+    generatorTest(function* () {
+      const code = new Code({code: Source, highlighter: null});
+      add(code);
+      const replaced = code.code.replace(word(0, 6, 5), 'longerName', 1);
+      expect(replaced.leaving).toEqual([word(0, 6, 5)]);
+      expect(replaced.arriving).toEqual([word(0, 6, 10)]);
+      yield replaced;
+      const inserted = code.code.insert([2, 0], '// third\n', 1);
+      expect(inserted.leaving).toEqual([]);
+      expect(inserted.arriving).toEqual([
+        [
+          [2, 0],
+          [3, 0],
+        ],
+      ]);
+      yield inserted;
+      const removed = code.code.remove(lines(3), 1);
+      expect(removed.leaving).toEqual([
+        [
+          [3, 0],
+          [3, 16],
+        ],
+      ]);
+      expect(removed.arriving).toEqual([]);
+    }),
+  );
+
+  it(
+    'reports the progress of an edit from the call to its end',
+    generatorTest(function* () {
+      const code = new Code({code: Source, highlighter: null});
+      add(code);
+      const edit = code.code.append(' // note', 1);
+      expect(edit.progress()).toBe(0);
+      yield edit;
+      yield* waitFor(0.3);
+      expect(edit.progress()).toBeGreaterThan(0);
+      expect(edit.progress()).toBeLessThan(1);
+      yield* waitFor(1);
+      expect(edit.progress()).toBe(1);
+    }),
+  );
+
+  it(
+    'applies two edits created before either runs in order',
+    generatorTest(function* () {
+      const code = new Code({code: Source, highlighter: null});
+      add(code);
+      const first = code.code.insert([0, 0], 'x', 1);
+      const second = code.code.replace(word(1, 0, 5), 'let', 1);
+      yield* all(first, second);
+      const target = Source.replace(/^/, 'x').replace('const beta', 'let beta');
+      expect(code.parsed()).toBe(target);
+      expect(second.arriving).toEqual([word(1, 0, 3)]);
+      expect(second.leaving).toEqual([word(1, 0, 5)]);
     }),
   );
 });

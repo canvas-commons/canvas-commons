@@ -897,6 +897,34 @@ ${remove(`  return 7;
 </TabItem>
 </Tabs>
 
+Every edit returns the ranges it changes. `leaving` holds the ranges of the old
+code that the edit removes or replaces, and `arriving` the ranges of the new
+code that it inserts or replaces. `progress` is a signal that goes from 0 to 1
+as the edit plays. They are known when the edit is created, so a scene can
+highlight the new code with
+[`getSelectionBBox`](/api/2d/components/Code#getSelectionBBox):
+
+```tsx
+makeScene2D(function* (view) {
+  const code = createRef<Code>();
+  view.add(<Code ref={code} code="const alpha = 1;" />);
+
+  const edit = code().code.replace(word(0, 6, 5), 'delta', 1);
+  const [bbox] = code().getSelectionBBox(edit.arriving[0]);
+  code().add(
+    <Rect
+      anchor={-1}
+      position={bbox.position}
+      size={bbox.size}
+      opacity={edit.progress}
+      lineWidth={2}
+      stroke="white"
+    />,
+  );
+  yield* edit;
+});
+```
+
 ### Transitions
 
 The `transitions` property of a `Code` node changes how its edits look. It takes

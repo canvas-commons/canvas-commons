@@ -2818,6 +2818,10 @@ export class Txt extends Shape {
         context.lineWidth = lineWidth;
       }
 
+      const shownText = pose
+        ? text.slice(0, Math.ceil(text.length * pose.reveal))
+        : text;
+      if (shownText.length === 0) return;
       let {x, y} = pen;
       const scaled = pose !== null && pose.scale !== 1;
       if (scaled) {
@@ -2828,13 +2832,13 @@ export class Txt extends Shape {
         y = 0;
       }
       if (style.lineWidth <= 0) {
-        context.fillText(text, x, y);
+        context.fillText(shownText, x, y);
       } else if (style.strokeFirst) {
-        context.strokeText(text, x, y);
-        context.fillText(text, x, y);
+        context.strokeText(shownText, x, y);
+        context.fillText(shownText, x, y);
       } else {
-        context.fillText(text, x, y);
-        context.strokeText(text, x, y);
+        context.fillText(shownText, x, y);
+        context.strokeText(shownText, x, y);
       }
       if (scaled) context.restore();
     };

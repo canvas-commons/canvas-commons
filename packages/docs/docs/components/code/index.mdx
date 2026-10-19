@@ -961,6 +961,17 @@ export default makeScene2D(function* (view) {
 });
 ```
 
+`TypedTransitions` is a ready-made set of transitions. Old text shrinks away,
+the rest of the text moves to its new place, and then the new text is typed in
+from the left. Each step takes a third of the edit. Its `incoming` hook sets the
+`reveal` of a pose, the share of its characters that are drawn.
+
+```tsx
+import {Code, TypedTransitions} from '@canvas-commons/2d';
+
+<Code code={'const number = 7;'} transitions={TypedTransitions} />;
+```
+
 ### Signals
 
 Notice that all the methods used above are not invoked on the `Code` node but

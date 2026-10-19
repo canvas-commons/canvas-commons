@@ -752,6 +752,7 @@ export class Code extends Shape {
       time,
       alpha: pose.opacity,
       scale: pose.scale,
+      reveal: pose.reveal,
     });
 
     const fragments: CodeFragmentDrawingInfo[] = [];
@@ -847,7 +848,11 @@ export class Code extends Shape {
 
     const drawHooks = this.drawHooks();
     for (const info of [...drawingInfo.ghosts, ...drawingInfo.fragments]) {
-      if (info.alpha <= 0) continue;
+      const text = info.text.slice(
+        0,
+        Math.ceil(info.text.length * info.reveal),
+      );
+      if (info.alpha <= 0 || text.length === 0) continue;
       context.save();
       context.globalAlpha *= info.alpha;
       let position = info.position;
@@ -856,7 +861,7 @@ export class Code extends Shape {
         context.scale(info.scale, info.scale);
         position = Vector2.zero;
       }
-      drawHooks.token(context, info.text, position, info.fill, info.time);
+      drawHooks.token(context, text, position, info.fill, info.time);
       context.restore();
     }
 

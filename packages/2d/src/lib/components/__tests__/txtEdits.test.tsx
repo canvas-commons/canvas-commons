@@ -1,12 +1,13 @@
 import {all, cancel, waitFor} from '@canvas-commons/core';
 import {describe, expect, it} from 'vitest';
 import {insert, remove, replace} from '../../code/CodeFragment';
+import {TypedTransitions} from '../../content/transitions';
 import {Txt} from '../Txt';
 import {generatorTest} from './generatorTest';
 import {mockScene2D} from './mockScene2D';
 import {mockTextContext} from './mockTextContext';
 import {recordingTextContext} from './recordingTextContext';
-import {add, lineTexts} from './sceneFixtures';
+import {add, lineTexts, penX, timeAt} from './sceneFixtures';
 import {
   Source,
   Whole,
@@ -376,6 +377,62 @@ describe('Txt edits', () => {
       expect(target).toBe(`Big ${Source.replace('quick', 'slow')}`);
       const [[from, to]] = second.arriving;
       expect(target.substring(from, to)).toBe('slow');
+    }),
+  );
+
+  it(
+    'types an edit in three phases with the typed transitions',
+    generatorTest(function* () {
+      const build = () =>
+        (
+          <Txt fill={'white'} transitions={TypedTransitions}>
+            {Source}
+          </Txt>
+        ) as Txt;
+      const txt = build();
+      add(txt);
+      const target = Source.replace('brown', 'crimson');
+      const from = penX(glyphs(txt), 'x');
+      const to = penX(glyphs(atRest(target, build)), 'x');
+      const paints = () => {
+        const {calls, context} = recordingTextContext();
+        txt.render(context);
+        return calls;
+      };
+      yield txt.text.replace([10, 15], 'crimson', 1);
+
+      yield* waitFor(timeAt(1 / 6));
+      const [old] = paints().filter(call => call.text.startsWith('br'));
+      expect(old.scale).toBeLessThan(1);
+      expect(old.scale).toBeGreaterThan(0);
+      expect(penX(glyphs(txt), 'x')).toBeCloseTo(from);
+
+      yield* waitFor(timeAt(1 / 2) - timeAt(1 / 6));
+      expect(penX(glyphs(txt), 'x')).toBeCloseTo((from + to) / 2);
+      expect(paints().filter(call => call.text.startsWith('cr'))).toEqual([]);
+
+      yield* waitFor(timeAt(5 / 6) - timeAt(1 / 2));
+      const [typed] = paints().filter(call => call.text.startsWith('cr'));
+      expect('crimson'.startsWith(typed.text)).toBe(true);
+      expect(typed.text.length).toBeLessThan('crimson'.length);
+
+      yield* waitFor(2);
+      expect(glyphs(txt)).toEqual(glyphs(atRest(target, build)));
+    }),
+  );
+
+  it(
+    'draws every character of incoming text with the default transitions',
+    generatorTest(function* () {
+      const txt = (<Txt fill={'white'}>{Source}</Txt>) as Txt;
+      add(txt);
+      yield txt.text.replace([10, 15], 'crimson', 1);
+      yield* waitFor(timeAt(3 / 4));
+      const {calls, context} = recordingTextContext();
+      txt.render(context);
+      expect(
+        calls.filter(call => call.text.startsWith('cr')).map(call => call.text),
+      ).toEqual(['crimson']);
     }),
   );
 });

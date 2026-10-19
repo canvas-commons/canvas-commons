@@ -119,3 +119,14 @@ export default makeScene2D(function* (view) {
   yield* waitFor(0.5);
 });
 ```
+
+`TypedTransitions` is a ready-made set of transitions. Old text shrinks away,
+the rest of the text moves to its new place, and then the new text is typed in
+from the left. Each step takes a third of the edit. Its `incoming` hook sets the
+`reveal` of a pose, the share of its characters that are drawn.
+
+```tsx
+import {Txt, TypedTransitions} from '@canvas-commons/2d';
+
+<Txt text="Hello" transitions={TypedTransitions} />;
+```

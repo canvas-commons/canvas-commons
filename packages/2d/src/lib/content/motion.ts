@@ -23,6 +23,8 @@ export interface UnitPose {
   readonly position: Vector2;
   readonly opacity: number;
   readonly scale: number;
+  /** The share of the unit's characters drawn, from the start. */
+  readonly reveal: number;
 }
 
 /**
@@ -139,7 +141,7 @@ export interface EditMotion<TChange> {
 }
 
 export function restPose(position: Vector2): UnitPose {
-  return {position, opacity: 1, scale: 1};
+  return {position, opacity: 1, scale: 1, reveal: 1};
 }
 
 /** An entry that `entryPose` reads, whatever it keys. */

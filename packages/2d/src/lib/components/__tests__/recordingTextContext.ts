@@ -13,6 +13,8 @@ export type PaintCall = {
   /** Where the pen lands once the transform in place is applied. */
   penX: number;
   penY: number;
+  /** The uniform scale of the transform in place. */
+  scale: number;
 };
 
 const TRACKED = [
@@ -28,8 +30,8 @@ const TRACKED = [
 
 type Fixture = Partial<CanvasRenderingContext2D>;
 
-/** Translation and rotation the fixture's transform calls have applied. */
-type Transform = {x: number; y: number; angle: number};
+/** Translation, rotation and uniform scale the fixture's transform calls have applied. */
+type Transform = {x: number; y: number; angle: number; scale: number};
 
 /** Preserve paint state across nested draws so opacity is observable. */
 export function recordingTextContext(): {
@@ -38,7 +40,7 @@ export function recordingTextContext(): {
 } {
   const calls: PaintCall[] = [];
   const stack: {state: Fixture; transform: Transform}[] = [];
-  let transform: Transform = {x: 0, y: 0, angle: 0};
+  let transform: Transform = {x: 0, y: 0, angle: 0, scale: 1};
   const record = (
     kind: 'fill' | 'stroke',
     text: string,
@@ -58,8 +60,9 @@ export function recordingTextContext(): {
       letterSpacing: parseFloat(fixture.letterSpacing ?? '0') || 0,
       textAlign: fixture.textAlign ?? 'start',
       direction: fixture.direction ?? 'inherit',
-      penX: transform.x + x * cos - y * sin,
-      penY: transform.y + x * sin + y * cos,
+      penX: transform.x + (x * cos - y * sin) * transform.scale,
+      penY: transform.y + (x * sin + y * cos) * transform.scale,
+      scale: transform.scale,
     });
   };
 
@@ -95,19 +98,23 @@ export function recordingTextContext(): {
     },
     setLineDash() {},
     setTransform() {
-      transform = {x: 0, y: 0, angle: 0};
+      transform = {x: 0, y: 0, angle: 0, scale: 1};
     },
     translate(x: number, y: number) {
       const cos = Math.cos(transform.angle);
       const sin = Math.sin(transform.angle);
       transform = {
-        x: transform.x + x * cos - y * sin,
-        y: transform.y + x * sin + y * cos,
+        x: transform.x + (x * cos - y * sin) * transform.scale,
+        y: transform.y + (x * sin + y * cos) * transform.scale,
         angle: transform.angle,
+        scale: transform.scale,
       };
     },
     rotate(angle: number) {
       transform = {...transform, angle: transform.angle + angle};
+    },
+    scale(x: number) {
+      transform = {...transform, scale: transform.scale * x};
     },
     transform() {},
     drawImage() {},

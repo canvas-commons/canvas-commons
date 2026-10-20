@@ -248,7 +248,7 @@ export function calculateLerpDistance(
   for (let i = 0; i < reference.length; i += 1) {
     const a = points[(offset + i) % len];
     const b = reference[i];
-    sumOfSquares += a.sub(b).squaredMagnitude;
+    sumOfSquares += Vector2.squaredMagnitude(a.x - b.x, a.y - b.y);
   }
 
   return sumOfSquares;
@@ -446,6 +446,16 @@ export function polygonPointsLerp(
   return points;
 }
 
+/** Interpolate the subpath polygons between two curves. */
+export function createPolygonLerp(a: CurveProfile, b: CurveProfile) {
+  const interpolations = getInterpolationPolygon(a, b, 5, 4);
+
+  return (progress: number) =>
+    interpolations.map(({from, to}) =>
+      polygonPointsLerp(from.points, to.points, progress),
+    );
+}
+
 /**
  * Create interpolator to tween between two curve
  * @param a - source curve
@@ -454,7 +464,7 @@ export function polygonPointsLerp(
  */
 
 export function createCurveProfileLerp(a: CurveProfile, b: CurveProfile) {
-  const interpolations = getInterpolationPolygon(a, b, 5, 4);
+  const lerp = createPolygonLerp(a, b);
 
   return (progress: number) => {
     const curve: CurveProfile = {
@@ -462,8 +472,7 @@ export function createCurveProfileLerp(a: CurveProfile, b: CurveProfile) {
       arcLength: 0,
       minSin: 1,
     };
-    for (const {from, to} of interpolations) {
-      const points = polygonPointsLerp(from.points, to.points, progress);
+    for (const points of lerp(progress)) {
       addCurveToCurve(curve, getPolylineProfile(points, 0, false));
     }
     return curve;

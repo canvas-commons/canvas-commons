@@ -1,24 +1,14 @@
-import {CurveProfile} from '../curves/CurveProfile';
-import {createCurveProfileLerp} from '../curves/createCurveProfileLerp';
+import {Vector2} from '@canvas-commons/core';
+import {createPolygonLerp} from '../curves/createCurveProfileLerp';
 import {getPathProfile} from '../curves/getPathProfile';
 import {PathMorpher} from './PathMorpher';
 
-function curveProfileToPath(profile: CurveProfile): string {
-  const parts: string[] = [];
-  let lastEnd: {x: number; y: number} | null = null;
-
-  for (const segment of profile.segments) {
-    const start = segment.getPoint(0).position;
-    const end = segment.getPoint(1).position;
-
-    if (!lastEnd || start.x !== lastEnd.x || start.y !== lastEnd.y) {
-      parts.push(`M${start.x},${start.y}`);
-    }
-    parts.push(`L${end.x},${end.y}`);
-    lastEnd = end;
-  }
-
-  return parts.join('');
+function polygonsToPath(polygons: Vector2[][]): string {
+  return polygons
+    .map(points =>
+      points.map(({x, y}, i) => `${i === 0 ? 'M' : 'L'}${x},${y}`).join(''),
+    )
+    .join('');
 }
 
 /**
@@ -29,14 +19,15 @@ function curveProfileToPath(profile: CurveProfile): string {
 export function defaultMorpher(): PathMorpher {
   return {
     createInterpolator(fromPath: string, toPath: string) {
-      const fromProfile = getPathProfile(fromPath);
-      const toProfile = getPathProfile(toPath);
-      const interpolator = createCurveProfileLerp(fromProfile, toProfile);
+      const interpolator = createPolygonLerp(
+        getPathProfile(fromPath),
+        getPathProfile(toPath),
+      );
 
       return (progress: number): string => {
         if (progress <= 0) return fromPath;
         if (progress >= 1) return toPath;
-        return curveProfileToPath(interpolator(progress));
+        return polygonsToPath(interpolator(progress));
       };
     },
   };

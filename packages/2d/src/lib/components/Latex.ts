@@ -633,6 +633,10 @@ export class Latex extends SVGNode {
         entry.transitions.morph ?? this.resolvedTransitions().morph
       )(entry.progress());
       if (weight <= 0) continue;
+      if (weight >= 1) {
+        data = entry.from;
+        continue;
+      }
       let morph = this.glyphMorphs.get(entry);
       if (morph?.to !== data) {
         morph = {

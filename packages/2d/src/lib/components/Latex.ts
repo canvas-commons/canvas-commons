@@ -336,9 +336,12 @@ export class Latex extends SVGNode {
   private getFragments(nodes: SVGShape[]): LatexFragment[] {
     return nodes.map(({id, shape}) => {
       const children = shape.children();
+      if (children.length > 0) {
+        return {id, shapes: children.filter(isMorphable)};
+      }
       return {
-        id,
-        shapes: (children.length > 0 ? children : [shape]).filter(isMorphable),
+        id: this.glyphIds.get(shape) ?? id,
+        shapes: [shape].filter(isMorphable),
       };
     });
   }

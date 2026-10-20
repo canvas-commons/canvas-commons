@@ -269,6 +269,8 @@ interface LatexGlyph extends LatexGlyphId {
   readonly index: number;
   readonly data: SVGShapeData;
   readonly rest: GlyphRest;
+  /** Everything the glyph draws except where it sits. */
+  readonly look: string;
 }
 
 /** The glyphs of one tex part, or the ones no part claims when `tex` is null. */
@@ -291,10 +293,12 @@ interface LatexPart {
   readonly glyphs: readonly Node[];
 }
 
-/** The keys of the groups of one tex value. */
+/** The keys of the groups of one layout. */
 interface LatexKeys {
-  readonly tex: readonly string[];
+  readonly layout: LatexLayout;
   readonly keys: readonly UnitKey[];
+  /** The drawn node each glyph keeps, by glyph index. */
+  readonly nodes: ReadonlyMap<number, Node>;
 }
 
 /** Groups of two layouts that one edit pairs, by index. */
@@ -359,8 +363,18 @@ function glyphRest({props}: SVGShapeData): GlyphRest {
   };
 }
 
-function sameTex(a: readonly string[], b: readonly string[]) {
-  return a.length === b.length && a.every((part, i) => part === b[i]);
+const PoseProps = new Set([
+  'position',
+  'scale',
+  'rotation',
+  'skew',
+  'width',
+  'height',
+]);
+
+function glyphLook({props, children}: SVGShapeData): string {
+  const look = Object.entries(props).filter(([key]) => !PoseProps.has(key));
+  return JSON.stringify({look, children: children?.length ?? 0});
 }
 
 function sameGlyphs(a: readonly LatexGlyph[], b: readonly LatexGlyph[]) {
@@ -537,20 +551,15 @@ export class Latex extends SVGNode {
   private parts(): LatexPart[] {
     const layout = this.texLayout();
     const record = this.partKeys();
-    const keys =
-      record &&
-      record.keys.length === layout.groups.length &&
-      sameTex(record.tex, this.tex())
-        ? record.keys
-        : null;
+    const current = record?.layout === layout ? record : null;
     const cache = new Map<UnitKey, LatexPart>();
     const parts = layout.groups.map((group, index) => {
-      const key = keys?.[index] ?? createUnitKey();
+      const key = current?.keys[index] ?? createUnitKey();
       const cached = this.partCache.get(key);
       const part =
         cached && sameGlyphs(cached.group.glyphs, group.glyphs)
           ? {...cached, group}
-          : this.buildPart(key, group);
+          : this.buildPart(key, group, current?.nodes);
       cache.set(key, part);
       return part;
     });
@@ -595,8 +604,14 @@ export class Latex extends SVGNode {
     return null;
   }
 
-  private buildPart(key: UnitKey, group: LatexGroup): LatexPart {
-    const glyphs = group.glyphs.map(glyph => this.buildGlyph(glyph));
+  private buildPart(
+    key: UnitKey,
+    group: LatexGroup,
+    kept?: ReadonlyMap<number, Node>,
+  ): LatexPart {
+    const glyphs = group.glyphs.map(
+      glyph => kept?.get(glyph.index) ?? this.buildGlyph(glyph),
+    );
     return {key, group, glyphs, node: new Node({children: glyphs})};
   }
 
@@ -707,6 +722,7 @@ export class Latex extends SVGNode {
       index,
       data,
       rest: glyphRest(data),
+      look: glyphLook(data),
     }));
     const groups: LatexGroup[] = subTexs.map(tex => ({
       tex,
@@ -897,6 +913,20 @@ export class Latex extends SVGNode {
       sourceIndex.get(glyph.index),
     );
     const {plans, leaving} = this.planGlyphs(source, target, pairs);
+    const nodes = new Map<number, Node>();
+    const kept = new Set(
+      parts.filter(({key}) => keys.includes(key)).flatMap(({glyphs}) => glyphs),
+    );
+    target.groups.forEach(({glyphs}, groupIndex) =>
+      glyphs.forEach((glyph, index) => {
+        const from = plans[groupIndex][index]?.from;
+        const node = from?.look === glyph.look ? nodeOf(from) : undefined;
+        if (node && !kept.has(node)) {
+          kept.add(node);
+          nodes.set(glyph.index, node);
+        }
+      }),
+    );
 
     const starts = new Map<Node, GlyphStart>();
     for (const {group, glyphs} of parts) {
@@ -912,7 +942,7 @@ export class Latex extends SVGNode {
     }
 
     const motion = this.offsetLayout(this.flexTree(), () => {
-      this.partKeys({tex: targetTex, keys});
+      this.partKeys({layout: target, keys, nodes});
       this.tex.context.setter(targetTex);
     });
     const {progress} = motion;

@@ -1,0 +1,6 @@
+{
+  "name": "@motion-canvas/2d",
+  "version": "3.17.2",
+  "type": "module",
+  "main": "index.js"
+}

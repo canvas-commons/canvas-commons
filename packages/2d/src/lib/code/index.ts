@@ -2,6 +2,7 @@ export * from './CodeCursor';
 export * from './CodeDiffer';
 export * from './CodeFragment';
 export * from './CodeHighlighter';
+export * from './CodeMetrics';
 export * from './CodeRange';
 export * from './CodeScope';
 export * from './CodeSelection';

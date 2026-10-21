@@ -23,6 +23,8 @@ export interface TxtLeafProps extends NodeProps {
  * as a lightweight container whose `text` value feeds into the parent's layout
  * computation. Styles (fill, stroke, font, etc.) are inherited from the parent
  * `Txt`.
+ *
+ * @experimental
  */
 @nodeName('TxtLeaf')
 export class TxtLeaf extends Node {

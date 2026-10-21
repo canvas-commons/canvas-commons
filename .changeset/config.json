@@ -15,7 +15,8 @@
       "@canvas-commons/ffmpeg",
       "@canvas-commons/player",
       "@canvas-commons/create",
-      "@canvas-commons/fiddle"
+      "@canvas-commons/fiddle",
+      "@canvas-commons/motion-canvas-compat"
     ]
   ],
   "linked": [],

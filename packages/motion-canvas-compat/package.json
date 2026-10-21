@@ -1,0 +1,59 @@
+{
+  "name": "@canvas-commons/motion-canvas-compat",
+  "version": "0.4.0",
+  "description": "Use Motion Canvas component libraries in Canvas Commons projects",
+  "type": "module",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./types": {
+      "types": "./types/index.d.ts"
+    },
+    "./types/*": {
+      "types": "./types/*.d.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "author": "canvas-commons",
+  "homepage": "https://canvascommons.io/",
+  "bugs": "https://github.com/canvas-commons/canvas-commons/issues",
+  "license": "MIT",
+  "scripts": {
+    "dev": "tsdown --watch",
+    "build": "tsdown",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "generate:types": "node scripts/generate-types.mjs",
+    "lint:pkg": "publint --strict && attw --pack . --profile esm-only"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/canvas-commons/canvas-commons.git",
+    "directory": "packages/motion-canvas-compat"
+  },
+  "files": [
+    "lib",
+    "types"
+  ],
+  "peerDependencies": {
+    "vite": "^4 || ^5 || ^7 || ^8"
+  },
+  "devDependencies": {
+    "@canvas-commons/2d": "workspace:*",
+    "@canvas-commons/core": "workspace:*",
+    "@canvas-commons/editor": "workspace:*",
+    "@canvas-commons/vite-plugin": "workspace:*",
+    "@types/node": "catalog:",
+    "geometry-polyfill": "^1.0.7",
+    "jsdom": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

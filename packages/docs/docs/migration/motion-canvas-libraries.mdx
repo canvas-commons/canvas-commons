@@ -1,0 +1,188 @@
+---
+sidebar_position: 2
+slug: /migration/motion-canvas-libraries
+---
+
+import ExperimentalWarning from '@site/src/components/ExperimentalWarning';
+
+# Using Motion Canvas libraries
+
+_(Canvas Commons v0.5.0 and newer)_
+
+<ExperimentalWarning />
+
+The `@canvas-commons/motion-canvas-compat` package is experimental. It may
+change or be removed in any release. The plugin needs the option
+`{experimental: true}` and prints a warning when it runs.
+
+Many component libraries on npm are written for Motion Canvas. They import
+`@motion-canvas/core` and `@motion-canvas/2d`. You do not need to fork or port
+them. The `@canvas-commons/motion-canvas-compat` package serves those imports
+from Canvas Commons, so your project and the libraries share one engine.
+
+## Set up
+
+Install the plugin and a library. The examples on this page use
+`@hhenrichsen/canvas-commons`, a third-party Motion Canvas component library.
+
+```bash
+npm install -D @canvas-commons/motion-canvas-compat
+npm install @hhenrichsen/canvas-commons
+```
+
+Add the plugin to `vite.config.ts`, next to the Canvas Commons plugin:
+
+```ts
+import canvasCommons from '@canvas-commons/vite-plugin';
+import motionCanvasCompat from '@canvas-commons/motion-canvas-compat';
+import {defineConfig} from 'vite';
+
+export default defineConfig({
+  plugins: [canvasCommons(), motionCanvasCompat({experimental: true})],
+});
+```
+
+TypeScript does not read the Vite configuration. Add the type declarations of
+the package to `tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "types": ["@canvas-commons/motion-canvas-compat/types"]
+  }
+}
+```
+
+A reference in any `.d.ts` file of the project does the same:
+
+```ts
+/// <reference types="@canvas-commons/motion-canvas-compat/types" />
+```
+
+The declarations cover every module that `@motion-canvas/core` and
+`@motion-canvas/2d` 3.17 expose. They add the `offset`, `offsetX` and `offsetY`
+props and the `offset` signal to `Layout`. They take precedence over the real
+Motion Canvas types when both packages are installed.
+
+Three more entries cover optional packages. Add the ones that the libraries use:
+
+- `@canvas-commons/motion-canvas-compat/types/editor` for `@motion-canvas/ui`
+- `@canvas-commons/motion-canvas-compat/types/ffmpeg` for
+  `@motion-canvas/ffmpeg`
+- `@canvas-commons/motion-canvas-compat/types/player` for
+  `@motion-canvas/player`
+
+Some libraries have type errors of their own. If TypeScript reports them, set
+`"skipLibCheck": true`.
+
+The plugin needs `@canvas-commons/2d` 0.5.0 or newer. It stops with an error
+when the version is older.
+
+## Use a library
+
+Import the components from the library and use them in a scene:
+
+```tsx
+import {Txt, makeScene2D} from '@canvas-commons/2d';
+import {createRef, waitFor} from '@canvas-commons/core';
+import {Table, TableData, TableRow, Window} from '@hhenrichsen/canvas-commons';
+
+export default makeScene2D(function* (view) {
+  const win = createRef<Window>();
+
+  view.add(
+    <Window ref={win} title="Libraries" width={700} height={400}>
+      <Table stroke="white" lineWidth={2} width={400}>
+        <TableRow>
+          <TableData>
+            <Txt fill="white" text="Motion" />
+          </TableData>
+          <TableData>
+            <Txt fill="white" text="Canvas" />
+          </TableData>
+        </TableRow>
+      </Table>
+    </Window>,
+  );
+
+  yield* waitFor(1);
+  yield* win().position([300, 0], 1);
+});
+```
+
+## What the plugin does
+
+The plugin serves each `@motion-canvas/*` import from Canvas Commons. This
+includes the imports inside the libraries. A path may end in `.js` or
+`/index.js`, and may carry a query string.
+
+| Motion Canvas                                                         | Canvas Commons                                       |
+| --------------------------------------------------------------------- | ---------------------------------------------------- |
+| `@motion-canvas/core`, `@motion-canvas/core/lib/**`                   | `@canvas-commons/core`                               |
+| `@motion-canvas/core/lib/plugin/DefaultPlugin`                        | the `DefaultPlugin` export of `@canvas-commons/core` |
+| `@motion-canvas/core/shaders/*`, `/project`, `/tsconfig.project.json` | the same subpath                                     |
+| `@motion-canvas/2d`, `@motion-canvas/2d/lib/**`                       | `@canvas-commons/2d` with the `offset` shim          |
+| `@motion-canvas/2d/lib/jsx-runtime`, `/lib/jsx-dev-runtime`           | `@canvas-commons/2d/jsx-runtime`, `/jsx-dev-runtime` |
+| `@motion-canvas/2d/editor`, `/tsconfig.project.json`                  | the same subpath                                     |
+| `@motion-canvas/ui`, `@motion-canvas/ui/dist/style.css`               | `@canvas-commons/editor`, `/style.css`               |
+| `@motion-canvas/ffmpeg`, `/lib/client`, `/lib/server`                 | `@canvas-commons/ffmpeg`, `/client`, `/server`       |
+| `@motion-canvas/player`                                               | `@canvas-commons/player`                             |
+| `@motion-canvas/vite-plugin`                                          | `@canvas-commons/vite-plugin`                        |
+
+Canvas Commons exports from its package root every name that Motion Canvas
+exposed on a deep path, so a deep import resolves to the root.
+
+An import that has no Canvas Commons replacement is a build error. The real
+Motion Canvas package is never loaded in its place, because that would put a
+second engine in your project. The same applies when the replacement, such as
+`@canvas-commons/ffmpeg`, is not installed in your project.
+
+The `offset` property of `Layout` was renamed to `anchor`. The libraries still
+use `offset`, so the plugin makes both names work for every `Layout`, in library
+code and in your code:
+
+- the `offset`, `offsetX` and `offsetY` props, from JSX or from a `super({...})`
+  call
+- `node.offset()`, `node.offset(value, duration)` and `node.offset.x()`
+
+A subclass that declares its own `offset` signal keeps it. Use `anchor` in your
+own code.
+
+Plugins that a library registers through
+`Symbol.for('@motion-canvas/vite-plugin/PLUGIN_OPTIONS')` are handed to the
+Canvas Commons plugin.
+
+npm and pnpm still install `@motion-canvas/*` as dependencies of the libraries.
+Canvas Commons does not load those copies.
+
+## Known gaps
+
+- Only browser builds are supported. Server-side rendering is not supported.
+- Only ESM libraries are supported. A CommonJS library that calls
+  `require('@motion-canvas/core')` is not served.
+- `CodeBlock` was removed. A library that imports it fails to build. Use `Code`
+  in your own scenes.
+- `Layout.element`, `Layout.styles` and `Icon.getSrc()` do not exist. `Icon`
+  extends `SVG`, not `Img`, and `TxtLeaf` extends `Node`, not `Shape`.
+- The `motion-canvas:*` hot module replacement events are not sent.
+- The editor hooks `useDrag`, `useKeyHold`, `useDocumentEvent` and `style` of
+  `@motion-canvas/ui` do not exist in `@canvas-commons/editor`.
+- The defaults for color interpolation, `textWrap` and the LaTeX size changed. A
+  library that relied on the old defaults can look different.
+- Imports in `vite.config.ts` run in Node and are not rewritten. Import
+  `@canvas-commons/vite-plugin` and `@canvas-commons/ffmpeg` there.
+- The type declarations do not cover `@motion-canvas/2d/editor`,
+  `@motion-canvas/core/shaders/*` and the `tsconfig.project.json` files.
+  TypeScript reports an import of these paths as an error when
+  `@motion-canvas/*` is not installed.
+- If you give your own `Layout` subclass an `offset` member, declare it as
+  `Vector2Signal<this>`. TypeScript reports a conflict with `Layout` otherwise.
+  The runtime accepts a subclass with its own `offset` signal.
+
+## Troubleshooting
+
+`Error: unknown format: rgb(...)` or
+`The scene is not available in the current context` means that a second copy of
+the engine is loaded. Make sure that `motionCanvasCompat({experimental: true})`
+is in the plugin list and that no alias or `resolve.dedupe` entry points
+`@motion-canvas/*` at another package.

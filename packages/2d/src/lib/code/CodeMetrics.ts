@@ -1,3 +1,6 @@
+/**
+ * The measured size of a piece of code, in monospace columns.
+ */
 export interface CodeMetrics {
   content: string;
   newRows: number;
@@ -7,6 +10,9 @@ export interface CodeMetrics {
   lastWidth: number;
 }
 
+/**
+ * Measure a string of code in monospace columns.
+ */
 export function measureString(
   context: CanvasRenderingContext2D,
   monoWidth: number,

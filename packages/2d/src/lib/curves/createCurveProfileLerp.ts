@@ -185,6 +185,7 @@ function subcurveToPolygon(
  * Calculate polygon perimeter
  * @param points - polygon points
  * @returns - perimeter of polygon
+ * @experimental
  */
 
 export function polygonLength(points: Vector2[]) {
@@ -235,6 +236,7 @@ function addPoints(points: Vector2[], numPoints: number) {
  * @param reference - second polygon points
  * @param offset - offset for first polygon points
  * @returns
+ * @experimental
  */
 
 export function calculateLerpDistance(
@@ -427,6 +429,7 @@ function addCurveToCurve(target: CurveProfile, source: CurveProfile) {
  * @param to - target polygon points
  * @param value - interpolation progress
  * @returns - new polygon points
+ * @experimental
  */
 
 export function polygonPointsLerp(
@@ -461,6 +464,7 @@ export function createPolygonLerp(a: CurveProfile, b: CurveProfile) {
  * @param a - source curve
  * @param b - target curve
  * @returns - curve interpolator
+ * @experimental
  */
 
 export function createCurveProfileLerp(a: CurveProfile, b: CurveProfile) {

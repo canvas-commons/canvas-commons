@@ -42,3 +42,33 @@ yield * this.runFreezeThawTween(children, before, after, oldSize, newSize, 1);
 // 0.5.0
 yield * layout.editLayout(1, node => node.direction('column'));
 ```
+
+### `Code` edits end in the target code
+
+0.4.0: `parsed()` and the range lookups, such as `findAllRanges`, read the code
+that is drawn in the middle of an edit. 0.5.0: they read the code the edit ends
+with. A range found during an edit applies to the target code.
+
+`CodeCursor` and `extractRange` are removed. To change a range, give it to
+`replace`, `insert` or `remove`:
+
+```ts
+// 0.4.0
+const [fragments, index] = extractRange(range, tags);
+// 0.5.0
+yield * code().code.replace(range, 'new code', 0.6);
+```
+
+### `Code` selection tween
+
+0.4.0: `Code.oldSelection` and `Code.selectionProgress` hold the state of a
+selection tween. 0.5.0: both are removed. `selection` holds the target, and a
+cancelled or overlapping `selection(value, duration)` tween leaves no half
+state. Read `selection()` instead:
+
+```ts
+// 0.4.0
+const from = code().oldSelection();
+// 0.5.0
+const target = code().selection();
+```

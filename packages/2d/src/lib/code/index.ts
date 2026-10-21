@@ -1,13 +1,13 @@
-export * from './CodeCursor';
 export * from './CodeDiffer';
 export * from './CodeFragment';
 export * from './CodeHighlighter';
+export type {CodeChange, CodeFragmentDrawingInfo} from './CodeLayout';
 export * from './CodeRange';
 export * from './CodeScope';
 export * from './CodeSelection';
 export * from './CodeSignal';
 export * from './CodeTokenizer';
+export type {CodeTransitions} from './codeTransitions';
 export * from './DefaultHighlightStyle';
 export * from './diff';
-export * from './extractRange';
 export * from './LezerHighlighter';

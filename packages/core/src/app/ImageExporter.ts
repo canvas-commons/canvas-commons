@@ -15,7 +15,6 @@ import type {RendererSettings} from './Renderer';
 import {FileTypes} from './presets';
 
 const EXPORT_FRAME_LIMIT = 256;
-const EXPORT_RETRY_DELAY = 1000;
 
 type ImageExporterOptions = ValueOf<ReturnType<typeof ImageExporter.meta>>;
 
@@ -72,6 +71,7 @@ export class ImageExporter implements Exporter {
   private readonly quality: number;
   private readonly fileType: CanvasOutputMimeType;
   private readonly groupByScene: boolean;
+  private wake: (() => void) | undefined;
 
   public constructor(
     private readonly logger: Logger,
@@ -101,7 +101,7 @@ export class ImageExporter implements Exporter {
     }
     if (import.meta.hot) {
       while (this.frameLookup.size > EXPORT_FRAME_LIMIT) {
-        await new Promise(resolve => setTimeout(resolve, EXPORT_RETRY_DELAY));
+        await this.waitForAck(signal);
         if (signal.aborted) {
           return;
         }
@@ -124,12 +124,29 @@ export class ImageExporter implements Exporter {
 
   public async stop() {
     while (this.frameLookup.size > 0) {
-      await new Promise(resolve => setTimeout(resolve, EXPORT_RETRY_DELAY));
+      await this.waitForAck();
     }
     ImageExporter.response.unsubscribe(this.handleResponse);
   }
 
   private handleResponse = ({frame}: ServerResponse) => {
     this.frameLookup.delete(frame);
+    this.wake?.();
   };
+
+  private waitForAck(signal?: AbortSignal): Promise<void> {
+    return new Promise(resolve => {
+      if (signal?.aborted) {
+        resolve();
+        return;
+      }
+      const wake = () => {
+        this.wake = undefined;
+        signal?.removeEventListener('abort', wake);
+        resolve();
+      };
+      this.wake = wake;
+      signal?.addEventListener('abort', wake);
+    });
+  }
 }

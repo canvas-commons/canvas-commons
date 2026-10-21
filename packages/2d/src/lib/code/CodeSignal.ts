@@ -17,6 +17,7 @@ import {Code} from '../components';
 import {
   ContentAdapter,
   ContentChange,
+  ContentEdit,
   ContentMotion,
   ContentUnit,
   Survivor,
@@ -29,6 +30,7 @@ import {
   CodePiece,
   CodePieces,
   codePieces,
+  codeRange,
   codeUnits,
   codeValue,
   pairCode,
@@ -60,13 +62,11 @@ import {CodeTransitions, DefaultCodeTransitions} from './codeTransitions';
 
 type EditTransitions = Partial<CodeTransitions>;
 
+type CodeEdit = ContentEdit<CodeRange>;
+
 interface CodeModifier<TOwner> {
   (code: CodeTag): TOwner;
-  (
-    code: CodeTag,
-    duration: number,
-    transitions?: EditTransitions,
-  ): ThreadGenerator;
+  (code: CodeTag, duration: number, transitions?: EditTransitions): CodeEdit;
   (duration?: number, transitions?: EditTransitions): TagGenerator;
 }
 
@@ -77,7 +77,7 @@ interface CodeInsert<TOwner> {
     code: CodeTag,
     duration: number,
     transitions?: EditTransitions,
-  ): ThreadGenerator;
+  ): CodeEdit;
   (
     point: CodePoint,
     duration?: number,
@@ -87,11 +87,7 @@ interface CodeInsert<TOwner> {
 
 interface CodeRemove<TOwner> {
   (range: CodeRange): TOwner;
-  (
-    range: CodeRange,
-    duration: number,
-    transitions?: EditTransitions,
-  ): ThreadGenerator;
+  (range: CodeRange, duration: number, transitions?: EditTransitions): CodeEdit;
 }
 
 interface CodeReplace<TOwner> {
@@ -101,7 +97,7 @@ interface CodeReplace<TOwner> {
     code: CodeTag,
     duration: number,
     transitions?: EditTransitions,
-  ): ThreadGenerator;
+  ): CodeEdit;
   (
     range: CodeRange,
     duration?: number,
@@ -112,7 +108,7 @@ interface CodeReplace<TOwner> {
 type TagGenerator = (
   strings: TemplateStringsArray,
   ...tags: CodeTag[]
-) => ThreadGenerator;
+) => CodeEdit;
 
 export interface CodeSignalHelpers<TOwner> {
   edit(duration?: number, transitions?: EditTransitions): TagGenerator;
@@ -288,13 +284,13 @@ export class CodeSignalContext<TOwner>
     code: CodeTag,
     duration: number,
     transitions?: EditTransitions,
-  ): ThreadGenerator;
+  ): CodeEdit;
   public append(duration?: number, transitions?: EditTransitions): TagGenerator;
   public append(
     first: CodeTag | number = 0.6,
     second?: number | EditTransitions,
     third?: EditTransitions,
-  ): TOwner | ThreadGenerator | TagGenerator {
+  ): TOwner | CodeEdit | TagGenerator {
     return this.modify(
       (units, code) => {
         const end = textOf(units).length;
@@ -311,7 +307,7 @@ export class CodeSignalContext<TOwner>
     code: CodeTag,
     duration: number,
     transitions?: EditTransitions,
-  ): ThreadGenerator;
+  ): CodeEdit;
   public prepend(
     duration?: number,
     transitions?: EditTransitions,
@@ -320,7 +316,7 @@ export class CodeSignalContext<TOwner>
     first: CodeTag | number = 0.6,
     second?: number | EditTransitions,
     third?: EditTransitions,
-  ): TOwner | ThreadGenerator | TagGenerator {
+  ): TOwner | CodeEdit | TagGenerator {
     return this.modify(
       (units, code) => spliceUnits(units, 0, 0, codePieces(code)),
       first,
@@ -335,7 +331,7 @@ export class CodeSignalContext<TOwner>
     code: CodeTag,
     duration: number,
     transitions?: EditTransitions,
-  ): ThreadGenerator;
+  ): CodeEdit;
   public insert(
     point: CodePoint,
     duration?: number,
@@ -346,7 +342,7 @@ export class CodeSignalContext<TOwner>
     first: CodeTag | number = 0.6,
     second?: number | EditTransitions,
     third?: EditTransitions,
-  ): TOwner | ThreadGenerator | TagGenerator {
+  ): TOwner | CodeEdit | TagGenerator {
     return this.modify(
       (units, code) => replaceRange(units, [point, point], code),
       first,
@@ -360,12 +356,12 @@ export class CodeSignalContext<TOwner>
     range: CodeRange,
     duration: number,
     transitions?: EditTransitions,
-  ): ThreadGenerator;
+  ): CodeEdit;
   public remove(
     range: CodeRange,
     duration?: number,
     transitions?: EditTransitions,
-  ): TOwner | ThreadGenerator {
+  ): TOwner | CodeEdit {
     const plan: CodePlan = units => replaceRange(units, range, '');
     return duration === undefined
       ? this.change(plan)
@@ -378,7 +374,7 @@ export class CodeSignalContext<TOwner>
     code: CodeTag,
     duration: number,
     transitions?: EditTransitions,
-  ): ThreadGenerator;
+  ): CodeEdit;
   public replace(
     range: CodeRange,
     duration?: number,
@@ -389,7 +385,7 @@ export class CodeSignalContext<TOwner>
     first: CodeTag | number = 0.6,
     second?: number | EditTransitions,
     third?: EditTransitions,
-  ): TOwner | ThreadGenerator | TagGenerator {
+  ): TOwner | CodeEdit | TagGenerator {
     return this.modify(
       (units, code) => replaceRange(units, range, code),
       first,
@@ -420,7 +416,7 @@ export class CodeSignalContext<TOwner>
     first: CodeTag | number,
     second?: number | EditTransitions,
     third?: EditTransitions,
-  ): TOwner | ThreadGenerator | TagGenerator {
+  ): TOwner | CodeEdit | TagGenerator {
     return editCall(
       {
         change: p => this.change(p),
@@ -446,11 +442,12 @@ export class CodeSignalContext<TOwner>
     duration: number,
     transitions?: EditTransitions,
     timing: TimingFunction = easeInOutCubic,
-  ): ThreadGenerator {
+  ): CodeEdit {
     return this.motion.animate(
       () => this.units(),
       units => this.write(units),
       plan,
+      codeRange,
       duration,
       timing,
       transitions,

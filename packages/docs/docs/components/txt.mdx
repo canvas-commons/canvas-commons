@@ -1,0 +1,132 @@
+---
+sidebar_position: 7
+slug: /txt
+---
+
+# Txt
+
+The `Txt` node draws text. Its `text` signal holds the text the node ends with.
+Besides the usual signal methods, it has helpers that edit the text and animate
+the change. An edit changes the text at once and animates each word from where
+it is drawn. An edit that starts during another one starts where the words are
+drawn.
+
+## Editing text
+
+The `edit` method takes the duration and returns a tagged template. Write the
+whole text in the template. The helpers `replace(before, after)`, `insert(text)`
+and `remove(text)` mark the changes. Text outside them stays where it is.
+
+```tsx editor
+import {Txt, makeScene2D, insert, remove, replace} from '@canvas-commons/2d';
+import {createRef, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const txt = createRef<Txt>();
+  view.add(<Txt ref={txt} fill="white" text="Hello old world" />);
+
+  yield* waitFor(0.5);
+  yield* txt().text.edit(
+    1,
+  )`Hello ${remove('old ')}${replace('world', 'there')}${insert('!')}`;
+  yield* waitFor(0.5);
+});
+```
+
+## Editing by offset
+
+The other helpers take offsets into the text:
+
+- `insert(offset, text, duration)` adds text at an offset.
+- `replace([from, to], text, duration)` replaces a range.
+- `remove([from, to], duration)` removes a range.
+- `append(text, duration)` and `prepend(text, duration)` add text at the end or
+  at the start.
+
+Without a duration, a helper changes the text at once and returns the node.
+
+```tsx editor
+import {Txt, makeScene2D} from '@canvas-commons/2d';
+import {all, createRef, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const txt = createRef<Txt>();
+  view.add(<Txt ref={txt} fill="white" text="world" />);
+
+  yield* waitFor(0.5);
+  yield* all(txt().text.prepend('Hello ', 1), txt().text.append('!', 1));
+  yield* txt().text.replace([6, 11], 'there', 1);
+  yield* waitFor(0.5);
+});
+```
+
+## Reading an edit
+
+Every edit returns the ranges it changes. `leaving` holds the ranges of the old
+text that the edit removes or replaces, and `arriving` the ranges of the new
+text that it inserts or replaces. Both are offsets into the text of the node
+that was edited. `progress` is a signal that goes from 0 to 1 as the edit plays.
+
+```tsx
+makeScene2D(function* (view) {
+  const txt = createRef<Txt>();
+  view.add(<Txt ref={txt} fill="white" text="Hello world" />);
+
+  const edit = txt().text.replace([6, 11], 'there', 1);
+  const [from, to] = edit.arriving[0];
+  view.add(
+    <Txt
+      fill="white"
+      y={80}
+      opacity={edit.progress}
+      text={txt().text().substring(from, to)}
+    />,
+  );
+  yield* edit;
+});
+```
+
+## Transitions
+
+The `transitions` property of a `Txt` node changes how its edits look. It takes
+the hooks `incoming`, `outgoing`, `move` and `morph`, which override
+`Txt.defaultTransitions`. An edit can pass its own transitions as the last
+argument, and they override both.
+
+```tsx editor
+import {Txt, makeScene2D} from '@canvas-commons/2d';
+import {createRef, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const txt = createRef<Txt>();
+  view.add(
+    <Txt
+      ref={txt}
+      fill="white"
+      text="Slide in"
+      transitions={{
+        incoming: (pose, progress) => ({
+          ...pose,
+          position: pose.position.addY(20 * (1 - progress)),
+          opacity: pose.opacity * progress,
+        }),
+      }}
+    />,
+  );
+
+  yield* waitFor(0.5);
+  yield* txt().text.append(' from below', 1);
+  yield* waitFor(0.5);
+});
+```
+
+`TypedTransitions` is a ready-made set of transitions. Old text shrinks away,
+the rest of the text moves to its new place, and then the new text is typed in
+from the left. Each step takes a third of the edit. Its `incoming` hook sets the
+`reveal` of a pose, the share of its characters that are drawn.
+
+```tsx
+import {Txt, TypedTransitions} from '@canvas-commons/2d';
+
+<Txt text="Hello" transitions={TypedTransitions} />;
+```

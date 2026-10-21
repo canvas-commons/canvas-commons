@@ -167,6 +167,17 @@ function pointOffset(
     : {offset: offset + line.length, padding: ' '.repeat(column - line.length)};
 }
 
+function offsetPoint(text: string, offset: number): CodePoint {
+  const before = text.slice(0, offset);
+  const row = before.split('\n').length - 1;
+  return [row, offset - (before.lastIndexOf('\n') + 1)];
+}
+
+/** The range that `text.slice(from, to)` covers. */
+export function codeRange(text: string, from: number, to: number): CodeRange {
+  return [offsetPoint(text, from), offsetPoint(text, to)];
+}
+
 /** Replace `[from, to)` of the units with `inserted`. */
 export function spliceUnits(
   units: readonly ContentUnit<CodePiece>[],

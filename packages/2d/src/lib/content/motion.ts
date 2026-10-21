@@ -23,6 +23,8 @@ export interface UnitPose {
   readonly position: Vector2;
   readonly opacity: number;
   readonly scale: number;
+  /** The share of the unit's characters drawn, from the start. */
+  readonly reveal: number;
 }
 
 /**
@@ -114,13 +116,32 @@ export interface ContentChange<TPiece> {
   readonly replacements: readonly Replacement[];
 }
 
+/**
+ * A running edit. Its data is known before the first frame: `leaving` holds
+ * the ranges of the source text the edit removes or replaces, `arriving` the
+ * ranges of the target text it inserts or replaces, and `progress` goes from
+ * 0 to 1 as the edit plays.
+ */
+export type ContentEdit<TRange> = ThreadGenerator & {
+  readonly progress: SimpleSignal<number>;
+  readonly leaving: TRange[];
+  readonly arriving: TRange[];
+};
+
+/** The range that `text.slice(from, to)` covers, in the coordinates of a content type. */
+export type RangeOf<TRange> = (
+  text: string,
+  from: number,
+  to: number,
+) => TRange;
+
 export interface EditMotion<TChange> {
   readonly progress: SimpleSignal<number>;
   readonly transitions: Partial<ContentTransitions<TChange>>;
 }
 
 export function restPose(position: Vector2): UnitPose {
-  return {position, opacity: 1, scale: 1};
+  return {position, opacity: 1, scale: 1, reveal: 1};
 }
 
 /** An entry that `entryPose` reads, whatever it keys. */
@@ -348,23 +369,77 @@ export class ContentMotion<TPiece, TSnapshot, TChange> {
     return rekeyed.units;
   }
 
-  /** Run one edit from where the content is drawn now. */
-  public *animate(
+  /** Plan one edit now and run it from where the content is drawn when it starts. */
+  public animate<TRange>(
     read: () => readonly ContentUnit<TPiece>[],
     write: (units: readonly ContentUnit<TPiece>[]) => void,
     plan: (units: readonly ContentUnit<TPiece>[]) => ContentChange<TPiece>,
+    range: RangeOf<TRange>,
     duration: number,
     timing: TimingFunction,
     transitions: Partial<ContentTransitions<TChange>> = {},
-  ): ThreadGenerator {
+  ): ContentEdit<TRange> {
     const progress = createSignal(0);
-    const old = read();
-    write(this.apply(old, plan(old), {progress, transitions}));
+    const leaving: TRange[] = [];
+    const arriving: TRange[] = [];
+    const planned = (units: readonly ContentUnit<TPiece>[]) => {
+      const change = plan(units);
+      const oldText = joinText(this.adapter, units);
+      const newText = change.next
+        .map(piece => this.adapter.text(piece))
+        .join('');
+      leaving.length = 0;
+      arriving.length = 0;
+      let shift = 0;
+      for (const {from, to, length} of change.replacements) {
+        if (to > from) leaving.push(range(oldText, from, to));
+        const start = from + shift;
+        if (length > 0) arriving.push(range(newText, start, start + length));
+        shift += length - (to - from);
+      }
+      return change;
+    };
+    const source = read();
+    const change = planned(source);
+    return Object.assign(
+      this.run(
+        read,
+        write,
+        source,
+        change,
+        planned,
+        progress,
+        duration,
+        timing,
+        transitions,
+      ),
+      {progress, leaving, arriving},
+    );
+  }
+
+  /** Replans when other edits changed the units since the plan was made. */
+  private *run(
+    read: () => readonly ContentUnit<TPiece>[],
+    write: (units: readonly ContentUnit<TPiece>[]) => void,
+    source: readonly ContentUnit<TPiece>[],
+    change: ContentChange<TPiece>,
+    replan: (units: readonly ContentUnit<TPiece>[]) => ContentChange<TPiece>,
+    progress: SimpleSignal<number>,
+    duration: number,
+    timing: TimingFunction,
+    transitions: Partial<ContentTransitions<TChange>>,
+  ): ThreadGenerator {
+    const units = read();
+    write(
+      this.apply(units, units === source ? change : replan(units), {
+        progress,
+        transitions,
+      }),
+    );
     try {
       yield* progress(1, duration, timing);
     } finally {
       this.entries.release(progress);
-      progress.context.dispose();
       const units = read();
       const settled = this.settle(units);
       if (settled !== units) write(settled);

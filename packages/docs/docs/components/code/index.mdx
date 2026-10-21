@@ -897,6 +897,34 @@ ${remove(`  return 7;
 </TabItem>
 </Tabs>
 
+Every edit returns the ranges it changes. `leaving` holds the ranges of the old
+code that the edit removes or replaces, and `arriving` the ranges of the new
+code that it inserts or replaces. `progress` is a signal that goes from 0 to 1
+as the edit plays. They are known when the edit is created, so a scene can
+highlight the new code with
+[`getSelectionBBox`](/api/2d/components/Code#getSelectionBBox):
+
+```tsx
+makeScene2D(function* (view) {
+  const code = createRef<Code>();
+  view.add(<Code ref={code} code="const alpha = 1;" />);
+
+  const edit = code().code.replace(word(0, 6, 5), 'delta', 1);
+  const [bbox] = code().getSelectionBBox(edit.arriving[0]);
+  code().add(
+    <Rect
+      anchor={-1}
+      position={bbox.position}
+      size={bbox.size}
+      opacity={edit.progress}
+      lineWidth={2}
+      stroke="white"
+    />,
+  );
+  yield* edit;
+});
+```
+
 ### Transitions
 
 The `transitions` property of a `Code` node changes how its edits look. It takes
@@ -931,6 +959,17 @@ export default makeScene2D(function* (view) {
   yield* code().code.replace(code().findFirstRange('7'), '42', 1);
   yield* waitFor(0.5);
 });
+```
+
+`TypedTransitions` is a ready-made set of transitions. Old text shrinks away,
+the rest of the text moves to its new place, and then the new text is typed in
+from the left. Each step takes a third of the edit. Its `incoming` hook sets the
+`reveal` of a pose, the share of its characters that are drawn.
+
+```tsx
+import {Code, TypedTransitions} from '@canvas-commons/2d';
+
+<Code code={'const number = 7;'} transitions={TypedTransitions} />;
 ```
 
 ### Signals

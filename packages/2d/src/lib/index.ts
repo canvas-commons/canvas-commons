@@ -1,6 +1,7 @@
 export * from './code';
 export * from './components';
 export type {
+  ContentEdit,
   ContentEntry,
   ContentTransitions,
   EntryBase,
@@ -10,6 +11,7 @@ export type {
   OutgoingEntry,
   UnitPose,
 } from './content/motion';
+export {TypedTransitions} from './content/transitions';
 export * from './curves';
 export * from './decorators';
 export * from './jsx-runtime';

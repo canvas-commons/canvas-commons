@@ -7,18 +7,19 @@ import {
   waitFor,
 } from '@canvas-commons/core';
 import {describe, expect, it} from 'vitest';
-import {insert} from '../../code/CodeFragment';
+import {insert, remove, replace} from '../../code/CodeFragment';
 import {CodeHighlighter} from '../../code/CodeHighlighter';
-import {lines, word} from '../../code/CodeRange';
+import {CodeRange, lines, word} from '../../code/CodeRange';
 import {CODE} from '../../code/CodeScope';
 import {defaultTokenize} from '../../code/CodeTokenizer';
 import type {CodeTransitions} from '../../code/codeTransitions';
+import {TypedTransitions} from '../../content/transitions';
 import {Code} from '../Code';
 import {generatorTest} from './generatorTest';
 import {mockScene2D} from './mockScene2D';
 import {mockTextContext} from './mockTextContext';
 import {recordingTextContext} from './recordingTextContext';
-import {CHAR_WIDTH, add} from './sceneFixtures';
+import {CHAR_WIDTH, add, penX, timeAt} from './sceneFixtures';
 
 /** Every visible glyph as `char@x,y:alpha`, in drawing order. */
 function glyphs(node: Code): string[] {
@@ -77,6 +78,22 @@ function expectContinuous(
   });
 }
 
+/** The text of `range` in `lines`. */
+function slice(lines: readonly string[], [from, to]: CodeRange): string {
+  return lines
+    .join('\n')
+    .split('\n')
+    .map((line, row) =>
+      row < from[0] || row > to[0]
+        ? ''
+        : line.slice(
+            row === from[0] ? from[1] : 0,
+            row === to[0] ? to[1] : undefined,
+          ) + (row < to[0] ? '\n' : ''),
+    )
+    .join('');
+}
+
 /** Colors code inside double quotes, so a quote recolors the code after it. */
 const QuoteHighlighter: CodeHighlighter<string> = {
   initialize: () => true,
@@ -100,7 +117,7 @@ function atRest(
 
 describe('Code edits', () => {
   mockScene2D();
-  mockTextContext(CHAR_WIDTH);
+  mockTextContext(CHAR_WIDTH, () => ({ascent: 8, descent: 2}));
 
   it(
     'starts a second edit on a disjoint range where the code is drawn',
@@ -286,6 +303,145 @@ describe('Code edits', () => {
       });
       yield* waitFor(0.3);
       expect(alphaOf(code, 'note')).toEqual([0.5]);
+    }),
+  );
+
+  it(
+    'reports the ranges an edit template removes and inserts',
+    generatorTest(function* () {
+      const code = new Code({code: Source, highlighter: null});
+      add(code);
+      const edit = code.code.edit(
+        1,
+      )`${insert('// top\n')}const alpha = ${replace('1', '10')};
+const beta = 2;
+${remove('const gamma = 3;')}`;
+      yield edit;
+      const before = Source.split('\n');
+      const after = code.parsed().split('\n');
+      expect(edit.leaving.map(range => slice(before, range))).toEqual([
+        '1',
+        'const gamma = 3;',
+      ]);
+      expect(edit.arriving.map(range => slice(after, range))).toEqual([
+        '// top\n',
+        '10',
+      ]);
+    }),
+  );
+
+  it(
+    'reports one range for replace, insert and remove',
+    generatorTest(function* () {
+      const code = new Code({code: Source, highlighter: null});
+      add(code);
+      const replaced = code.code.replace(word(0, 6, 5), 'longerName', 1);
+      expect(replaced.leaving).toEqual([word(0, 6, 5)]);
+      expect(replaced.arriving).toEqual([word(0, 6, 10)]);
+      yield replaced;
+      const inserted = code.code.insert([2, 0], '// third\n', 1);
+      expect(inserted.leaving).toEqual([]);
+      expect(inserted.arriving).toEqual([
+        [
+          [2, 0],
+          [3, 0],
+        ],
+      ]);
+      yield inserted;
+      const removed = code.code.remove(lines(3), 1);
+      expect(removed.leaving).toEqual([
+        [
+          [3, 0],
+          [3, 16],
+        ],
+      ]);
+      expect(removed.arriving).toEqual([]);
+    }),
+  );
+
+  it(
+    'reports the progress of an edit from the call to its end',
+    generatorTest(function* () {
+      const code = new Code({code: Source, highlighter: null});
+      add(code);
+      const edit = code.code.append(' // note', 1);
+      expect(edit.progress()).toBe(0);
+      yield edit;
+      yield* waitFor(0.3);
+      expect(edit.progress()).toBeGreaterThan(0);
+      expect(edit.progress()).toBeLessThan(1);
+      yield* waitFor(1);
+      expect(edit.progress()).toBe(1);
+    }),
+  );
+
+  it(
+    'applies two edits created before either runs in order',
+    generatorTest(function* () {
+      const code = new Code({code: Source, highlighter: null});
+      add(code);
+      const first = code.code.insert([0, 0], 'x', 1);
+      const second = code.code.replace(word(1, 0, 5), 'let', 1);
+      yield* all(first, second);
+      const target = Source.replace(/^/, 'x').replace('const beta', 'let beta');
+      expect(code.parsed()).toBe(target);
+      expect(second.arriving).toEqual([word(1, 0, 3)]);
+      expect(second.leaving).toEqual([word(1, 0, 5)]);
+    }),
+  );
+
+  it(
+    'types an edit in three phases with the typed transitions',
+    generatorTest(function* () {
+      const code = new Code({
+        code: Source,
+        highlighter: null,
+        transitions: TypedTransitions,
+      });
+      add(code);
+      const from = penX(glyphs(code), '2');
+      const to = penX(glyphs(atRest(Source.replace('beta', 'epsilon'))), '2');
+      const paints = () => {
+        const {calls, context} = recordingTextContext();
+        code.render(context);
+        return calls;
+      };
+      yield code.code.replace(word(1, 6, 4), 'epsilon', 1);
+
+      yield* waitFor(timeAt(1 / 6));
+      const [old] = paints().filter(call => call.text.includes('beta'));
+      expect(old.scale).toBeLessThan(1);
+      expect(old.scale).toBeGreaterThan(0);
+      expect(penX(glyphs(code), '2')).toBeCloseTo(from);
+
+      yield* waitFor(timeAt(1 / 2) - timeAt(1 / 6));
+      expect(penX(glyphs(code), '2')).toBeCloseTo((from + to) / 2);
+      expect(paints().filter(call => call.text.startsWith('e'))).toEqual([]);
+
+      yield* waitFor(timeAt(5 / 6) - timeAt(1 / 2));
+      const [typed] = paints().filter(call => call.text.startsWith('e'));
+      expect('epsilon'.startsWith(typed.text)).toBe(true);
+      expect(typed.text.length).toBeLessThan('epsilon'.length);
+
+      yield* waitFor(2);
+      expect(glyphs(code)).toEqual(
+        glyphs(atRest(Source.replace('beta', 'epsilon'))),
+      );
+    }),
+  );
+
+  it(
+    'draws every character of incoming code with the default transitions',
+    generatorTest(function* () {
+      const code = new Code({code: Source, highlighter: null});
+      add(code);
+      yield code.code.replace(word(1, 6, 4), 'epsilon', 1);
+      yield* waitFor(timeAt(3 / 4));
+      const {calls, context} = recordingTextContext();
+      code.render(context);
+      expect(
+        calls.filter(call => call.text.startsWith('e')).map(call => call.text),
+      ).toEqual(['epsilon']);
     }),
   );
 });

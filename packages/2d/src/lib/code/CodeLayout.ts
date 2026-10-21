@@ -27,6 +27,7 @@ export interface CodeFragmentDrawingInfo {
   time: number;
   alpha: number;
   scale: number;
+  reveal: number;
 }
 
 /** The rows a change removes and inserts. */

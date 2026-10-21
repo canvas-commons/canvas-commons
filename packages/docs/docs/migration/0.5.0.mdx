@@ -72,3 +72,47 @@ const from = code().oldSelection();
 // 0.5.0
 const target = code().selection();
 ```
+
+### `Latex` subclasses
+
+0.4.0: a subclass of `Latex` can override the protected `texToSvg`, `parseSVG`
+and `buildShape`, and call `tweenTex`. 0.5.0: the three methods are removed and
+`tweenTex` has a different body. Move the work into the `tex` of the formula, or
+into the `LatexTransitions` hooks of `fragmentTransition`:
+
+```tsx
+// 0.4.0
+class MyLatex extends Latex {
+  protected override buildShape(data: SVGShapeData) {
+    return super.buildShape(data);
+  }
+}
+// 0.5.0
+<Latex
+  fragmentTransition={{
+    incoming: (pose, progress) => ({...pose, opacity: progress}),
+  }}
+/>;
+```
+
+### `Latex` fade timing
+
+0.4.0: fades run in the first and last 30% of the time of the tween. 0.5.0: they
+run in the first and last 30% of the eased progress.
+
+### `Latex` without marked parts
+
+0.4.0: `Latex.map` indices on a formula with no marked parts address single
+glyphs. 0.5.0: they address the whole formula, which is one fragment with the
+index 0. Mark the parts you address, and use `debugFragments` to see the index
+of each fragment:
+
+```tsx
+// 0.4.0
+<Latex tex="x+y" />
+// 0.5.0
+<Latex tex="{{x}}{{+}}{{y}}" />
+```
+
+Code that walks the children of a `Latex` node finds one more level: first the
+fragment, then its glyphs.

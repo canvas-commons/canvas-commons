@@ -24,6 +24,7 @@ export interface PathProps extends CurveProps {
 
 export class Path extends Curve {
   private currentProfile = createSignal<CurveProfile | null>(null);
+  private dataProfile: {data: string; profile: CurveProfile} | null = null;
   @signal()
   declare public readonly data: SimpleSignal<string, this>;
 
@@ -34,7 +35,13 @@ export class Path extends Curve {
 
   @computed()
   public override profile(): CurveProfile {
-    return this.currentProfile() ?? getPathProfile(this.data());
+    const current = this.currentProfile();
+    if (current) return current;
+    const data = this.data();
+    if (this.dataProfile?.data !== data) {
+      this.dataProfile = {data, profile: getPathProfile(data)};
+    }
+    return this.dataProfile.profile;
   }
 
   protected override childrenBBox() {

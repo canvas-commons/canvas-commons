@@ -1,5 +1,6 @@
 import {
   BBox,
+  PossibleVector2,
   SerializedVector2,
   Signal,
   SignalValue,
@@ -7,11 +8,14 @@ import {
   ThreadGenerator,
   TimingFunction,
   Vector2,
-  all,
-  delay,
+  clampRemap,
+  createMotionStack,
+  createSignal,
   easeInOutCubic,
   lazy,
+  map,
   threadable,
+  unwrap,
   useLogger,
 } from '@canvas-commons/core';
 import {liteAdaptor} from 'mathjax-full/js/adaptors/liteAdaptor.js';
@@ -21,20 +25,24 @@ import {AllPackages} from 'mathjax-full/js/input/tex/AllPackages.js';
 import {mathjax} from 'mathjax-full/js/mathjax.js';
 import {SVG} from 'mathjax-full/js/output/svg.js';
 import {OptionList} from 'mathjax-full/js/util/Options.js';
+import {
+  ContentTransitions,
+  EntryBase,
+  IncomingEntry,
+  MorphEntry,
+  MovedEntry,
+  UnitKey,
+  createUnitKey,
+  entryPose,
+  restPose,
+} from '../content';
 import {computed, initial, parser, signal} from '../decorators';
-import {AlignedPair, alignSequences} from '../utils/diff';
-import {Curve} from './Curve';
+import {alignSequences} from '../utils/diff';
+import {NoDelta, turnDelta} from './layoutMotion';
 import {Node} from './Node';
 import {Path} from './Path';
 import {Rect} from './Rect';
-import {
-  SVGDocument,
-  SVGDocumentData,
-  SVG as SVGNode,
-  SVGProps,
-  SVGShape,
-  SVGShapeData,
-} from './SVG';
+import {SVGDocument, SVG as SVGNode, SVGProps, SVGShapeData} from './SVG';
 import {Txt} from './Txt';
 
 const Adaptor = liteAdaptor();
@@ -63,6 +71,37 @@ function rootExToEm(svg: string): string {
   return rootTag + svg.slice(rootTagEnd);
 }
 
+/** The tex of the fragments on each side of a change. */
+export interface LatexChange {
+  readonly before: string;
+  readonly after: string;
+}
+
+/** A glyph as a transition sees it: `id` names the character it draws. */
+export interface LatexGlyphId {
+  readonly id: string;
+}
+
+export interface LatexGlyphPair<T> {
+  from: T | null;
+  to: T | null;
+}
+
+/**
+ * How a Latex node shows its edits.
+ *
+ * @remarks
+ * `pair` decides which glyphs of a fragment move to which glyphs of the
+ * fragment that replaced it; a glyph left without a partner leaves or arrives
+ * with `outgoing` or `incoming`. The progress the hooks get is already eased.
+ */
+export interface LatexTransitions extends ContentTransitions<LatexChange> {
+  pair<T extends LatexGlyphId>(
+    from: readonly T[],
+    to: readonly T[],
+  ): LatexGlyphPair<T>[];
+}
+
 /**
  * How a fragment animates into the fragment that replaced it.
  *
@@ -70,9 +109,10 @@ function rootExToEm(svg: string): string {
  * `morph` and `partialFade` pair up the two fragments' glyphs, so a glyph that
  * survives the change moves to its new place and one that was replaced either
  * morphs into its replacement or crosses over with it. `fade` pairs nothing and
- * crosses the whole fragment over.
+ * crosses the whole fragment over. An object overrides the hooks it names.
  */
-export type LatexTransition = 'morph' | 'partialFade' | 'fade';
+export type LatexTransition =
+  'morph' | 'partialFade' | 'fade' | Partial<LatexTransitions>;
 
 export interface LatexProps extends Omit<SVGProps, 'svg'> {
   tex?: SignalValue<string[] | string>;
@@ -84,11 +124,15 @@ export interface LatexProps extends Omit<SVGProps, 'svg'> {
 /**
  * Both states of the sub-tex occupying one slot of an {@link Latex.edit}
  * template.
+ *
+ * @remarks
+ * The `insert`, `remove` and `replace` helpers that `Code` uses make these too.
+ * Their fragments use {@link Latex.fragmentTransition}.
  */
 export interface LatexEditFragment {
   before: string;
   after: string;
-  transition: LatexTransition;
+  transition?: LatexTransition;
 }
 
 export interface LatexEditGenerator {
@@ -141,15 +185,6 @@ export function partialFade(before: string, after: string): LatexEditFragment {
   return {before, after, transition: 'partialFade'};
 }
 
-interface LatexFragment {
-  id: string;
-  shapes: Curve[];
-}
-
-interface LatexFragmentPair extends AlignedPair<LatexFragment, LatexFragment> {
-  transition: LatexTransition;
-}
-
 const LABEL_SIZE = 16;
 
 // Everything that leaves a formula does so at the start of a tween and
@@ -157,8 +192,193 @@ const LABEL_SIZE = 16;
 // that are moving.
 const FADE_PORTION = 0.3;
 
-function isMorphable(node: Node): node is Curve {
-  return node instanceof Path || node instanceof Rect;
+function isSameGlyph(from: LatexGlyphId, to: LatexGlyphId) {
+  return from.id === to.id;
+}
+
+function pairMorphing<T extends LatexGlyphId>(
+  from: readonly T[],
+  to: readonly T[],
+): LatexGlyphPair<T>[] {
+  return alignSequences(from, to, isSameGlyph);
+}
+/** Fade a fragment out at the start of an edit and in at its end. */
+export const DefaultLatexTransitions: LatexTransitions = {
+  incoming: (pose, progress) => ({
+    ...pose,
+    opacity: pose.opacity * clampRemap(1 - FADE_PORTION, 1, 0, 1, progress),
+  }),
+  outgoing: (pose, progress) => ({
+    ...pose,
+    opacity: pose.opacity * clampRemap(0, FADE_PORTION, 1, 0, progress),
+  }),
+  move: (pose, progress, delta) => ({
+    ...pose,
+    position: pose.position.add(Vector2.lerp(delta, Vector2.zero, progress)),
+  }),
+  morph: progress => 1 - progress,
+  pair: pairMorphing,
+};
+
+const LatexTransitionPresets: Record<
+  'morph' | 'partialFade' | 'fade',
+  Partial<LatexTransitions>
+> = {
+  morph: {pair: pairMorphing},
+  partialFade: {
+    pair: (from, to) =>
+      pairMorphing(from, to).flatMap(pair =>
+        pair.from && pair.to && !isSameGlyph(pair.from, pair.to)
+          ? [
+              {from: pair.from, to: null},
+              {from: null, to: pair.to},
+            ]
+          : [pair],
+      ),
+  },
+  fade: {
+    pair: (from, to) => [
+      ...from.map(glyph => ({from: glyph, to: null})),
+      ...to.map(glyph => ({from: null, to: glyph})),
+    ],
+  },
+};
+
+function transitionOverrides(
+  transition: LatexTransition | undefined,
+): Partial<LatexTransitions> {
+  if (transition === undefined) return {};
+  return typeof transition === 'string'
+    ? LatexTransitionPresets[transition]
+    : transition;
+}
+
+/** Where a glyph is when no edit moves it. */
+interface GlyphRest {
+  readonly position: Vector2;
+  readonly scale: Vector2;
+  readonly rotation: number;
+  readonly skew: Vector2;
+  readonly size: Vector2 | null;
+  readonly data: string | null;
+  readonly opacity: number;
+}
+
+interface LatexGlyph extends LatexGlyphId {
+  /** The place of the glyph in the formula. */
+  readonly index: number;
+  readonly data: SVGShapeData;
+  readonly rest: GlyphRest;
+  /** Everything the glyph draws except where it sits. */
+  readonly look: string;
+}
+
+/** The glyphs of one tex part, or the ones no part claims when `tex` is null. */
+interface LatexGroup {
+  readonly tex: string | null;
+  readonly glyphs: readonly LatexGlyph[];
+}
+
+interface LatexLayout {
+  readonly size: Vector2;
+  /** One group per tex part, then the unclaimed glyphs. */
+  readonly groups: readonly LatexGroup[];
+  readonly ids: readonly string[];
+}
+
+interface LatexPart {
+  readonly key: UnitKey;
+  readonly group: LatexGroup;
+  readonly node: Node;
+  readonly glyphs: readonly Node[];
+}
+
+/** The keys of the groups of one layout. */
+interface LatexKeys {
+  readonly layout: LatexLayout;
+  readonly keys: readonly UnitKey[];
+  /** The drawn node each glyph keeps, by glyph index. */
+  readonly nodes: ReadonlyMap<number, Node>;
+}
+
+/** Groups of two layouts that one edit pairs, by index. */
+interface LatexGroupPair {
+  readonly from: number | null;
+  readonly to: number | null;
+  readonly transitions: LatexTransitions;
+}
+
+interface GlyphPlan {
+  readonly from: LatexGlyph | null;
+  readonly change: LatexChange;
+  readonly transitions: LatexTransitions;
+}
+
+/** How a glyph was drawn when an edit began. */
+interface GlyphStart {
+  readonly matrix: DOMMatrix;
+  readonly opacity: number;
+  readonly data: string | null;
+  readonly size: Vector2 | null;
+  readonly rest: GlyphRest;
+}
+
+interface GlyphGhost extends EntryBase<LatexChange> {
+  readonly kind: 'outgoing';
+  readonly change: LatexChange;
+  readonly rest: GlyphRest;
+}
+
+type GlyphEntry =
+  | IncomingEntry<LatexChange>
+  | GlyphGhost
+  | MovedEntry<LatexChange>
+  | MorphEntry<string, LatexChange>;
+
+function characterId({id}: SVGShapeData) {
+  return id.includes('-') ? id.substring(id.lastIndexOf('-') + 1) : id;
+}
+
+function vector(
+  value: SignalValue<PossibleVector2> | undefined,
+  fallback: number,
+): Vector2 {
+  return new Vector2(value === undefined ? fallback : unwrap(value));
+}
+
+function glyphRest({props}: SVGShapeData): GlyphRest {
+  const width = props.width === undefined ? null : unwrap(props.width);
+  const height = props.height === undefined ? null : unwrap(props.height);
+  return {
+    position: vector(props.position, 0),
+    scale: vector(props.scale, 1),
+    rotation: props.rotation === undefined ? 0 : unwrap(props.rotation),
+    skew: vector(props.skew, 0),
+    size:
+      typeof width === 'number' && typeof height === 'number'
+        ? new Vector2(width, height)
+        : null,
+    data: 'data' in props && typeof props.data === 'string' ? props.data : null,
+    opacity: props.opacity === undefined ? 1 : unwrap(props.opacity),
+  };
+}
+
+const PoseProps = new Set([
+  'position',
+  'scale',
+  'rotation',
+  'skew',
+  'width',
+  'height',
+]);
+
+function glyphLook({props, children}: SVGShapeData): string {
+  const look = Object.entries(props).filter(([key]) => !PoseProps.has(key));
+  return JSON.stringify({look, children: children?.length ?? 0});
+}
+
+function sameGlyphs(a: readonly LatexGlyph[], b: readonly LatexGlyph[]) {
+  return a.length === b.length && a.every((glyph, i) => glyph.id === b[i].id);
 }
 
 const MAX_TEX_REPAIRS = 4;
@@ -204,9 +424,23 @@ export class Latex extends SVGNode {
   })
   private static containerFontSize: number;
   private static svgContentsPool: Record<string, string> = {};
-  private static texNodesPool: Record<string, SVGDocumentData> = {};
-  private svgSubTexMap: Record<string, string[]> = {};
-  private readonly glyphIds = new WeakMap<Node, string>();
+  private static layoutPool: Record<string, LatexLayout> = {};
+
+  /**
+   * How every Latex node shows its edits, unless a node or a fragment says
+   * otherwise.
+   */
+  public static defaultTransitions: LatexTransitions = DefaultLatexTransitions;
+
+  /** The keys the last edit gave the parts of its target. */
+  private readonly partKeys = createSignal<LatexKeys | null>(null);
+  private partCache = new Map<UnitKey, LatexPart>();
+  /** The edits in flight. The tex is always their target. */
+  private readonly glyphMotion = createMotionStack<Node, GlyphEntry>();
+  private readonly glyphMorphs = new WeakMap<
+    GlyphEntry,
+    {to: string; at: (progress: number) => string}
+  >();
 
   @initial({})
   @signal()
@@ -216,8 +450,9 @@ export class Latex extends SVGNode {
    * How a fragment animates into the fragment that replaced it.
    *
    * @remarks
-   * Can be changed between tweens to animate one step differently from the
-   * next. {@link edit} overrides it per fragment.
+   * Overrides {@link Latex.defaultTransitions}. Can be changed between tweens
+   * to animate one step differently from the next. {@link edit} overrides it
+   * per fragment.
    */
   @initial('morph')
   @signal()
@@ -233,6 +468,16 @@ export class Latex extends SVGNode {
   @signal()
   declare public readonly debugFragments: SimpleSignal<boolean, this>;
 
+  /**
+   * The formula, as one string or as a list of parts.
+   *
+   * @remarks
+   * Each part is one fragment: an item of the list, or the text between `{{`
+   * and `}}`. Fragments are what {@link map} indexes and what a tween moves as
+   * a unit. A formula with no marked parts is one fragment.
+   *
+   * During a tween, this is the formula the tween ends with.
+   */
   @initial('')
   @parser(function (this: Latex, value: string[] | string): string[] {
     const array = typeof value === 'string' ? [value] : value;
@@ -254,6 +499,11 @@ export class Latex extends SVGNode {
     });
     this.svg(this.latexSVG);
 
+    const ghosts = new Node({});
+    ghosts.children(this.ghostNodes);
+    ghosts.scale(this.wrapperScale);
+    this.add(ghosts);
+
     const overlay = new Node({});
     overlay.children(this.fragmentOverlay);
     overlay.scale(this.wrapperScale);
@@ -272,7 +522,147 @@ export class Latex extends SVGNode {
 
   @computed()
   protected latexSVG() {
-    return this.texToSvg(this.tex());
+    return this.singleTexToSVG(this.tex().join(''));
+  }
+
+  /** The transitions of this node, over the class defaults. */
+  @computed()
+  public resolvedTransitions(): LatexTransitions {
+    return {
+      ...Latex.defaultTransitions,
+      ...transitionOverrides(this.fragmentTransition()),
+    };
+  }
+
+  private transitionsOf(transition?: LatexTransition): LatexTransitions {
+    return {
+      ...this.resolvedTransitions(),
+      ...transitionOverrides(transition),
+    };
+  }
+
+  @computed()
+  private texLayout(): LatexLayout {
+    return this.layoutOf(this.tex());
+  }
+
+  /** The nodes of each group; a group keeps its nodes while it keeps its key. */
+  @computed()
+  private parts(): LatexPart[] {
+    const layout = this.texLayout();
+    const record = this.partKeys();
+    const current = record?.layout === layout ? record : null;
+    const cache = new Map<UnitKey, LatexPart>();
+    const parts = layout.groups.map((group, index) => {
+      const key = current?.keys[index] ?? createUnitKey();
+      const cached = this.partCache.get(key);
+      const part =
+        cached && sameGlyphs(cached.group.glyphs, group.glyphs)
+          ? {...cached, group}
+          : this.buildPart(key, group, current?.nodes);
+      cache.set(key, part);
+      return part;
+    });
+    this.partCache = cache;
+    return parts;
+  }
+
+  @computed()
+  private glyphRests(): Map<Node, GlyphRest> {
+    const rests = new Map<Node, GlyphRest>();
+    for (const {group, glyphs} of this.parts()) {
+      glyphs.forEach((node, index) =>
+        rests.set(node, group.glyphs[index].rest),
+      );
+    }
+    return rests;
+  }
+
+  @computed()
+  protected override document(): SVGDocument {
+    return {
+      size: this.texLayout().size,
+      nodes: this.parts()
+        .filter(({glyphs}) => glyphs.length > 0)
+        .map(({group, node}) => ({
+          id: group.tex ?? '__structural__',
+          shape: node,
+        })),
+    };
+  }
+
+  /** The glyphs that left the formula and are still drawn. */
+  @computed()
+  private ghostNodes(): Node[] {
+    return this.glyphMotion.keys().filter(node => this.ghostOf(node));
+  }
+
+  private ghostOf(node: Node): GlyphGhost | null {
+    for (const entry of this.glyphMotion.entries(node)) {
+      if (entry.kind === 'outgoing') return entry;
+    }
+    return null;
+  }
+
+  private buildPart(
+    key: UnitKey,
+    group: LatexGroup,
+    kept?: ReadonlyMap<number, Node>,
+  ): LatexPart {
+    const glyphs = group.glyphs.map(
+      glyph => kept?.get(glyph.index) ?? this.buildGlyph(glyph),
+    );
+    return {key, group, glyphs, node: new Node({children: glyphs})};
+  }
+
+  /** Build a glyph whose pose and shape follow its rest and its entries. */
+  private buildGlyph(glyph: LatexGlyph): Node {
+    const {shape} = this.buildShape(glyph.data);
+    const rest = () =>
+      this.glyphRests().get(shape) ?? this.ghostOf(shape)?.rest ?? glyph.rest;
+    const pose = () =>
+      entryPose(
+        this.glyphMotion.entries(shape),
+        {...restPose(Vector2.zero), opacity: rest().opacity},
+        this.resolvedTransitions(),
+      );
+    shape.position(() => rest().position.add(pose().position));
+    shape.scale(() => rest().scale.mul(pose().scale));
+    shape.rotation(() => rest().rotation);
+    shape.skew(() => rest().skew);
+    shape.opacity(() => pose().opacity);
+    if (shape instanceof Path) {
+      shape.data(() => this.drawnData(shape, rest().data ?? ''));
+    }
+    if (shape instanceof Rect) {
+      shape.size(() => rest().size ?? Vector2.zero);
+    }
+    return shape;
+  }
+
+  private drawnData(node: Node, target: string): string {
+    let data = target;
+    for (const entry of this.glyphMotion.entries(node)) {
+      if (entry.kind !== 'morph') continue;
+      const weight = (
+        entry.transitions.morph ?? this.resolvedTransitions().morph
+      )(entry.progress());
+      if (weight <= 0) continue;
+      if (weight >= 1) {
+        data = entry.from;
+        continue;
+      }
+      let morph = this.glyphMorphs.get(entry);
+      if (morph?.to !== data) {
+        morph = {
+          to: data,
+          at: this.morpher.createInterpolator(entry.from, data),
+        };
+        this.glyphMorphs.set(entry, morph);
+      }
+      data = morph.at(1 - weight);
+    }
+    return data;
   }
 
   @computed()
@@ -317,128 +707,55 @@ export class Latex extends SVGNode {
     });
   }
 
-  private getNodeCharacterId({id}: SVGShapeData) {
-    if (!id.includes('-')) return id;
-    return id.substring(id.lastIndexOf('-') + 1);
-  }
-
-  protected override buildShape(data: SVGShapeData): SVGShape {
-    const shape = super.buildShape(data);
-    this.glyphIds.set(shape.shape, this.getNodeCharacterId(data));
-    return shape;
-  }
-
-  private isSameGlyph(from: Node, to: Node): boolean {
-    const id = this.glyphIds.get(from);
-    return id !== undefined && id === this.glyphIds.get(to);
-  }
-
-  private getFragments(nodes: SVGShape[]): LatexFragment[] {
-    return nodes.map(({id, shape}) => {
-      const children = shape.children();
-      if (children.length > 0) {
-        return {id, shapes: children.filter(isMorphable)};
-      }
-      return {
-        id: this.glyphIds.get(shape) ?? id,
-        shapes: [shape].filter(isMorphable),
-      };
-    });
-  }
-
-  private alignFragments(
-    from: LatexFragment[],
-    to: LatexFragment[],
-  ): AlignedPair<LatexFragment, LatexFragment>[] {
-    const pairs = alignSequences(from, to, (a, b) => a.id === b.id);
-    const insertions = pairs.filter(pair => !pair.from && pair.to);
-
-    for (const deletion of pairs) {
-      if (deletion.to || !deletion.from) continue;
-      const insertion = insertions.find(
-        candidate => candidate.to?.id === deletion.from?.id,
-      );
-      if (!insertion) continue;
-      deletion.to = insertion.to;
-      insertion.to = null;
+  /** Lay out `parts` and claim the glyphs of the formula for each part. */
+  private layoutOf(parts: readonly string[]): LatexLayout {
+    const subTexs = parts.map(sub => sub.trim());
+    const key = `${JSON.stringify(subTexs)}::${JSON.stringify(this.options())}`;
+    const cached = Latex.layoutPool[key];
+    if (cached) {
+      return cached;
     }
 
-    return pairs.filter(({from, to}) => from !== null || to !== null);
-  }
+    const whole = SVGNode.parseSVGData(this.singleTexToSVG(parts.join('')));
+    const remaining = whole.nodes.map((data, index): LatexGlyph => ({
+      id: characterId(data),
+      index,
+      data,
+      rest: glyphRest(data),
+      look: glyphLook(data),
+    }));
+    const groups: LatexGroup[] = subTexs.map(tex => ({
+      tex,
+      glyphs: this.claimGlyphs(tex, remaining),
+    }));
+    groups.push({tex: null, glyphs: remaining});
 
-  protected override parseSVG(svg: string): SVGDocument {
-    if (!this.svgSubTexMap[svg]) {
-      return super.parseSVG(svg);
-    }
-    const subTexs = this.svgSubTexMap[svg].map(sub => sub.trim());
-    const key = `[${subTexs.join(',')}]::${JSON.stringify(this.options())}`;
-    const cached = Latex.texNodesPool[key];
-    if (cached && (cached.size.x > 0 || cached.size.y > 0)) {
-      return this.buildDocument(Latex.texNodesPool[key]);
-    }
-    const oldSVG = SVGNode.parseSVGData(svg);
-    const oldNodes = [...oldSVG.nodes];
-
-    const newNodes: SVGShapeData[] = [];
-    for (const sub of subTexs) {
-      const subSvg = this.subTexToSVG(sub);
-      const subNodes = SVGNode.parseSVGData(subSvg).nodes;
-
-      if (subNodes.length === 0) {
-        continue;
-      }
-
-      // MathJax does not always emit a fragment's glyphs together: the radical
-      // of a `\sqrt` trails its radicand.
-      const children: SVGShapeData[] = [];
-      let cursor = 0;
-      for (const subNode of subNodes) {
-        const id = this.getNodeCharacterId(subNode);
-        const index = oldNodes.findIndex(
-          (node, at) => at >= cursor && this.getNodeCharacterId(node) === id,
-        );
-        if (index === -1) continue;
-        children.push(...oldNodes.splice(index, 1));
-        cursor = index;
-      }
-
-      if (children.length === 0) {
-        continue;
-      }
-
-      // Wrapping keeps the sub-tex naming the fragment from replacing the id
-      // that identifies the glyph a shape renders.
-      newNodes.push({
-        id: sub,
-        type: Node,
-        props: {},
-        children,
-      });
-    }
-    if (oldNodes.length > 0) {
-      newNodes.push({
-        id: '__structural__',
-        type: Node,
-        props: {},
-        children: [...oldNodes],
-      });
-    }
-
-    const newSVG: SVGDocumentData = {
-      size: oldSVG.size,
-      nodes: newNodes,
+    const layout = {
+      size: whole.size,
+      groups,
+      ids: whole.nodes.map(characterId),
     };
-    Latex.texNodesPool[key] = newSVG;
-    return this.buildDocument(newSVG);
+    if (layout.size.x > 0 || layout.size.y > 0) {
+      Latex.layoutPool[key] = layout;
+    }
+    return layout;
   }
 
-  protected texToSvg(subTexs: string[]) {
-    const singleTex = subTexs.join('');
-    const svg = this.singleTexToSVG(singleTex);
-    if (subTexs.length > 1) {
-      this.svgSubTexMap[svg] = subTexs;
+  private claimGlyphs(tex: string, remaining: LatexGlyph[]): LatexGlyph[] {
+    // MathJax does not always emit a fragment's glyphs together: the radical
+    // of a `\sqrt` trails its radicand.
+    const claimed: LatexGlyph[] = [];
+    let cursor = 0;
+    for (const node of SVGNode.parseSVGData(this.subTexToSVG(tex)).nodes) {
+      const id = characterId(node);
+      const index = remaining.findIndex(
+        (glyph, at) => at >= cursor && glyph.id === id,
+      );
+      if (index === -1) continue;
+      claimed.push(...remaining.splice(index, 1));
+      cursor = index;
     }
-    return svg;
+    return claimed;
   }
 
   private subTexToSVG(subTex: string) {
@@ -494,177 +811,371 @@ export class Latex extends SVGNode {
     return svg;
   }
 
-  private fadeOutShapes(
-    shapes: Curve[],
-    time: number,
-    timingFunction: TimingFunction,
-  ): ThreadGenerator[] {
-    return shapes.map(shape =>
-      shape.opacity(0, time * FADE_PORTION, timingFunction),
-    );
-  }
-
-  private fadeInShapes(
-    shapes: Curve[],
-    time: number,
-    timingFunction: TimingFunction,
-  ): ThreadGenerator[] {
-    return shapes.map(shape => {
-      const clone = shape.clone();
-      clone.opacity(0);
-      this.wrapper.add(clone);
-      return delay(
-        time * (1 - FADE_PORTION),
-        clone.opacity(1, time * FADE_PORTION, timingFunction),
-      );
-    });
-  }
-
-  private crossfadeShapes(
-    from: Curve[],
-    to: Curve[],
-    time: number,
-    timingFunction: TimingFunction,
-  ): ThreadGenerator[] {
-    return [
-      ...this.fadeOutShapes(from, time, timingFunction),
-      ...this.fadeInShapes(to, time, timingFunction),
-    ];
-  }
-
-  private createFragmentMorphAnimations(
-    sourceShapes: Curve[],
-    targetShapes: Curve[],
-    time: number,
-    timingFunction: TimingFunction,
-    transition: LatexTransition,
-  ): ThreadGenerator[] {
-    const animations: ThreadGenerator[] = [];
-    const crossfade = transition === 'partialFade';
-
-    for (const {from, to} of alignSequences(
-      sourceShapes,
-      targetShapes,
-      (a, b) => this.isSameGlyph(a, b),
-    )) {
-      if (from && to) {
-        if (crossfade && !this.isSameGlyph(from, to)) {
-          animations.push(
-            ...this.crossfadeShapes([from], [to], time, timingFunction),
-          );
-        } else if (from instanceof Path && to instanceof Path) {
-          const fromData = from.data();
-          const toData = to.data();
-          if (fromData && toData && fromData !== toData) {
-            const interpolator = this.morpher.createInterpolator(
-              fromData,
-              toData,
-            );
-            animations.push(
-              from.data(toData, time, timingFunction, (_from, _to, value) =>
-                interpolator(value),
-              ),
-            );
-          }
-          animations.push(
-            from.position(to.position(), time, timingFunction),
-            from.scale(to.scale(), time, timingFunction),
-          );
-        } else if (from instanceof Rect && to instanceof Rect) {
-          animations.push(
-            from.position(to.position(), time, timingFunction),
-            from.scale(to.scale(), time, timingFunction),
-            from.size(to.size(), time, timingFunction),
-          );
-        } else {
-          animations.push(
-            ...this.crossfadeShapes([from], [to], time, timingFunction),
-          );
-        }
-      } else if (from) {
-        animations.push(...this.fadeOutShapes([from], time, timingFunction));
-      } else if (to) {
-        animations.push(...this.fadeInShapes([to], time, timingFunction));
-      }
-    }
-
-    return animations;
-  }
-
   @threadable()
   protected *tweenTex(
     value: string[],
     time: number,
     timingFunction: TimingFunction,
   ) {
-    const parsedValue = this.tex.context.parse(value);
-    const newSVG = this.texToSvg(parsedValue);
-    const targetDoc = this.parseSVG(newSVG);
-    const transition = this.fragmentTransition();
-
-    const pairs = this.alignFragments(
-      this.getFragments(this.document().nodes),
-      this.getFragments(targetDoc.nodes),
-    ).map(pair => ({...pair, transition}));
-
-    yield* this.tweenFragments(
-      pairs,
-      {svg: newSVG, tex: parsedValue, document: targetDoc},
+    yield* this.animateGroups(
+      this.tex(),
+      this.tex.context.parse(value),
+      (source, target) => this.alignGroups(source, target),
       time,
       timingFunction,
     );
   }
 
-  @threadable()
-  private *tweenFragments(
-    pairs: LatexFragmentPair[],
-    target: {svg: string; tex: string[]; document: SVGDocument},
-    time: number,
-    timingFunction: TimingFunction,
-  ) {
-    const newSize = target.document.size.mul(
-      this.calculateWrapperScale(target.document.size, this.getCurrentSize()),
+  /** Pair the parts of two layouts by their tex, as a whole-value tween does. */
+  private alignGroups(
+    source: LatexLayout,
+    target: LatexLayout,
+  ): LatexGroupPair[] {
+    const parts = (layout: LatexLayout) =>
+      layout.groups.slice(0, -1).map((_, index) => index);
+    const pairs = alignSequences(
+      parts(source),
+      parts(target),
+      (a, b) => source.groups[a].tex === target.groups[b].tex,
     );
-    const lockedScale = new Vector2(this.wrapper.scale());
 
-    this.lockLayout();
-    this.wrapper.scale(lockedScale);
+    // A part that moved past others is one part, not a removal and an insertion.
+    const insertions = pairs.filter(pair => pair.from === null);
+    for (const deletion of pairs) {
+      const from = deletion.from;
+      if (deletion.to !== null || from === null) continue;
+      const insertion = insertions.find(
+        ({to}) =>
+          to !== null && target.groups[to].tex === source.groups[from].tex,
+      );
+      if (!insertion) continue;
+      deletion.to = insertion.to;
+      insertion.to = null;
+    }
 
-    const animations: ThreadGenerator[] = [];
-    for (const {from, to, transition} of pairs) {
-      // An unchanged fragment has nothing to cross over with.
-      if (from && to && (transition !== 'fade' || from.id === to.id)) {
-        animations.push(
-          ...this.createFragmentMorphAnimations(
-            from.shapes,
-            to.shapes,
-            time,
-            timingFunction,
-            transition,
-          ),
-        );
-        continue;
+    const transitions = this.resolvedTransitions();
+    return [
+      ...pairs
+        .filter(({from, to}) => from !== null || to !== null)
+        .map(pair => ({...pair, transitions})),
+      this.unclaimedPair(source, target),
+    ];
+  }
+
+  private unclaimedPair(
+    source: LatexLayout,
+    target: LatexLayout,
+  ): LatexGroupPair {
+    return {
+      from: source.groups.length - 1,
+      to: target.groups.length - 1,
+      transitions: this.resolvedTransitions(),
+    };
+  }
+
+  /** Animate from the drawn formula to `targetTex`, pairing groups by `plan`. */
+  @threadable()
+  private *animateGroups(
+    sourceTex: readonly string[],
+    targetTex: string[],
+    plan: (source: LatexLayout, target: LatexLayout) => LatexGroupPair[],
+    time: number,
+    timing: TimingFunction,
+  ): ThreadGenerator {
+    const layout = this.texLayout();
+    const parts = this.parts();
+    const source = this.layoutOf(sourceTex);
+    const target = this.layoutOf(targetTex);
+    const pairs = plan(source, target);
+
+    const drawn = new Map<number, Node>();
+    parts.forEach(({group, glyphs}) =>
+      glyphs.forEach((node, index) =>
+        drawn.set(group.glyphs[index].index, node),
+      ),
+    );
+    const sourceIndex = new Map<number, number>();
+    for (const {from, to} of alignSequences(
+      [...source.ids.keys()],
+      [...layout.ids.keys()],
+      (a, b) => source.ids[a] === layout.ids[b],
+    )) {
+      if (from !== null && to !== null && source.ids[from] === layout.ids[to]) {
+        sourceIndex.set(from, to);
       }
+    }
+    const nodeOf = (glyph: LatexGlyph) => {
+      const index = sourceIndex.get(glyph.index);
+      return index === undefined ? undefined : drawn.get(index);
+    };
 
-      animations.push(
-        ...this.crossfadeShapes(
-          from?.shapes ?? [],
-          to?.shapes ?? [],
-          time,
-          timingFunction,
-        ),
+    const keys = this.keepKeys(parts, layout, source, target, pairs, glyph =>
+      sourceIndex.get(glyph.index),
+    );
+    const {plans, leaving} = this.planGlyphs(source, target, pairs);
+    const nodes = new Map<number, Node>();
+    const kept = new Set(
+      parts.filter(({key}) => keys.includes(key)).flatMap(({glyphs}) => glyphs),
+    );
+    target.groups.forEach(({glyphs}, groupIndex) =>
+      glyphs.forEach((glyph, index) => {
+        const from = plans[groupIndex][index]?.from;
+        const node = from?.look === glyph.look ? nodeOf(from) : undefined;
+        if (node && !kept.has(node)) {
+          kept.add(node);
+          nodes.set(glyph.index, node);
+        }
+      }),
+    );
+
+    const starts = new Map<Node, GlyphStart>();
+    for (const {group, glyphs} of parts) {
+      glyphs.forEach((node, index) =>
+        starts.set(node, {
+          matrix: node.localToParent(),
+          opacity: node.opacity(),
+          data: node instanceof Path ? node.data() : null,
+          size: node instanceof Rect ? node.size() : null,
+          rest: group.glyphs[index].rest,
+        }),
       );
     }
 
-    yield* all(...animations, this.size(newSize, time, timingFunction));
+    const motion = this.offsetLayout(this.flexTree(), () => {
+      this.partKeys({layout: target, keys, nodes});
+      this.tex.context.setter(targetTex);
+    });
+    const {progress} = motion;
 
-    this.svg.context.setter(target.svg);
-    this.tex.context.setter(target.tex);
-    this.wrapper.children(this.documentNodes);
-    this.wrapper.scale(this.wrapperScale);
-    this.releaseLayout();
-    this.width.reset();
-    this.height.reset();
+    const handed = new Set<Node>();
+    this.parts().forEach(({group, glyphs}, groupIndex) =>
+      glyphs.forEach((node, index) => {
+        const glyphPlan = plans[groupIndex][index] ?? {
+          from: null,
+          change: {before: '', after: group.tex ?? ''},
+          transitions: this.resolvedTransitions(),
+        };
+        const own = starts.get(node);
+        const sourceNode = glyphPlan.from ? nodeOf(glyphPlan.from) : undefined;
+        const start = own ?? (sourceNode && starts.get(sourceNode));
+        if (!start) {
+          this.glyphMotion.push(node, {
+            kind: 'incoming',
+            progress,
+            transitions: glyphPlan.transitions,
+            change: glyphPlan.change,
+          });
+          return;
+        }
+        handed.add(own ? node : (sourceNode ?? node));
+        this.offsetGlyph(node, start, progress, glyphPlan.transitions);
+        if (!own) {
+          this.carryGlyph(
+            node,
+            start,
+            group.glyphs[index].rest,
+            progress,
+            glyphPlan,
+          );
+        }
+      }),
+    );
+
+    const leavingNodes = new Map<Node, GlyphPlan>();
+    for (const [glyph, glyphPlan] of leaving) {
+      const node = nodeOf(glyph);
+      if (node) leavingNodes.set(node, glyphPlan);
+    }
+    for (const [node, start] of starts) {
+      if (handed.has(node)) continue;
+      const glyphPlan = leavingNodes.get(node);
+      this.glyphMotion.push(node, {
+        kind: 'outgoing',
+        progress,
+        transitions: glyphPlan?.transitions ?? this.resolvedTransitions(),
+        change: glyphPlan?.change ?? {before: '', after: ''},
+        rest: start.rest,
+      });
+    }
+
+    try {
+      yield* progress(1, time, timing);
+    } finally {
+      motion.release();
+      this.glyphMotion.release(progress);
+      progress.context.dispose();
+    }
+  }
+
+  /** The target group keys; a kept group reuses the key of its drawn group. */
+  private keepKeys(
+    parts: readonly LatexPart[],
+    layout: LatexLayout,
+    source: LatexLayout,
+    target: LatexLayout,
+    pairs: readonly LatexGroupPair[],
+    drawnIndex: (glyph: LatexGlyph) => number | undefined,
+  ): UnitKey[] {
+    const signature = (tex: string | null, indices: (number | undefined)[]) =>
+      `${JSON.stringify(tex)}:${indices.join(',')}`;
+    const owners = new Map<string, number>();
+    layout.groups.forEach(({tex, glyphs}, index) =>
+      owners.set(
+        signature(
+          tex,
+          glyphs.map(glyph => glyph.index),
+        ),
+        index,
+      ),
+    );
+
+    const keys = target.groups.map(() => createUnitKey());
+    const kept = new Set<number>();
+    for (const {from, to} of pairs) {
+      if (from === null || to === null) continue;
+      const {tex, glyphs} = source.groups[from];
+      if (tex !== target.groups[to].tex) continue;
+      const owner = owners.get(signature(tex, glyphs.map(drawnIndex)));
+      if (owner !== undefined && !kept.has(owner)) {
+        kept.add(owner);
+        keys[to] = parts[owner].key;
+      }
+    }
+    return keys;
+  }
+
+  /** Which source glyph each target glyph starts from, and which ones leave. */
+  private planGlyphs(
+    source: LatexLayout,
+    target: LatexLayout,
+    pairs: readonly LatexGroupPair[],
+  ): {
+    plans: (GlyphPlan | undefined)[][];
+    leaving: Map<LatexGlyph, GlyphPlan>;
+  } {
+    const plans = target.groups.map(({glyphs}): (GlyphPlan | undefined)[] =>
+      glyphs.map(() => undefined),
+    );
+    const leaving = new Map<LatexGlyph, GlyphPlan>();
+    for (const {from, to, transitions} of pairs) {
+      const fromGroup = from === null ? null : source.groups[from];
+      const toGroup = to === null ? null : target.groups[to];
+      const change = {before: fromGroup?.tex ?? '', after: toGroup?.tex ?? ''};
+      const fromGlyphs = fromGroup?.glyphs ?? [];
+      const toGlyphs = toGroup?.glyphs ?? [];
+      // An unchanged fragment has nothing to cross over with.
+      const glyphPairs =
+        fromGroup && toGroup && fromGroup.tex === toGroup.tex
+          ? pairMorphing(fromGlyphs, toGlyphs)
+          : transitions.pair(fromGlyphs, toGlyphs);
+      for (const pair of glyphPairs) {
+        const paired =
+          pair.from && pair.to && pair.from.data.type === pair.to.data.type
+            ? pair.from
+            : null;
+        if (to !== null && pair.to) {
+          plans[to][toGlyphs.indexOf(pair.to)] = {
+            from: paired,
+            change,
+            transitions,
+          };
+        }
+        if (pair.from && !paired) {
+          leaving.set(pair.from, {from: pair.from, change, transitions});
+        }
+      }
+    }
+    return {plans, leaving};
+  }
+
+  /** Offset `node` back to the pose of `start`. */
+  private offsetGlyph(
+    node: Node,
+    start: GlyphStart,
+    progress: SimpleSignal<number>,
+    transitions: LatexTransitions,
+  ) {
+    const view = this.view();
+    const after = node.localToParent();
+    const move = new Vector2(
+      start.matrix.e - after.e,
+      start.matrix.f - after.f,
+    );
+    const turn = turnDelta(start.matrix, after);
+    if (
+      !move.exactlyEquals(Vector2.zero) ||
+      turn.rotation !== 0 ||
+      !turn.scale.exactlyEquals(Vector2.one)
+    ) {
+      view.offsetNode(node, {
+        ...NoDelta,
+        ...turn,
+        move,
+        progress,
+        interpolation: (delta, _, value) =>
+          transitions.move(restPose(Vector2.zero), value, delta).position,
+      });
+    }
+    this.glyphMotion.push(node, {
+      kind: 'moved',
+      progress,
+      delta: move,
+      transitions: {
+        // `offsetNode` already moves the glyph.
+        move: (pose, value, delta) => ({
+          ...transitions.move(pose, value, delta),
+          position: pose.position,
+        }),
+      },
+    });
+    if (start.size && node instanceof Rect) {
+      const size = start.size.sub(node.size());
+      if (!size.exactlyEquals(Vector2.zero)) {
+        view.offsetNode(node, {
+          ...NoDelta,
+          size,
+          progress,
+          interpolation: (delta, _, value) =>
+            delta.scale(transitions.morph(value)),
+        });
+      }
+    }
+  }
+
+  /** Start a new glyph from the opacity and shape of the one it replaces. */
+  private carryGlyph(
+    node: Node,
+    start: GlyphStart,
+    rest: GlyphRest,
+    progress: SimpleSignal<number>,
+    {change, transitions}: GlyphPlan,
+  ) {
+    if (rest.opacity > 0 && start.opacity !== rest.opacity) {
+      const ratio = start.opacity / rest.opacity;
+      this.glyphMotion.push(node, {
+        kind: 'incoming',
+        progress,
+        transitions: {
+          incoming: (pose, value) => ({
+            ...pose,
+            opacity: pose.opacity * map(ratio, 1, value),
+          }),
+        },
+        change,
+      });
+    }
+    if (
+      node instanceof Path &&
+      start.data !== null &&
+      start.data !== rest.data
+    ) {
+      this.glyphMotion.push(node, {
+        kind: 'morph',
+        progress,
+        transitions,
+        from: start.data,
+      });
+    }
   }
 
   /**
@@ -680,7 +1191,7 @@ export class Latex extends SVGNode {
    *
    * @example
    * ```tsx
-   * yield* tex().edit(1)`d=\sqrt{${fade('x', '(-54.934)')}^2}`;
+   * yield* tex().edit(1)`d=\sqrt{${fade('x', '(-54.934)')}^2}${insert('=3')}`;
    * ```
    *
    * @param time - The duration of the animation.
@@ -712,6 +1223,9 @@ export class Latex extends SVGNode {
    * out. Matches are claimed left to right, one per replacement, so repeat a
    * replacement to change more than one occurrence of the same sub-tex.
    *
+   * A replacement with an empty `before`, such as `insert('=3')`, is added at
+   * the end of the formula.
+   *
    * A match may not span two sub-tex parts. Splitting a part is fine - matching
    * `x` inside `x^2` turns it into the parts `x` and `^2` - but a match that
    * begins in one part and ends in another is ignored, with a warning. The
@@ -739,7 +1253,7 @@ export class Latex extends SVGNode {
     parts: string[],
     replacements: LatexEditFragment[],
   ): LatexEditFragment[] {
-    const pending = [...replacements];
+    const pending = replacements.filter(({before}) => before.length > 0);
     const slots: LatexEditFragment[] = [];
 
     for (const part of parts) {
@@ -749,7 +1263,7 @@ export class Latex extends SVGNode {
         matched = false;
         for (const [index, replacement] of pending.entries()) {
           const at = rest.indexOf(replacement.before);
-          if (replacement.before.length === 0 || at === -1) continue;
+          if (at === -1) continue;
 
           pending.splice(index, 1);
           if (at > 0) {
@@ -773,6 +1287,7 @@ export class Latex extends SVGNode {
       });
     }
 
+    slots.push(...replacements.filter(({before}) => before.length === 0));
     return slots;
   }
 
@@ -794,49 +1309,25 @@ export class Latex extends SVGNode {
       });
     }
 
-    const sourceSVG = this.texToSvg(sourceTex);
-    const targetSVG = this.texToSvg(targetTex);
-
-    // The template decides where the fragments are, so the formula is reparsed
-    // against its slots even when it is already on screen.
-    this.svg.context.setter(sourceSVG);
-    this.tex.context.setter(sourceTex);
-    const sourceDoc = this.parseSVG(sourceSVG);
-    this.wrapper.children(sourceDoc.nodes.map(({shape}) => shape));
-    this.wrapper.scale(this.wrapperScale);
-
-    const targetDoc = this.parseSVG(targetSVG);
-    const sourceSlots = this.matchFragmentsToSlots(
-      this.getFragments(sourceDoc.nodes),
-      source,
-    );
-    const targetSlots = this.matchFragmentsToSlots(
-      this.getFragments(targetDoc.nodes),
-      target,
-    );
-
-    const pairs: LatexFragmentPair[] = [];
-    slots.forEach(({transition}, slot) => {
-      const from = sourceSlots.matched.get(slot) ?? null;
-      const to = targetSlots.matched.get(slot) ?? null;
-      if (from || to) {
-        pairs.push({from, to, transition});
-      }
-    });
-
-    const transition = this.fragmentTransition();
-    pairs.push(
-      ...this.alignFragments(sourceSlots.extra, targetSlots.extra).map(
-        pair => ({
-          ...pair,
-          transition,
-        }),
-      ),
-    );
-
-    yield* this.tweenFragments(
-      pairs,
-      {svg: targetSVG, tex: targetTex, document: targetDoc},
+    yield* this.animateGroups(
+      sourceTex,
+      targetTex,
+      (sourceLayout, targetLayout) => {
+        const pairs: LatexGroupPair[] = [];
+        slots.forEach((fragment, slot) => {
+          const from = source.findIndex(part => part.slot === slot);
+          const to = target.findIndex(part => part.slot === slot);
+          if (from !== -1 || to !== -1) {
+            pairs.push({
+              from: from === -1 ? null : from,
+              to: to === -1 ? null : to,
+              transitions: this.transitionsOf(fragment.transition),
+            });
+          }
+        });
+        pairs.push(this.unclaimedPair(sourceLayout, targetLayout));
+        return pairs;
+      },
       time,
       timingFunction,
     );
@@ -849,29 +1340,6 @@ export class Latex extends SVGNode {
     return slots
       .map((fragment, slot) => ({slot, tex: fragment[state]}))
       .filter(({tex}) => tex.trim().length > 0);
-  }
-
-  private matchFragmentsToSlots(
-    fragments: LatexFragment[],
-    slots: {slot: number; tex: string}[],
-  ): {matched: Map<number, LatexFragment>; extra: LatexFragment[]} {
-    const matched = new Map<number, LatexFragment>();
-    const extra: LatexFragment[] = [];
-    let next = 0;
-
-    for (const fragment of fragments) {
-      const found = slots.findIndex(
-        ({tex}, index) => index >= next && tex.trim() === fragment.id,
-      );
-      if (found === -1) {
-        extra.push(fragment);
-        continue;
-      }
-      next = found + 1;
-      matched.set(slots[found].slot, fragment);
-    }
-
-    return {matched, extra};
   }
 
   /**
@@ -894,106 +1362,39 @@ export class Latex extends SVGNode {
     value: string[] | string,
     mapping: number[][],
     time: number,
-    timingFunction?: TimingFunction,
+    timingFunction: TimingFunction = easeInOutCubic,
   ) {
-    const logger = useLogger();
-    const parsedValue = this.tex.context.parse(value);
-    const newSVG = this.texToSvg(parsedValue);
-    const targetDoc = this.parseSVG(newSVG);
-
-    const timing: TimingFunction = timingFunction ?? easeInOutCubic;
-    const transition = this.fragmentTransition();
-
-    const sourceFragments = this.getFragments(this.document().nodes).map(
-      ({shapes}) => shapes,
-    );
-    const targetFragments = this.getFragments(targetDoc.nodes).map(
-      ({shapes}) => shapes,
-    );
-
-    const mappedTargetIndices = new Set<number>();
-    const animations: ThreadGenerator[] = [];
-
-    for (let srcIdx = 0; srcIdx < mapping.length; srcIdx++) {
-      const targetIndices = mapping[srcIdx];
-      const srcShapes = sourceFragments[srcIdx];
-
-      if (!srcShapes || srcShapes.length === 0) {
-        continue;
-      }
-
-      if (!targetIndices || targetIndices.length === 0) {
-        animations.push(...this.fadeOutShapes(srcShapes, time, timing));
-        continue;
-      }
-
-      for (let t = 0; t < targetIndices.length; t++) {
-        const tgtIdx = targetIndices[t];
-
-        if (tgtIdx < 0 || tgtIdx >= targetFragments.length) {
-          logger.warn(
-            `texMap: target index ${tgtIdx} is out of bounds (0-${targetFragments.length - 1})`,
-          );
-          continue;
-        }
-
-        mappedTargetIndices.add(tgtIdx);
-        const tgtShapes = targetFragments[tgtIdx];
-
-        if (t === 0) {
-          animations.push(
-            ...this.createFragmentMorphAnimations(
-              srcShapes,
-              tgtShapes,
-              time,
-              timing,
-              transition,
-            ),
-          );
-        } else {
-          const clonedSrc = srcShapes.map(shape => {
-            const clone = shape.clone();
-            this.wrapper.add(clone);
-            return clone;
-          });
-          animations.push(
-            ...this.createFragmentMorphAnimations(
-              clonedSrc,
-              tgtShapes,
-              time,
-              timing,
-              transition,
-            ),
-          );
-        }
-      }
-    }
-
-    for (
-      let srcIdx = mapping.length;
-      srcIdx < sourceFragments.length;
-      srcIdx++
-    ) {
-      const srcShapes = sourceFragments[srcIdx];
-      if (srcShapes) {
-        animations.push(...this.fadeOutShapes(srcShapes, time, timing));
-      }
-    }
-
-    for (let tgtIdx = 0; tgtIdx < targetFragments.length; tgtIdx++) {
-      if (mappedTargetIndices.has(tgtIdx)) {
-        continue;
-      }
-
-      animations.push(
-        ...this.fadeInShapes(targetFragments[tgtIdx], time, timing),
+    const fragments = (layout: LatexLayout) =>
+      layout.groups.flatMap(({glyphs}, index) =>
+        glyphs.length > 0 ? [index] : [],
       );
-    }
 
-    yield* all(...animations);
-
-    this.svg.context.setter(newSVG);
-    this.tex.context.setter(parsedValue);
-    this.wrapper.children(this.documentNodes);
+    yield* this.animateGroups(
+      this.tex(),
+      this.tex.context.parse(value),
+      (source, target) => {
+        const sourceFragments = fragments(source);
+        const targetFragments = fragments(target);
+        const transitions = this.resolvedTransitions();
+        const pairs: LatexGroupPair[] = [];
+        mapping.forEach((targets, sourceIndex) => {
+          const from = sourceFragments[sourceIndex];
+          if (from === undefined) return;
+          for (const targetIndex of targets) {
+            const to = targetFragments[targetIndex];
+            if (to === undefined) {
+              useLogger().warn(
+                `texMap: target index ${targetIndex} is out of bounds (0-${targetFragments.length - 1})`,
+              );
+              continue;
+            }
+            pairs.push({from, to, transitions});
+          }
+        });
+        return pairs;
+      },
+      time,
+      timingFunction,
+    );
   }
 }

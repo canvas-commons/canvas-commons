@@ -228,10 +228,143 @@ the number of occurrences does not match, the part will duplicated or merged.
 You can see this in action in the example above. The formula starts with only
 one plus sign (`+`), but ends with two.
 
+### Fragments
+
+A fragment is the unit that a tween moves, and the unit that `map` counts. Each
+part of `tex` is one fragment: an item of the array, or the text between `{{`
+and `}}`. Text outside the braces is a fragment too.
+
+A formula with no marked parts is one fragment. It moves as a whole.
+
+Inside a fragment, the glyphs are still paired one by one. When `tex="x"` is
+tweened to `tex="2x"`, the `x` moves to its new place and the `2` fades in.
+
+Set `debugFragments` to outline each fragment and label it with its index:
+
+```tsx editor
+import {Latex, makeScene2D} from '@canvas-commons/2d';
+
+export default makeScene2D(function* (view) {
+  view.add(
+    <Latex
+      tex="{{a^2}} + {{b^2}} = c^2"
+      fill="white"
+      fontSize={64}
+      debugFragments
+    />,
+  );
+});
+```
+
+Here `a^2`, `+`, `b^2` and ` = c^2` are four fragments, with the indices 0 to 3.
+
+Set `fragmentTransition` to choose how a fragment turns into its replacement:
+
+- `'morph'` (the default) pairs the glyphs of the two fragments and morphs each
+  glyph into its partner.
+- `'partialFade'` moves the glyphs that both fragments share. The other glyphs
+  fade out and fade in.
+- `'fade'` pairs nothing. The whole fragment fades out and its replacement fades
+  in.
+
+### Editing part of a formula
+
+The `edit` method takes the duration and returns a tagged template. Write the
+whole formula in the template. Each hole is a fragment with two states, made
+with `morph(before, after)`, `fade(before, after)` or
+`partialFade(before, after)`. Text outside the holes stays where it is.
+
+Use `insert(tex)` to add a fragment and `remove(tex)` to take one away. These
+are the helpers that [`Code`](/api/2d/components/Code) uses, and
+`replace(before, after)` works here too. Their fragments use the
+`fragmentTransition` of the node.
+
+After the tween, the fragments are the pieces of the template. The template is
+read raw, so write LaTeX commands with one backslash. The arguments of `morph`,
+`fade` and `partialFade` are normal strings, so double the backslashes there.
+
+```tsx editor
+import {Latex, insert, makeScene2D} from '@canvas-commons/2d';
+import {createRef, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const tex = createRef<Latex>();
+  view.add(<Latex ref={tex} tex="12345" fill="white" fontSize={64} />);
+
+  yield* waitFor(0.5);
+  yield* tex().edit(0.5)`12345${insert('\\cdot 10')}`;
+
+  // Two fragments now: `12345` and `\cdot 10`.
+  tex().debugFragments(true);
+  yield* waitFor(1);
+});
+```
+
+The `12345` stays in place and `\cdot 10` fades in.
+
+The `replace` method changes parts of the formula that is on screen. It takes
+the same fragments as an `edit` template. The `before` of each one is matched in
+the current formula, and the rest of the formula stays. A `before` must not
+start in one fragment and end in another.
+
+An `insert` has no `before` to match, so `replace` adds it at the end of the
+formula. This call does the same as the `edit` above:
+
+```tsx
+yield * tex().replace(0.5, insert('\\cdot 10'));
+```
+
+To add a fragment at another place, use an `edit` template.
+
+A replacement can match a part of a fragment. That splits the fragment. On
+`{{ab}}{{c}}`, `replace(0.5, morph('a', 'a'))` changes nothing on screen and
+leaves three fragments: `a`, `b` and `c`.
+
+```tsx editor
+import {Latex, makeScene2D, morph} from '@canvas-commons/2d';
+import {createRef, waitFor} from '@canvas-commons/core';
+
+export default makeScene2D(function* (view) {
+  const tex = createRef<Latex>();
+  view.add(
+    <Latex ref={tex} tex="{{x^2}} + {{y^2}}" fill="white" fontSize={64} />,
+  );
+
+  yield* waitFor(0.5);
+  yield* tex().replace(1, morph('x', 'a'), morph('y', 'b'));
+
+  // `x^2` is now the two fragments `a` and `^2`.
+  tex().debugFragments(true);
+  yield* waitFor(1);
+});
+```
+
+### Marking fragments later
+
+You can mark new fragments on a formula that is already on screen in three ways:
+
+1. Set `tex` without a duration. The formula regroups at once, with no visual
+   change. On `abc`, this makes three fragments:
+
+   ```tsx
+   tex().tex('{{a}}{{b}}{{c}}');
+   ```
+
+2. Call `replace` with a replacement whose `before` is equal to its `after`.
+   Only the matched part becomes a fragment of its own.
+3. Use an `edit` template. After the tween, the fragments are the pieces of the
+   template.
+
+A tween between two marked formulas moves the fragments that exist in both and
+fades the others. Going from `{{a}}{{b}}{{c}}` to `{{a}}{{x}}{{b}}{{y}}{{c}}`
+moves `a`, `b` and `c`, and fades in `x` and `y`.
+
 ### Tweening to specific nodes with `map`
 
-You can use the `map` method to tween specific sub-formulae to other specific
-sub-formulae.
+You can use the `map` method to tween specific fragments to other specific
+fragments. The indices count fragments, not glyphs. A formula with no marked
+parts has only the index 0. Use `debugFragments` to see the index of each
+fragment.
 
 ```tsx editor mode=preview
 import {Latex, makeScene2D, manimMorpher} from '@canvas-commons/2d';
@@ -257,11 +390,11 @@ export default makeScene2D(function* (view) {
   yield* tex().fill('rgba(255, 255, 255, 0.0)', 0.5);
 
   const pmatrixTex =
-    //         4          0       1          2       3         5
+    //       0            1       2          3       4
     '\\begin{pmatrix} {{a}} & {{b}} \\\\ {{c}} & {{d}} \\end{pmatrix}';
   // Mapping of original indices to target indices
-  // Split the plus into the matrix parenthesis, then map x -> a, y -> c, 2 -> b, 2 -> d
-  const pmatrixMap: number[][] = [[0], [1], [4, 5], [2], [3]];
+  // Turn the plus into the matrix parentheses, then map x -> a, 2 -> b, y -> c, 2 -> d
+  const pmatrixMap: number[][] = [[1], [2], [0], [3], [4]];
   yield* tex().map(pmatrixTex, pmatrixMap, 1);
 
   yield* tex().fill('white', 0.5);
@@ -300,11 +433,11 @@ export default makeScene2D(function* (view) {
   yield* tex().fill('rgba(255, 255, 255, 0.0)', 0.5);
 
   const pmatrixTex =
-    //         4          0       1          2       3         5
+    //       0            1       2          3       4
     '\\begin{pmatrix} {{a}} & {{b}} \\\\ {{c}} & {{d}} \\end{pmatrix}';
   // Mapping of original indices to target indices
-  // Split the plus into the matrix parenthesis, then map x -> a, y -> c, 2 -> b, 2 -> d
-  const pmatrixMap: number[][] = [[0], [1], [4, 5], [2], [3]];
+  // Turn the plus into the matrix parentheses, then map x -> a, 2 -> b, y -> c, 2 -> d
+  const pmatrixMap: number[][] = [[1], [2], [0], [3], [4]];
 
   yield* tex().map(pmatrixTex, pmatrixMap, 1);
 
@@ -339,11 +472,11 @@ export default makeScene2D(function* (view) {
   yield* tex.fill('rgba(255, 255, 255, 0.0)', 0.5);
 
   const pmatrixTex =
-    //         4          0       1          2       3         5
+    //       0            1       2          3       4
     '\\begin{pmatrix} {{a}} & {{b}} \\\\ {{c}} & {{d}} \\end{pmatrix}';
   // Mapping of original indices to target indices
-  // Split the plus into the matrix parenthesis, then map x -> a, y -> c, 2 -> b, 2 -> d
-  const pmatrixMap: number[][] = [[0], [1], [4, 5], [2], [3]];
+  // Turn the plus into the matrix parentheses, then map x -> a, 2 -> b, y -> c, 2 -> d
+  const pmatrixMap: number[][] = [[1], [2], [0], [3], [4]];
 
   yield* tex.map(pmatrixTex, pmatrixMap, 1);
 
@@ -364,15 +497,12 @@ fragment 0, and source fragment 1 to both target fragments 1 and 2.
 
 Above, the mapping reads:
 
-- Map `x` to `a` (first index `x` is mapped to first index `a`)
-- Map `2` to `b` (second index `2` is mapped to second index `b`)
-- Map `+` to `(` and `)` (third index `+` is mapped to fourth index `(` and
-  fifth index `)`)
-- Map `y` to `c` (fourth index `y` is mapped to third index `c`)
-- Map `2` to `d` (fifth index `2` is mapped to third index `d`)
-
-The order of the indices can be unpredictable, but should be consistent between
-the same formulae.
+- Map `x` to `a` (source fragment 0 to target fragment 1)
+- Map `2` to `b` (source fragment 1 to target fragment 2)
+- Map `+` to the parentheses (source fragment 2 to target fragment 0; both
+  parentheses of the matrix are one fragment)
+- Map `y` to `c` (source fragment 3 to target fragment 3)
+- Map `2` to `d` (source fragment 4 to target fragment 4)
 
 ## Common pitfalls
 

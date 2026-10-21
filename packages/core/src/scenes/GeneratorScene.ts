@@ -11,6 +11,7 @@ import {
 } from '../threading';
 import {Vector2} from '../types';
 import {endPlayback, endScene, startPlayback, startScene} from '../utils';
+import {yieldToEventLoop} from '../utils/yieldToEventLoop';
 import {LifecycleEvents} from './LifecycleEvents';
 import {Random} from './Random';
 import {
@@ -236,7 +237,7 @@ export abstract class GeneratorScene<T>
     cached.lastFrame = this.playback.frame;
     cached.duration = cached.lastFrame - cached.firstFrame;
     // Prevent the page from becoming unresponsive.
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await yieldToEventLoop();
     this.cached = true;
     this.cache.current = {...cached};
     this.recalculated.dispatch();

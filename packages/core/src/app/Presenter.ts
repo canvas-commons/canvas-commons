@@ -3,6 +3,7 @@ import type {Scene, Slide} from '../scenes';
 import {ReadOnlyTimeEvents} from '../scenes/timeEvents';
 import {Vector2} from '../types';
 import {Semaphore} from '../utils';
+import {FramePacer} from './FramePacer';
 import type {Logger} from './Logger';
 import {PlaybackManager, PlaybackState} from './PlaybackManager';
 import {PlaybackStatus} from './PlaybackStatus';
@@ -67,7 +68,7 @@ export class Presenter {
   private readonly logger: Logger;
   private readonly sharedWebGLContext: SharedWebGLContext;
   private abortController: AbortController | null = null;
-  private renderTime = 0;
+  private readonly pacer = new FramePacer();
   private requestId: number | null = null;
   private requestedResume = false;
   private requestedSlide:
@@ -248,8 +249,7 @@ export class Presenter {
 
     this.requestId ??= requestAnimationFrame(async time => {
       this.requestId = null;
-      if (time - this.renderTime >= 1000 / (this.status.fps + 5)) {
-        this.renderTime = time;
+      if (this.pacer.isDue(time, this.status.fps)) {
         try {
           await this.loop();
         } catch (e: any) {

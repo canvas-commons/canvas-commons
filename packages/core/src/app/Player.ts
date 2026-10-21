@@ -9,6 +9,7 @@ import {EditableTimeEvents} from '../scenes/timeEvents';
 import {clamp} from '../tweening';
 import {Vector2} from '../types';
 import {Semaphore} from '../utils';
+import {FramePacer} from './FramePacer';
 import {Logger} from './Logger';
 import {PlaybackManager, PlaybackState} from './PlaybackManager';
 import {PlaybackStatus} from './PlaybackStatus';
@@ -98,7 +99,7 @@ export class Player {
   private startTime = 0;
   private endTime = Infinity;
   private requestId: number | null = null;
-  private renderTime = 0;
+  private readonly pacer = new FramePacer();
   private requestedSeek = -1;
   private requestedRender = false;
   private requestedRecalculation = true;
@@ -520,8 +521,7 @@ export class Player {
 
     this.requestId ??= requestAnimationFrame(async time => {
       this.requestId = null;
-      if (time - this.renderTime >= 1000 / (this.status.fps + 5)) {
-        this.renderTime = time;
+      if (this.pacer.isDue(time, this.status.fps)) {
         await this.lock.acquire();
         try {
           await this.run();

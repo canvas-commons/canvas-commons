@@ -4,6 +4,7 @@ import {ReadOnlyTimeEvents} from '../scenes/timeEvents';
 import {clampRemap} from '../tweening';
 import {Vector2} from '../types';
 import {Semaphore} from '../utils';
+import {yieldToEventLoop} from '../utils/yieldToEventLoop';
 import type {Exporter} from './Exporter';
 import {PlaybackManager, PlaybackState} from './PlaybackManager';
 import {PlaybackStatus} from './PlaybackStatus';
@@ -237,9 +238,9 @@ export class Renderer {
           this.estimator.update(
             clampRemap(from, to, 0, 1, this.playback.frame),
           );
-          if (performance.now() - lastRefresh > 1 / 30) {
+          if (performance.now() - lastRefresh > 1000 / 30) {
             lastRefresh = performance.now();
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await yieldToEventLoop();
           }
           if (this.playback.finished || this.playback.frame >= to) {
             finished = true;

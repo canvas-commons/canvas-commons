@@ -67,12 +67,8 @@ import {
 import type {Scene2D} from '../scenes/Scene2D';
 import {useScene2D} from '../scenes/useScene2D';
 import {drawLine} from '../utils';
-import {
-  affectedLayouts,
-  invertPositions,
-  playInverted,
-  snapshotPositions,
-} from '../utils/layoutFlip';
+import {transitionTo} from './layout/transitionTo';
+import {BoxOffset, NoDelta, offsetBy, offsetTurn} from './layoutMotion';
 import type {ComponentChild, ComponentChildren, NodeConstructor} from './types';
 import type {View2D} from './View2D';
 
@@ -515,9 +511,10 @@ export class Node implements Promisable<Node> {
 
   @computed()
   protected sortedChildren(): Node[] {
-    return [...this.children()].sort((a, b) =>
-      Math.sign(a.zIndex() - b.zIndex()),
-    );
+    const flying = this.view2D?.flights.keys() ?? [];
+    return this.children()
+      .filter(child => !flying.includes(child))
+      .sort((a, b) => Math.sign(a.zIndex() - b.zIndex()));
   }
 
   protected view2D: View2D;
@@ -625,10 +622,23 @@ export class Node implements Promisable<Node> {
    */
   @computed()
   public localToParent(): DOMMatrix {
+    return this.poseMatrix(this.view2D?.boxOffsets.get(this));
+  }
+
+  /** Where this node is in its parent when no transition offsets it. */
+  protected settledPosition(): Vector2 {
+    return this.position();
+  }
+
+  /** The matrix of the transform signals and of what is left of `offsets`. */
+  protected poseMatrix(offsets: readonly BoxOffset[] = []): DOMMatrix {
+    const move = offsetBy(Vector2.zero, offsets, 'move');
+    const {rotation, scale} =
+      offsets.length > 0 ? offsetTurn(offsets) : NoDelta;
     const matrix = new DOMMatrix();
-    matrix.translateSelf(this.x(), this.y());
-    matrix.rotateSelf(0, 0, this.rotation());
-    matrix.scaleSelf(this.scale.x(), this.scale.y());
+    matrix.translateSelf(this.x() + move.x, this.y() + move.y);
+    matrix.rotateSelf(0, 0, this.rotation() + rotation);
+    matrix.scaleSelf(this.scale.x() * scale.x, this.scale.y() * scale.y);
     matrix.skewXSelf(this.skew.x());
     matrix.skewYSelf(this.skew.y());
 
@@ -996,8 +1006,14 @@ export class Node implements Promisable<Node> {
   }
 
   /**
-   * Move this node into a new parent while tweening its world position from
-   * the old slot to the new one. Old and new siblings reflow smoothly.
+   * Move this node into a new parent. The node goes from where it is drawn to
+   * where a plain insert puts it, above the scene, while the old and the new
+   * siblings reflow.
+   *
+   * @example
+   * ```tsx
+   * yield* card().transitionTo(panel(), 0, 0.6);
+   * ```
    *
    * @param newParent - The destination parent.
    * @param indexOrDuration - Slot index to insert at, or the duration when
@@ -1015,49 +1031,20 @@ export class Node implements Promisable<Node> {
     timing: TimingFunction = easeInOutCubic,
     interpolation: InterpolationFunction<Vector2> = Vector2.lerp,
   ): ThreadGenerator {
-    let index: number;
-    let duration: number;
-    let actualTiming: TimingFunction;
-    if (typeof durationOrTiming === 'number') {
-      index = indexOrDuration;
-      duration = durationOrTiming;
-      actualTiming = timing;
-    } else {
-      index = Infinity;
-      duration = indexOrDuration;
-      actualTiming = durationOrTiming ?? timing;
-    }
-
-    const oldParent = this.parent();
-    const startWorld = this.position.abs();
-
-    const siblings = (
-      oldParent
-        ? affectedLayouts(this, oldParent, newParent)
-        : affectedLayouts(this, newParent)
-    ).filter(n => n !== this);
-    const pre = snapshotPositions(siblings);
-
-    this.reparent(newParent);
-    if (Number.isFinite(index)) {
-      newParent.insert(this, index);
-    }
-
-    const targetWorld = this.position.abs();
-    this.position.abs(startWorld);
-    const post = snapshotPositions(siblings);
-    const inverted = invertPositions(pre, post);
-
-    yield* all(
-      this.position.abs(targetWorld, duration, actualTiming, interpolation),
-      playInverted(inverted, duration, actualTiming, interpolation),
+    yield* transitionTo(
+      this,
+      newParent,
+      indexOrDuration,
+      durationOrTiming,
+      timing,
+      interpolation,
     );
   }
 
   /**
-   * Cross-fade this node into another by tweening its world position toward
-   * the other's and fading opacity. Unlike {@link transitionTo}, the source
-   * and destination are different nodes that briefly coexist.
+   * Cross-fade this node into another by moving it to where the other is and
+   * fading opacity. The source and the destination are different nodes that
+   * briefly coexist; the source is removed at the end.
    */
   @threadable()
   public *morphTo(
@@ -1069,14 +1056,24 @@ export class Node implements Promisable<Node> {
     const otherStartOpacity = other.opacity();
     other.opacity(0);
 
-    const targetWorld = other.position.abs();
+    const left = createSignal(1);
+    const release = this.view().offsetNode(this, {
+      ...NoDelta,
+      move: other.position
+        .abs()
+        .transformAsPoint(this.worldToParent())
+        .sub(this.settledPosition()),
+      progress: left,
+      interpolation,
+    });
     try {
       yield* all(
-        this.position.abs(targetWorld, duration, timing, interpolation),
+        left(0, duration, timing),
         this.opacity(0, duration, timing),
         other.opacity(otherStartOpacity, duration, timing),
       );
     } finally {
+      release();
       this.remove();
     }
   }
@@ -1292,6 +1289,8 @@ export class Node implements Promisable<Node> {
       signal?.context.dispose();
     }
     disposeComputed(this);
+    this.view2D?.boxOffsets.delete(this);
+    this.view2D?.flights.delete(this);
     for (const child of this.realChildren) {
       child.dispose();
     }
@@ -1441,7 +1440,8 @@ export class Node implements Promisable<Node> {
   }
 
   private untrackedParent(): Node | null {
-    return this.parent.context.raw() as Node | null;
+    const raw = this.parent.context.raw();
+    return typeof raw === 'function' ? null : (raw ?? null);
   }
 
   private isSelfOrAncestor(node: Node): boolean {

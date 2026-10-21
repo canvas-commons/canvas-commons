@@ -362,11 +362,7 @@ export abstract class Curve extends Shape {
     return getPointAtDistance(this.profile(), this.percentageToDistance(value));
   }
 
-  protected override getComputedLayout(): BBox {
-    return this.offsetComputedLayout(super.getComputedLayout());
-  }
-
-  protected offsetComputedLayout(box: BBox): BBox {
+  protected override offsetComputedLayout(box: BBox): BBox {
     box.position = box.position.sub(this.childrenBBox().center);
     return box;
   }

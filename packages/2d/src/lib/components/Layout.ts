@@ -18,6 +18,7 @@ import {
   Vector2Signal,
   all,
   boolLerp,
+  createSignal,
   deepLerp,
   easeInOutCubic,
   modify,
@@ -62,12 +63,7 @@ import {
 import {buildCanvasFontString, resolveLineHeight} from '../text';
 import {drawLine, drawPivot, is} from '../utils';
 import {
-  affectedLayouts,
-  invertPositions,
-  playInverted,
-  snapshotPositions,
-} from '../utils/layoutFlip';
-import {
+  Edge,
   PositionType,
   createYogaNode,
   setYogaDimension,
@@ -82,7 +78,15 @@ import {
   type YogaNode,
 } from '../utils/yoga';
 import {ContentFloors} from './contentFloors';
-import {transitionTo as runTransitionTo} from './layout/transitionTo';
+import {
+  BoxDelta,
+  BoxOffset,
+  LayoutPin,
+  NoDelta,
+  boxDelta,
+  offsetBy,
+  turnDelta,
+} from './layoutMotion';
 import {Node, NodeProps} from './Node';
 import type {LayoutSettler, SettledBox} from './settledLayout';
 import {LayoutSettlers, SettledBoxes} from './settledLayout';
@@ -279,12 +283,66 @@ function sameBoxes(a: readonly SettledBox[], b: readonly SettledBox[]) {
   );
 }
 
+interface FlexBox {
+  readonly box: BBox;
+  readonly size: Vector2;
+  readonly offsets: readonly BoxOffset[] | undefined;
+  readonly presence: SimpleSignal<number> | undefined;
+  readonly pin: LayoutPin | undefined;
+}
+
+interface FreeMotion {
+  readonly offsets: readonly BoxOffset[] | undefined;
+  readonly presence: SimpleSignal<number> | undefined;
+}
+
+/** How a node is drawn before the mutation of a layout transition. */
+interface MotionStart {
+  readonly parent: Node | null;
+  readonly flex: boolean;
+  readonly box: BBox;
+  readonly parentToWorld: DOMMatrix | undefined;
+  readonly localToParent: DOMMatrix;
+}
+
+function depth(node: Node): number {
+  let count = 0;
+  for (let parent = node.parent(); parent; parent = parent.parent()) {
+    count++;
+  }
+  return count;
+}
+
 function isPercent(value: DesiredLength): value is `${number}%` {
   return typeof value === 'string' && value.endsWith('%');
 }
 
 function isRowDirection(direction: FlexDirection): boolean {
   return direction === 'row' || direction === 'row-reverse';
+}
+
+/** Where a child entering between `before` and `after` starts on the main axis. */
+function openingEdge(
+  before: BBox | undefined,
+  after: BBox | undefined,
+  center: number,
+  axis: 'x' | 'y',
+): number | null {
+  const span = (box: BBox): [number, number] =>
+    axis === 'x' ? [box.left, box.right] : [box.top, box.bottom];
+  if (before && after) {
+    const [beforeLow, beforeHigh] = span(before);
+    const [afterLow, afterHigh] = span(after);
+    return beforeLow <= afterLow
+      ? (beforeHigh + afterLow) / 2
+      : (afterHigh + beforeLow) / 2;
+  }
+  const neighbor = before ?? after;
+  if (!neighbor) {
+    return null;
+  }
+  const [low, high] = span(neighbor);
+  return center >= neighbor.center[axis] ? high : low;
 }
 
 @nodeName('Layout')
@@ -521,7 +579,7 @@ export class Layout extends Node {
     const lock = typeof width !== 'number' || typeof value !== 'number';
     let from: number;
     if (lock) {
-      from = this.size.x();
+      from = this.layoutSize().x;
     } else {
       from = width;
     }
@@ -529,7 +587,7 @@ export class Layout extends Node {
     let to: number;
     if (lock) {
       this.size.x(value);
-      to = this.size.x();
+      to = this.layoutSize().x;
     } else {
       to = value;
     }
@@ -562,7 +620,7 @@ export class Layout extends Node {
 
     let from: number;
     if (lock) {
-      from = this.size.y();
+      from = this.layoutSize().y;
     } else {
       from = height;
     }
@@ -570,7 +628,7 @@ export class Layout extends Node {
     let to: number;
     if (lock) {
       this.size.y(value);
-      to = this.size.y();
+      to = this.layoutSize().y;
     } else {
       to = value;
     }
@@ -609,7 +667,7 @@ export class Layout extends Node {
     const size = this.desiredSize();
     let from: Vector2;
     if (typeof size.x !== 'number' || typeof size.y !== 'number') {
-      from = this.size();
+      from = this.layoutSize();
     } else {
       from = new Vector2(<Vector2>size);
     }
@@ -623,7 +681,7 @@ export class Layout extends Node {
       to = new Vector2(<Vector2>value);
     } else {
       this.size(value);
-      to = this.size();
+      to = this.layoutSize();
     }
 
     this.size(from);
@@ -943,7 +1001,8 @@ export class Layout extends Node {
   }
 
   public override localToParent(): DOMMatrix {
-    const matrix = super.localToParent();
+    const {offsets, presence} = this.freeMotion() ?? this.flexBox();
+    const matrix = this.poseMatrix(offsets);
 
     const translate = this.translate();
     if (!translate.exactlyEquals(Vector2.zero)) {
@@ -954,6 +1013,10 @@ export class Layout extends Node {
     if (!offset.exactlyEquals(Vector2.zero)) {
       const anchorTranslate = this.size().mul(offset).scale(-0.5);
       matrix.translateSelf(anchorTranslate.x, anchorTranslate.y);
+    }
+
+    if (presence) {
+      matrix.scaleSelf(presence());
     }
 
     return matrix;
@@ -988,49 +1051,149 @@ export class Layout extends Node {
 
   protected getComputedLayout(): BBox {
     const layout = this.yogaNode.getComputedLayout();
-    return new BBox(layout.left, layout.top, layout.width, layout.height);
+    return this.offsetComputedLayout(
+      new BBox(layout.left, layout.top, layout.width, layout.height),
+    );
   }
 
-  @computed()
-  public computedPosition(): Vector2 {
-    this.requestLayoutUpdate();
-    const box = this.getComputedLayout();
+  /** Move the Yoga box to where the content of this node is. */
+  protected offsetComputedLayout(box: BBox): BBox {
+    return box;
+  }
 
+  /** The box flex gives this node, and its offsets in a layout transition. */
+  @computed()
+  private flexBox(): FlexBox {
+    const view = this.requestLayoutUpdate() ? this.view() : undefined;
+    const box = this.getComputedLayout();
+    const parent = view && this.parentTransform();
+    return {
+      box,
+      size: box.size,
+      offsets: view?.boxOffsets.get(this),
+      presence: view?.presences.get(this),
+      pin: parent ? view.pins.get(parent) : undefined,
+    };
+  }
+
+  private drawnSize(): Vector2 {
+    const {size, offsets} = this.flexBox();
+    return offsets && !this.heldSize() ? offsetBy(size, offsets, 'size') : size;
+  }
+
+  private drawnBox(): BBox {
+    const {box, offsets} = this.flexBox();
+    return offsets
+      ? new BBox(offsetBy(box.position, offsets, 'position'), this.drawnSize())
+      : box;
+  }
+
+  /** The size a frozen layout keeps, or `null` when flex sizes it. */
+  private heldSize(): Vector2 | null {
+    return this.view()?.pins.get(this)?.size ?? null;
+  }
+
+  /** The size `child` had when this layout froze, or `null` when flex sizes it. */
+  private frozenChildSize(child: Layout): Vector2 | null {
+    return this.view()?.pins.get(this)?.children?.get(child) ?? null;
+  }
+
+  /** The box of `node` that a layout transition offsets. */
+  private static motionBox(node: Node): BBox {
+    if (Layout.isFlexPlaced(node)) {
+      return node.drawnBox();
+    }
+    return new BBox(
+      offsetBy(node.position(), node.view().boxOffsets.get(node) ?? [], 'move'),
+      node instanceof Layout ? node.drawnSize() : Vector2.zero,
+    );
+  }
+
+  private static isFlexPlaced(node: Node): node is Layout {
+    return node instanceof Layout && !node.isLayoutRoot();
+  }
+
+  /** The transition of a node that flex does not place, or `null` when flex places it. */
+  @computed()
+  private freeMotion(): FreeMotion | null {
+    if (!this.isLayoutRoot()) {
+      return null;
+    }
+    const view = this.view();
+    return {
+      offsets: view?.boxOffsets.get(this),
+      presence: view?.presences.get(this),
+    };
+  }
+
+  /** The size flex gives this node, which a layout transition does not change. */
+  protected layoutSize(): Vector2 {
+    return this.flexBox().size;
+  }
+
+  /** The position of this node for its `box` in a parent of `parentSize`. */
+  private boxPosition(box: BBox, parentSize?: Vector2): Vector2 {
     const position = new Vector2(
       box.x + box.width / 2 + (box.width / 2) * this.anchor.x(),
       box.y + box.height / 2 + (box.height / 2) * this.anchor.y(),
     );
 
-    const parent = this.parentTransform();
-    if (parent) {
-      const parentBox = parent.getComputedLayout();
-      const parentLayout = parent.yogaNode.getComputedLayout();
-      position.x -= parentBox.x - parentLayout.left + parentBox.width / 2;
-      position.y -= parentBox.y - parentLayout.top + parentBox.height / 2;
+    if (parentSize) {
+      const shift = this.parentTransform()?.offsetComputedLayout(new BBox());
+      position.x -= (shift?.x ?? 0) + parentSize.width / 2;
+      position.y -= (shift?.y ?? 0) + parentSize.height / 2;
     }
 
     return position;
   }
 
+  protected override settledPosition(): Vector2 {
+    return this.isLayoutRoot()
+      ? this.position()
+      : this.boxPosition(
+          this.flexBox().box,
+          this.parentTransform()?.layoutSize(),
+        );
+  }
+
   @computed()
+  public computedPosition(): Vector2 {
+    const position = this.boxPosition(
+      this.drawnBox(),
+      this.parentTransform()?.drawnSize(),
+    );
+
+    const {pin} = this.flexBox();
+    if (pin) {
+      const manual = new Vector2(
+        this.x.context.getter(),
+        this.y.context.getter(),
+      );
+      return pin.interpolation(manual, position, 1 - pin.weight());
+    }
+
+    return position;
+  }
+
   protected computedSize(): Vector2 {
-    this.requestLayoutUpdate();
-    return this.getComputedLayout().size;
+    return this.drawnSize();
   }
 
   /**
    * Find the closest layout root and apply any new layout changes.
+   *
+   * @returns Whether a layout transition runs in the view.
    */
   @computed()
-  protected requestLayoutUpdate() {
+  protected requestLayoutUpdate(): boolean {
     const parent = this.parentTransform();
     if (this.isLayoutRoot()) {
       parent?.requestFontUpdate();
       const {width, height} = this.resolveLayoutConstraint();
       this.calculateRootLayout(width, height);
-    } else {
-      parent?.requestLayoutUpdate();
+      return this.view().layoutTransition();
     }
+    return parent?.requestLayoutUpdate() ?? false;
   }
 
   /**
@@ -1549,9 +1712,17 @@ export class Layout extends Node {
   protected applyFlex() {
     const node = this.yogaNode;
 
+    const view = this.view();
+    const exit = view?.exits.get(this);
+    const held = exit?.size ?? view?.pins.get(this)?.size;
+    const frozen = this.parentTransform()?.frozenChildSize(this) ?? null;
     node.setPositionType(
-      this.isLayoutRoot() ? PositionType.Absolute : PositionType.Relative,
+      exit || this.isLayoutRoot()
+        ? PositionType.Absolute
+        : PositionType.Relative,
     );
+    node.setPosition(Edge.Left, exit ? '50%' : undefined);
+    node.setPosition(Edge.Top, exit ? '50%' : undefined);
 
     const size = this.desiredSize();
     if (isPercent(size.x) || isPercent(size.y)) {
@@ -1559,8 +1730,16 @@ export class Layout extends Node {
       // parent is auto-sized, so this must re-run when the parent's size changes.
       this.parentTransform()?.desiredSize();
     }
-    setYogaDimension(node, 'setWidth', size.x);
-    setYogaDimension(node, 'setHeight', size.y);
+    setYogaDimension(
+      node,
+      'setWidth',
+      held ? held.x : frozen && size.x === null ? frozen.x : size.x,
+    );
+    setYogaDimension(
+      node,
+      'setHeight',
+      held ? held.y : frozen && size.y === null ? frozen.y : size.y,
+    );
     setYogaDimension(node, 'setMaxWidth', this.maxWidth());
     setYogaDimension(node, 'setMinWidth', this.resolvedMinWidth());
     setYogaDimension(node, 'setMaxHeight', this.maxHeight());
@@ -1572,10 +1751,10 @@ export class Layout extends Node {
     setYogaSpacing(
       node,
       'Margin',
-      this.margin.top(),
+      exit ? exit.y : this.margin.top(),
       this.margin.right(),
       this.margin.bottom(),
-      this.margin.left(),
+      exit ? exit.x : this.margin.left(),
     );
     setYogaSpacing(
       node,
@@ -1601,7 +1780,7 @@ export class Layout extends Node {
 
     setYogaGap(node, this.gap.x(), this.gap.y());
 
-    if (this.layoutLockCounter() > 0) {
+    if (this.layoutLockCounter() > 0 || frozen) {
       node.setFlexGrow(0);
       node.setFlexShrink(0);
     } else {
@@ -1717,78 +1896,40 @@ export class Layout extends Node {
     if (nodes.length === 0) {
       return;
     }
-    const layoutNodes: Layout[] = [];
-    for (const n of nodes) {
-      if (n instanceof Layout) layoutNodes.push(n);
-    }
-
-    if (layoutNodes.length !== nodes.length) {
+    const entering = nodes.filter(is(Layout));
+    if (entering.length !== nodes.length) {
       super.insert(nodes, index);
       return;
     }
 
-    const slots = layoutNodes.map(userNode => {
-      const natural = userNode.size();
-      const wrapper = new Layout({
-        layout: true,
-        width: natural.x,
-        height: natural.y,
-        scale: animate ? 1 : 0,
-      });
-      wrapper.add(userNode);
-      return {userNode, wrapper};
+    const {presences, exits} = this.view();
+    const records = entering.map(child => ({
+      child,
+      presence: createSignal(animate ? 1 : child.presence()),
+    }));
+
+    const motion = this.offsetLayout(this.motionScope(), () => {
+      super.insert(entering, index);
+      for (const {child, presence} of records) {
+        presences.set(child, presence);
+        exits.delete(child);
+      }
     });
-
-    const oldSize = new Vector2(this.size());
-    const flexChildren = this.applyLayout();
-    const preWorld = new Map<Layout, Vector2>();
-    for (const child of flexChildren) {
-      preWorld.set(child, child.position.abs());
-    }
-
-    slots.forEach((slot, i) => {
-      const insertIndex = Number.isFinite(index) ? index + i : Infinity;
-      this.insert(slot.wrapper, insertIndex);
-    });
-    this.requestLayoutUpdate();
-
-    const newSize = new Vector2(this.size());
-    const postWorld = new Map<Layout, Vector2>();
-    for (const child of flexChildren) {
-      postWorld.set(child, child.position.abs());
-    }
-
-    // Pin each wrapper at its flex-resolved position before freeze. Once
-    // `layoutChildren` is off, the wrappers become layout roots and `position`
-    // would otherwise fall back to the raw signal default.
-    for (const slot of slots) {
-      slot.wrapper.position.abs(slot.wrapper.position.abs());
-    }
-
-    const animationTasks = slots.map(slot =>
-      animate
-        ? animate(slot.userNode, duration, timing)
-        : slot.wrapper.scale(1, duration, timing),
-    );
 
     try {
-      yield* this.runFreezeThawTween(
-        flexChildren,
-        preWorld,
-        postWorld,
-        oldSize,
-        newSize,
-        duration,
-        timing,
-        Vector2.lerp,
-        animationTasks,
+      yield* all(
+        motion.progress(1, duration, timing),
+        ...records.map(({child, presence}) =>
+          animate
+            ? animate(child, duration, timing)
+            : presence(1, duration, timing),
+        ),
       );
     } finally {
-      for (const slot of slots) {
-        const wrapperIndex = this.children().indexOf(slot.wrapper);
-        if (wrapperIndex >= 0) {
-          this.insert(slot.userNode, wrapperIndex);
-          slot.wrapper.remove();
+      motion.release();
+      for (const {child, presence} of records) {
+        if (presences.get(child) === presence) {
+          presences.delete(child);
         }
       }
     }
@@ -1801,56 +1942,53 @@ export class Layout extends Node {
     timing: TimingFunction = easeInOutCubic,
     animate?: LayoutAnimateCallback,
   ): ThreadGenerator {
-    const oldSize = new Vector2(this.size());
-    const flexChildren = this.applyLayout().filter(c => c !== node);
-    const preWorld = new Map<Layout, Vector2>();
-    for (const child of flexChildren) {
-      preWorld.set(child, child.position.abs());
-    }
+    const {presences, exits} = this.view();
+    const presence = createSignal(node.presence());
+    const exit = node.flowBox();
 
-    const natural = node.size();
-    const removalIndex = this.children().indexOf(node);
-    const wrapper = new Layout({
-      layout: true,
-      width: natural.x,
-      height: natural.y,
+    const motion = this.offsetLayout(this.motionScope(), () => {
+      presences.set(node, presence);
+      if (exit) {
+        exits.set(node, exit);
+      }
     });
-    node.remove();
-    this.insert(wrapper, removalIndex);
-    wrapper.add(node);
-
-    // Pin at the flex-resolved position before pulling out of flex; otherwise
-    // `position` falls back to the raw signal default once `layoutSelf` is off.
-    wrapper.position.abs(wrapper.position.abs());
-    wrapper.layoutSelf(false);
-    this.requestLayoutUpdate();
-
-    const newSize = new Vector2(this.size());
-    const postWorld = new Map<Layout, Vector2>();
-    for (const child of flexChildren) {
-      postWorld.set(child, child.position.abs());
-    }
-
-    const animationTask = animate
-      ? animate(node, duration, timing)
-      : wrapper.scale(0, duration, timing);
 
     try {
-      yield* this.runFreezeThawTween(
-        flexChildren,
-        preWorld,
-        postWorld,
-        oldSize,
-        newSize,
-        duration,
-        timing,
-        Vector2.lerp,
-        [animationTask],
+      yield* all(
+        motion.progress(1, duration, timing),
+        animate
+          ? animate(node, duration, timing)
+          : presence(0, duration, timing),
       );
     } finally {
-      node.remove();
-      wrapper.remove();
+      motion.release();
+      if (presences.get(node) === presence) {
+        presences.delete(node);
+        exits.delete(node);
+        node.remove();
+      }
     }
+  }
+
+  /** The scale this node is drawn with as a child that enters or leaves. */
+  private presence(): number {
+    return this.view().presences.get(this)?.() ?? (this.parent() ? 1 : 0);
+  }
+
+  /** The Yoga box of this node from the center of the parent that places it. */
+  private flowBox(): BBox | null {
+    this.requestLayoutUpdate();
+    const parent = this.isLayoutRoot() ? null : this.yogaNode.getParent();
+    if (!parent) {
+      return null;
+    }
+    const box = this.yogaNode.getComputedLayout();
+    return new BBox(
+      box.left - parent.getComputedWidth() / 2,
+      box.top - parent.getComputedHeight() / 2,
+      box.width,
+      box.height,
+    );
   }
 
   /**
@@ -1873,106 +2011,176 @@ export class Layout extends Node {
     timing: TimingFunction = easeInOutCubic,
     interpolation: InterpolationFunction<Vector2> = Vector2.lerp,
   ): ThreadGenerator {
-    const flexChildren = this.applyLayout();
-    const preWorld = new Map<Layout, Vector2>();
-    for (const child of flexChildren) {
-      preWorld.set(child, child.position.abs());
-    }
-    const oldSize = new Vector2(this.size());
-
-    mutator(this);
-    this.requestLayoutUpdate();
-    const postWorld = new Map<Layout, Vector2>();
-    for (const child of flexChildren) {
-      postWorld.set(child, child.position.abs());
-    }
-    const newSize = new Vector2(this.size());
-
-    yield* this.runFreezeThawTween(
-      flexChildren,
-      preWorld,
-      postWorld,
-      oldSize,
-      newSize,
-      duration,
-      timing,
+    const motion = this.offsetLayout(
+      this.motionScope(),
+      () => mutator(this),
       interpolation,
     );
+    try {
+      yield* motion.progress(1, duration, timing);
+    } finally {
+      motion.release();
+    }
   }
 
-  @threadable()
-  protected *runFreezeThawTween(
-    flexChildren: Layout[],
-    preWorld: Map<Layout, Vector2>,
-    postWorld: Map<Layout, Vector2>,
-    oldSize: Vector2,
-    newSize: Vector2,
-    duration: number,
-    timing: TimingFunction,
-    interpolation: InterpolationFunction<Vector2>,
-    additionalTasks: ThreadGenerator[] = [],
-  ): ThreadGenerator {
-    for (const child of flexChildren) {
-      const pre = preWorld.get(child);
-      if (pre) child.position.abs(pre);
+  /** Offset each of `nodes` that `mutator` moves back to where it was drawn. @internal */
+  public offsetLayout(
+    nodes: Iterable<Node>,
+    mutator: () => void,
+    interpolation: InterpolationFunction<Vector2> = Vector2.lerp,
+  ): {progress: SimpleSignal<number>; release: () => void} {
+    const starts = new Map<Node, MotionStart>();
+    for (const node of nodes) {
+      const parent = node.parent();
+      starts.set(node, {
+        parent,
+        flex: Layout.isFlexPlaced(node),
+        box: Layout.motionBox(node),
+        parentToWorld: parent?.localToWorld(),
+        localToParent: node.localToParent(),
+      });
     }
-    const savedLayoutChildren = this.layoutChildren.context.raw();
-    const savedWidth = this.width.context.raw();
-    const savedHeight = this.height.context.raw();
-    this.layoutChildren(false);
-    this.lockLayout();
-    this.size(oldSize);
+    mutator();
 
-    try {
-      yield* all(
-        tween(duration, t => {
-          const progress = timing(t);
-          this.size(interpolation(oldSize, newSize, progress));
-          for (const child of flexChildren) {
-            const pre = preWorld.get(child);
-            const post = postWorld.get(child);
-            if (pre && post) {
-              child.position.abs(interpolation(pre, post, progress));
-            }
-          }
-        }),
-        ...additionalTasks,
-      );
-    } finally {
-      this.releaseLayout();
-      if (savedWidth === undefined) {
-        this.width.context.reset();
-      } else {
-        this.width.context.setter(savedWidth);
+    const deltas = new Map<Node, BoxDelta>();
+    const moved: Node[] = [];
+    for (const [node, start] of starts) {
+      const flex = Layout.isFlexPlaced(node);
+      if (node.parent() !== start.parent || flex !== start.flex) {
+        moved.push(node);
+        continue;
       }
-      if (savedHeight === undefined) {
-        this.height.context.reset();
-      } else {
-        this.height.context.setter(savedHeight);
-      }
-      if (savedLayoutChildren === undefined) {
-        this.layoutChildren.context.reset();
-      } else {
-        this.layoutChildren.context.setter(savedLayoutChildren);
+      const delta = boxDelta(start.box, Layout.motionBox(node));
+      if (delta) {
+        deltas.set(
+          node,
+          flex
+            ? {...NoDelta, ...delta}
+            : {...NoDelta, move: delta.position, size: delta.size},
+        );
       }
     }
+    for (const node of new Set([this, ...starts.keys()])) {
+      if (!(node instanceof Layout) || !node.canLayoutChildren()) {
+        continue;
+      }
+      const children = node.applyLayout();
+      const axis = isRowDirection(node.direction()) ? 'x' : 'y';
+      const drawn = (siblings: Layout[]) => {
+        const sibling = siblings.find(sibling => starts.has(sibling));
+        return sibling ? starts.get(sibling)?.box : undefined;
+      };
+      children.forEach((child, index) => {
+        if (starts.has(child)) {
+          return;
+        }
+        const box = Layout.motionBox(child);
+        const edge = openingEdge(
+          drawn(children.slice(0, index).reverse()),
+          drawn(children.slice(index + 1)),
+          box.center[axis],
+          axis,
+        );
+        if (edge !== null) {
+          const position = new Vector2();
+          position[axis] = edge - box.center[axis];
+          deltas.set(child, {...NoDelta, position});
+        }
+      });
+    }
+
+    const view = this.view();
+    const progress = createSignal(0);
+    const offset = (node: Node, delta: BoxDelta) =>
+      view.boxOffsets.push(node, {...delta, progress, interpolation});
+    for (const [node, delta] of deltas) {
+      offset(node, delta);
+    }
+
+    // A node with a new parent starts at its world pose. Its parent is offset
+    // first, because the node is measured in the drawn space of its parent.
+    for (const node of moved.sort((a, b) => depth(a) - depth(b))) {
+      const start = starts.get(node);
+      if (!start || !node.parent()) {
+        continue;
+      }
+      const from = node
+        .worldToParent()
+        .multiply(
+          start.parentToWorld?.multiply(start.localToParent) ??
+            start.localToParent,
+        );
+      offset(node, {
+        ...NoDelta,
+        ...turnDelta(from, node.localToParent()),
+        size:
+          node instanceof Layout
+            ? start.box.size.sub(node.drawnSize())
+            : Vector2.zero,
+      });
+      const to = node.localToParent();
+      offset(node, {
+        ...NoDelta,
+        move: new Vector2(from.e - to.e, from.f - to.f),
+      });
+    }
+
+    return {progress, release: () => view.boxOffsets.release(progress)};
+  }
+
+  /** The flex tree this layout is in. @internal */
+  public flexTree(): Layout[] {
+    const root = this.layoutRoot();
+    const nodes: Layout[] = [root];
+    root.walkFlexTree(child => nodes.push(child));
+    return nodes;
+  }
+
+  /** The nodes a transition of this layout can move: its flex tree and all nodes below it. */
+  private motionScope(): Node[] {
+    return [...this.flexTree(), ...this.findAll(() => true)];
+  }
+
+  private layoutRoot(): Layout {
+    return this.isLayoutRoot()
+      ? this
+      : (this.parentTransform()?.layoutRoot() ?? this);
   }
 
   /**
-   * Snap each laid-out child to its current visual position, then disable
-   * `layoutChildren`. Pair with {@link thawLayout} to bring children back
-   * under flex.
+   * Draw each laid-out child at its own position, which starts where the
+   * child is drawn now, and keep the size this node has now. Flex keeps the
+   * size of the children. Pair with {@link thawLayout} to move the children
+   * back to their slots.
+   *
+   * @example
+   * ```tsx
+   * row().freezeLayout();
+   * yield* child().position([0, -200], 1);
+   * yield* row().thawLayout(1);
+   * ```
    */
   public freezeLayout(): void {
-    for (const child of this.applyLayout()) {
-      child.position(child.computedPosition());
+    if (!this.canLayoutChildren()) {
+      return;
     }
-    this.layoutChildren(false);
+    const size = this.drawnSize();
+    const children = new Map<Layout, Vector2>();
+    for (const child of this.applyLayout()) {
+      child.position(child.position());
+      children.set(child, child.size());
+    }
+    this.view().pins.set(this, {
+      weight: createSignal(1),
+      interpolation: Vector2.lerp,
+      size,
+      children,
+    });
   }
 
   /**
-   * Re-enable `layoutChildren` and animate each child from its manual
-   * position to wherever the flex layout now places it.
+   * Move each child from its own position to the slot flex gives it, and this
+   * node from its frozen size to the size flex gives it.
    */
   @threadable()
   public *thawLayout(
@@ -1980,41 +2188,39 @@ export class Layout extends Node {
     timing: TimingFunction = easeInOutCubic,
     interpolation: InterpolationFunction<Vector2> = Vector2.lerp,
   ): ThreadGenerator {
-    const children = this.applyLayout();
-    const pre = snapshotPositions(children);
-    this.layoutChildren(true);
-    this.requestLayoutUpdate();
-    const post = snapshotPositions(children);
-    const inverted = invertPositions(pre, post);
-    yield* playInverted(inverted, duration, timing, interpolation);
-  }
-
-  /**
-   * Move this Layout into a new parent, smoothly shrinking the slot in
-   * the old parent and growing the slot in the new parent.
-   */
-  @threadable()
-  public override *transitionTo(
-    newParent: Node,
-    indexOrDuration: number,
-    durationOrTiming?: number | TimingFunction,
-    timing: TimingFunction = easeInOutCubic,
-    interpolation: InterpolationFunction<Vector2> = Vector2.lerp,
-  ): ThreadGenerator {
-    yield* runTransitionTo(
-      this,
-      newParent,
-      indexOrDuration,
-      durationOrTiming,
-      timing,
+    const {pins} = this.view();
+    const frozen = pins.get(this);
+    if (!frozen) {
+      return;
+    }
+    const pin = {
+      weight: frozen.weight,
+      interpolation,
+      size: null,
+      children: null,
+    };
+    const motion = this.offsetLayout(
+      this.motionScope(),
+      () => pins.set(this, pin),
       interpolation,
     );
+    try {
+      yield* all(
+        motion.progress(1, duration, timing),
+        pin.weight(0, duration, timing),
+      );
+    } finally {
+      motion.release();
+      if (pins.get(this) === pin) {
+        pins.delete(this);
+      }
+    }
   }
 
   /**
-   * Cross-fade this Layout into another node. Detaches from the parent's
-   * flex layout for the duration of the tween so the slot collapses
-   * immediately and siblings glide via FLIP.
+   * Cross-fade this Layout into another node. The Layout leaves the flex
+   * layout of its parent at once: its siblings move to their new slots while
+   * it moves to the other node.
    */
   @threadable()
   public override *morphTo(
@@ -2023,30 +2229,22 @@ export class Layout extends Node {
     timing: TimingFunction = easeInOutCubic,
     interpolation: InterpolationFunction<Vector2> = Vector2.lerp,
   ): ThreadGenerator {
-    const startWorld = this.position.abs();
-    const siblings = affectedLayouts(this).filter(n => n !== this);
-    const pre = snapshotPositions(siblings);
-
-    const savedLayoutSelf = this.layoutSelf.context.raw();
-    this.layoutSelf(false);
-    if (this.parent()) {
-      this.position.abs(startWorld);
-    }
-
-    const post = snapshotPositions(siblings);
-    const inverted = invertPositions(pre, post);
+    const {exits} = this.view();
+    const exit = this.flowBox();
+    const motion = this.offsetLayout(
+      this.flexTree(),
+      () => exit && exits.set(this, exit),
+      interpolation,
+    );
 
     try {
       yield* all(
+        motion.progress(1, duration, timing),
         super.morphTo(other, duration, timing, interpolation),
-        playInverted(inverted, duration, timing, interpolation),
       );
     } finally {
-      if (savedLayoutSelf === undefined) {
-        this.layoutSelf.context.reset();
-      } else {
-        this.layoutSelf.context.setter(savedLayoutSelf);
-      }
+      motion.release();
+      exits.delete(this);
     }
   }
 
@@ -2055,6 +2253,9 @@ export class Layout extends Node {
       return;
     }
     super.dispose();
+    this.view()?.presences.delete(this);
+    this.view()?.exits.delete(this);
+    this.view()?.pins.delete(this);
     this.layoutLockCounter?.context.dispose();
     if (this.yogaNode) {
       this.yogaNode.free();

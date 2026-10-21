@@ -1,4 +1,4 @@
-import {Vector2, createRef, waitFor} from '@canvas-commons/core';
+import {Vector2, createRef, linear, waitFor} from '@canvas-commons/core';
 import {describe, expect, it} from 'vitest';
 import {useScene2D} from '../../scenes';
 import {Layout} from '../Layout';
@@ -578,6 +578,28 @@ describe('Layout', () => {
       child().releaseLayout();
       expect(child().size().x).toBe(300);
     });
+
+    it(
+      'keeps the drawn size of a layout frozen during an edit',
+      generatorTest(function* () {
+        const row = (
+          <Layout layout={true} direction="row">
+            <Rect layout={true} width={100} height={50} />
+            <Rect layout={true} width={100} height={50} />
+          </Layout>
+        ) as Layout;
+        useScene2D().getView().add(row);
+
+        yield row.editLayout(1, node => node.gap(100), linear);
+        yield* waitFor(0.5);
+        row.freezeLayout();
+        const frozen = row.size();
+        yield* waitFor(0.2);
+        expect(row.size()).toEqual(frozen);
+        yield* waitFor(0.5);
+        expect(row.size()).toEqual(frozen);
+      }),
+    );
 
     it(
       'padding tween holds a growing node in place for its full duration',

@@ -22,3 +22,23 @@ const height = node.absoluteScale().y * node.height();
 // 0.5.0
 const height = Math.abs(node.absoluteScale().y) * node.height();
 ```
+
+### `freezeLayout` keeps flex on
+
+0.4.0: `freezeLayout` turns `layoutChildren` off. 0.5.0: it keeps flex on. The
+children are pinned at their drawn positions, and the layout keeps the size it
+has at freeze time until `thawLayout`. Do not set `layoutChildren` back after a
+`thawLayout`.
+
+### `Layout.runFreezeThawTween` is removed
+
+0.4.0: a subclass of `Layout` can call the protected `runFreezeThawTween`.
+0.5.0: the method does not exist. Use `editLayout` to animate a change of layout
+properties, or `freezeLayout` and `thawLayout` to move children by hand:
+
+```ts
+// 0.4.0
+yield * this.runFreezeThawTween(children, before, after, oldSize, newSize, 1);
+// 0.5.0
+yield * layout.editLayout(1, node => node.direction('column'));
+```

@@ -45,7 +45,7 @@
   "dependencies": {
     "@canvas-commons/core": "workspace:^",
     "@canvas-commons/vite-plugin": "workspace:^",
-    "mediabunny": "^1.58.0"
+    "mediabunny": "^1.61.4"
   },
   "devDependencies": {
     "vitest": "catalog:"

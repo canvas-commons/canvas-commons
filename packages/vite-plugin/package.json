@@ -43,8 +43,8 @@
   },
   "dependencies": {
     "fast-glob": "^3.3.3",
-    "follow-redirects": "^1.16.0",
+    "follow-redirects": "^1.16.1",
     "mime-types": "^3.0.2",
-    "source-map": "^0.6.1"
+    "source-map": "^0.8.0"
   }
 }

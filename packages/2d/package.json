@@ -70,12 +70,12 @@
   "dependencies": {
     "@canvas-commons/core": "workspace:^",
     "@chenglou/pretext": "0.0.9",
-    "@codemirror/language": "^6.12.4",
-    "@lezer/common": "^1.5.2",
-    "@lezer/highlight": "^1.2.3",
+    "@codemirror/language": "^6.13.1",
+    "@lezer/common": "^1.5.3",
+    "@lezer/highlight": "^1.2.5",
     "escape-string-regexp": "^5.0.0",
     "mathjax-full": "^3.2.2",
-    "parse-svg-path": "^0.1.2",
+    "parse-svg-path": "^0.2.0",
     "roughjs": "^4.6.6",
     "yoga-layout": "^3.2.1"
   }

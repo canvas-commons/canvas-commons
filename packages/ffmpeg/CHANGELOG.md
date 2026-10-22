@@ -1,5 +1,13 @@
 # Change Log
 
+## 0.4.1
+
+### Patch Changes
+
+- Updated dependencies [[`a1b99ed`](https://github.com/canvas-commons/canvas-commons/commit/a1b99ed4bd63e043a5e49a4371ec0320235aedc3), [`84d8766`](https://github.com/canvas-commons/canvas-commons/commit/84d876600a774547d5bf4765f1909a3c15e2b0fa), [`84d8766`](https://github.com/canvas-commons/canvas-commons/commit/84d876600a774547d5bf4765f1909a3c15e2b0fa), [`f98d448`](https://github.com/canvas-commons/canvas-commons/commit/f98d448e10be2ad2f4f9187852b83a51f14b141f), [`a1b99ed`](https://github.com/canvas-commons/canvas-commons/commit/a1b99ed4bd63e043a5e49a4371ec0320235aedc3)]:
+  - @canvas-commons/core@0.4.1
+  - @canvas-commons/vite-plugin@0.4.1
+
 ## 0.4.0
 
 ### Patch Changes

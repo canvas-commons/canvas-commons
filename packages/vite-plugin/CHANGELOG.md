@@ -1,5 +1,11 @@
 # Change Log
 
+## 0.4.1
+
+### Patch Changes
+
+- [#241](https://github.com/canvas-commons/canvas-commons/pull/241) [`f98d448`](https://github.com/canvas-commons/canvas-commons/commit/f98d448e10be2ad2f4f9187852b83a51f14b141f) Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Write JPEG frames exported from the editor with the `.jpg` extension.
+
 ## 0.4.0
 
 ### Patch Changes

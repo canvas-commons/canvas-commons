@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.4.1
+
+### Patch Changes
+
+- [#241](https://github.com/canvas-commons/canvas-commons/pull/241) [`3ffde62`](https://github.com/canvas-commons/canvas-commons/commit/3ffde628b5cdfaec3e7f0b238a732de8422632b0) Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Color the CLI output with Node's built-in `util.styleText`. The CLI requires
+  Node 20.12, or 21.7 or newer.
+
 ## 0.4.0
 
 ### Patch Changes

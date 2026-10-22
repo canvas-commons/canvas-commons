@@ -1,5 +1,21 @@
 # Change Log
 
+## 0.4.1
+
+### Patch Changes
+
+- [#237](https://github.com/canvas-commons/canvas-commons/pull/237) [`a1b99ed`](https://github.com/canvas-commons/canvas-commons/commit/a1b99ed4bd63e043a5e49a4371ec0320235aedc3) Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Run the `finally` blocks of all descendant tasks when a task is canceled. A
+  yield in a `finally` block is skipped with a warning.
+
+- [#237](https://github.com/canvas-commons/canvas-commons/pull/237) [`84d8766`](https://github.com/canvas-commons/canvas-commons/commit/84d876600a774547d5bf4765f1909a3c15e2b0fa) Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add `createMotionStack`, a signal map of motion entries. A progress signal
+  releases the entries it owns.
+
+- [#237](https://github.com/canvas-commons/canvas-commons/pull/237) [`84d8766`](https://github.com/canvas-commons/canvas-commons/commit/84d876600a774547d5bf4765f1909a3c15e2b0fa) Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Add `createSignalMap`, a reactive map whose entries and keys are signals.
+
+- [#237](https://github.com/canvas-commons/canvas-commons/pull/237) [`a1b99ed`](https://github.com/canvas-commons/canvas-commons/commit/a1b99ed4bd63e043a5e49a4371ec0320235aedc3) Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Fix `cancel()` and `join()` ignoring tasks from `spawn()` when called from a
+  nested thread or on the same frame, `any()` without tasks never ending, and
+  `join(false, ...)` waiting for a finished task.
+
 ## 0.4.0
 
 ### Minor Changes

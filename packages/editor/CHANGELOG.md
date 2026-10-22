@@ -1,5 +1,18 @@
 # Change Log
 
+## 0.4.1
+
+### Patch Changes
+
+- [#241](https://github.com/canvas-commons/canvas-commons/pull/241) [`c363d2e`](https://github.com/canvas-commons/canvas-commons/commit/c363d2eef645d0ab878485fb7a0952428eae17d5) Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Upgrade `@preact/signals` to v2. `useSignalEffect` callbacks re-run on the next
+  animation frame, and signal-to-DOM bindings in JSX update after the Preact
+  render pass. An editor plugin that reads the DOM or subscribes to an event right
+  after it writes a signal must wait a frame.
+
+- [#229](https://github.com/canvas-commons/canvas-commons/pull/229) [`cbdf198`](https://github.com/canvas-commons/canvas-commons/commit/cbdf1987acfc44acd4b12c0c25358f3a5b44f31c) Thanks [@icholy](https://github.com/icholy)! - Clicking or dragging the timeline scrollbar no longer seeks the playhead.
+- Updated dependencies [[`a1b99ed`](https://github.com/canvas-commons/canvas-commons/commit/a1b99ed4bd63e043a5e49a4371ec0320235aedc3), [`84d8766`](https://github.com/canvas-commons/canvas-commons/commit/84d876600a774547d5bf4765f1909a3c15e2b0fa), [`84d8766`](https://github.com/canvas-commons/canvas-commons/commit/84d876600a774547d5bf4765f1909a3c15e2b0fa), [`a1b99ed`](https://github.com/canvas-commons/canvas-commons/commit/a1b99ed4bd63e043a5e49a4371ec0320235aedc3)]:
+  - @canvas-commons/core@0.4.1
+
 ## 0.4.0
 
 ### Minor Changes

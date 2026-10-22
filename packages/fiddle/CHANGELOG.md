@@ -1,5 +1,15 @@
 # @canvas-commons/fiddle
 
+## 0.4.1
+
+### Patch Changes
+
+- [#217](https://github.com/canvas-commons/canvas-commons/pull/217) [`2da1d4a`](https://github.com/canvas-commons/canvas-commons/commit/2da1d4ac3c5ef081b5f0142e77d551e2ec609a54) Thanks [@hhenrichsen](https://github.com/hhenrichsen)! - Embed Roboto, the scene default font, in the preview frame so previews match the
+  editor.
+- Updated dependencies [[`a1b99ed`](https://github.com/canvas-commons/canvas-commons/commit/a1b99ed4bd63e043a5e49a4371ec0320235aedc3), [`84d8766`](https://github.com/canvas-commons/canvas-commons/commit/84d876600a774547d5bf4765f1909a3c15e2b0fa), [`84d8766`](https://github.com/canvas-commons/canvas-commons/commit/84d876600a774547d5bf4765f1909a3c15e2b0fa), [`1827684`](https://github.com/canvas-commons/canvas-commons/commit/1827684e3033ac7756f602fe999b6ba837c3e825), [`11ab6a6`](https://github.com/canvas-commons/canvas-commons/commit/11ab6a631044e87e0c69a7762f5e62dd9a01e3e6), [`c363d2e`](https://github.com/canvas-commons/canvas-commons/commit/c363d2eef645d0ab878485fb7a0952428eae17d5), [`a1b99ed`](https://github.com/canvas-commons/canvas-commons/commit/a1b99ed4bd63e043a5e49a4371ec0320235aedc3)]:
+  - @canvas-commons/core@0.4.1
+  - @canvas-commons/2d@0.4.1
+
 ## 0.4.0
 
 ### Minor Changes

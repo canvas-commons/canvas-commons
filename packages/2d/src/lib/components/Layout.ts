@@ -279,6 +279,10 @@ function sameBoxes(a: readonly SettledBox[], b: readonly SettledBox[]) {
   );
 }
 
+function isPercent(value: DesiredLength): value is `${number}%` {
+  return typeof value === 'string' && value.endsWith('%');
+}
+
 function isRowDirection(direction: FlexDirection): boolean {
   return direction === 'row' || direction === 'row-reverse';
 }
@@ -857,6 +861,7 @@ export class Layout extends Node {
   declare public readonly clip: SimpleSignal<boolean, this>;
 
   declare public yogaNode: YogaNode;
+  private yogaConstraint: {width?: number; height?: number} | null = null;
 
   @initial(0)
   @signal()
@@ -1040,7 +1045,7 @@ export class Layout extends Node {
     const settling = this.settlingTree();
     if (settling) this.unsettle(settling);
     this.updateLayout();
-    this.yogaNode.calculateLayout(width, height);
+    this.calculateYoga(width, height);
     const aspectRatioConstraint = this.resolveAspectRatioConstraint(
       width,
       height,
@@ -1048,12 +1053,26 @@ export class Layout extends Node {
     if (aspectRatioConstraint) {
       width = aspectRatioConstraint.width;
       height = aspectRatioConstraint.height;
-      this.yogaNode.calculateLayout(width, height);
+      this.calculateYoga(width, height);
     }
     if (this.resolvePercentageDimensions()) {
-      this.yogaNode.calculateLayout(width, height);
+      this.calculateYoga(width, height);
     }
     if (settling) this.settle(settling, width, height);
+  }
+
+  private calculateYoga(width: number | undefined, height: number | undefined) {
+    const last = this.yogaConstraint;
+    if (
+      last &&
+      !this.yogaNode.isDirty() &&
+      last.width === width &&
+      last.height === height
+    ) {
+      return;
+    }
+    this.yogaConstraint = {width, height};
+    this.yogaNode.calculateLayout(width, height);
   }
 
   private settlingTree(): SettlingTree | null {
@@ -1107,13 +1126,13 @@ export class Layout extends Node {
           if (better(i, chosen)) chosen = i;
         }
         if (this.readBoxes(nodes, settlers, cycle[chosen])) {
-          this.yogaNode.calculateLayout(width, height);
+          this.calculateYoga(width, height);
         }
         return;
       }
       seen.push(boxes);
       if (!this.readBoxes(nodes, settlers, boxes)) return;
-      this.yogaNode.calculateLayout(width, height);
+      this.calculateYoga(width, height);
     }
   }
 
@@ -1182,7 +1201,7 @@ export class Layout extends Node {
     axis: 'width' | 'height',
   ): number | undefined {
     if (typeof value === 'number') return value;
-    if (typeof value !== 'string' || !value.endsWith('%')) return undefined;
+    if (!isPercent(value)) return undefined;
 
     let basis = this.parentTransform();
     while (basis && !basis.sizesPercentChildren(axis)) {
@@ -1209,7 +1228,7 @@ export class Layout extends Node {
       const size = child.desiredSize();
       const parentLayout = parent.yogaNode.getComputedLayout();
 
-      if (typeof size.x === 'string' && size.x.endsWith('%')) {
+      if (isPercent(size.x)) {
         const parentDesired = parent.desiredSize();
         if (parentDesired.x === null) {
           const percent = parseFloat(size.x);
@@ -1218,7 +1237,7 @@ export class Layout extends Node {
         }
       }
 
-      if (typeof size.y === 'string' && size.y.endsWith('%')) {
+      if (isPercent(size.y)) {
         const parentDesired = parent.desiredSize();
         if (parentDesired.y === null) {
           const percent = parseFloat(size.y);
@@ -1535,6 +1554,11 @@ export class Layout extends Node {
     );
 
     const size = this.desiredSize();
+    if (isPercent(size.x) || isPercent(size.y)) {
+      // resolvePercentageDimensions writes pixels over a percent while the
+      // parent is auto-sized, so this must re-run when the parent's size changes.
+      this.parentTransform()?.desiredSize();
+    }
     setYogaDimension(node, 'setWidth', size.x);
     setYogaDimension(node, 'setHeight', size.y);
     setYogaDimension(node, 'setMaxWidth', this.maxWidth());
@@ -1689,14 +1713,17 @@ export class Layout extends Node {
     timing: TimingFunction = easeInOutCubic,
     animate?: LayoutAnimateCallback,
   ): ThreadGenerator {
-    const nodes = Array.isArray(node) ? node : [node];
+    const nodes = this.withoutCircular(Array.isArray(node) ? node : [node]);
+    if (nodes.length === 0) {
+      return;
+    }
     const layoutNodes: Layout[] = [];
     for (const n of nodes) {
       if (n instanceof Layout) layoutNodes.push(n);
     }
 
     if (layoutNodes.length !== nodes.length) {
-      super.insert(node, index);
+      super.insert(nodes, index);
       return;
     }
 

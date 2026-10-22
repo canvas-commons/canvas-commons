@@ -63,7 +63,7 @@
     "geometry-polyfill": "^1.0.7",
     "jsdom": "catalog:",
     "preact": "catalog:",
-    "sass": "^1.104.1",
+    "sass": "^1.105.1",
     "vite": "catalog:",
     "vitest": "catalog:"
   },

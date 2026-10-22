@@ -51,9 +51,9 @@
     "@preact/preset-vite": "^2.10.6",
     "@types/node": "catalog:",
     "clsx": "catalog:",
-    "sass": "^1.104.1",
-    "source-map-js": "^1.2.1",
+    "sass": "^1.105.1",
+    "source-map-js": "^1.2.2",
     "vite": "catalog:",
-    "vite-plugin-dts": "^5.1.1"
+    "vite-plugin-dts": "^5.1.2"
   }
 }

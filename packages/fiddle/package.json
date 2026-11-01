@@ -101,7 +101,7 @@
     "typescript": "^6.0.2"
   },
   "devDependencies": {
-    "@babel/types": "^8.0.6",
+    "@babel/types": "^8.0.8",
     "@types/node": "catalog:",
     "jsdom": "catalog:",
     "vite": "catalog:",

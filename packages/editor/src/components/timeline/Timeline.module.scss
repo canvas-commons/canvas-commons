@@ -344,7 +344,14 @@
     outline: 2px solid var(--surface-color-hover);
     outline-offset: -2px;
 
-    &:hover {
+    // long labels obstruct the waveform clips, so they only appear while hovered
+    .audioLabel {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    &:hover,
+    &:focus-visible {
       z-index: 1;
       outline-color: var(--surface-color-light);
       background-color: #242424aa;
@@ -354,6 +361,8 @@
       }
 
       .audioLabel {
+        opacity: 1;
+        pointer-events: auto;
         background-color: var(--surface-color-light);
       }
     }

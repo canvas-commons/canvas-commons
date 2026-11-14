@@ -422,6 +422,10 @@ export class Player {
       state.seek = this.startFrame;
     }
 
+    // scene media read the audio state through the playback
+    this.playback.muted = state.muted;
+    this.playback.volume = state.volume;
+
     // Pause / play sounds.
     this.audioPool.prepare(this.status.time);
     await this.audioPool.setPaused(state.paused || this.finished);

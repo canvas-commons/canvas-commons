@@ -47,6 +47,8 @@ export class PlaybackManager {
   public fps = 30;
   public duration = 0;
   public finished = false;
+  public muted = false;
+  public volume = 1;
   public slides: Slide[] = [];
 
   public previousScene: Scene | null = null;

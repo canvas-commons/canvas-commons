@@ -22,7 +22,7 @@ import {View2D} from '../View2D';
  * Should be called inside a `describe()` block.
  * Due to js-dom limitations, layouts are not correctly computed.
  */
-export function mockScene2D() {
+export function mockScene2D(): PlaybackManager {
   const playback = new PlaybackManager();
   const status = new PlaybackStatus(playback);
   const description = {
@@ -47,4 +47,6 @@ export function mockScene2D() {
     endScene(scene);
   });
   beforeEach(() => scene.reset());
+
+  return playback;
 }

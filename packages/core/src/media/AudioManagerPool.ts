@@ -1,101 +1,190 @@
-import {Logger} from '../app';
-import {Sound} from '../scenes';
+import type {Logger} from '../app';
+import type {Sound} from '../scenes';
+import {AudioClock} from './AudioClock';
+import type {AudioEngine} from './AudioEngine';
 import {AudioManager} from './AudioManager';
 import {AudioResourceManager} from './AudioResourceManager';
+import {planLane} from './planLane';
 
-export class AudioManagerPool {
-  private readonly context = new AudioContext();
+// a lane scheduled ahead of the playhead keeps its start time during main thread stalls
+const LOOKAHEAD_SECONDS = 1;
+const FADE_SECONDS = 0.004;
 
-  private pool: AudioManager[] = [];
-  private managers: Map<Sound, AudioManager> = new Map();
+export class AudioManagerPool implements AudioEngine {
+  public readonly context: AudioContext;
+  public readonly clock: AudioClock;
+  public readonly resources: AudioResourceManager;
+  public readonly masterGain: GainNode;
+  public readonly voiceover: AudioManager;
+  public volume: number = 1;
+  public muted: boolean = true;
+  public paused: boolean = true;
+
+  private readonly logger: Logger;
+  private readonly owners = new Map<Sound, AudioManager>();
+  private spare: AudioManager[] = [];
   private sounds: Sound[] = [];
 
-  private muted: boolean = true;
-  private volume: number = 1;
-  private paused: boolean = true;
+  public constructor(logger: Logger, resources?: AudioResourceManager) {
+    this.logger = logger;
+    this.context = resources?.context ?? new AudioContext();
+    this.resources =
+      resources ?? new AudioResourceManager(logger, this.context);
+    this.clock = new AudioClock({
+      kind: () => (this.context.state === 'running' ? 'device' : 'wall'),
+      now: () =>
+        this.context.state === 'running'
+          ? this.context.currentTime
+          : performance.now() / 1000,
+    });
+    this.masterGain = this.context.createGain();
+    this.masterGain.connect(this.context.destination);
+    this.voiceover = this.spawn();
+  }
 
-  public constructor(
-    private readonly logger: Logger,
-    private readonly audioResources: AudioResourceManager,
-  ) {}
-
-  public async setupPool(sounds: Sound[]) {
-    for (const manager of this.pool) {
+  public setupPool(sounds: Sound[]): void {
+    for (const manager of this.spare) {
       manager.dispose();
     }
-    this.pool = [];
-    for (const manager of this.managers.values()) {
+    this.spare = [];
+    for (const manager of this.owners.values()) {
       manager.dispose();
     }
-    this.managers.clear();
+    this.owners.clear();
     this.sounds = sounds;
   }
 
-  public setMuted(muted: boolean) {
-    this.muted = muted;
-    this.managers.forEach(manager => manager.setMuted(muted));
+  public spawn(sound?: Sound): AudioManager {
+    return new AudioManager(this, sound);
   }
 
-  public setVolume(volume: number) {
-    this.volume = volume;
-    this.managers.forEach(manager => manager.setVolume(volume));
-  }
+  public prepare(time: number, paused = false): void {
+    if (paused) {
+      return;
+    }
 
-  public setTime(time: number) {
-    this.managers.forEach(manager => manager.setTime(time));
-  }
-
-  public async setPaused(paused: boolean) {
-    this.paused = paused;
-    await Promise.all(
-      Array.from(this.managers.values()).map(manager =>
-        manager.setPaused(paused),
-      ),
-    );
-  }
-
-  private isInRange(sound: Sound, time: number) {
-    const duration = this.audioResources.peekDuration(sound.audio);
-    const audioStart = sound.start ?? 0;
-    const audioEnd = Math.min(duration, sound.end ?? Infinity);
-    const audioDuration = (audioEnd - audioStart) / sound.realPlaybackRate;
-
-    return time >= sound.offset && time < sound.offset + audioDuration;
-  }
-
-  public prepare(time: number) {
     for (const sound of this.sounds) {
-      if (this.isInRange(sound, time)) {
-        let manager = this.managers.get(sound);
-        if (manager) continue;
-
-        // sound is starting
-        manager = this.pool.pop() ?? this.spawn();
+      let manager = this.owners.get(sound);
+      if (!manager) {
+        manager = this.spare.pop() ?? this.spawn(sound);
         manager.setSound(sound);
-        manager.setMuted(this.muted);
-        manager.setVolume(this.volume);
-        manager.setTime(time);
-        manager.setPaused(this.paused);
-        this.managers.set(sound, manager);
-      } else {
-        const manager = this.managers.get(sound);
-        if (!manager) continue;
-
-        // sound has ended
-        manager.setPaused(true);
-        this.pool.push(manager);
-        this.managers.delete(sound);
+        this.owners.set(sound, manager);
+      }
+      if (!this.plan(manager, time)) {
+        this.owners.delete(sound);
+        this.spare.push(manager);
       }
     }
+
+    this.plan(this.voiceover, time);
   }
 
-  public spawn() {
-    return new AudioManager(this.logger, this.context);
+  // the only place a seek belongs, so it is a user action and never drift correction
+  public setTime(time: number): void {
+    this.anchor(time);
   }
 
-  public resume() {
-    if (this.context.state === 'suspended') {
-      this.context.resume();
+  public anchor(time: number): void {
+    for (const manager of [...this.owners.values(), this.voiceover]) {
+      manager.stop();
     }
+    this.clock.anchor(time);
+  }
+
+  public setSpeed(speed: number): void {
+    this.clock.setSpeed(speed);
+  }
+
+  public setMuted(muted: boolean): void {
+    if (muted === this.muted) {
+      return;
+    }
+    this.muted = muted;
+    this.applyGain(this.volume, this.muted);
+  }
+
+  public setVolume(volume: number): void {
+    if (volume === this.volume) {
+      return;
+    }
+    this.volume = volume;
+    this.applyGain(this.volume, this.muted);
+  }
+
+  public setPaused(paused: boolean): void {
+    if (paused === this.paused) {
+      return;
+    }
+    this.paused = paused;
+    if (paused) {
+      for (const manager of [...this.owners.values(), this.voiceover]) {
+        manager.stop();
+      }
+      this.clock.pause();
+    } else {
+      this.clock.resume();
+    }
+  }
+
+  public applyGain(volume: number, muted: boolean): void {
+    const gain = this.masterGain.gain;
+    const now = this.context.currentTime;
+    const value = muted ? 0 : volume;
+    if (gain.value === value) {
+      return;
+    }
+    gain.cancelScheduledValues(now);
+    gain.setValueAtTime(gain.value, now);
+    gain.linearRampToValueAtTime(value, now + FADE_SECONDS);
+  }
+
+  public resume(): void {
+    if (this.context.state !== 'suspended') {
+      return;
+    }
+    this.context.resume().catch((e: Error) => this.logger.error(e));
+  }
+
+  public dispose(): void {
+    for (const manager of [
+      ...this.owners.values(),
+      this.voiceover,
+      ...this.spare,
+    ]) {
+      manager.dispose();
+    }
+    this.owners.clear();
+    this.spare = [];
+    this.masterGain.disconnect();
+  }
+
+  // whether the lane should stay open at the given clock time
+  private plan(manager: AudioManager, time: number): boolean {
+    if (!manager.isReady()) {
+      return false;
+    }
+
+    const buffer = manager.getBuffer();
+    if (!buffer) {
+      return false;
+    }
+
+    const plan = planLane(
+      manager.getSound(),
+      time,
+      this.clock.speed,
+      buffer.duration,
+    );
+    // the lookahead is wall time, so at higher speed it covers more timeline seconds
+    if (
+      time < plan.begin - LOOKAHEAD_SECONDS * this.clock.speed ||
+      time >= plan.end
+    ) {
+      manager.stop();
+      return false;
+    }
+
+    manager.schedule(time);
+    return true;
   }
 }

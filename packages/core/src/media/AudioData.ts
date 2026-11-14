@@ -20,6 +20,10 @@ export interface AudioData {
    * The duration of the audio in seconds.
    */
   duration: number;
+  /**
+   * The decoded samples, ready to be played without further decoding.
+   */
+  buffer: AudioBuffer | null;
 }
 
 export const EMPTY_AUDIO_DATA: AudioData = {
@@ -28,4 +32,5 @@ export const EMPTY_AUDIO_DATA: AudioData = {
   absoluteMax: 0,
   sampleRate: 0,
   duration: 0,
+  buffer: null,
 };

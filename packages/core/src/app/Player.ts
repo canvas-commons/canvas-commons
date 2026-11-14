@@ -147,6 +147,11 @@ export class Player {
     this.audioResources = new AudioResourceManager(this.logger);
     this.audioPool = new AudioManagerPool(this.logger, this.audioResources);
     this.audio = this.audioPool.spawn();
+    // scene media read the audio state through the playback
+    this.playerState.subscribe(state => {
+      this.playback.muted = state.muted;
+      this.playback.volume = state.volume;
+    });
     this.size = settings.size ?? new Vector2(1920, 1080);
     this.resolutionScale = settings.resolutionScale ?? 1;
     this.startTime = settings.range?.[0] ?? 0;

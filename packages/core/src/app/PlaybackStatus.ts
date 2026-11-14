@@ -45,6 +45,20 @@ export class PlaybackStatus {
   }
 
   /**
+   * Whether the audio played by the scenes is audible.
+   */
+  public get muted(): boolean {
+    return this.playback.muted;
+  }
+
+  /**
+   * The audio level, in the range from 0 to 1.
+   */
+  public get volume(): number {
+    return this.playback.volume;
+  }
+
+  /**
    * The time passed since the last frame in seconds.
    */
   public get deltaTime(): number {

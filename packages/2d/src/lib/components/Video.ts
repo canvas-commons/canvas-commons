@@ -6,8 +6,10 @@ import {
   SignalValue,
   SimpleSignal,
   clamp,
+  createEffect,
   isReactive,
   useLogger,
+  usePlayback,
   useThread,
 } from '@canvas-commons/core';
 import {computed, initial, nodeName, signal} from '../decorators';
@@ -116,9 +118,20 @@ export class Video extends Rect {
   declare protected readonly playing: SimpleSignal<boolean, this>;
 
   private lastTime = -1;
+  private element: HTMLVideoElement | null = null;
+  private poolKey = '';
+  private readonly stopOnDetach: () => void;
 
   public constructor({play, ...props}: VideoProps) {
     super(props);
+
+    // a node outside the tree is never drawn, so its media must stop when it leaves
+    this.stopOnDetach = createEffect(() => {
+      if (!this.parent()) {
+        this.stopElement();
+      }
+    });
+
     if (play) {
       this.play();
     }
@@ -180,6 +193,10 @@ export class Video extends Rect {
       video.src = src;
       Video.pool[poolKey] = video;
     }
+
+    this.element = video;
+    this.poolKey = poolKey;
+    this.applyAudioState(video);
 
     if (video.readyState < 2) {
       DependencyContext.collectPromise(
@@ -248,10 +265,18 @@ export class Video extends Rect {
     return video;
   }
 
+  // the player owns media audio, so the element follows its audio state
+  private applyAudioState(element: HTMLVideoElement): void {
+    const playback = usePlayback();
+    element.muted = playback.muted;
+    element.volume = playback.volume;
+  }
+
   protected override draw(context: CanvasRenderingContext2D) {
     this.drawShape(context);
     const alpha = this.alpha();
     if (alpha > 0) {
+      this.applyAudioState(this.video());
       const playbackState = this.view().playbackState();
       const video =
         playbackState === PlaybackState.Playing ||
@@ -366,5 +391,26 @@ export class Video extends Rect {
   protected override collectAsyncResources() {
     super.collectAsyncResources();
     this.seekedVideo();
+  }
+
+  public override dispose() {
+    this.stopOnDetach();
+    this.stopElement();
+
+    if (this.element && this.poolKey) {
+      this.element.src = '';
+      this.element.load();
+      delete Video.pool[this.poolKey];
+      this.element = null;
+      this.poolKey = '';
+    }
+
+    super.dispose();
+  }
+
+  private stopElement(): void {
+    if (this.element && !this.element.paused) {
+      this.element.pause();
+    }
   }
 }

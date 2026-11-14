@@ -64,19 +64,21 @@ export class AudioManagerPool implements AudioEngine {
     }
 
     for (const sound of this.sounds) {
-      let manager = this.owners.get(sound);
-      if (!manager) {
-        manager = this.spare.pop() ?? this.spawn(sound);
-        manager.setSound(sound);
-        this.owners.set(sound, manager);
-      }
-      if (!this.plan(manager, time)) {
+      const manager = this.owners.get(sound);
+      if (this.opened(sound, time)) {
+        (manager ?? this.acquire(sound)).schedule(time);
+      } else if (manager) {
+        manager.stop();
         this.owners.delete(sound);
         this.spare.push(manager);
       }
     }
 
-    this.plan(this.voiceover, time);
+    if (this.opened(this.voiceover.getSound(), time)) {
+      this.voiceover.schedule(time);
+    } else {
+      this.voiceover.stop();
+    }
   }
 
   // the only place a seek belongs, so it is a user action and never drift correction
@@ -158,33 +160,29 @@ export class AudioManagerPool implements AudioEngine {
     this.masterGain.disconnect();
   }
 
-  // whether the lane should stay open at the given clock time
-  private plan(manager: AudioManager, time: number): boolean {
-    if (!manager.isReady()) {
+  // whether a sound window is open, lookahead included
+  private opened(sound: Sound, time: number): boolean {
+    if (!sound.audio) {
       return false;
     }
 
-    const buffer = manager.getBuffer();
+    const buffer = this.resources.get(sound.audio).onData.current.buffer;
     if (!buffer) {
       return false;
     }
 
-    const plan = planLane(
-      manager.getSound(),
-      time,
-      this.clock.speed,
-      buffer.duration,
-    );
+    const plan = planLane(sound, time, this.clock.speed, buffer.duration);
     // the lookahead is wall time, so at higher speed it covers more timeline seconds
-    if (
-      time < plan.begin - LOOKAHEAD_SECONDS * this.clock.speed ||
-      time >= plan.end
-    ) {
-      manager.stop();
-      return false;
-    }
+    return (
+      time >= plan.begin - LOOKAHEAD_SECONDS * this.clock.speed &&
+      time < plan.end
+    );
+  }
 
-    manager.schedule(time);
-    return true;
+  private acquire(sound: Sound): AudioManager {
+    const lane = this.spare.pop() ?? new AudioManager(this, sound);
+    lane.setSound(sound);
+    this.owners.set(sound, lane);
+    return lane;
   }
 }

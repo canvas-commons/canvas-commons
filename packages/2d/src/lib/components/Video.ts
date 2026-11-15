@@ -1,5 +1,6 @@
 import {
   BBox,
+  DEFAULT_SOURCE_CACHE_BYTES,
   DependencyContext,
   PlaybackState,
   SerializedVector2,
@@ -7,8 +8,12 @@ import {
   SimpleSignal,
   clamp,
   isReactive,
+  useFrameSourceRegistry,
   useLogger,
   useThread,
+  type CachedFrame,
+  type FrameSource,
+  type FrameSourceOptions,
 } from '@canvas-commons/core';
 import {computed, initial, nodeName, signal} from '../decorators';
 import {DesiredLength} from '../partials';
@@ -107,6 +112,20 @@ export class Video extends Rect {
   @signal()
   declare public readonly playbackRate: SimpleSignal<number, this>;
 
+  /**
+   * The maximum size in bytes of the decoded frame cache for this video.
+   */
+  @initial(DEFAULT_SOURCE_CACHE_BYTES)
+  @signal()
+  declare public readonly cacheSize: SimpleSignal<number, this>;
+
+  /**
+   * How many seconds ahead of the playhead to keep decoded frames warm.
+   */
+  @initial(0.5)
+  @signal()
+  declare public readonly prefetch: SimpleSignal<number, this>;
+
   @initial(0)
   @signal()
   declare protected readonly time: SimpleSignal<number, this>;
@@ -166,6 +185,38 @@ export class Video extends Rect {
   @computed()
   public override completion(): number {
     return this.clampTime(this.time()) / this.video().duration;
+  }
+
+  @computed()
+  protected frameSource(): FrameSource {
+    const {key, src} = resolveAssetUrl(this.src(), this.view().assetHash);
+    return useFrameSourceRegistry().get(key, src, this.frameSourceOptions());
+  }
+
+  protected frameSourceOptions(): FrameSourceOptions {
+    return {
+      cacheBytes: this.cacheSize(),
+      prefetchSeconds: this.prefetch(),
+    };
+  }
+
+  /**
+   * The decoded frame at the current time, or null when it is not cached yet.
+   */
+  @computed()
+  protected frame(): CachedFrame | null {
+    const source = this.frameSource();
+    const time = this.clampTime(this.time());
+    const cached = source.peek(time);
+    if (cached) {
+      return cached;
+    }
+
+    if (this.view().playbackState() === PlaybackState.Playing) {
+      source.prefetch(time);
+    }
+
+    return null;
   }
 
   @computed()
@@ -258,6 +309,7 @@ export class Video extends Rect {
         playbackState === PlaybackState.Presenting
           ? this.fastSeekedVideo()
           : this.seekedVideo();
+      const source = this.frame()?.image ?? video;
 
       const box = BBox.fromSizeCentered(this.computedSize());
       context.save();
@@ -266,7 +318,7 @@ export class Video extends Rect {
         context.globalAlpha *= alpha;
       }
       context.imageSmoothingEnabled = this.smoothing();
-      drawImage(context, video, box);
+      drawImage(context, source, box);
       context.restore();
     }
 
@@ -290,7 +342,7 @@ export class Video extends Rect {
 
     video.currentTime = value;
     this.lastTime = value;
-    if (video.seeking) {
+    if (video.seeking && !this.playing()) {
       DependencyContext.collectPromise(
         new Promise<void>(resolve => {
           const listener = () => {
@@ -365,6 +417,13 @@ export class Video extends Rect {
 
   protected override collectAsyncResources() {
     super.collectAsyncResources();
+    const source = this.frameSource();
+    const time = this.clampTime(this.time());
+    if (this.view().playbackState() === PlaybackState.Playing) {
+      source.prefetch(time);
+    } else {
+      DependencyContext.collectPromise(source.request(time));
+    }
     this.seekedVideo();
   }
 }

@@ -31,15 +31,13 @@ export interface PlayerSettings {
   resolutionScale: number;
 }
 
-const MAX_AUDIO_DESYNC = 1 / 50;
-
 /**
  * The player logic used by the editor and embeddable player.
  *
  * @remarks
  * This class builds on top of the `PlaybackManager` to provide a simple
  * interface similar to other media players. It plays through the animation
- * using a real-time update loop and optionally synchronises it with audio.
+ * using a real-time update loop, with the audio clock as the master.
  */
 export class Player {
   /**
@@ -144,9 +142,9 @@ export class Player {
     this.logger = this.project.logger;
     this.playback = new PlaybackManager();
     this.status = new PlaybackStatus(this.playback);
-    this.audioResources = new AudioResourceManager(this.logger);
-    this.audioPool = new AudioManagerPool(this.logger, this.audioResources);
-    this.audio = this.audioPool.spawn();
+    this.audioPool = new AudioManagerPool(this.logger);
+    this.audioResources = this.audioPool.resources;
+    this.audio = this.audioPool.voiceover;
     this.size = settings.size ?? new Vector2(1920, 1080);
     this.resolutionScale = settings.resolutionScale ?? 1;
     this.startTime = settings.range?.[0] ?? 0;
@@ -316,6 +314,7 @@ export class Player {
     if (value !== this.playerState.current.speed) {
       this.playback.speed = value;
       this.playback.reload();
+      this.audioPool.setSpeed(value);
       this.playerState.current = {
         ...this.playerState.current,
         speed: value,
@@ -422,20 +421,10 @@ export class Player {
       state.seek = this.startFrame;
     }
 
-    // Pause / play sounds.
-    this.audioPool.prepare(this.status.time);
-    await this.audioPool.setPaused(state.paused || this.finished);
+    // Pause / play the master clock and every lane.
+    this.audioPool.setPaused(state.paused || this.finished);
     this.audioPool.setMuted(state.muted);
     this.audioPool.setVolume(state.volume);
-
-    // Pause / play audio.
-    const audioPaused =
-      state.paused || this.finished || !this.audio.isInRange(this.status.time);
-    if (await this.audio.setPaused(audioPaused)) {
-      this.syncAudio(-3);
-    }
-    this.audio.setMuted(state.muted);
-    this.audio.setVolume(state.volume);
 
     return state;
   }
@@ -446,6 +435,7 @@ export class Player {
     this.playback.state = state.paused
       ? PlaybackState.Paused
       : PlaybackState.Playing;
+    let advanced = false;
 
     // Seek to the given frame
     if (state.seek >= 0 || !this.isInUserRange(this.status.frame)) {
@@ -454,51 +444,29 @@ export class Player {
       this.logger.profile('seek time');
       await this.playback.seek(clampedFrame);
       this.logger.profile('seek time');
-      this.syncAudio(-3);
+      this.audioPool.anchor(this.status.time);
+      advanced = true;
     }
-    // Do nothing if paused or is ahead of the audio.
-    else if (
-      state.paused ||
-      (state.speed === 1 &&
-        this.audio.isReady() &&
-        this.audio.isInRange(this.status.time) &&
-        this.audio.getTime() < this.status.time)
-    ) {
-      if (
-        state.render ||
-        (state.paused && previousState !== PlaybackState.Paused)
-      ) {
+    // Do nothing if paused.
+    else if (state.paused) {
+      if (state.render || previousState !== PlaybackState.Paused) {
         await this.render.dispatch();
       }
-
-      // Sync the audio if the animation is too far ahead.
-      if (
-        !state.paused &&
-        this.status.time > this.audio.getTime() + MAX_AUDIO_DESYNC
-      ) {
-        this.syncAudio();
-      }
-
       this.request();
       return;
     }
-    // Seek to synchronize animation with audio.
-    else if (
-      this.audio.isReady() &&
-      state.speed === 1 &&
-      this.audio.isInRange(this.status.time) &&
-      this.status.framesToSeconds(this.playback.frame + 1) <
-        this.audio.getTime() - MAX_AUDIO_DESYNC
-    ) {
-      const seekFrame = this.status.secondsToFrames(this.audio.getTime());
-      await this.playback.seek(seekFrame);
-    }
-    // Simply move forward one frame
+    // The clock is the master, so a late loop drops frames instead of slowing audio down.
     else if (this.status.frame < this.endFrame) {
-      await this.playback.progress();
-
-      if (state.speed !== 1) {
-        this.syncAudio();
+      const target = this.clampRange(
+        this.status.secondsToFrames(this.audioPool.clock.getTime()),
+      );
+      if (target > this.status.frame) {
+        if (target - this.status.frame === this.playback.speed) {
+          await this.playback.progress();
+        } else {
+          await this.playback.seek(target);
+        }
+        advanced = true;
       }
     }
 
@@ -506,10 +474,15 @@ export class Player {
     if (!state.paused && this.playback.currentScene.slides.isWaiting()) {
       this.togglePlayback(false);
       state.paused = true;
+      this.audioPool.setPaused(true);
     }
 
+    this.audioPool.prepare(this.audioPool.clock.getTime(), state.paused);
+
     // Draw the project
-    await this.render.dispatch();
+    if (advanced || state.render || previousState !== PlaybackState.Paused) {
+      await this.render.dispatch();
+    }
     this.frame.current = this.playback.frame;
 
     this.request();
@@ -537,13 +510,5 @@ export class Player {
 
   public clampRange(frame: number): number {
     return clamp(this.startFrame, this.endFrame, frame);
-  }
-
-  private syncAudio(frameOffset = 0) {
-    const time = this.status.framesToSeconds(this.playback.frame + frameOffset);
-    this.audio.setTime(time);
-
-    this.audioPool.prepare(time);
-    this.audioPool.setTime(time);
   }
 }

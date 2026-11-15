@@ -3,10 +3,12 @@ import {ValueDispatcher} from '../events';
 import {AudioData, EMPTY_AUDIO_DATA} from './AudioData';
 
 export class AudioResourceManager {
-  private readonly context = new AudioContext();
   private readonly lookup = new Map<string, AudioResource>();
 
-  public constructor(private readonly logger: Logger) {
+  public constructor(
+    private readonly logger: Logger,
+    public readonly context: AudioContext,
+  ) {
     if (import.meta.hot) {
       import.meta.hot.on('canvas-commons:assets', ({urls}) => {
         for (const url of urls) {
@@ -134,6 +136,7 @@ export class AudioResource {
       length: samples,
       sampleRate: (audioBuffer.sampleRate / sampleSize) * 2,
       duration: audioBuffer.duration,
+      buffer: audioBuffer,
     };
   }
 

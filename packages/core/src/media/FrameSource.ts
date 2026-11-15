@@ -42,26 +42,18 @@ export interface FrameSourceSettings extends FrameSourceOptions {
 
 export interface CachedFrame extends CacheableFrame {
   readonly source: FrameSource;
-  readonly image: VideoFrame;
+  readonly image: ImageBitmap;
   readonly seconds: number;
 }
 
 interface DecodeTask {
-  readonly microsecondTimestamp: number;
+  readonly seconds: number;
   readonly deferred: Deferred<CachedFrame | null>;
 }
 
-function toMicroseconds(seconds: number): number {
-  return Math.round(seconds * 1e6);
-}
-
 /**
- * Decodes video frames for one source through a serialized WebCodecs pipeline.
- *
- * @remarks
- * Timestamps are consumed in ascending order so every packet is decoded at
- * most once. Frames behind the pipeline position are fetched through
- * `getSample()` instead of rewinding the pipeline.
+ * Decodes the frames of one media source through a serialized WebCodecs
+ * pipeline and stores them in the shared frame cache.
  */
 export class FrameSource {
   declare public readonly key: string;
@@ -72,10 +64,8 @@ export class FrameSource {
   declare private sink: VideoSampleSink | null;
   declare private readonly queue: DecodeTask[];
   declare private readonly pending: Map<number, DecodeTask>;
-  declare private readonly delivered: DecodeTask[];
   declare private pipeline: Promise<void> | null;
-  declare private wake: Deferred<void>;
-  declare private position: number | null;
+  declare private position: number;
   declare private disposed: boolean;
   declare public duration: number;
   declare public size: {x: number; y: number};
@@ -88,10 +78,8 @@ export class FrameSource {
     this.sink = null;
     this.queue = [];
     this.pending = new Map();
-    this.delivered = [];
     this.pipeline = null;
-    this.wake = deferred<void>();
-    this.position = null;
+    this.position = 0;
     this.disposed = false;
     this.duration = 0;
     this.size = {x: 0, y: 0};
@@ -102,7 +90,7 @@ export class FrameSource {
   }
 
   public get clock(): number {
-    return this.position === null ? 0 : this.position / 1e6;
+    return this.position;
   }
 
   public get pendingCount(): number {
@@ -128,13 +116,12 @@ export class FrameSource {
    * never wait on timestamps that will never be drawn.
    */
   public request(seconds: number): Promise<CachedFrame | null> {
-    const microsecondTimestamp = toMicroseconds(seconds);
     const cached = this.peek(seconds);
     if (cached) {
       return Promise.resolve(cached);
     }
 
-    const pending = this.pending.get(microsecondTimestamp);
+    const pending = this.pending.get(seconds);
     if (pending) {
       return pending.deferred;
     }
@@ -144,12 +131,12 @@ export class FrameSource {
     }
 
     const task: DecodeTask = {
-      microsecondTimestamp,
+      seconds,
       deferred: deferred<CachedFrame | null>(),
     };
-    this.pending.set(microsecondTimestamp, task);
+    this.pending.set(seconds, task);
+    this.queue.push(task);
     this.start();
-    this.enqueue(task);
     return task.deferred;
   }
 
@@ -163,16 +150,16 @@ export class FrameSource {
       seconds + this.settings.prefetchSeconds,
     );
     for (let time = seconds; time <= end; time += 1 / 30) {
-      const microsecondTimestamp = toMicroseconds(time);
-      if (this.pending.has(microsecondTimestamp) || this.peek(time)) continue;
-      if (!this.settings.canDraw?.(time)) continue;
+      const rounded = Math.round(time * 1000) / 1000;
+      if (this.pending.has(rounded) || this.peek(rounded)) continue;
+      if (!this.settings.canDraw?.(rounded)) continue;
       const task: DecodeTask = {
-        microsecondTimestamp,
+        seconds: rounded,
         deferred: deferred<CachedFrame | null>(),
       };
-      this.pending.set(microsecondTimestamp, task);
+      this.pending.set(rounded, task);
+      this.queue.push(task);
       this.start();
-      this.enqueue(task);
     }
   }
 
@@ -186,9 +173,8 @@ export class FrameSource {
     this.disposed = true;
     this.pending.clear();
     this.queue.length = 0;
-    this.delivered.length = 0;
-    this.wake.resolve();
-    (this.sink as unknown as {close(): void}).close();
+    // mediabunny's published types omit the sink close method.
+    (this.sink as unknown as {close(): void})?.close();
     this.input.dispose();
   }
 
@@ -199,29 +185,12 @@ export class FrameSource {
     });
   }
 
-  private enqueue(task: DecodeTask): void {
-    if (this.position !== null && task.microsecondTimestamp < this.position) {
-      void this.resolveSingle(task);
-      return;
-    }
-    const wasEmpty = this.queue.length === 0;
-    this.queue.push(task);
-    if (wasEmpty) {
-      this.wake.resolve();
-      this.wake = deferred<void>();
-    }
-  }
-
   private async run(): Promise<void> {
     try {
       await this.initialize();
-      for await (const sample of this.sink?.samplesAtTimestamps(
-        this.timestamps(),
-      ) ?? []) {
-        const task = this.delivered.shift();
-        if (!task) continue;
-        this.pending.delete(task.microsecondTimestamp);
-        this.resolveTask(task, sample);
+      while (!this.disposed && this.queue.length > 0) {
+        const task = this.queue.shift()!;
+        await this.process(task);
       }
     } catch (error) {
       this.settings.logger.debug(
@@ -235,43 +204,29 @@ export class FrameSource {
     this.pending.clear();
   }
 
-  private async *timestamps(): AsyncGenerator<number> {
-    while (!this.disposed) {
-      const task = this.queue.shift();
-      if (!task) {
-        await this.wake;
-        continue;
-      }
-      this.delivered.push(task);
-      yield task.microsecondTimestamp / 1e6;
-    }
-  }
+  private async process(task: DecodeTask): Promise<void> {
+    this.pending.delete(task.seconds);
 
-  private async resolveSingle(task: DecodeTask): Promise<void> {
-    this.pending.delete(task.microsecondTimestamp);
-    if (!this.sink) {
+    if (!this.sink || !this.settings.canDraw?.(task.seconds)) {
       task.deferred.resolve(null);
       return;
     }
-    try {
-      const sample = await this.sink.getSample(task.microsecondTimestamp / 1e6);
-      this.resolveTask(task, sample);
-    } catch (error) {
-      this.settings.logger.debug(
-        `frame source ${this.key}: sample failed (${String((error as Error).message)})`,
-      );
-      task.deferred.resolve(null);
-    }
-  }
 
-  private resolveTask(task: DecodeTask, sample: VideoSample | null): void {
+    const sample = await this.sink.getSample(task.seconds);
     if (!sample) {
       task.deferred.resolve(null);
       return;
     }
 
-    this.position = sample.microsecondTimestamp;
-    const image = sample.toVideoFrame();
+    const stored = await this.store(sample);
+    task.deferred.resolve(stored);
+  }
+
+  private async store(sample: VideoSample): Promise<CachedFrame> {
+    this.position = sample.microsecondTimestamp / 1e6;
+    const source = sample.toVideoFrame();
+    const image = await createImageBitmap(source);
+    source.close();
     const entry: CachedFrame = {
       key: `${this.key}:${sample.microsecondTimestamp}`,
       sourceKey: this.key,
@@ -279,7 +234,7 @@ export class FrameSource {
       source: this,
       image,
       seconds: sample.microsecondTimestamp / 1e6,
-      allocationSize: () => image.allocationSize(),
+      allocationSize: () => image.width * image.height * 4,
       close: () => image.close(),
     };
 
@@ -288,7 +243,7 @@ export class FrameSource {
       image.close();
     }
 
-    task.deferred.resolve(cached);
+    return cached;
   }
 
   private async initialize(): Promise<void> {
@@ -312,4 +267,8 @@ export class FrameSource {
       );
     }
   }
+}
+
+function toMicroseconds(seconds: number): number {
+  return Math.round(seconds * 1e6);
 }

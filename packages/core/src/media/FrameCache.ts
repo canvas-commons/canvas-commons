@@ -71,6 +71,15 @@ export class FrameCache<T extends CacheableFrame> {
     frame.close();
   }
 
+  public removeWhere(predicate: (frame: T) => boolean): void {
+    for (const frame of [...this.entries.values()]) {
+      if (this.held.has(frame.key)) continue;
+      if (predicate(frame)) {
+        this.remove(frame);
+      }
+    }
+  }
+
   public hold(frame: T): void {
     this.held.add(frame.key);
   }

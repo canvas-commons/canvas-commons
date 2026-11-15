@@ -7,6 +7,7 @@
     "strict": true,
     "module": "esnext",
     "target": "es2022",
+    "lib": ["esnext", "dom", "dom.iterable"],
     "allowJs": true,
     "moduleResolution": "bundler",
     "paths": {

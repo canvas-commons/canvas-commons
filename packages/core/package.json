@@ -44,7 +44,8 @@
     "shaders"
   ],
   "dependencies": {
-    "chroma-js": "^3.2.0"
+    "chroma-js": "^3.2.0",
+    "mediabunny": "^1.58.0"
   },
   "devDependencies": {
     "@types/chroma-js": "3.1.2",

@@ -112,4 +112,16 @@ describe('FrameCache', () => {
     expect(kept.closed).toBe(true);
     expect(cache.count).toBe(0);
   });
+
+  test('finds the closest frame behind the timestamp', () => {
+    const cache = new FrameCache<CacheableFrame>(1000);
+    cache.put(MakeFrame('a', 100, 10));
+    cache.put(MakeFrame('a', 300, 10));
+    cache.put(MakeFrame('b', 200, 10));
+
+    expect(cache.find('a', 250)?.microsecondTimestamp).toBe(100);
+    expect(cache.find('a', 300)?.microsecondTimestamp).toBe(300);
+    expect(cache.find('a', 99)).toBeNull();
+    expect(cache.find('c', 300)).toBeNull();
+  });
 });

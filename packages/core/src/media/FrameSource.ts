@@ -107,6 +107,20 @@ export class FrameSource {
   }
 
   /**
+   * The most recent cached frame at or before the timestamp.
+   *
+   * @remarks
+   * Playback timestamps are arbitrary, so a frame that is on screen sits behind
+   * the playhead instead of matching it exactly.
+   */
+  public lookback(seconds: number): CachedFrame | null {
+    return this.cache.find(
+      this.key,
+      toMicroseconds(seconds),
+    ) as CachedFrame | null;
+  }
+
+  /**
    * Schedule decoding of the frame at the timestamp.
    *
    * @remarks

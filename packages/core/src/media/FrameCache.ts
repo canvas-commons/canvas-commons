@@ -42,6 +42,33 @@ export class FrameCache<T extends CacheableFrame> {
     return frame;
   }
 
+  /**
+   * The most recent cached frame at or before the timestamp of a source.
+   *
+   * @remarks
+   * Playback timestamps are arbitrary, so the frame that is on screen is the
+   * closest one behind the playhead instead of an exact match.
+   */
+  public find(sourceKey: string, microsecondTimestamp: number): T | null {
+    let best: T | null = null;
+    for (const frame of this.entries.values()) {
+      if (frame.sourceKey !== sourceKey) continue;
+      if (frame.microsecondTimestamp > microsecondTimestamp) continue;
+      if (
+        best === null ||
+        frame.microsecondTimestamp > best.microsecondTimestamp
+      ) {
+        best = frame;
+      }
+    }
+
+    if (best) {
+      this.touch(best);
+    }
+
+    return best;
+  }
+
   public put(frame: T): T {
     const existing = this.entries.get(frame.key);
     if (existing) {

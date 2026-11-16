@@ -5,6 +5,7 @@ import {
   SerializedVector2,
   SignalValue,
   SimpleSignal,
+  type Sound,
   clamp,
   isReactive,
   useLogger,
@@ -12,10 +13,11 @@ import {
 } from '@canvas-commons/core';
 import {computed, initial, nodeName, signal} from '../decorators';
 import {DesiredLength} from '../partials';
+import {useScene2D} from '../scenes/useScene2D';
 import {drawImage} from '../utils';
 import {resolveAssetUrl} from '../utils/assetUrl';
-import {Rect, RectProps} from './Rect';
 import reactivePlaybackRate from './__logs__/reactive-playback-rate';
+import {Rect, RectProps} from './Rect';
 
 export interface VideoProps extends RectProps {
   /**
@@ -116,11 +118,53 @@ export class Video extends Rect {
   declare protected readonly playing: SimpleSignal<boolean, this>;
 
   private lastTime = -1;
+  private sound: Sound | null = null;
 
   public constructor({play, ...props}: VideoProps) {
     super(props);
     if (play) {
       this.play();
+    }
+    this.registerAudio();
+  }
+
+  /**
+   * Register this video's audio for the live mix and the export.
+   *
+   * @example
+   * ```tsx
+   * // a shot that keeps its own audio
+   * const video = <Video src={'clip.mp4'} time={12} />;
+   * ```
+   */
+  private registerAudio(): void {
+    const src = this.src();
+    if (!src) {
+      return;
+    }
+
+    const {key} = resolveAssetUrl(src, this.view2D.assetHash);
+    this.sound = useScene2D().sounds.add({
+      audio: key,
+      start: this.time(),
+      playbackRate: this.playbackRate(),
+      element: true,
+    });
+  }
+
+  public override remove(): this {
+    this.closeAudio();
+    return super.remove();
+  }
+
+  public override dispose() {
+    this.closeAudio();
+    super.dispose();
+  }
+
+  private closeAudio(): void {
+    if (this.sound && this.sound.end === undefined) {
+      this.sound.end = this.time();
     }
   }
 

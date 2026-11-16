@@ -196,8 +196,16 @@ export class Video extends Rect {
     backwards: boolean,
     from?: number,
   ): void {
-    this.entry().envelope.push({
-      at: this.time(),
+    const entry = this.entry();
+    const scene = this.audioScene;
+    if (!scene) {
+      throw new Error(`No audio registered for "${this.name()}".`);
+    }
+
+    // keyframes are timeline times, so they anchor on the frame the call happens
+    // on, not on the node's media in point
+    entry.envelope.push({
+      at: scene.playback.time,
       gain,
       seconds,
       backwards,

@@ -21,6 +21,7 @@ import {Rect, RectProps} from './Rect';
 import reactivePlaybackRate from './__logs__/reactive-playback-rate';
 
 const DRIFT_SECONDS: number = 0.2;
+const LIVE_DRIFT_SECONDS: number = 0.4;
 
 export interface VideoProps extends RectProps {
   /**
@@ -132,6 +133,7 @@ export class Video extends Rect {
 
   private lastTime = -1;
   private missTime = -1;
+  private lastFrame: CachedFrame | null = null;
 
   public constructor({play, ...props}: VideoProps) {
     super(props);
@@ -231,6 +233,12 @@ export class Video extends Rect {
     if (!video) {
       video = document.createElement('video');
       video.crossOrigin = 'anonymous';
+      // the element starts loading at the requested time, which avoids a seek
+      // (and the blank frames it causes) once the node becomes visible
+      const start = this.time();
+      if (Number.isFinite(start) && start > 0) {
+        video.currentTime = start;
+      }
       video.src = src;
       Video.pool[poolKey] = video;
       Video.limitPool(poolKey);
@@ -282,9 +290,13 @@ export class Video extends Rect {
       video.pause();
     }
 
-    // an element that is still seeking cannot take another seek without
-    // stalling every frame that follows
-    if (!video.seeking && Math.abs(video.currentTime - time) > DRIFT_SECONDS) {
+    // seeking stalls the element for hundreds of milliseconds, so live playback
+    // only corrects a large drift and never interrupts a running seek
+    if (
+      !video.seeking &&
+      !video.paused &&
+      Math.abs(video.currentTime - time) > LIVE_DRIFT_SECONDS
+    ) {
       this.setCurrentTime(time);
     } else if (!playing) {
       video.currentTime = time;
@@ -322,13 +334,20 @@ export class Video extends Rect {
     const video = this.video();
 
     if (this.isLive()) {
-      return this.fastSeekedVideo();
+      this.fastSeekedVideo();
+      if (this.canPresent(video)) {
+        return video;
+      }
+      // an element that is still loading or seeking draws nothing, so keep the
+      // picture alive with a decoded frame until it presents again
+      return this.stillSource(video);
     }
 
     const time = this.clampTime(this.time());
     const frame = this.frame();
     if (frame) {
       this.syncElement(video, time);
+      this.lastFrame = frame;
       return frame.image;
     }
 
@@ -336,6 +355,36 @@ export class Video extends Rect {
     // replaces the last presented frame as soon as the decoder is done
     this.requestFrame(time);
     this.syncElement(video, time);
+    return this.stillSource(video);
+  }
+
+  /**
+   * Whether the element currently has a frame to draw.
+   */
+  protected canPresent(video: HTMLVideoElement): boolean {
+    return video.readyState >= 2 && !video.seeking;
+  }
+
+  /**
+   * A decoded frame to show while the element cannot present one.
+   *
+   * @remarks
+   * Playback never asks for a decode: playback timestamps are arbitrary and
+   * decoding them all would starve the element that is doing the real work.
+   */
+  protected stillSource(video: HTMLVideoElement): CanvasImageSource {
+    const cached = this.frame();
+    if (cached) {
+      this.lastFrame = cached;
+      return cached.image;
+    }
+
+    // evicted frames are closed, which shows up as a zero sized bitmap
+    const last = this.lastFrame;
+    if (last && last.image.width > 0) {
+      return last.image;
+    }
+
     return video;
   }
 
@@ -473,6 +522,7 @@ export class Video extends Rect {
     this.awaitVideo();
 
     if (this.isLive()) {
+      this.syncElement(this.video(), this.clampTime(this.time()));
       return;
     }
 
@@ -489,6 +539,10 @@ export class Video extends Rect {
     for (const key of Object.keys(Video.pool)) {
       if (excess <= 0) return;
       if (key === keep) continue;
+      const video = Video.pool[key];
+      // an element that is playing is on screen somewhere, so releasing it
+      // would blank that shot
+      if (!video || !video.paused) continue;
       Video.releasePoolEntry(key);
       excess -= 1;
     }

@@ -2,14 +2,15 @@ import {
   BBox,
   DependencyContext,
   PlaybackState,
+  SILENCE_DB,
   SerializedVector2,
   SignalValue,
   SimpleSignal,
-  type Sound,
   clamp,
   isReactive,
   useLogger,
   useThread,
+  type Sound,
 } from '@canvas-commons/core';
 import {computed, initial, nodeName, signal} from '../decorators';
 import {DesiredLength} from '../partials';
@@ -139,6 +140,79 @@ export class Video extends Rect {
    * const video = <Video src={'clip.mp4'} time={12} />;
    * ```
    */
+  /**
+   * Set the level of the registered audio, or ramp to it from the frame the call
+   * happens on.
+   *
+   * @param db - The gain in dB.
+   * @param seconds - The length of the transition. Without it the level applies
+   * for the whole window.
+   */
+  public gain(db: number, seconds?: number): this {
+    const entry = this.entry();
+    entry.gain = db;
+    if (seconds !== undefined) {
+      this.keyframe(db, seconds, false);
+    }
+    return this;
+  }
+
+  /**
+   * Switch the registered audio to a level at the frame the call happens on.
+   *
+   * @param db - The gain in dB.
+   */
+  public hold(db: number): this {
+    this.keyframe(db, 0, false);
+    return this;
+  }
+
+  /**
+   * Ramp the registered audio from silence to its level over the seconds that
+   * follow the call.
+   *
+   * @param seconds - The length of the transition.
+   */
+  public fadeIn(seconds: number): this {
+    const entry = this.entry();
+    this.keyframe(entry.gain, seconds, false, SILENCE_DB);
+    return this;
+  }
+
+  /**
+   * Ramp the registered audio to silence over the seconds that lead up to the
+   * call, so the level is already zero at the frame the call happens on.
+   *
+   * @param seconds - The length of the transition.
+   */
+  public fadeOut(seconds: number): this {
+    this.keyframe(SILENCE_DB, seconds, true);
+    return this;
+  }
+
+  private keyframe(
+    gain: number,
+    seconds: number,
+    backwards: boolean,
+    from?: number,
+  ): void {
+    this.entry().envelope.push({
+      at: this.time(),
+      gain,
+      seconds,
+      backwards,
+      from,
+    });
+  }
+
+  private entry(): Sound {
+    const entry = this.sound;
+    if (!entry) {
+      throw new Error(`No audio registered for "${this.name()}".`);
+    }
+    return entry;
+  }
+
   private registerAudio(): void {
     const src = this.src();
     if (!src) {
@@ -152,6 +226,7 @@ export class Video extends Rect {
       start: this.time(),
       playbackRate: this.playbackRate(),
       element: true,
+      envelope: [],
     });
   }
 

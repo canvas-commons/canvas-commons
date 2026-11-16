@@ -39,13 +39,15 @@ export class Stage {
     this.currentBuffer = document.createElement('canvas');
     this.previousBuffer = document.createElement('canvas');
 
-    const colorSpace = this.colorSpace;
-    this.context = getContext(
-      {colorSpace, willReadFrequently: true},
-      this.finalBuffer,
+    this.context = getContext({colorSpace: this.colorSpace}, this.finalBuffer);
+    this.currentContext = getContext(
+      {colorSpace: this.colorSpace},
+      this.currentBuffer,
     );
-    this.currentContext = getContext({colorSpace}, this.currentBuffer);
-    this.previousContext = getContext({colorSpace}, this.previousBuffer);
+    this.previousContext = getContext(
+      {colorSpace: this.colorSpace},
+      this.previousBuffer,
+    );
   }
 
   public configure({

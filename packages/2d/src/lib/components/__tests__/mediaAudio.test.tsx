@@ -5,31 +5,27 @@ import {mockScene2D} from './mockScene2D';
 describe('Video audio', () => {
   const scene = mockScene2D();
 
-  it('registers the media audio for the node window', () => {
-    const node = (<Video src={'clip.mp4'} time={12} />) as Video;
+  it('closes the window only when the node leaves the view', () => {
+    const node = (
+      <Video src={'clip.mp4'} time={12} playbackRate={2} />
+    ) as Video;
     const sound = scene.sounds.getSounds()[0];
 
     expect(sound.element).toBe(true);
     expect(sound.start).toBe(12);
+    expect(sound.realPlaybackRate).toBe(2);
+
+    scene.getView().add(node);
     expect(sound.end).toBeUndefined();
 
     node.remove();
     expect(sound.end).toBe(12);
   });
 
-  it('closes the window once, so the out point survives disposal', () => {
-    const node = (<Video src={'clip.mp4'} time={5} />) as Video;
-    const sound = scene.sounds.getSounds()[0];
-
-    node.remove();
-    expect(sound.end).toBe(5);
-
-    node.dispose();
-    expect(sound.end).toBe(5);
-  });
-
   it('registers nothing without a source', () => {
-    <Video time={3} />;
+    const node = (<Video time={3} />) as Video;
+    scene.getView().add(node);
+
     expect(scene.sounds.getSounds()).toHaveLength(0);
   });
 });

@@ -11,6 +11,8 @@ export interface CacheableFrame {
  * A budget-bounded LRU cache of decoded frames shared across sources.
  *
  * @remarks
+ * Frames are looked up by the exact timestamp they were requested for, so a
+ * caller either gets the frame it asked for or has to request a decode.
  * Held frames are never evicted, so a frame stays alive while it is being
  * drawn or exported.
  */
@@ -33,29 +35,17 @@ export class FrameCache<T extends CacheableFrame> {
     return this.entries.size;
   }
 
-  /**
-   * Find the cached frame at or before the microsecond timestamp of a source.
-   */
-  public find(sourceKey: string, microsecondTimestamp: number): T | null {
-    let best: T | null = null;
-    for (const entry of this.entries.values()) {
-      if (entry.sourceKey !== sourceKey) continue;
-      if (entry.microsecondTimestamp > microsecondTimestamp) continue;
-      if (
-        best === null ||
-        entry.microsecondTimestamp > best.microsecondTimestamp
-      ) {
-        best = entry;
-      }
-    }
-    if (best === null) return null;
-    this.touch(best);
-    return best;
+  public get(sourceKey: string, microsecondTimestamp: number): T | null {
+    const frame = this.entries.get(frameKey(sourceKey, microsecondTimestamp));
+    if (!frame) return null;
+    this.touch(frame);
+    return frame;
   }
 
   public put(frame: T): T {
-    if (this.entries.has(frame.key)) {
-      return this.entries.get(frame.key)!;
+    const existing = this.entries.get(frame.key);
+    if (existing) {
+      return existing;
     }
     this.entries.set(frame.key, frame);
     this.used += frame.allocationSize();
@@ -113,4 +103,11 @@ export class FrameCache<T extends CacheableFrame> {
       frame.close();
     }
   }
+}
+
+export function frameKey(
+  sourceKey: string,
+  microsecondTimestamp: number,
+): string {
+  return `${sourceKey}:${microsecondTimestamp}`;
 }

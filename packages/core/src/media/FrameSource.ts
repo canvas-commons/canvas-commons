@@ -6,7 +6,7 @@ import {
   type VideoSample,
 } from 'mediabunny';
 import {Logger} from '../app/Logger';
-import {type CacheableFrame, type FrameCache} from './FrameCache';
+import {frameKey, type CacheableFrame, type FrameCache} from './FrameCache';
 
 interface Deferred<T> extends Promise<T> {
   resolve: (value: T) => void;
@@ -25,19 +25,14 @@ function deferred<T>(): Deferred<T> {
   return promise;
 }
 
-export interface FrameSourceOptions {
-  readonly cacheBytes: number;
-  readonly prefetchSeconds: number;
-  /**
-   * Returns true when the frame at the timestamp can be produced and should be
-   * decoded. Returning false lets the pipeline skip the timestamp.
-   */
-  readonly canDraw?: (timestamp: number) => boolean;
-}
-
-export interface FrameSourceSettings extends FrameSourceOptions {
+export interface FrameSourceSettings {
   readonly cache: FrameCache<CacheableFrame>;
   readonly logger: Logger | Console;
+  /**
+   * Longest a caller waits for a decoded frame. A stalled decoder must not hold
+   * up the render loop.
+   */
+  readonly timeoutMs: number;
 }
 
 export interface CachedFrame extends CacheableFrame {
@@ -48,12 +43,17 @@ export interface CachedFrame extends CacheableFrame {
 
 interface DecodeTask {
   readonly seconds: number;
+  readonly key: string;
   readonly deferred: Deferred<CachedFrame | null>;
 }
 
 /**
- * Decodes the frames of one media source through a serialized WebCodecs
+ * Decodes single frames of one media source through a serialized WebCodecs
  * pipeline and stores them in the shared frame cache.
+ *
+ * @remarks
+ * Decoding is only used for stills, scrubbing and export - live playback draws
+ * the media element directly, which is far cheaper than decoding every frame.
  */
 export class FrameSource {
   declare public readonly key: string;
@@ -63,15 +63,14 @@ export class FrameSource {
   declare private readonly input: Input;
   declare private sink: VideoSampleSink | null;
   declare private readonly queue: DecodeTask[];
-  declare private readonly pending: Map<number, DecodeTask>;
+  declare private readonly pending: Map<string, DecodeTask>;
   declare private pipeline: Promise<void> | null;
-  declare private position: number;
   declare private disposed: boolean;
   declare public duration: number;
   declare public size: {x: number; y: number};
 
-  public constructor(key: string, src: string, settings: FrameSourceSettings) {
-    this.key = key;
+  public constructor(src: string, settings: FrameSourceSettings) {
+    this.key = src;
     this.src = src;
     this.settings = settings;
     this.input = new Input({formats: ALL_FORMATS, source: new UrlSource(src)});
@@ -79,7 +78,6 @@ export class FrameSource {
     this.queue = [];
     this.pending = new Map();
     this.pipeline = null;
-    this.position = 0;
     this.disposed = false;
     this.duration = 0;
     this.size = {x: 0, y: 0};
@@ -87,10 +85,6 @@ export class FrameSource {
 
   public get cache(): FrameCache<CacheableFrame> {
     return this.settings.cache;
-  }
-
-  public get clock(): number {
-    return this.position;
   }
 
   public get pendingCount(): number {
@@ -102,10 +96,14 @@ export class FrameSource {
   }
 
   public peek(seconds: number): CachedFrame | null {
-    return this.cache.find(
+    return this.cache.get(
       this.key,
       toMicroseconds(seconds),
     ) as CachedFrame | null;
+  }
+
+  public isCached(seconds: number): boolean {
+    return this.peek(seconds) !== null;
   }
 
   /**
@@ -121,60 +119,31 @@ export class FrameSource {
       return Promise.resolve(cached);
     }
 
-    const pending = this.pending.get(seconds);
+    const key = frameKey(this.key, toMicroseconds(seconds));
+    const pending = this.pending.get(key);
     if (pending) {
       return pending.deferred;
     }
 
-    if (!this.settings.canDraw?.(seconds)) {
-      return Promise.resolve(null);
-    }
-
     const task: DecodeTask = {
       seconds,
+      key,
       deferred: deferred<CachedFrame | null>(),
     };
-    this.pending.set(seconds, task);
+    this.pending.set(key, task);
     this.queue.push(task);
     this.start();
-    return task.deferred;
-  }
-
-  /**
-   * Schedule work around the timestamp without blocking the caller.
-   */
-  public prefetch(seconds: number): void {
-    if (!this.isReady() || this.pending.size > 64) return;
-    const end = Math.min(
-      this.duration,
-      seconds + this.settings.prefetchSeconds,
-    );
-    for (let time = seconds; time <= end; time += 1 / 30) {
-      const rounded = Math.round(time * 1000) / 1000;
-      if (this.pending.has(rounded) || this.peek(rounded)) continue;
-      if (!this.settings.canDraw?.(rounded)) continue;
-      const task: DecodeTask = {
-        seconds: rounded,
-        deferred: deferred<CachedFrame | null>(),
-      };
-      this.pending.set(rounded, task);
-      this.queue.push(task);
-      this.start();
-    }
-  }
-
-  public async drain(): Promise<void> {
-    while (this.pipeline) {
-      await this.pipeline;
-    }
+    return withTimeout(task.deferred, this.settings.timeoutMs, null);
   }
 
   public dispose(): void {
     this.disposed = true;
+    for (const task of this.pending.values()) {
+      task.deferred.resolve(null);
+    }
     this.pending.clear();
     this.queue.length = 0;
-    // mediabunny's published types omit the sink close method.
-    (this.sink as unknown as {close(): void})?.close();
+    this.sink = null;
     this.input.dispose();
   }
 
@@ -187,15 +156,13 @@ export class FrameSource {
 
   private async run(): Promise<void> {
     try {
-      await this.initialize();
+      await withTimeout(this.initialize(), this.settings.timeoutMs, false);
       while (!this.disposed && this.queue.length > 0) {
         const task = this.queue.shift()!;
         await this.process(task);
       }
     } catch (error) {
-      this.settings.logger.debug(
-        `frame source ${this.key}: pipeline failed (${String((error as Error).message)})`,
-      );
+      this.logFailure(error);
     }
 
     for (const task of this.pending.values()) {
@@ -205,35 +172,42 @@ export class FrameSource {
   }
 
   private async process(task: DecodeTask): Promise<void> {
-    this.pending.delete(task.seconds);
+    this.pending.delete(task.key);
 
-    if (!this.sink || !this.settings.canDraw?.(task.seconds)) {
+    if (!this.sink) {
       task.deferred.resolve(null);
       return;
     }
 
-    const sample = await this.sink.getSample(task.seconds);
+    const sample = await withTimeout(
+      this.sink.getSample(task.seconds),
+      this.settings.timeoutMs,
+      null,
+    );
     if (!sample) {
       task.deferred.resolve(null);
       return;
     }
 
-    const stored = await this.store(sample);
-    task.deferred.resolve(stored);
+    task.deferred.resolve(await this.store(task, sample));
   }
 
-  private async store(sample: VideoSample): Promise<CachedFrame> {
-    this.position = sample.microsecondTimestamp / 1e6;
+  private async store(
+    task: DecodeTask,
+    sample: VideoSample,
+  ): Promise<CachedFrame> {
     const source = sample.toVideoFrame();
+    const seconds = sample.microsecondTimestamp / 1e6;
+    sample.close();
     const image = await createImageBitmap(source);
     source.close();
     const entry: CachedFrame = {
-      key: `${this.key}:${sample.microsecondTimestamp}`,
+      key: task.key,
       sourceKey: this.key,
-      microsecondTimestamp: sample.microsecondTimestamp,
+      microsecondTimestamp: toMicroseconds(task.seconds),
       source: this,
       image,
-      seconds: sample.microsecondTimestamp / 1e6,
+      seconds,
       allocationSize: () => image.width * image.height * 4,
       close: () => image.close(),
     };
@@ -246,10 +220,10 @@ export class FrameSource {
     return cached;
   }
 
-  private async initialize(): Promise<void> {
+  private async initialize(): Promise<boolean> {
     const [track] = await this.input.getVideoTracks();
     if (!track) {
-      return;
+      return false;
     }
 
     this.sink = new VideoSampleSink(track);
@@ -261,14 +235,50 @@ export class FrameSource {
       (await this.input.getDurationFromMetadata([track])) ??
       (await this.input.computeDuration([track]));
 
+    this.logDetail(
+      `ready duration=${this.duration.toFixed(2)}s size=${this.size.x}x${this.size.y}`,
+    );
+    return true;
+  }
+
+  private logDetail(message: string): void {
     if (this.settings.logger instanceof Logger) {
       this.settings.logger.debug(
-        `frame source ${this.key}: duration=${this.duration.toFixed(2)}s size=${this.size.x}x${this.size.y} cache=${(this.cache.usedBytes / 1024 / 1024).toFixed(1)}MB`,
+        `frame source ${shortUrl(this.key)}: ${message}`,
       );
     }
+  }
+
+  private logFailure(error: unknown): void {
+    const reason = error instanceof Error ? error.message : String(error);
+    this.logDetail(`pipeline failed (${reason})`);
   }
 }
 
 function toMicroseconds(seconds: number): number {
   return Math.round(seconds * 1e6);
+}
+
+function shortUrl(url: string): string {
+  return url.split('/').pop() ?? url;
+}
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  milliseconds: number,
+  fallback: T,
+): Promise<T> {
+  return new Promise<T>(resolve => {
+    const timer = setTimeout(() => resolve(fallback), milliseconds);
+    promise.then(
+      value => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      () => {
+        clearTimeout(timer);
+        resolve(fallback);
+      },
+    );
+  });
 }

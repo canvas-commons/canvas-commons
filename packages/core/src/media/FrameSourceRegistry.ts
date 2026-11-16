@@ -1,18 +1,16 @@
 import type {Logger} from '../app/Logger';
 import {useLogger} from '../utils/useScene';
 import {type CacheableFrame, FrameCache} from './FrameCache';
-import {type FrameSourceOptions, FrameSource} from './FrameSource';
+import {FrameSource} from './FrameSource';
 
-export const DEFAULT_FRAME_CACHE_BYTES: number = 128 * 1024 * 1024;
-export const DEFAULT_SOURCE_CACHE_BYTES: number = 64 * 1024 * 1024;
-export const DEFAULT_PREFETCH_SECONDS: number = 0.4;
-export const DEFAULT_MAX_SOURCES: number = 4;
+export const DEFAULT_FRAME_CACHE_BYTES: number = 512 * 1024 * 1024;
+export const DEFAULT_MAX_SOURCES: number = 16;
+export const DEFAULT_TIMEOUT_MS: number = 2000;
 
 export interface FrameSourceRegistrySettings {
   cacheBytes: number;
-  sourceCacheBytes: number;
-  prefetchSeconds: number;
   maxSources: number;
+  timeoutMs: number;
 }
 
 /**
@@ -31,26 +29,20 @@ export class FrameSourceRegistry {
     this.frames = new FrameCache<CacheableFrame>(settings.cacheBytes);
   }
 
-  public get(
-    key: string,
-    src: string,
-    options: FrameSourceOptions,
-  ): FrameSource {
-    const existing = this.sources.get(key);
+  public get(src: string): FrameSource {
+    const existing = this.sources.get(src);
     if (existing) {
-      this.touch(key);
+      this.touch(src);
       return existing;
     }
 
-    const source = new FrameSource(key, src, {
-      cacheBytes: options.cacheBytes || this.settings.sourceCacheBytes,
-      prefetchSeconds: options.prefetchSeconds ?? this.settings.prefetchSeconds,
-      canDraw: options.canDraw,
+    const source = new FrameSource(src, {
       cache: this.frames,
       logger: this.logger,
+      timeoutMs: this.settings.timeoutMs,
     });
-    this.sources.set(key, source);
-    this.touch(key);
+    this.sources.set(src, source);
+    this.touch(src);
     this.limit();
     return source;
   }
@@ -94,7 +86,12 @@ export class FrameSourceRegistry {
 
   private limit(): void {
     while (this.order.length > this.settings.maxSources) {
-      this.drop(this.order[0]);
+      const oldest = this.order[0];
+      if (!this.sources.has(oldest)) {
+        this.order.shift();
+        continue;
+      }
+      this.drop(oldest);
     }
   }
 }
@@ -105,9 +102,8 @@ export function useFrameSourceRegistry(): FrameSourceRegistry {
   DefaultRegistry ??= new FrameSourceRegistry(
     {
       cacheBytes: DEFAULT_FRAME_CACHE_BYTES,
-      sourceCacheBytes: DEFAULT_SOURCE_CACHE_BYTES,
-      prefetchSeconds: DEFAULT_PREFETCH_SECONDS,
       maxSources: DEFAULT_MAX_SOURCES,
+      timeoutMs: DEFAULT_TIMEOUT_MS,
     },
     useLogger(),
   );

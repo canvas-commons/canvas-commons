@@ -30,21 +30,21 @@ const MakeFrame = (
 ): FakeFrame => new FakeFrame(sourceKey, microsecondTimestamp, size);
 
 describe('FrameCache', () => {
-  test('finds the last frame at or before the timestamp', () => {
+  test('returns the frame stored for the exact timestamp', () => {
     const cache = new FrameCache<CacheableFrame>(1000);
     cache.put(MakeFrame('a', 100, 10));
     cache.put(MakeFrame('a', 300, 10));
 
-    expect(cache.find('a', 250)?.microsecondTimestamp).toBe(100);
-    expect(cache.find('a', 300)?.microsecondTimestamp).toBe(300);
-    expect(cache.find('a', 99)).toBeNull();
+    expect(cache.get('a', 300)?.microsecondTimestamp).toBe(300);
+    expect(cache.get('a', 250)).toBeNull();
+    expect(cache.get('a', 99)).toBeNull();
   });
 
   test('does not return frames from another source', () => {
     const cache = new FrameCache<CacheableFrame>(1000);
     cache.put(MakeFrame('a', 100, 10));
 
-    expect(cache.find('b', 100)).toBeNull();
+    expect(cache.get('b', 100)).toBeNull();
   });
 
   test('closes the least recently used frames over the budget', () => {
@@ -63,7 +63,7 @@ describe('FrameCache', () => {
     expect(first.closed).toBe(true);
     expect(cache.count).toBe(3);
 
-    expect(cache.find('a', 2)).toBe(second);
+    expect(cache.get('a', 2)).toBe(second);
     expect(second.closed).toBe(false);
 
     cache.put(MakeFrame('a', 5, 10));

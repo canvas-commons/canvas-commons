@@ -24,9 +24,8 @@ function MakeRegistry(maxSources: number): FrameSourceRegistry {
   return new FrameSourceRegistry(
     {
       cacheBytes: 1000,
-      sourceCacheBytes: 100,
-      prefetchSeconds: 0.4,
       maxSources,
+      timeoutMs: 2000,
     },
     console as unknown as Logger,
   );
@@ -35,42 +34,38 @@ function MakeRegistry(maxSources: number): FrameSourceRegistry {
 describe('FrameSourceRegistry', () => {
   it('bounds the number of live sources', () => {
     const registry = MakeRegistry(2);
-    registry.get('a', 'a.mp4', {cacheBytes: 100, prefetchSeconds: 0});
-    registry.get('b', 'b.mp4', {cacheBytes: 100, prefetchSeconds: 0});
-    registry.get('c', 'c.mp4', {cacheBytes: 100, prefetchSeconds: 0});
+    registry.get('a.mp4');
+    registry.get('b.mp4');
+    registry.get('c.mp4');
 
     expect(registry.sourceCount).toBe(2);
-    expect(
-      registry.get('b', 'b.mp4', {cacheBytes: 100, prefetchSeconds: 0}),
-    ).toBeTruthy();
-    expect(
-      registry.get('c', 'c.mp4', {cacheBytes: 100, prefetchSeconds: 0}),
-    ).toBeTruthy();
+    expect(registry.get('b.mp4')).toBeTruthy();
+    expect(registry.get('c.mp4')).toBeTruthy();
     registry.dispose();
   });
 
   it('drops the frames of an evicted source', () => {
     const registry = MakeRegistry(2);
-    const frame = MakeFrame('a', 1000);
+    const frame = MakeFrame('a.mp4', 1000);
     registry.cache.put(frame);
 
-    registry.get('a', 'a.mp4', {cacheBytes: 100, prefetchSeconds: 0});
-    registry.get('b', 'b.mp4', {cacheBytes: 100, prefetchSeconds: 0});
-    registry.get('c', 'c.mp4', {cacheBytes: 100, prefetchSeconds: 0});
+    registry.get('a.mp4');
+    registry.get('b.mp4');
+    registry.get('c.mp4');
 
     expect(frame.closed).toBe(true);
-    expect(registry.cache.find('a', 1000)).toBeNull();
+    expect(registry.cache.get('a.mp4', 1000)).toBeNull();
     registry.dispose();
   });
 
   it('keeps held frames when a source is dropped', () => {
     const registry = MakeRegistry(1);
-    const frame = MakeFrame('a', 1000);
+    const frame = MakeFrame('a.mp4', 1000);
     registry.cache.put(frame);
     registry.cache.hold(frame);
 
-    registry.get('a', 'a.mp4', {cacheBytes: 100, prefetchSeconds: 0});
-    registry.get('b', 'b.mp4', {cacheBytes: 100, prefetchSeconds: 0});
+    registry.get('a.mp4');
+    registry.get('b.mp4');
 
     expect(frame.closed).toBe(false);
     registry.cache.release(frame);

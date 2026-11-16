@@ -22,6 +22,17 @@ import reactivePlaybackRate from './__logs__/reactive-playback-rate';
 
 const DRIFT_SECONDS: number = 0.2;
 const LIVE_DRIFT_SECONDS: number = 0.4;
+const STALE_SECONDS: number = 0.15;
+const LOOKBACK_SECONDS: number = 1;
+
+function sourceSize(source: CanvasImageSource): {x: number; y: number} {
+  if (source instanceof HTMLVideoElement) {
+    return {x: source.videoWidth, y: source.videoHeight};
+  }
+
+  const sized = source as {width?: number; height?: number};
+  return {x: sized.width ?? 0, y: sized.height ?? 0};
+}
 
 export interface VideoProps extends RectProps {
   /**
@@ -134,6 +145,7 @@ export class Video extends Rect {
   private lastTime = -1;
   private missTime = -1;
   private lastFrame: CachedFrame | null = null;
+  private snapshot: HTMLCanvasElement | null = null;
 
   public constructor({play, ...props}: VideoProps) {
     super(props);
@@ -332,21 +344,68 @@ export class Video extends Rect {
    */
   protected drawSource(): CanvasImageSource {
     const video = this.video();
+    const source = this.isLive()
+      ? this.liveSource(video)
+      : this.stillTarget(video);
 
-    if (this.isLive()) {
-      this.fastSeekedVideo();
-      if (this.canPresent(video)) {
-        return video;
-      }
-      // an element that is still loading or seeking draws nothing, so keep the
-      // picture alive with a decoded frame until it presents again
-      return this.stillSource(video);
+    if (source !== this.snapshot && this.isDrawable(source, video)) {
+      this.capture(source);
     }
 
+    return source;
+  }
+
+  /**
+   * Whether the source really paints pixels, so an empty element never becomes
+   * the frame that is kept on screen.
+   */
+  protected isDrawable(
+    source: CanvasImageSource,
+    video: HTMLVideoElement,
+  ): boolean {
+    if (source === video) {
+      return this.canPresent(video);
+    }
+
+    const sized = source as {width?: number; height?: number};
+    return (sized.width ?? 0) > 1 && (sized.height ?? 0) > 1;
+  }
+
+  /**
+   * The frame a playing element shows, or the last one it showed.
+   */
+  protected liveSource(video: HTMLVideoElement): CanvasImageSource {
+    this.fastSeekedVideo();
+
     const time = this.clampTime(this.time());
+    // an element that reports a ready state can still be one that only just
+    // started and paints nothing, so a lagging element is not trusted either
+    if (
+      this.canPresent(video) &&
+      Math.abs(video.currentTime - time) <= STALE_SECONDS
+    ) {
+      return video;
+    }
+
+    const still = this.stillSource(video, time);
+    if (still === video) {
+      // nothing has reached the screen yet, which only happens on a shot's
+      // first frames: wait for that frame instead of presenting an empty video
+      this.requestFrame(time);
+    }
+
+    return still;
+  }
+
+  /**
+   * The frame for a timeline that stands still.
+   */
+  protected stillTarget(video: HTMLVideoElement): CanvasImageSource {
+    const time = this.clampTime(this.time());
+    this.syncElement(video, time);
+
     const frame = this.frame();
     if (frame) {
-      this.syncElement(video, time);
       this.lastFrame = frame;
       return frame.image;
     }
@@ -354,38 +413,90 @@ export class Video extends Rect {
     // the render loop awaits collected promises and draws again, so the still
     // replaces the last presented frame as soon as the decoder is done
     this.requestFrame(time);
-    this.syncElement(video, time);
-    return this.stillSource(video);
+    if (this.canPresent(video)) {
+      return video;
+    }
+
+    return this.stillSource(video, time);
   }
 
   /**
    * Whether the element currently has a frame to draw.
+   *
+   * @remarks
+   * An element that finished loading but never presented a frame reports a ready
+   * state and still draws nothing, so the presented frame count decides.
    */
   protected canPresent(video: HTMLVideoElement): boolean {
-    return video.readyState >= 2 && !video.seeking;
+    if (video.readyState < 2 || video.seeking) {
+      return false;
+    }
+
+    const presented = video.getVideoPlaybackQuality?.().totalVideoFrames ?? 1;
+    return presented > 0;
   }
 
   /**
-   * A decoded frame to show while the element cannot present one.
+   * The best frame to show when the element cannot present one.
    *
    * @remarks
-   * Playback never asks for a decode: playback timestamps are arbitrary and
-   * decoding them all would starve the element that is doing the real work.
+   * Playback never asks for a decode here: playback timestamps are arbitrary
+   * and decoding them all would starve the element that does the real work.
+   * The snapshot is the last frame that reached the screen, so the video never
+   * blinks out while the element loads, seeks, or stalls.
    */
-  protected stillSource(video: HTMLVideoElement): CanvasImageSource {
+  protected stillSource(
+    video: HTMLVideoElement,
+    time: number,
+  ): CanvasImageSource {
+    const source = this.frameSource();
     const cached = this.frame();
     if (cached) {
       this.lastFrame = cached;
       return cached.image;
     }
 
+    if (this.snapshot) {
+      return this.snapshot;
+    }
+
+    const lookback = source.lookback(time);
+    if (lookback && time - lookback.seconds <= LOOKBACK_SECONDS) {
+      this.lastFrame = lookback;
+      return lookback.image;
+    }
+
     // evicted frames are closed, which shows up as a zero sized bitmap
-    const last = this.lastFrame;
-    if (last && last.image.width > 0) {
-      return last.image;
+    const held = this.lastFrame;
+    if (held && held.image.width > 0) {
+      return held.image;
     }
 
     return video;
+  }
+
+  /**
+   * Remember the frame that is on screen, so a gap in the element does not blank
+   * the video.
+   */
+  protected capture(source: CanvasImageSource): void {
+    const size = sourceSize(source);
+    if (size.x <= 1 || size.y <= 1) {
+      return;
+    }
+
+    let snapshot = this.snapshot;
+    if (!snapshot) {
+      snapshot = document.createElement('canvas');
+      this.snapshot = snapshot;
+    }
+
+    if (snapshot.width !== size.x || snapshot.height !== size.y) {
+      snapshot.width = size.x;
+      snapshot.height = size.y;
+    }
+
+    snapshot.getContext('2d')?.drawImage(source, 0, 0, size.x, size.y);
   }
 
   /**
@@ -521,14 +632,13 @@ export class Video extends Rect {
     super.collectAsyncResources();
     this.awaitVideo();
 
+    const time = this.clampTime(this.time());
     if (this.isLive()) {
-      this.syncElement(this.video(), this.clampTime(this.time()));
-      return;
+      this.syncElement(this.video(), time);
     }
 
-    const time = this.clampTime(this.time());
-    // waiting on a frame that is already cached would keep the collection loop
-    // spinning without ever producing new work
+    // a shot that is about to play gets its first frame decoded, so the video
+    // has something to show before the element presents anything
     if (!this.frameSource().isCached(time)) {
       this.requestFrame(time);
     }

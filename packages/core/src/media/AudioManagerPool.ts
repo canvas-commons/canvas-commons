@@ -65,9 +65,15 @@ export class AudioManagerPool {
 
   public prepare(time: number) {
     for (const sound of this.sounds) {
+      // the owning node drives element sounds, so a pool manager would double them
+      if (sound.element) continue;
+
       if (this.isInRange(sound, time)) {
         let manager = this.managers.get(sound);
-        if (manager) continue;
+        if (manager) {
+          manager.applyGain(time);
+          continue;
+        }
 
         // sound is starting
         manager = this.pool.pop() ?? this.spawn();

@@ -1,6 +1,6 @@
-import type {Logger, Sound} from '@canvas-commons/core';
+import type {GainKeyframe, Logger, Sound} from '@canvas-commons/core';
+import {amplitudeAt, keyframeEnd, keyframeStart} from '@canvas-commons/core';
 import {
-  dbToGain,
   outputOffset,
   playDuration,
   sourceOffset,
@@ -32,7 +32,8 @@ interface MixEntry {
   realPlaybackRate: number;
   start?: number;
   end?: number;
-  gain?: number;
+  gain: number;
+  envelope: GainKeyframe[];
 }
 
 /**
@@ -50,7 +51,11 @@ export async function mixProjectAudio(
     realPlaybackRate: sound.realPlaybackRate,
     start: sound.start,
     end: sound.end,
-    gain: sound.gain,
+    gain: sound.gain ?? 0,
+    envelope: sound.envelope.map(keyframe => ({
+      ...keyframe,
+      at: keyframe.at - options.rangeStart,
+    })),
   }));
   // The master track mixes in last, at playback rate 1.
   if (options.master) {
@@ -58,6 +63,8 @@ export async function mixProjectAudio(
       audio: options.master,
       offset: outputOffset(options.masterOffset, options.rangeStart),
       realPlaybackRate: 1,
+      gain: 0,
+      envelope: [],
     });
   }
   if (entries.length === 0) {
@@ -108,13 +115,29 @@ export async function mixProjectAudio(
     source.buffer = buffer;
     source.playbackRate.value = entry.realPlaybackRate;
 
-    if (entry.gain) {
-      const gain = ctx.createGain();
-      gain.gain.value = dbToGain(entry.gain);
-      source.connect(gain).connect(ctx.destination);
-    } else {
-      source.connect(ctx.destination);
+    const gain = ctx.createGain();
+    const begin = startWhen(entry.offset);
+    gain.gain.setValueAtTime(amplitudeAt(entry, entry.offset), begin);
+    for (const keyframe of [...entry.envelope].sort(
+      (a, b) => keyframeStart(a) - keyframeStart(b),
+    )) {
+      if (startWhen(keyframeEnd(keyframe)) < begin) {
+        continue;
+      }
+      const from = amplitudeAt(entry, keyframeStart(keyframe));
+      const to = amplitudeAt(entry, keyframeEnd(keyframe));
+      const keyStart = startWhen(keyframeStart(keyframe));
+      const keyEnd = startWhen(keyframeEnd(keyframe));
+      if (keyStart < begin) {
+        gain.gain.linearRampToValueAtTime(to, Math.max(keyEnd, begin));
+      } else {
+        gain.gain.setValueAtTime(from, keyStart);
+        if (keyEnd > keyStart) {
+          gain.gain.linearRampToValueAtTime(to, keyEnd);
+        }
+      }
     }
+    source.connect(gain).connect(ctx.destination);
 
     source.start(startWhen(entry.offset), srcOffset, duration);
     scheduled++;

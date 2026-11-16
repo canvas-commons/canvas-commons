@@ -2,6 +2,7 @@ import {
   BBox,
   DependencyContext,
   PlaybackState,
+  SILENCE_DB,
   SerializedVector2,
   SignalValue,
   SimpleSignal,
@@ -9,13 +10,16 @@ import {
   isReactive,
   useLogger,
   useThread,
+  type Sound,
 } from '@canvas-commons/core';
 import {computed, initial, nodeName, signal} from '../decorators';
 import {DesiredLength} from '../partials';
+import type {Scene2D} from '../scenes/Scene2D';
+import {useScene2D} from '../scenes/useScene2D';
 import {drawImage} from '../utils';
 import {resolveAssetUrl} from '../utils/assetUrl';
-import {Rect, RectProps} from './Rect';
 import reactivePlaybackRate from './__logs__/reactive-playback-rate';
+import {Rect, RectProps} from './Rect';
 
 export interface VideoProps extends RectProps {
   /**
@@ -116,12 +120,148 @@ export class Video extends Rect {
   declare protected readonly playing: SimpleSignal<boolean, this>;
 
   private lastTime = -1;
+  private sound: Sound | null = null;
+  private audioScene: Scene2D | null = null;
 
   public constructor({play, ...props}: VideoProps) {
     super(props);
     if (play) {
       this.play();
     }
+    this.registerAudio();
+  }
+
+  /**
+   * Register this video's audio for the live mix and the export.
+   *
+   * @example
+   * ```tsx
+   * // a shot that keeps its own audio
+   * const video = <Video src={'clip.mp4'} time={12} />;
+   * ```
+   */
+  /**
+   * Set the level of the registered audio, or ramp to it from the frame the call
+   * happens on.
+   *
+   * @param db - The gain in dB.
+   * @param seconds - The length of the transition. Without it the level applies
+   * for the whole window.
+   */
+  public gain(db: number, seconds?: number): this {
+    const entry = this.entry();
+    entry.gain = db;
+    if (seconds !== undefined) {
+      this.keyframe(db, seconds, false);
+    }
+    return this;
+  }
+
+  /**
+   * Switch the registered audio to a level at the frame the call happens on.
+   *
+   * @param db - The gain in dB.
+   */
+  public hold(db: number): this {
+    this.keyframe(db, 0, false);
+    return this;
+  }
+
+  /**
+   * Ramp the registered audio from silence to its level over the seconds that
+   * follow the call.
+   *
+   * @param seconds - The length of the transition.
+   */
+  public fadeIn(seconds: number): this {
+    const entry = this.entry();
+    this.keyframe(entry.gain, seconds, false, SILENCE_DB);
+    return this;
+  }
+
+  /**
+   * Ramp the registered audio to silence over the seconds that lead up to the
+   * call, so the level is already zero at the frame the call happens on.
+   *
+   * @param seconds - The length of the transition.
+   */
+  public fadeOut(seconds: number): this {
+    this.keyframe(SILENCE_DB, seconds, true);
+    return this;
+  }
+
+  private keyframe(
+    gain: number,
+    seconds: number,
+    backwards: boolean,
+    from?: number,
+  ): void {
+    const entry = this.entry();
+    const scene = this.audioScene;
+    if (!scene) {
+      throw new Error(`No audio registered for "${this.name()}".`);
+    }
+
+    // keyframes are timeline times, so they anchor on the frame the call happens
+    // on, not on the node's media in point
+    entry.envelope.push({
+      at: scene.playback.time,
+      gain,
+      seconds,
+      backwards,
+      from,
+    });
+  }
+
+  private entry(): Sound {
+    const entry = this.sound;
+    if (!entry) {
+      throw new Error(`No audio registered for "${this.name()}".`);
+    }
+    return entry;
+  }
+
+  private registerAudio(): void {
+    const src = this.src();
+    if (!src) {
+      return;
+    }
+
+    const {key} = resolveAssetUrl(src, this.view2D.assetHash);
+    this.audioScene = useScene2D();
+    this.sound = this.audioScene.sounds.add({
+      audio: key,
+      start: this.time(),
+      playbackRate: this.playbackRate(),
+      element: true,
+      envelope: [],
+    });
+  }
+
+  public override remove(): this {
+    // insert() detaches a node before parenting it, which is not leaving the tree
+    if (this.parent() !== null) {
+      this.closeAudio();
+    }
+
+    return super.remove();
+  }
+
+  public override dispose() {
+    this.closeAudio();
+    super.dispose();
+  }
+
+  private closeAudio(): void {
+    if (!this.sound || !this.audioScene || this.sound.end !== undefined) {
+      return;
+    }
+
+    // the export collects sounds right after recalculation, where the media
+    // element is never played, so the window is measured on the timeline
+    const elapsed = this.audioScene.playback.time - this.sound.offset;
+    this.sound.realPlaybackRate = this.playbackRate();
+    this.sound.end = (this.sound.start ?? 0) + elapsed * this.playbackRate();
   }
 
   /**

@@ -9,4 +9,5 @@ export * from './AudioManager';
 export * from './AudioManagerPool';
 export * from './AudioResourceManager';
 export * from './decibelsToAmplitude';
+export * from './gain_envelope';
 export * from './loadImage';

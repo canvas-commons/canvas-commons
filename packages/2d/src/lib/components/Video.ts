@@ -13,6 +13,7 @@ import {
 } from '@canvas-commons/core';
 import {computed, initial, nodeName, signal} from '../decorators';
 import {DesiredLength} from '../partials';
+import type {Scene2D} from '../scenes/Scene2D';
 import {useScene2D} from '../scenes/useScene2D';
 import {drawImage} from '../utils';
 import {resolveAssetUrl} from '../utils/assetUrl';
@@ -119,6 +120,7 @@ export class Video extends Rect {
 
   private lastTime = -1;
   private sound: Sound | null = null;
+  private audioScene: Scene2D | null = null;
 
   public constructor({play, ...props}: VideoProps) {
     super(props);
@@ -144,7 +146,8 @@ export class Video extends Rect {
     }
 
     const {key} = resolveAssetUrl(src, this.view2D.assetHash);
-    this.sound = useScene2D().sounds.add({
+    this.audioScene = useScene2D();
+    this.sound = this.audioScene.sounds.add({
       audio: key,
       start: this.time(),
       playbackRate: this.playbackRate(),
@@ -153,7 +156,11 @@ export class Video extends Rect {
   }
 
   public override remove(): this {
-    this.closeAudio();
+    // insert() detaches a node before parenting it, which is not leaving the tree
+    if (this.parent() !== null) {
+      this.closeAudio();
+    }
+
     return super.remove();
   }
 
@@ -163,9 +170,15 @@ export class Video extends Rect {
   }
 
   private closeAudio(): void {
-    if (this.sound && this.sound.end === undefined) {
-      this.sound.end = this.time();
+    if (!this.sound || !this.audioScene || this.sound.end !== undefined) {
+      return;
     }
+
+    // the export collects sounds right after recalculation, where the media
+    // element is never played, so the window is measured on the timeline
+    const elapsed = this.audioScene.playback.time - this.sound.offset;
+    this.sound.realPlaybackRate = this.playbackRate();
+    this.sound.end = (this.sound.start ?? 0) + elapsed * this.playbackRate();
   }
 
   /**

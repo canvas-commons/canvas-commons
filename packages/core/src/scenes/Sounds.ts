@@ -1,4 +1,5 @@
 import {ValueDispatcher} from '../events';
+import {SILENCE_DB, type GainKeyframe} from '../media/gain_envelope';
 import {useScene} from '../utils';
 import type {Scene} from './Scene';
 
@@ -18,6 +19,10 @@ export interface SoundSettings {
    * mixes the registered window.
    */
   element?: boolean;
+  /**
+   * Level changes applied over the window.
+   */
+  envelope: GainKeyframe[];
 }
 
 export interface Sound extends SoundSettings {
@@ -35,7 +40,7 @@ export class SoundBuilder {
     if (audio instanceof SoundBuilder) {
       this.settings = {...audio.settings};
     } else {
-      this.settings = {audio};
+      this.settings = {audio, envelope: []};
     }
   }
 
@@ -52,12 +57,49 @@ export class SoundBuilder {
   }
 
   /**
-   * Set the amplification of the played sound.
+   * Set the amplification of the played sound, or ramp to it from the frame the
+   * call happens on.
+   *
+   * @param db - The gain in dB.
+   * @param seconds - The length of the transition. Without it the level applies
+   * for the whole window.
+   */
+  public gain(db: number, seconds?: number): this {
+    this.settings.gain = db;
+    if (seconds !== undefined) {
+      this.keyframe(db, seconds, false);
+    }
+    return this;
+  }
+
+  /**
+   * Switch to a level at the frame the call happens on.
    *
    * @param db - The gain in dB.
    */
-  public gain(db: number): this {
-    this.settings.gain = db;
+  public hold(db: number): this {
+    this.keyframe(db, 0, false);
+    return this;
+  }
+
+  /**
+   * Ramp from silence to the level over the seconds that follow the call.
+   *
+   * @param seconds - The length of the transition.
+   */
+  public fadeIn(seconds: number): this {
+    this.keyframe(this.settings.gain ?? 0, seconds, false, SILENCE_DB);
+    return this;
+  }
+
+  /**
+   * Ramp to silence over the seconds that lead up to the call, so the level is
+   * already zero at the frame the call happens on.
+   *
+   * @param seconds - The length of the transition.
+   */
+  public fadeOut(seconds: number): this {
+    this.keyframe(SILENCE_DB, seconds, true);
     return this;
   }
 
@@ -85,6 +127,21 @@ export class SoundBuilder {
   public playbackRate(rate: number): this {
     this.settings.playbackRate = rate > 0 ? rate : 1;
     return this;
+  }
+
+  private keyframe(
+    gain: number,
+    seconds: number,
+    backwards: boolean,
+    from?: number,
+  ): void {
+    this.settings.envelope.push({
+      at: useScene().playback.time,
+      gain,
+      seconds,
+      backwards,
+      from,
+    });
   }
 
   /**
@@ -132,6 +189,7 @@ export class Sounds {
         Math.pow(2, (settings.detune ?? 0) / 1200) *
         (settings.playbackRate ?? 1),
       ...settings,
+      envelope: [...settings.envelope],
     };
 
     this.registeredSounds.push(sound);

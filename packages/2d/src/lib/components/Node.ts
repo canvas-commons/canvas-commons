@@ -3,6 +3,7 @@ import {
   ColorSignal,
   DependencyContext,
   InterpolationFunction,
+  MAX_TO_PROMISE_PASSES,
   PossibleColor,
   PossibleSpacing,
   PossibleVector2,
@@ -1877,12 +1878,16 @@ export class Node implements Promisable<Node> {
    * before continuing the animation.
    */
   public async toPromise(): Promise<this> {
-    do {
+    // a collected resource that resolves instantly and is collected again on every pass would spin forever
+    for (let pass = 0; pass < MAX_TO_PROMISE_PASSES; pass++) {
       await DependencyContext.consumePromises();
       // The caller awaits this outside the scene, and a collected resource
       // can create nodes.
       this.scene2D.execute(() => this.collectAsyncResources());
-    } while (DependencyContext.hasPromises());
+      if (!DependencyContext.hasPromises()) {
+        break;
+      }
+    }
     return this;
   }
 

@@ -9,6 +9,8 @@ export interface PromiseHandle<T> {
   owner?: any;
 }
 
+export const MAX_TO_PROMISE_PASSES: number = 32;
+
 export class DependencyContext<TOwner = void> implements Promisable<
   DependencyContext<TOwner>
 > {
@@ -117,10 +119,14 @@ export class DependencyContext<TOwner = void> implements Promisable<
   }
 
   public async toPromise(): Promise<this> {
-    do {
+    // a dependency that resolves instantly and is collected again on every pass would spin forever
+    for (let pass = 0; pass < MAX_TO_PROMISE_PASSES; pass++) {
       await DependencyContext.consumePromises();
       this.invokable();
-    } while (DependencyContext.hasPromises());
+      if (!DependencyContext.hasPromises()) {
+        break;
+      }
+    }
     return this.invokable;
   }
 }

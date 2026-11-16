@@ -9,4 +9,7 @@ export * from './AudioManager';
 export * from './AudioManagerPool';
 export * from './AudioResourceManager';
 export * from './decibelsToAmplitude';
+export * from './FrameCache';
+export * from './FrameSource';
+export * from './FrameSourceRegistry';
 export * from './loadImage';

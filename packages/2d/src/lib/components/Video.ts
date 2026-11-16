@@ -1,6 +1,5 @@
 import {
   BBox,
-  DEFAULT_SOURCE_CACHE_BYTES,
   DependencyContext,
   PlaybackState,
   SerializedVector2,
@@ -13,7 +12,6 @@ import {
   useThread,
   type CachedFrame,
   type FrameSource,
-  type FrameSourceOptions,
 } from '@canvas-commons/core';
 import {computed, initial, nodeName, signal} from '../decorators';
 import {DesiredLength} from '../partials';
@@ -21,6 +19,8 @@ import {drawImage} from '../utils';
 import {resolveAssetUrl} from '../utils/assetUrl';
 import {Rect, RectProps} from './Rect';
 import reactivePlaybackRate from './__logs__/reactive-playback-rate';
+
+const DRIFT_SECONDS: number = 0.2;
 
 export interface VideoProps extends RectProps {
   /**
@@ -50,9 +50,19 @@ export interface VideoProps extends RectProps {
   play?: boolean;
 }
 
+/**
+ * Draws a video.
+ *
+ * @remarks
+ * Live playback draws the media element, which the browser decodes on the GPU
+ * for free. Still frames, scrubbing and export draw frames decoded through the
+ * shared frame cache, because seeking a media element costs hundreds of
+ * milliseconds per frame.
+ */
 @nodeName('Video')
 export class Video extends Rect {
   private static readonly pool: Record<string, HTMLVideoElement> = {};
+  private static readonly maxPoolSize = 4;
 
   /**
    * The source of this video.
@@ -112,20 +122,6 @@ export class Video extends Rect {
   @signal()
   declare public readonly playbackRate: SimpleSignal<number, this>;
 
-  /**
-   * The maximum size in bytes of the decoded frame cache for this video.
-   */
-  @initial(DEFAULT_SOURCE_CACHE_BYTES)
-  @signal()
-  declare public readonly cacheSize: SimpleSignal<number, this>;
-
-  /**
-   * How many seconds ahead of the playhead to keep decoded frames warm.
-   */
-  @initial(0.5)
-  @signal()
-  declare public readonly prefetch: SimpleSignal<number, this>;
-
   @initial(0)
   @signal()
   declare protected readonly time: SimpleSignal<number, this>;
@@ -135,6 +131,7 @@ export class Video extends Rect {
   declare protected readonly playing: SimpleSignal<boolean, this>;
 
   private lastTime = -1;
+  private missTime = -1;
 
   public constructor({play, ...props}: VideoProps) {
     super(props);
@@ -187,39 +184,45 @@ export class Video extends Rect {
     return this.clampTime(this.time()) / this.video().duration;
   }
 
-  @computed()
-  protected frameSource(): FrameSource {
-    const {key, src} = resolveAssetUrl(this.src(), this.view().assetHash);
-    return useFrameSourceRegistry().get(key, src, this.frameSourceOptions());
+  /**
+   * Whether the timeline is moving, so the media element plays by itself.
+   */
+  protected isLive(): boolean {
+    const state = this.view().playbackState();
+    return (
+      state === PlaybackState.Playing || state === PlaybackState.Presenting
+    );
   }
 
-  protected frameSourceOptions(): FrameSourceOptions {
-    return {
-      cacheBytes: this.cacheSize(),
-      prefetchSeconds: this.prefetch(),
-    };
+  /**
+   * The source that decodes stills for this video.
+   *
+   * @remarks
+   * Not cached: the registry bounds the number of live sources, so a node has
+   * to adopt a new source after its previous one was evicted.
+   */
+  protected frameSource(): FrameSource {
+    const {src} = resolveAssetUrl(this.src(), this.view().assetHash);
+    return useFrameSourceRegistry().get(src);
   }
 
   /**
    * The decoded frame at the current time, or null when it is not cached yet.
+   *
+   * @remarks
+   * Not cached: the cache changes behind the scenes as decodes complete.
    */
-  @computed()
   protected frame(): CachedFrame | null {
-    const source = this.frameSource();
-    const time = this.clampTime(this.time());
-    const cached = source.peek(time);
-    if (cached) {
-      return cached;
-    }
-
-    if (this.view().playbackState() === PlaybackState.Playing) {
-      source.prefetch(time);
-    }
-
-    return null;
+    return this.frameSource().peek(this.clampTime(this.time()));
   }
 
-  @computed()
+  /**
+   * The media element that plays this video.
+   *
+   * @remarks
+   * Not cached: pooling can release the element of a node that is far from the
+   * playhead, and the node then needs a new one.
+   */
   protected video(): HTMLVideoElement {
     const {key, src} = resolveAssetUrl(this.src(), this.view().assetHash);
 
@@ -230,39 +233,30 @@ export class Video extends Rect {
       video.crossOrigin = 'anonymous';
       video.src = src;
       Video.pool[poolKey] = video;
-    }
-
-    if (video.readyState < 2) {
-      DependencyContext.collectPromise(
-        new Promise<void>(resolve => {
-          const listener = () => {
-            resolve();
-            video.removeEventListener('canplay', listener);
-          };
-          video.addEventListener('canplay', listener);
-        }),
-      );
+      Video.limitPool(poolKey);
     }
 
     return video;
   }
 
-  @computed()
-  protected seekedVideo(): HTMLVideoElement {
+  /**
+   * Wait until the media element can present a frame.
+   */
+  protected awaitVideo(): HTMLVideoElement {
     const video = this.video();
-    const time = this.clampTime(this.time());
-
-    video.playbackRate = this.playbackRate();
-
-    if (!video.paused) {
-      video.pause();
-    }
-
-    if (this.lastTime === time) {
+    if (video.readyState >= 2) {
       return video;
     }
 
-    this.setCurrentTime(time);
+    DependencyContext.collectPromise(
+      new Promise<void>(resolve => {
+        const listener = () => {
+          resolve();
+          video.removeEventListener('canplay', listener);
+        };
+        video.addEventListener('canplay', listener);
+      }),
+    );
 
     return video;
   }
@@ -284,13 +278,13 @@ export class Video extends Rect {
       if (video.paused) {
         DependencyContext.collectPromise(video.play());
       }
-    } else {
-      if (!video.paused) {
-        video.pause();
-      }
+    } else if (!video.paused) {
+      video.pause();
     }
 
-    if (Math.abs(video.currentTime - time) > 0.2) {
+    // an element that is still seeking cannot take another seek without
+    // stalling every frame that follows
+    if (!video.seeking && Math.abs(video.currentTime - time) > DRIFT_SECONDS) {
       this.setCurrentTime(time);
     } else if (!playing) {
       video.currentTime = time;
@@ -299,17 +293,76 @@ export class Video extends Rect {
     return video;
   }
 
+  /**
+   * Move the element to the timestamp without waiting for it, so that playback
+   * continues from the right place.
+   */
+  protected syncElement(video: HTMLVideoElement, time: number): void {
+    if (video.readyState < 1 || video.seeking) {
+      return;
+    }
+
+    if (Math.abs(video.currentTime - time) <= DRIFT_SECONDS) {
+      return;
+    }
+
+    video.currentTime = time;
+    this.lastTime = time;
+  }
+
+  /**
+   * The image to draw for the current time.
+   *
+   * @remarks
+   * Live playback draws the element, which the browser keeps decoding anyway
+   * and must never wait on. A still is decoded from the frame cache because a
+   * media element seek takes hundreds of milliseconds.
+   */
+  protected drawSource(): CanvasImageSource {
+    const video = this.video();
+
+    if (this.isLive()) {
+      return this.fastSeekedVideo();
+    }
+
+    const time = this.clampTime(this.time());
+    const frame = this.frame();
+    if (frame) {
+      this.syncElement(video, time);
+      return frame.image;
+    }
+
+    // the render loop awaits collected promises and draws again, so the still
+    // replaces the last presented frame as soon as the decoder is done
+    this.requestFrame(time);
+    this.syncElement(video, time);
+    return video;
+  }
+
+  /**
+   * Ask the frame cache for the frame at the timestamp, unless that timestamp
+   * already proved to be undecodable.
+   */
+  protected requestFrame(time: number): void {
+    if (this.missTime === time) {
+      return;
+    }
+
+    DependencyContext.collectPromise(
+      this.frameSource()
+        .request(time)
+        .then(frame => {
+          this.missTime = frame ? -1 : time;
+          return frame;
+        }),
+    );
+  }
+
   protected override draw(context: CanvasRenderingContext2D) {
     this.drawShape(context);
     const alpha = this.alpha();
     if (alpha > 0) {
-      const playbackState = this.view().playbackState();
-      const video =
-        playbackState === PlaybackState.Playing ||
-        playbackState === PlaybackState.Presenting
-          ? this.fastSeekedVideo()
-          : this.seekedVideo();
-      const source = this.frame()?.image ?? video;
+      const source = this.drawSource();
 
       const box = BBox.fromSizeCentered(this.computedSize());
       context.save();
@@ -417,13 +470,36 @@ export class Video extends Rect {
 
   protected override collectAsyncResources() {
     super.collectAsyncResources();
-    const source = this.frameSource();
-    const time = this.clampTime(this.time());
-    if (this.view().playbackState() === PlaybackState.Playing) {
-      source.prefetch(time);
-    } else {
-      DependencyContext.collectPromise(source.request(time));
+    this.awaitVideo();
+
+    if (this.isLive()) {
+      return;
     }
-    this.seekedVideo();
+
+    const time = this.clampTime(this.time());
+    // waiting on a frame that is already cached would keep the collection loop
+    // spinning without ever producing new work
+    if (!this.frameSource().isCached(time)) {
+      this.requestFrame(time);
+    }
+  }
+
+  private static limitPool(keep: string): void {
+    let excess = Object.keys(Video.pool).length - Video.maxPoolSize;
+    for (const key of Object.keys(Video.pool)) {
+      if (excess <= 0) return;
+      if (key === keep) continue;
+      Video.releasePoolEntry(key);
+      excess -= 1;
+    }
+  }
+
+  private static releasePoolEntry(key: string): void {
+    const video = Video.pool[key];
+    if (!video) return;
+    delete Video.pool[key];
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
   }
 }

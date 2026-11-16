@@ -1,7 +1,7 @@
 import {Logger} from '../app';
 import {Sound} from '../scenes';
 import {useLogger} from '../utils';
-import {decibelsToAmplitude} from './decibelsToAmplitude';
+import {amplitudeAt} from './gain_envelope';
 
 export class AudioManager {
   private readonly audioElement: HTMLAudioElement = new Audio();
@@ -12,6 +12,8 @@ export class AudioManager {
   private duration?: number;
   private gainNode?: GainNode;
   private sourceNode?: MediaElementAudioSourceNode;
+  private sound?: Sound;
+  private time = 0;
 
   public constructor(
     private readonly logger: Logger,
@@ -27,6 +29,7 @@ export class AudioManager {
   }
 
   public setSound(sound: Sound) {
+    this.sound = sound;
     this.setOffset(sound.offset);
     this.setTrim(sound.start, sound.end);
     this.setSource(sound.audio);
@@ -40,7 +43,7 @@ export class AudioManager {
       this.gainNode.connect(this.context.destination);
     }
 
-    this.gainNode.gain.value = decibelsToAmplitude(sound.gain ?? 0);
+    this.applyGain(this.time);
     this.setPlaybackRate(sound.realPlaybackRate, true);
   }
 
@@ -49,7 +52,22 @@ export class AudioManager {
   }
 
   public setTime(value: number) {
+    this.time = value;
     this.audioElement.currentTime = this.toRelativeTime(value);
+    this.applyGain(value);
+  }
+
+  /**
+   * Apply the envelope at a timeline time.
+   *
+   * @param time - The timeline time in seconds.
+   */
+  public applyGain(time: number): void {
+    if (!this.sound || !this.gainNode) {
+      return;
+    }
+    this.gainNode.gain.value =
+      amplitudeAt(this.sound, time) * this.audioElement.volume;
   }
 
   public setTrim(start?: number, end?: number) {

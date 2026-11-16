@@ -9,6 +9,15 @@ export interface SoundSettings {
   gain?: number;
   detune?: number;
   playbackRate?: number;
+  /**
+   * Whether the sound is played by a node's media element.
+   *
+   * @remarks
+   * Element sounds are skipped by the audio pool, so the node that owns the
+   * media element stays the live source, while the export decodes the file and
+   * mixes the registered window.
+   */
+  element?: boolean;
 }
 
 export interface Sound extends SoundSettings {
@@ -83,8 +92,8 @@ export class SoundBuilder {
    *
    * @param offset - An offset in seconds from the current frame. Defaults to 0.
    */
-  public play(offset?: number) {
-    useScene().sounds.add(this.settings, offset);
+  public play(offset?: number): Sound {
+    return useScene().sounds.add(this.settings, offset);
   }
 }
 
@@ -108,16 +117,25 @@ export class Sounds {
     this.scene.onRecalculated.subscribe(this.handleRecalculated);
   }
 
-  public add(settings: SoundSettings, offset?: number) {
+  /**
+   * Register a sound at the given offset from the current playback time.
+   *
+   * @returns The registered sound, so the owner can keep adjusting it, such as
+   * closing its window when the owning node is disposed.
+   */
+  public add(settings: SoundSettings, offset?: number): Sound {
     const playbackTime = this.scene.playback.time + (offset ?? 0);
 
-    this.registeredSounds.push({
+    const sound: Sound = {
       offset: playbackTime,
       realPlaybackRate:
         Math.pow(2, (settings.detune ?? 0) / 1200) *
         (settings.playbackRate ?? 1),
       ...settings,
-    });
+    };
+
+    this.registeredSounds.push(sound);
+    return sound;
   }
 
   public getSounds(): readonly Sound[] {

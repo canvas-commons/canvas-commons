@@ -56,11 +56,11 @@
   "devDependencies": {
     "@changesets/get-release-plan": "^4.0.16",
     "@docusaurus/module-type-aliases": "^3.10.2",
-    "@tsconfig/docusaurus": "^2.0.9",
+    "@tsconfig/docusaurus": "^2.0.10",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "mdast-util-from-markdown": "^2.0.3",
-    "mdast-util-to-markdown": "^2.1.2",
+    "mdast-util-from-markdown": "^2.1.0",
+    "mdast-util-to-markdown": "^2.2.3",
     "mdn-links": "^0.1.0",
     "typedoc": "^0.28.20",
     "vite": "catalog:"

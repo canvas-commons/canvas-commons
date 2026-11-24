@@ -6,7 +6,7 @@
     "preinstall": "npx only-allow pnpm",
     "prepare": "husky",
     "build": "pnpm --filter @canvas-commons/2d --filter @canvas-commons/core --filter @canvas-commons/ffmpeg --filter @canvas-commons/player --filter @canvas-commons/editor --filter @canvas-commons/vite-plugin --filter @canvas-commons/webcodecs --filter @canvas-commons/fiddle run build",
-    "test": "pnpm --filter @canvas-commons/2d --filter @canvas-commons/core --filter @canvas-commons/webcodecs --filter @canvas-commons/fiddle --filter @canvas-commons/docs --filter @canvas-commons/examples run test",
+    "test": "pnpm --filter @canvas-commons/2d --filter @canvas-commons/core --filter @canvas-commons/vite-plugin --filter @canvas-commons/webcodecs --filter @canvas-commons/fiddle --filter @canvas-commons/docs --filter @canvas-commons/examples run test",
     "typecheck": "pnpm --filter @canvas-commons/2d --filter @canvas-commons/core --filter @canvas-commons/e2e --filter @canvas-commons/vite-plugin --filter @canvas-commons/webcodecs --filter @canvas-commons/fiddle run typecheck",
     "core:dev": "pnpm --filter @canvas-commons/core run dev",
     "core:build": "pnpm --filter @canvas-commons/core run build",

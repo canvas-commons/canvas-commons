@@ -47,12 +47,43 @@ export interface PluginOptions {
    * @remarks
    * While the Vite plugin can extend the backend functionality, this entry
    * point lets you include custom runtime code that will be loaded by the
-   * browser.
+   * browser. {@link loadIn} decides whether a production build of the project
+   * includes it.
    *
    * It should be a valid module specifier from which the plugin will be
    * imported. The module should contain a default export of a runtime plugin.
    */
   entryPoint: string;
+
+  /**
+   * Where the code from {@link entryPoint} loads. Defaults to `'editor'` and
+   * warns when not explicitly set. `'project'` bundles and loads it
+   * everywhere, `'editor'` only loads in the editor and renderer. Start with
+   * `'editor'` unless it should be bundled into included projects.
+   *
+   * @example
+   * ```ts
+   * import {Plugin, PLUGIN_OPTIONS} from '@canvas-commons/vite-plugin';
+   *
+   * export default (): Plugin[] => [
+   *   {
+   *     name: 'my-fonts',
+   *     [PLUGIN_OPTIONS]: {
+   *       entryPoint: 'my-fonts/project',
+   *       loadIn: 'project',
+   *     },
+   *   },
+   *   {
+   *     name: 'my-fonts-editor',
+   *     [PLUGIN_OPTIONS]: {
+   *       entryPoint: 'my-fonts/editor',
+   *       loadIn: 'editor',
+   *     },
+   *   },
+   * ];
+   * ```
+   */
+  loadIn?: 'editor' | 'project';
 
   /**
    * The configuration hook of the plugin.
@@ -81,7 +112,7 @@ export interface PluginOptions {
    * Returning an object:
    * ```ts
    * {
-   *   runtimeConfig: () => ({
+   *   runtimeConfig: async () => ({
    *     myText: 'Hello!',
    *     myNumber: 42,
    *   })
@@ -90,11 +121,11 @@ export interface PluginOptions {
    * Returning a string:
    * ```ts
    * {
-   *   runtimeConfig: () => `{myRegex: /\\.wav$/}`
+   *   runtimeConfig: async () => `{myRegex: /\\.wav$/}`
    * }
    * ```
    */
-  runtimeConfig?(): Promise<any>;
+  runtimeConfig?(): Promise<unknown>;
 }
 
 /**
@@ -111,6 +142,6 @@ export type Plugin = VitePlugin & {
   [PLUGIN_OPTIONS]: PluginOptions;
 };
 
-export function isPlugin(value: any): value is Plugin {
-  return value && typeof value === 'object' && PLUGIN_OPTIONS in value;
+export function isPlugin(value: unknown): value is Plugin {
+  return typeof value === 'object' && value !== null && PLUGIN_OPTIONS in value;
 }

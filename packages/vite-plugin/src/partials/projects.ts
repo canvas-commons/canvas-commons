@@ -1,6 +1,11 @@
 import path from 'path';
 import {Plugin, ResolvedConfig} from 'vite';
-import {PluginOptions, ProjectData} from '../plugins';
+import {
+  Plugin as CanvasCommonsPlugin,
+  PLUGIN_OPTIONS,
+  PluginOptions,
+  ProjectData,
+} from '../plugins';
 import {createMeta} from '../utils';
 import {getVersions} from '../versions';
 
@@ -8,8 +13,23 @@ const PROJECT_QUERY_REGEX = /[?&]project\b/;
 
 interface ProjectPluginConfig {
   buildForEditor?: boolean;
-  plugins: PluginOptions[];
+  plugins: CanvasCommonsPlugin[];
   projects: ProjectData[];
+}
+
+async function serializeRuntimeConfig(options: PluginOptions) {
+  const runtimeConfig = (await options.runtimeConfig?.()) ?? '';
+  return typeof runtimeConfig === 'string'
+    ? runtimeConfig
+    : JSON.stringify(runtimeConfig);
+}
+
+function missingLoadInWarning(plugin: CanvasCommonsPlugin) {
+  return (
+    `The Vite plugin "${plugin.name}" does not set \`loadIn\`, so its ` +
+    `\`entryPoint\` was left out of this build. Set \`loadIn: 'editor'\` ` +
+    `to keep it out, or \`loadIn: 'project'\` to include it.`
+  );
 }
 
 export function projectsPlugin({
@@ -19,11 +39,25 @@ export function projectsPlugin({
 }: ProjectPluginConfig): Plugin {
   const versions = JSON.stringify(getVersions());
   let config: ResolvedConfig;
+  let runsInEditor = false;
   return {
     name: 'canvas-commons:project',
 
     configResolved(resolvedConfig) {
       config = resolvedConfig;
+      runsInEditor = buildForEditor || config.command === 'serve';
+    },
+
+    buildStart() {
+      if (runsInEditor) {
+        return;
+      }
+      for (const plugin of plugins) {
+        const {entryPoint, loadIn} = plugin[PLUGIN_OPTIONS];
+        if (entryPoint && loadIn === undefined) {
+          config.logger.warn(missingLoadInWarning(plugin));
+        }
+      }
     },
 
     async load(id) {
@@ -34,25 +68,27 @@ export function projectsPlugin({
       const [base] = id.split('?');
       const {name, dir} = path.posix.parse(base);
 
-      const runsInEditor = buildForEditor || config.command === 'serve';
       const metaFile = `${name}.meta`;
       await createMeta(path.join(dir, metaFile));
 
       const imports: string[] = [];
-      const pluginNames: string[] = [];
-      let index = 0;
+      const pluginCalls: string[] = [];
       for (const plugin of plugins) {
-        if (plugin.entryPoint) {
-          const pluginName = `plugin${index}`;
-          let options = (await plugin.runtimeConfig?.()) ?? '';
-          if (typeof options !== 'string') {
-            options = JSON.stringify(options);
-          }
-
-          imports.push(`import ${pluginName} from '${plugin.entryPoint}'`);
-          pluginNames.push(`${pluginName}(${options})`);
-          index++;
+        const options = plugin[PLUGIN_OPTIONS];
+        if (
+          !options.entryPoint ||
+          (!runsInEditor && options.loadIn !== 'project')
+        ) {
+          continue;
         }
+
+        const pluginName = `plugin${imports.length}`;
+        imports.push(
+          `import ${pluginName} from ${JSON.stringify(options.entryPoint)};`,
+        );
+        pluginCalls.push(
+          `${pluginName}(${await serializeRuntimeConfig(options)})`,
+        );
       }
 
       /* language=typescript */
@@ -68,7 +104,7 @@ import {MetaFile} from '@canvas-commons/core';
         export default ${runsInEditor ? 'await editorBootstrap' : 'bootstrap'}(
           '${name}',
           ${versions},
-          [${pluginNames.join(', ')}],
+          [${pluginCalls.join(', ')}],
           config,
           metaFile,
           settings,

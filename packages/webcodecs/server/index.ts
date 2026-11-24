@@ -32,6 +32,7 @@ export default (): Plugin => {
     name: 'canvas-commons/webcodecs',
     [PLUGIN_OPTIONS]: {
       entryPoint: '@canvas-commons/webcodecs/client',
+      loadIn: 'editor',
       async config(value) {
         config = value;
       },

@@ -16,8 +16,9 @@ pnpm vite-plugin:build   # tsdown, outputs to lib/
 pnpm --filter @canvas-commons/vite-plugin run lint:pkg
 ```
 
-No test script. This package is exercised through `pnpm template:dev`,
-`pnpm examples:dev`, and the e2e suite.
+`pnpm --filter @canvas-commons/vite-plugin run test` runs a few Vitest tests
+that drive real Vite builds. The rest of the package is exercised through
+`pnpm template:dev`, `pnpm examples:dev`, and the e2e suite.
 
 ## Where things live
 

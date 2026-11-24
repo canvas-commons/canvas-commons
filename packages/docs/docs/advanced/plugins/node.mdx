@@ -20,7 +20,7 @@ source code.
 
 We use the Vite [`configureServer`][vite-configure-server] hook to add a custom
 endpoint. Meanwhile, the `entryPoint` option lets us specify the path to our
-runtime plugin:
+runtime plugin, and `loadIn` defines where it loads:
 
   </div>
   <div className="col col--6">
@@ -59,6 +59,7 @@ export default function myVitePlugin(): Plugin {
     // extend Canvas Commons:
     [PLUGIN_OPTIONS]: {
       entryPoint: './plugin.ts',
+      loadIn: 'editor',
     },
   };
 }
@@ -79,6 +80,33 @@ export default defineConfig({
     myVitePlugin(),
   ],
 });
+```
+
+With `loadIn: 'editor'`, the plugin loads in the editor and renderer.
+`'project'` also bundles the plugin into built projects. If you need both, write
+two plugins:
+
+```ts title="myVitePlugin.ts"
+import {Plugin, PLUGIN_OPTIONS} from '@canvas-commons/vite-plugin';
+
+export default function myVitePlugin(): Plugin[] {
+  return [
+    {
+      name: 'vite-plugin-canvas-commons-example',
+      [PLUGIN_OPTIONS]: {
+        entryPoint: './plugin.ts',
+        loadIn: 'project',
+      },
+    },
+    {
+      name: 'vite-plugin-canvas-commons-example-editor',
+      [PLUGIN_OPTIONS]: {
+        entryPoint: './editorPlugin.ts',
+        loadIn: 'editor',
+      },
+    },
+  ];
+}
 ```
 
 Also, since we defined the entry point in the Node.js plugin, we no longer need
@@ -120,8 +148,9 @@ export default function myVitePlugin(): Plugin {
     // ...
     [PLUGIN_OPTIONS]: {
       entryPoint: './plugin.ts',
+      loadIn: 'editor',
       // highlight-start
-      runtimeConfig: () => ({
+      runtimeConfig: async () => ({
         foo: 'bar',
       }),
       // highlight-end

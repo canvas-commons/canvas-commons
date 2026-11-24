@@ -12,7 +12,12 @@ import {
   settingsPlugin,
   webglPlugin,
 } from './partials';
-import {PLUGIN_OPTIONS, PluginConfig, PluginOptions, isPlugin} from './plugins';
+import {
+  Plugin as CanvasCommonsPlugin,
+  PLUGIN_OPTIONS,
+  PluginConfig,
+  isPlugin,
+} from './plugins';
 import {getProjects} from './utils';
 
 export interface CanvasCommonsPluginConfig {
@@ -103,7 +108,7 @@ export default ({
   proxy,
   buildForEditor,
 }: CanvasCommonsPluginConfig = {}): Plugin[] => {
-  const plugins: PluginOptions[] = [];
+  const plugins: CanvasCommonsPlugin[] = [];
   let config: PluginConfig = {
     output: path.resolve(output),
     projects: getProjects(project),
@@ -113,14 +118,14 @@ export default ({
     {
       name: 'canvas-commons',
       async configResolved(resolvedConfig) {
-        plugins.push(
-          ...resolvedConfig.plugins
-            .filter(isPlugin)
-            .map(plugin => plugin[PLUGIN_OPTIONS]),
+        plugins.splice(
+          0,
+          plugins.length,
+          ...resolvedConfig.plugins.filter(isPlugin),
         );
 
         for (const plugin of plugins) {
-          const newConfig = await plugin.config?.(config);
+          const newConfig = await plugin[PLUGIN_OPTIONS].config?.(config);
           if (newConfig) {
             config = {...config, ...newConfig};
           }
